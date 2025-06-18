@@ -256,12 +256,12 @@ class Backend_Api(Api):
                         if len(buffer.get_list()) == 1:
                             if not cache_id:
                                 return buffer.get_list()[0]
-                            return asyncio.run(copy_media(
-                                buffer.get_list(),
-                                buffer.get("cookies"),
-                                buffer.get("headers"),
-                                request.args.get("prompt")
-                            )).pop()
+                        return "\n".join(asyncio.run(copy_media(
+                            buffer.get_list(),
+                            buffer.get("cookies"),
+                            buffer.get("headers"),
+                            alt=buffer.alt
+                        )))
                     elif isinstance(buffer, AudioResponse):
                         return buffer.data
                     def iter_response():
@@ -293,7 +293,7 @@ class Backend_Api(Api):
                                 f.write(response)
                 else:
                     response = cast_str(iter_run_tools(ChatCompletion.create, **parameters))
-                if isinstance(response, str):
+                if isinstance(response, str) and "\n" not in response:
                     if response.startswith("/media/"):
                         media_dir = get_media_dir()
                         filename = os.path.basename(response.split("?")[0])

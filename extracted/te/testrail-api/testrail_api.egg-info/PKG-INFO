@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testrail_api
-Version: 1.13.3
+Version: 1.13.4
 Summary: Python wrapper of the TestRail API
 Home-page: https://github.com/tolstislon/testrail-api
 Author: tolstislon
@@ -13,7 +13,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,10 +21,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.32.3
+Requires-Dist: requests>=2.32.4
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

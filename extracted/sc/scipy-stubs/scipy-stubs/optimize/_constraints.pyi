@@ -1,17 +1,18 @@
 from collections.abc import Callable, Iterable
-from typing import Concatenate, Final, Literal, TypeAlias, TypedDict, type_check_only
-from typing_extensions import NotRequired, TypeVar
+from typing import Any, Concatenate, Final, Literal, NotRequired, TypeAlias, TypedDict, type_check_only
+from typing_extensions import TypeVar
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
+
 from scipy.optimize._differentiable_functions import LinearVectorFunction, VectorFunction
 from scipy.optimize._hessian_update_strategy import HessianUpdateStrategy
 from scipy.sparse import sparray, spmatrix
 from scipy.sparse.linalg import LinearOperator
 
 _T = TypeVar("_T")
-_ShapeT_co = TypeVar("_ShapeT_co", bound=onp.AtLeast1D, default=onp.AtLeast1D, covariant=True)
+_ShapeT_co = TypeVar("_ShapeT_co", bound=onp.AtLeast1D, default=onp.AtLeast0D[Any], covariant=True)
 _SCT = TypeVar("_SCT", bound=np.generic, default=np.float64)
 
 _Tuple2: TypeAlias = tuple[_T, _T]

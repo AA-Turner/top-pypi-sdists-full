@@ -647,7 +647,10 @@ class Api:
         @self.app.post("/v1/upload_cookies", responses={
             HTTP_200_OK: {"model": List[FileResponseModel]},
         })
-        def upload_cookies(files: List[UploadFile]):
+        def upload_cookies(
+            files: List[UploadFile],
+            credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None
+        ):
             response_data = []
             if not AppConfig.ignore_cookie_files:
                 for file in files:
@@ -701,7 +704,7 @@ class Api:
                 **({
                     "content-length": str(stat_result.st_size),
                 } if stat_result.st_size else {}),
-                **({} if mime_type is None else {
+                **({} if thumbnail or mime_type is None else {
                     "content-type": mime_type,
                 })
             }

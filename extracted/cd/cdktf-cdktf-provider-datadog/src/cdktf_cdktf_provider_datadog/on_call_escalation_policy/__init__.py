@@ -1,7 +1,7 @@
 r'''
 # `datadog_on_call_escalation_policy`
 
-Refer to the Terraform Registry for docs: [`datadog_on_call_escalation_policy`](https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy).
+Refer to the Terraform Registry for docs: [`datadog_on_call_escalation_policy`](https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OnCallEscalationPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.onCallEscalationPolicy.OnCallEscalationPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy datadog_on_call_escalation_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy datadog_on_call_escalation_policy}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class OnCallEscalationPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy datadog_on_call_escalation_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy datadog_on_call_escalation_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: A human-readable name for the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#name OnCallEscalationPolicy#name}
-        :param resolve_page_on_policy_end: If true, pages will be automatically resolved if unacknowledged after the final step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#resolve_page_on_policy_end OnCallEscalationPolicy#resolve_page_on_policy_end}
-        :param retries: If set, policy will be retried this many times after the final step. Must be in the range 0-10. Value must be between 0 and 10. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#retries OnCallEscalationPolicy#retries}
-        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#step OnCallEscalationPolicy#step}
-        :param teams: A list of team ids associated with the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#teams OnCallEscalationPolicy#teams}
+        :param name: A human-readable name for the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#name OnCallEscalationPolicy#name}
+        :param resolve_page_on_policy_end: If true, pages will be automatically resolved if unacknowledged after the final step. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#resolve_page_on_policy_end OnCallEscalationPolicy#resolve_page_on_policy_end}
+        :param retries: If set, policy will be retried this many times after the final step. Must be in the range 0-10. Value must be between 0 and 10. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#retries OnCallEscalationPolicy#retries}
+        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#step OnCallEscalationPolicy#step}
+        :param teams: A list of team ids associated with the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#teams OnCallEscalationPolicy#teams}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class OnCallEscalationPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OnCallEscalationPolicy to import.
-        :param import_from_id: The id of the existing OnCallEscalationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OnCallEscalationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OnCallEscalationPolicy to import is found.
         '''
         if __debug__:
@@ -304,11 +304,11 @@ class OnCallEscalationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: A human-readable name for the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#name OnCallEscalationPolicy#name}
-        :param resolve_page_on_policy_end: If true, pages will be automatically resolved if unacknowledged after the final step. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#resolve_page_on_policy_end OnCallEscalationPolicy#resolve_page_on_policy_end}
-        :param retries: If set, policy will be retried this many times after the final step. Must be in the range 0-10. Value must be between 0 and 10. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#retries OnCallEscalationPolicy#retries}
-        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#step OnCallEscalationPolicy#step}
-        :param teams: A list of team ids associated with the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#teams OnCallEscalationPolicy#teams}
+        :param name: A human-readable name for the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#name OnCallEscalationPolicy#name}
+        :param resolve_page_on_policy_end: If true, pages will be automatically resolved if unacknowledged after the final step. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#resolve_page_on_policy_end OnCallEscalationPolicy#resolve_page_on_policy_end}
+        :param retries: If set, policy will be retried this many times after the final step. Must be in the range 0-10. Value must be between 0 and 10. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#retries OnCallEscalationPolicy#retries}
+        :param step: step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#step OnCallEscalationPolicy#step}
+        :param teams: A list of team ids associated with the escalation policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#teams OnCallEscalationPolicy#teams}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -420,7 +420,7 @@ class OnCallEscalationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''A human-readable name for the escalation policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#name OnCallEscalationPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#name OnCallEscalationPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -430,9 +430,9 @@ class OnCallEscalationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resolve_page_on_policy_end(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''If true, pages will be automatically resolved if unacknowledged after the final step.
+        '''If true, pages will be automatically resolved if unacknowledged after the final step. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#resolve_page_on_policy_end OnCallEscalationPolicy#resolve_page_on_policy_end}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#resolve_page_on_policy_end OnCallEscalationPolicy#resolve_page_on_policy_end}
         '''
         result = self._values.get("resolve_page_on_policy_end")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -443,7 +443,7 @@ class OnCallEscalationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be in the range 0-10. Value must be between 0 and 10. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#retries OnCallEscalationPolicy#retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#retries OnCallEscalationPolicy#retries}
         '''
         result = self._values.get("retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -454,7 +454,7 @@ class OnCallEscalationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallEscalationPolicyStep"]]]:
         '''step block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#step OnCallEscalationPolicy#step}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#step OnCallEscalationPolicy#step}
         '''
         result = self._values.get("step")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallEscalationPolicyStep"]]], result)
@@ -463,7 +463,7 @@ class OnCallEscalationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def teams(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of team ids associated with the escalation policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#teams OnCallEscalationPolicy#teams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#teams OnCallEscalationPolicy#teams}
         '''
         result = self._values.get("teams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -498,9 +498,9 @@ class OnCallEscalationPolicyStep:
         target: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OnCallEscalationPolicyStepTarget", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param escalate_after_seconds: Defines how many seconds to wait before escalating to the next step. Value must be between 60 and 36000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#escalate_after_seconds OnCallEscalationPolicy#escalate_after_seconds}
-        :param assignment: Specifies how this escalation step will assign targets. Can be ``default`` (page all targets at once) or ``round-robin``. Valid values are ``assignment``, ``round-robin``. Defaults to ``"default"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#assignment OnCallEscalationPolicy#assignment}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#target OnCallEscalationPolicy#target}
+        :param escalate_after_seconds: Defines how many seconds to wait before escalating to the next step. Value must be between 60 and 36000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#escalate_after_seconds OnCallEscalationPolicy#escalate_after_seconds}
+        :param assignment: Specifies how this escalation step will assign targets. Can be ``default`` (page all targets at once) or ``round-robin``. Valid values are ``assignment``, ``round-robin``. Defaults to ``"default"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#assignment OnCallEscalationPolicy#assignment}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#target OnCallEscalationPolicy#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9b26e82304be999f1ce28fa42c4dae7c519b6c280f7bd30b049e69290fbeca4)
@@ -519,7 +519,7 @@ class OnCallEscalationPolicyStep:
     def escalate_after_seconds(self) -> jsii.Number:
         '''Defines how many seconds to wait before escalating to the next step. Value must be between 60 and 36000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#escalate_after_seconds OnCallEscalationPolicy#escalate_after_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#escalate_after_seconds OnCallEscalationPolicy#escalate_after_seconds}
         '''
         result = self._values.get("escalate_after_seconds")
         assert result is not None, "Required property 'escalate_after_seconds' is missing"
@@ -531,7 +531,7 @@ class OnCallEscalationPolicyStep:
 
         Can be ``default`` (page all targets at once) or ``round-robin``. Valid values are ``assignment``, ``round-robin``. Defaults to ``"default"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#assignment OnCallEscalationPolicy#assignment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#assignment OnCallEscalationPolicy#assignment}
         '''
         result = self._values.get("assignment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -542,7 +542,7 @@ class OnCallEscalationPolicyStep:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallEscalationPolicyStepTarget"]]]:
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#target OnCallEscalationPolicy#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#target OnCallEscalationPolicy#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallEscalationPolicyStepTarget"]]], result)
@@ -779,9 +779,9 @@ class OnCallEscalationPolicyStepTarget:
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schedule: Targeted schedule ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#schedule OnCallEscalationPolicy#schedule}
-        :param team: Targeted team ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#team OnCallEscalationPolicy#team}
-        :param user: Targeted user ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#user OnCallEscalationPolicy#user}
+        :param schedule: Targeted schedule ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#schedule OnCallEscalationPolicy#schedule}
+        :param team: Targeted team ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#team OnCallEscalationPolicy#team}
+        :param user: Targeted user ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#user OnCallEscalationPolicy#user}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b156af00d03a61cbdcef05749ba2604468d434328ac3fb88b3bdbed70f473de)
@@ -800,7 +800,7 @@ class OnCallEscalationPolicyStepTarget:
     def schedule(self) -> typing.Optional[builtins.str]:
         '''Targeted schedule ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#schedule OnCallEscalationPolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#schedule OnCallEscalationPolicy#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -809,7 +809,7 @@ class OnCallEscalationPolicyStepTarget:
     def team(self) -> typing.Optional[builtins.str]:
         '''Targeted team ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#team OnCallEscalationPolicy#team}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#team OnCallEscalationPolicy#team}
         '''
         result = self._values.get("team")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -818,7 +818,7 @@ class OnCallEscalationPolicyStepTarget:
     def user(self) -> typing.Optional[builtins.str]:
         '''Targeted user ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_escalation_policy#user OnCallEscalationPolicy#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_escalation_policy#user OnCallEscalationPolicy#user}
         '''
         result = self._values.get("user")
         return typing.cast(typing.Optional[builtins.str], result)

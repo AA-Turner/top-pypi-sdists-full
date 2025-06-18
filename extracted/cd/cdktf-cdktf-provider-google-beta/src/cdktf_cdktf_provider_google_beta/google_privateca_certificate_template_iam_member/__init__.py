@@ -1,7 +1,7 @@
 r'''
 # `google_privateca_certificate_template_iam_member`
 
-Refer to the Terraform Registry for docs: [`google_privateca_certificate_template_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member).
+Refer to the Terraform Registry for docs: [`google_privateca_certificate_template_iam_member`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GooglePrivatecaCertificateTemplateIamMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googlePrivatecaCertificateTemplateIamMember.GooglePrivatecaCertificateTemplateIamMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member google_privateca_certificate_template_iam_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member google_privateca_certificate_template_iam_member}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GooglePrivatecaCertificateTemplateIamMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member google_privateca_certificate_template_iam_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member google_privateca_certificate_template_iam_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#certificate_template GooglePrivatecaCertificateTemplateIamMember#certificate_template}.
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#member GooglePrivatecaCertificateTemplateIamMember#member}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#role GooglePrivatecaCertificateTemplateIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#condition GooglePrivatecaCertificateTemplateIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#id GooglePrivatecaCertificateTemplateIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#location GooglePrivatecaCertificateTemplateIamMember#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#project GooglePrivatecaCertificateTemplateIamMember#project}.
+        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#certificate_template GooglePrivatecaCertificateTemplateIamMember#certificate_template}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#member GooglePrivatecaCertificateTemplateIamMember#member}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#role GooglePrivatecaCertificateTemplateIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#condition GooglePrivatecaCertificateTemplateIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#id GooglePrivatecaCertificateTemplateIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#location GooglePrivatecaCertificateTemplateIamMember#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#project GooglePrivatecaCertificateTemplateIamMember#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GooglePrivatecaCertificateTemplateIamMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GooglePrivatecaCertificateTemplateIamMember to import.
-        :param import_from_id: The id of the existing GooglePrivatecaCertificateTemplateIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GooglePrivatecaCertificateTemplateIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GooglePrivatecaCertificateTemplateIamMember to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class GooglePrivatecaCertificateTemplateIamMember(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#expression GooglePrivatecaCertificateTemplateIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#title GooglePrivatecaCertificateTemplateIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#description GooglePrivatecaCertificateTemplateIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#expression GooglePrivatecaCertificateTemplateIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#title GooglePrivatecaCertificateTemplateIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#description GooglePrivatecaCertificateTemplateIamMember#description}.
         '''
         value = GooglePrivatecaCertificateTemplateIamMemberCondition(
             expression=expression, title=title, description=description
@@ -320,9 +320,9 @@ class GooglePrivatecaCertificateTemplateIamMemberCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#expression GooglePrivatecaCertificateTemplateIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#title GooglePrivatecaCertificateTemplateIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#description GooglePrivatecaCertificateTemplateIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#expression GooglePrivatecaCertificateTemplateIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#title GooglePrivatecaCertificateTemplateIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#description GooglePrivatecaCertificateTemplateIamMember#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04438cfce8e01fe89d9d888c4a1a27423a02e989dab84a79f8de3a436af453a3)
@@ -338,21 +338,21 @@ class GooglePrivatecaCertificateTemplateIamMemberCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#expression GooglePrivatecaCertificateTemplateIamMember#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#expression GooglePrivatecaCertificateTemplateIamMember#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#title GooglePrivatecaCertificateTemplateIamMember#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#title GooglePrivatecaCertificateTemplateIamMember#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#description GooglePrivatecaCertificateTemplateIamMember#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#description GooglePrivatecaCertificateTemplateIamMember#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -510,13 +510,13 @@ class GooglePrivatecaCertificateTemplateIamMemberConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#certificate_template GooglePrivatecaCertificateTemplateIamMember#certificate_template}.
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#member GooglePrivatecaCertificateTemplateIamMember#member}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#role GooglePrivatecaCertificateTemplateIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#condition GooglePrivatecaCertificateTemplateIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#id GooglePrivatecaCertificateTemplateIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#location GooglePrivatecaCertificateTemplateIamMember#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#project GooglePrivatecaCertificateTemplateIamMember#project}.
+        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#certificate_template GooglePrivatecaCertificateTemplateIamMember#certificate_template}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#member GooglePrivatecaCertificateTemplateIamMember#member}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#role GooglePrivatecaCertificateTemplateIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#condition GooglePrivatecaCertificateTemplateIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#id GooglePrivatecaCertificateTemplateIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#location GooglePrivatecaCertificateTemplateIamMember#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#project GooglePrivatecaCertificateTemplateIamMember#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -632,21 +632,21 @@ class GooglePrivatecaCertificateTemplateIamMemberConfig(
 
     @builtins.property
     def certificate_template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#certificate_template GooglePrivatecaCertificateTemplateIamMember#certificate_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#certificate_template GooglePrivatecaCertificateTemplateIamMember#certificate_template}.'''
         result = self._values.get("certificate_template")
         assert result is not None, "Required property 'certificate_template' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def member(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#member GooglePrivatecaCertificateTemplateIamMember#member}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#member GooglePrivatecaCertificateTemplateIamMember#member}.'''
         result = self._values.get("member")
         assert result is not None, "Required property 'member' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#role GooglePrivatecaCertificateTemplateIamMember#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#role GooglePrivatecaCertificateTemplateIamMember#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -657,14 +657,14 @@ class GooglePrivatecaCertificateTemplateIamMemberConfig(
     ) -> typing.Optional[GooglePrivatecaCertificateTemplateIamMemberCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#condition GooglePrivatecaCertificateTemplateIamMember#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#condition GooglePrivatecaCertificateTemplateIamMember#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[GooglePrivatecaCertificateTemplateIamMemberCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#id GooglePrivatecaCertificateTemplateIamMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#id GooglePrivatecaCertificateTemplateIamMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -674,13 +674,13 @@ class GooglePrivatecaCertificateTemplateIamMemberConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#location GooglePrivatecaCertificateTemplateIamMember#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#location GooglePrivatecaCertificateTemplateIamMember#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_privateca_certificate_template_iam_member#project GooglePrivatecaCertificateTemplateIamMember#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_privateca_certificate_template_iam_member#project GooglePrivatecaCertificateTemplateIamMember#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

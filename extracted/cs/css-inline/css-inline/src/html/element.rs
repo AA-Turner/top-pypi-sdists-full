@@ -4,11 +4,12 @@ use super::{
     node::{ElementData, NodeData, NodeId},
     selectors::{AttrValue, InlinerSelectors, LocalName, PseudoClass, PseudoElement, Selector},
 };
-use html5ever::{local_name, namespace_url, ns, Namespace, QualName};
+use html5ever::{local_name, ns, Namespace, QualName};
 use selectors::{
     attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint},
-    context::QuirksMode,
-    matching, NthIndexCache, OpaqueElement,
+    bloom::BloomFilter,
+    context::{QuirksMode, SelectorCaches},
+    matching, OpaqueElement,
 };
 use std::cmp::Ordering;
 
@@ -92,14 +93,14 @@ impl<'a> Element<'a> {
             }
         }
     }
-    pub(crate) fn matches(&self, selector: &Selector, cache: &mut NthIndexCache) -> bool {
+    pub(crate) fn matches(&self, selector: &Selector, cache: &mut SelectorCaches) -> bool {
         let mut context = matching::MatchingContext::new(
             matching::MatchingMode::Normal,
             None,
             cache,
             QuirksMode::NoQuirks,
             matching::NeedsSelectorFlags::No,
-            matching::IgnoreNthChildForInvalidation::No,
+            matching::MatchingForInvalidation::No,
         );
         matching::matches_selector(selector, 0, None, self, &mut context)
     }
@@ -183,7 +184,7 @@ impl selectors::Element for Element<'_> {
                     ns_url.clone(),
                     local_name.clone().into_inner(),
                 ))
-                .map_or(false, |value| operation.eval_str(value)),
+                .is_some_and(|value| operation.eval_str(value)),
         }
     }
 
@@ -236,9 +237,7 @@ impl selectors::Element for Element<'_> {
     fn has_id(&self, id: &LocalName, case_sensitivity: CaseSensitivity) -> bool {
         self.attributes()
             .get(local_name!("id"))
-            .map_or(false, |id_attr| {
-                case_sensitivity.eq(id.as_bytes(), id_attr.as_bytes())
-            })
+            .is_some_and(|id_attr| case_sensitivity.eq(id.as_bytes(), id_attr.as_bytes()))
     }
 
     #[inline]
@@ -294,4 +293,10 @@ impl selectors::Element for Element<'_> {
     }
 
     fn apply_selector_flags(&self, _: matching::ElementSelectorFlags) {}
+    fn add_element_unique_hashes(&self, _: &mut BloomFilter) -> bool {
+        false
+    }
+    fn has_custom_state(&self, _name: &LocalName) -> bool {
+        false
+    }
 }

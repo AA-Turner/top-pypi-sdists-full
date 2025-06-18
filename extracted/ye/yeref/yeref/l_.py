@@ -13233,6 +13233,7 @@ l_find_need_subscribe = {
     'zh': "👩🏽‍💻<b>要</b>接收消息和客户的链接，请订阅💨订阅@FereyFindBot-bot：\n\nhttps://t.me",
     'ar': "👩🏽‍💻 <b>للحصول</b> على رابط الرسالة والعميل، اشترك 💨Subscribe to @FereyFindBot-bot:\n\nhttps://t.me",
 }
+
 # endregion
 
 

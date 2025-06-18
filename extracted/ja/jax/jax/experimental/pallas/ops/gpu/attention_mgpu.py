@@ -20,6 +20,7 @@ import math
 import jax
 from jax import lax
 from jax._src import test_util as jtu  # noqa: F401
+from jax._src.lib import cuda_versions  # noqa: F401
 from jax.experimental.mosaic.gpu import profiler
 import jax.experimental.pallas as pl
 import jax.experimental.pallas.mosaic_gpu as plgpu
@@ -62,6 +63,13 @@ class TuningConfig:
     return self.block_q_dkv is not None
 
 def _attention_forward(q, k, v, config: TuningConfig, save_residuals: bool = False):
+  cuda_runtime_version = cuda_versions.cuda_runtime_get_version()
+  # TODO(pobudzey): Undo when we upgrade to cuda 12.9.1.
+  if config.causal and cuda_runtime_version >= 12080 and cuda_runtime_version < 12091:
+    raise ValueError(
+        "Causal masking not supported with cuda versions between 12.8.0 and"
+        " 12.9.1 due to a ptxas miscompilation."
+    )
   if q.ndim != 4 or k.ndim != 4 or v.ndim != 4:
     raise ValueError(f"q, k, and v should all be 4D, got: {q.ndim=}, {k.ndim=}, {v.ndim=}")
   batch_size, q_seq_len, num_q_heads, head_dim = q.shape
@@ -245,7 +253,8 @@ def _attention_forward(q, k, v, config: TuningConfig, save_residuals: bool = Fal
         plgpu.copy_gmem_to_smem(k_ref.at[s], k_smem.at[i], k_barriers.at[i])
         plgpu.copy_gmem_to_smem(v_ref.at[s], v_smem.at[i], v_barriers.at[i])
 
-      def kv_loop(kv_step, _):
+      @pl.loop(0, block_max_kv_steps - max_concurrent_steps)
+      def _kv_loop(kv_step):
         tma_step = kv_step + max_concurrent_steps
         tma_slot = lax.rem(kv_step, jnp.array(max_concurrent_steps, kv_step.dtype))
         s = (batch, pl.ds(tma_step * block_kv, block_kv), kv_head)
@@ -253,7 +262,6 @@ def _attention_forward(q, k, v, config: TuningConfig, save_residuals: bool = Fal
         plgpu.copy_gmem_to_smem(k_ref.at[s], k_smem.at[tma_slot], k_barriers.at[tma_slot])
         plgpu.barrier_wait(v_consumed_barriers.at[tma_slot])
         plgpu.copy_gmem_to_smem(v_ref.at[s], v_smem.at[tma_slot], v_barriers.at[tma_slot])
-      lax.fori_loop(0, block_max_kv_steps - max_concurrent_steps, kv_loop, None)
 
   def entry(q_ref, k_ref, v_ref, out_ref, lse_ref):
     compute_wgs = 2
@@ -278,9 +286,9 @@ def _attention_forward(q, k, v, config: TuningConfig, save_residuals: bool = Fal
         lambda *args: kernel(q_ref, k_ref, v_ref, out_ref, lse_ref, args),
         scratch,
         (
-            plgpu.Barrier(1, num_barriers=max_concurrent_steps),
-            plgpu.Barrier(1, num_barriers=max_concurrent_steps),
-            plgpu.Barrier(1, num_barriers=compute_wgs),
+            plgpu.Barrier(num_barriers=max_concurrent_steps),
+            plgpu.Barrier(num_barriers=max_concurrent_steps),
+            plgpu.Barrier(num_barriers=compute_wgs),
         ),
         (plgpu.Barrier(num_arrivals=compute_wgs, num_barriers=max_concurrent_steps),) * 2,
         plgpu.Barrier(num_arrivals=compute_wgs),
@@ -524,7 +532,7 @@ def _attention_bwd(config: TuningConfig, save_residuals: bool, res, do):
 
       def _compute(refs):
         # Combining two WGMMA calls in one block to avoid the unnecessary
-        # sychronization from two `wgmma.wait_group` calls.
+        # synchronization from two `wgmma.wait_group` calls.
         dv_acc_ref, dpT_acc_ref = refs
         plgpu.wgmma(dv_acc_ref, pT.astype(dtype), do_smem)  # dV
         plgpu.wgmma(dpT_acc_ref, v_smem, plgpu.transpose_ref(do_smem, (1, 0)))  # dpT
@@ -587,7 +595,7 @@ def _attention_bwd(config: TuningConfig, save_residuals: bool, res, do):
       out_shape=q,
       scratch_shapes=[
           (q_scratch, do_scratch, lse_scratch, delta_scratch),  # type: ignore
-          (plgpu.Barrier(1, num_barriers=compute_wgs),) * 4  # type: ignore
+          (plgpu.Barrier(num_barriers=compute_wgs),) * 4  # type: ignore
       ],
       compiler_params=plgpu.CompilerParams(approx_math=True),
       grid=(batch_size, num_q_tiles, num_q_heads),
@@ -608,7 +616,7 @@ def _attention_bwd(config: TuningConfig, save_residuals: bool, res, do):
     out_shape=[out_shape_kv, out_shape_kv],
     scratch_shapes=[
         (k_scratch, v_scratch),  # type: ignore
-        (plgpu.Barrier(1, num_barriers=compute_wgs),) * 2  # type: ignore
+        (plgpu.Barrier(num_barriers=compute_wgs),) * 2  # type: ignore
   ],
     compiler_params=plgpu.CompilerParams(approx_math=True),
     grid=(batch_size, num_kv_tiles, num_q_heads),
@@ -776,7 +784,7 @@ def attention_with_pipeline_emitter(q, k, v, config: TuningConfig, save_residual
             out_shape=out_shape,
       scratch_shapes=(
           tuple(smem_scratch),  # type: ignore
-          plgpu.Barrier(1, num_barriers=compute_wgs),  # type: ignore
+          plgpu.Barrier(num_barriers=compute_wgs),  # type: ignore
           plgpu.Barrier(num_arrivals=compute_wgs),),  # type: ignore
       compiler_params=plgpu.CompilerParams(
           approx_math=True, lowering_semantics=plgpu.LoweringSemantics.Warpgroup,
@@ -834,6 +842,11 @@ def main(unused_argv):
   problem_it = itertools.product(
       (1,), (4096, 32768,), (64, 128, 256,), schedule_barrier_opts, (False, True))
   for batch_size, seq_len, head_dim, use_schedule_barrier, causal in problem_it:
+    cuda_runtime_version = cuda_versions.cuda_runtime_get_version()
+    # TODO(pobudzey): Undo when we upgrade to cuda 12.9.1.
+    if causal and cuda_runtime_version >= 12080 and cuda_runtime_version < 12091:
+      continue
+
     if causal and use_pipeline_emitter:
       continue
     q_seq_len = kv_seq_len = seq_len

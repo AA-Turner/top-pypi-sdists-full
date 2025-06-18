@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 import sys
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import attrs
 import cattrs
@@ -27,7 +27,7 @@ def _resolve_forward_references() -> None:
         items = list(filter(_filter, lsp_types.ALL_TYPES_MAP.items()))
         for _, value in items:
             if isinstance(value, type):
-                attrs.resolve_types(value, lsp_types.ALL_TYPES_MAP, {})  # type: ignore
+                attrs.resolve_types(value, lsp_types.ALL_TYPES_MAP, {})
         _resolved_forward_references = True
 
 
@@ -390,7 +390,7 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
 
     def _inlay_hint_label_part_hook(
         object_: Any, _: type
-    ) -> Union[str, List[lsp_types.InlayHintLabelPart]]:
+    ) -> Union[str, Sequence[lsp_types.InlayHintLabelPart]]:
         if isinstance(object_, str):
             return object_
 
@@ -431,7 +431,7 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
 
     def _completion_list_hook(
         object_: Any, _: type
-    ) -> Optional[Union[lsp_types.CompletionList, List[lsp_types.CompletionItem]]]:
+    ) -> Optional[Union[lsp_types.CompletionList, Sequence[lsp_types.CompletionItem]]]:
         if object_ is None:
             return None
         if isinstance(object_, list):
@@ -446,8 +446,8 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
     ) -> Optional[
         Union[
             lsp_types.Location,
-            List[lsp_types.Location],
-            List[lsp_types.LocationLink],
+            Sequence[lsp_types.Location],
+            Sequence[lsp_types.LocationLink],
         ]
     ]:
         if object_ is None:
@@ -470,7 +470,7 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
     def _symbol_hook(
         object_: Any, _: type
     ) -> Optional[
-        Union[List[lsp_types.DocumentSymbol], List[lsp_types.SymbolInformation]]
+        Union[Sequence[lsp_types.DocumentSymbol], Sequence[lsp_types.SymbolInformation]]
     ]:
         if object_ is None:
             return None
@@ -496,8 +496,8 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
         Union[
             OptionalPrimitive,
             lsp_types.MarkupContent,
-            lsp_types.MarkedString_Type1,
-            List[Union[OptionalPrimitive, lsp_types.MarkedString_Type1]],
+            lsp_types.MarkedStringWithLanguage,
+            Sequence[Union[OptionalPrimitive, lsp_types.MarkedStringWithLanguage]],
         ]
     ]:
         if object_ is None:
@@ -509,14 +509,14 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
                 (
                     item
                     if isinstance(item, (bool, int, str, float))
-                    else converter.structure(item, lsp_types.MarkedString_Type1)
+                    else converter.structure(item, lsp_types.MarkedStringWithLanguage)
                 )
                 for item in object_
             ]
         if "kind" in object_:
             return converter.structure(object_, lsp_types.MarkupContent)
         else:
-            return converter.structure(object_, lsp_types.MarkedString_Type1)
+            return converter.structure(object_, lsp_types.MarkedStringWithLanguage)
 
     def _document_edit_hook(
         object_: Any, _: type
@@ -544,25 +544,25 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
 
     def _semantic_tokens_hook(
         object_: Any, _: type
-    ) -> Union[OptionalPrimitive, lsp_types.SemanticTokensOptionsFullType1]:
+    ) -> Union[OptionalPrimitive, lsp_types.SemanticTokensFullDelta]:
         if object_ is None:
             return None
         if isinstance(object_, (bool, int, str, float)):
             return object_
-        return converter.structure(object_, lsp_types.SemanticTokensOptionsFullType1)
+        return converter.structure(object_, lsp_types.SemanticTokensFullDelta)
 
     def _semantic_tokens_capabilities_hook(
         object_: Any, _: type
     ) -> Union[
         OptionalPrimitive,
-        lsp_types.SemanticTokensClientCapabilitiesRequestsTypeFullType1,
+        lsp_types.ClientSemanticTokensRequestFullDelta,
     ]:
         if object_ is None:
             return None
         if isinstance(object_, (bool, int, str, float)):
             return object_
         return converter.structure(
-            object_, lsp_types.SemanticTokensClientCapabilitiesRequestsTypeFullType1
+            object_, lsp_types.ClientSemanticTokensRequestFullDelta
         )
 
     def _code_action_kind_hook(
@@ -622,29 +622,29 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
     def _notebook_sync_option_selector_hook(
         object_: Any, _: type
     ) -> Union[
-        lsp_types.NotebookDocumentSyncOptionsNotebookSelectorType1,
-        lsp_types.NotebookDocumentSyncOptionsNotebookSelectorType2,
+        lsp_types.NotebookDocumentFilterWithNotebook,
+        lsp_types.NotebookDocumentFilterWithCells,
     ]:
         if "notebook" in object_:
             return converter.structure(
-                object_, lsp_types.NotebookDocumentSyncOptionsNotebookSelectorType1
+                object_, lsp_types.NotebookDocumentFilterWithNotebook
             )
         else:
             return converter.structure(
-                object_, lsp_types.NotebookDocumentSyncOptionsNotebookSelectorType2
+                object_, lsp_types.NotebookDocumentFilterWithCells
             )
 
     def _semantic_token_registration_options_hook(
         object_: Any, _: type
     ) -> Optional[
-        Union[OptionalPrimitive, lsp_types.SemanticTokensRegistrationOptionsFullType1]
+        Union[OptionalPrimitive, lsp_types.ClientSemanticTokensRequestFullDelta]
     ]:
         if object_ is None:
             return None
         if isinstance(object_, (bool, int, str, float)):
             return object_
         return converter.structure(
-            object_, lsp_types.SemanticTokensRegistrationOptionsFullType1
+            object_, lsp_types.ClientSemanticTokensRequestFullDelta
         )
 
     def _inline_completion_provider_hook(
@@ -659,7 +659,7 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
     def _inline_completion_list_hook(
         object_: Any, _: type
     ) -> Optional[
-        Union[lsp_types.InlineCompletionList, List[lsp_types.InlineCompletionItem]]
+        Union[lsp_types.InlineCompletionList, Sequence[lsp_types.InlineCompletionItem]]
     ]:
         if object_ is None:
             return None
@@ -682,7 +682,9 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
     def _symbol_list_hook(
         object_: Any, _: type
     ) -> Optional[
-        Union[List[lsp_types.SymbolInformation], List[lsp_types.WorkspaceSymbol]]
+        Union[
+            Sequence[lsp_types.SymbolInformation], Sequence[lsp_types.WorkspaceSymbol]
+        ]
     ]:
         if object_ is None:
             return None
@@ -703,22 +705,71 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
             converter.structure(item, lsp_types.SymbolInformation) for item in object_
         ]
 
-    def _notebook_sync_registration_option_selector_hook(
+    def _language_kind_hook(
         object_: Any, _: type
     ) -> Union[
-        lsp_types.NotebookDocumentSyncRegistrationOptionsNotebookSelectorType1,
-        lsp_types.NotebookDocumentSyncRegistrationOptionsNotebookSelectorType2,
+        lsp_types.LanguageKind,
+        OptionalPrimitive,
     ]:
-        if "notebook" in object_:
+        if object_ is None:
+            return None
+        if isinstance(object_, (bool, int, str, float)):
+            return object_
+        return converter.structure(object_, lsp_types.LanguageKind)
+
+    def _text_edit_hook(
+        object_: Any, _: type
+    ) -> Union[
+        lsp_types.TextEdit, lsp_types.AnnotatedTextEdit, lsp_types.SnippetTextEdit
+    ]:
+        if "snippet" in object_:
+            return converter.structure(object_, lsp_types.SnippetTextEdit)
+        if "annotationId" in object_:
+            return converter.structure(object_, lsp_types.AnnotatedTextEdit)
+        return converter.structure(object_, lsp_types.TextEdit)
+
+    def _completion_item_kind_hook(
+        object_: Any, _: type
+    ) -> Union[lsp_types.CompletionItemKind, OptionalPrimitive]:
+        if object_ is None:
+            return None
+        if isinstance(object_, (bool, int, str, float)):
+            return object_
+        return converter.structure(object_, lsp_types.CompletionItemKind)
+
+    def _relative_pattern_hook(
+        object_: Any, _: type
+    ) -> Union[OptionalPrimitive, lsp_types.RelativePattern]:
+        if object_ is None:
+            return None
+        if isinstance(object_, (bool, int, str, float)):
+            return object_
+        return converter.structure(object_, lsp_types.RelativePattern)
+
+    def _workspace_folder_hook(
+        object_: Any, _: type
+    ) -> Union[OptionalPrimitive, lsp_types.WorkspaceFolder]:
+        if object_ is None:
+            return None
+        if isinstance(object_, (bool, int, str, float)):
+            return object_
+        return converter.structure(object_, lsp_types.WorkspaceFolder)
+
+    def _text_document_content_hook(
+        object_: Any, _: type
+    ) -> Union[
+        OptionalPrimitive,
+        lsp_types.TextDocumentContentRegistrationOptions,
+        lsp_types.TextDocumentContentOptions,
+    ]:
+        if object_ is None:
+            return None
+        if "id" in object_:
             return converter.structure(
-                object_,
-                lsp_types.NotebookDocumentSyncRegistrationOptionsNotebookSelectorType1,
+                object_, lsp_types.TextDocumentContentRegistrationOptions
             )
         else:
-            return converter.structure(
-                object_,
-                lsp_types.NotebookDocumentSyncRegistrationOptionsNotebookSelectorType2,
-            )
+            return converter.structure(object_, lsp_types.TextDocumentContentOptions)
 
     structure_hooks = [
         (
@@ -892,7 +943,7 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
             _inlay_hint_provider_hook,
         ),
         (
-            Union[str, List[lsp_types.InlayHintLabelPart]],
+            Union[str, Sequence[lsp_types.InlayHintLabelPart]],
             _inlay_hint_label_part_hook,
         ),
         (
@@ -912,22 +963,27 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
             _code_action_hook,
         ),
         (
-            Optional[Union[List[lsp_types.CompletionItem], lsp_types.CompletionList]],
+            Optional[
+                Union[Sequence[lsp_types.CompletionItem], lsp_types.CompletionList]
+            ],
             _completion_list_hook,
         ),
         (
             Optional[
                 Union[
                     lsp_types.Location,
-                    List[lsp_types.Location],
-                    List[lsp_types.LocationLink],
+                    Sequence[lsp_types.Location],
+                    Sequence[lsp_types.LocationLink],
                 ]
             ],
             _location_hook,
         ),
         (
             Optional[
-                Union[List[lsp_types.SymbolInformation], List[lsp_types.DocumentSymbol]]
+                Union[
+                    Sequence[lsp_types.SymbolInformation],
+                    Sequence[lsp_types.DocumentSymbol],
+                ]
             ],
             _symbol_hook,
         ),
@@ -935,8 +991,8 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
             Union[
                 lsp_types.MarkupContent,
                 str,
-                lsp_types.MarkedString_Type1,
-                List[Union[str, lsp_types.MarkedString_Type1]],
+                lsp_types.MarkedStringWithLanguage,
+                Sequence[Union[str, lsp_types.MarkedStringWithLanguage]],
             ],
             _markup_content_hook,
         ),
@@ -950,14 +1006,14 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
             _document_edit_hook,
         ),
         (
-            Optional[Union[bool, lsp_types.SemanticTokensOptionsFullType1]],
+            Optional[Union[bool, lsp_types.SemanticTokensFullDelta]],
             _semantic_tokens_hook,
         ),
         (
             Optional[
                 Union[
                     bool,
-                    lsp_types.SemanticTokensClientCapabilitiesRequestsTypeFullType1,
+                    lsp_types.ClientSemanticTokensRequestFullDelta,
                 ]
             ],
             _semantic_tokens_capabilities_hook,
@@ -1012,8 +1068,8 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
         ),
         (
             Union[
-                lsp_types.NotebookDocumentSyncOptionsNotebookSelectorType1,
-                lsp_types.NotebookDocumentSyncOptionsNotebookSelectorType2,
+                lsp_types.NotebookDocumentFilterWithNotebook,
+                lsp_types.NotebookDocumentFilterWithCells,
             ],
             _notebook_sync_option_selector_hook,
         ),
@@ -1027,7 +1083,7 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
             _position_encoding_hook,
         ),
         (
-            Optional[Union[bool, lsp_types.SemanticTokensRegistrationOptionsFullType1]],
+            Optional[Union[bool, lsp_types.ClientSemanticTokensRequestFullDelta]],
             _semantic_token_registration_options_hook,
         ),
         (
@@ -1037,7 +1093,8 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
         (
             Optional[
                 Union[
-                    lsp_types.InlineCompletionList, List[lsp_types.InlineCompletionItem]
+                    lsp_types.InlineCompletionList,
+                    Sequence[lsp_types.InlineCompletionItem],
                 ]
             ],
             _inline_completion_list_hook,
@@ -1049,17 +1106,63 @@ def _register_capabilities_hooks(converter: cattrs.Converter) -> cattrs.Converte
         (
             Optional[
                 Union[
-                    List[lsp_types.SymbolInformation], List[lsp_types.WorkspaceSymbol]
+                    Sequence[lsp_types.SymbolInformation],
+                    Sequence[lsp_types.WorkspaceSymbol],
                 ]
             ],
             _symbol_list_hook,
         ),
         (
+            Union[lsp_types.LanguageKind, str],
+            _language_kind_hook,
+        ),
+        (
             Union[
-                lsp_types.NotebookDocumentSyncRegistrationOptionsNotebookSelectorType1,
-                lsp_types.NotebookDocumentSyncRegistrationOptionsNotebookSelectorType2,
+                lsp_types.TextEdit,
+                lsp_types.AnnotatedTextEdit,
+                lsp_types.SnippetTextEdit,
             ],
-            _notebook_sync_registration_option_selector_hook,
+            _text_edit_hook,
+        ),
+        (
+            Optional[Union[lsp_types.CompletionItemKind, int]],
+            _completion_item_kind_hook,
+        ),
+        (
+            Union[lsp_types.CompletionItemKind, int],
+            _completion_item_kind_hook,
+        ),
+        (
+            Optional[Union[str, lsp_types.RelativePattern]],
+            _relative_pattern_hook,
+        ),
+        (
+            Union[str, lsp_types.RelativePattern],
+            _relative_pattern_hook,
+        ),
+        (
+            Optional[Union[lsp_types.WorkspaceFolder, str]],
+            _workspace_folder_hook,
+        ),
+        (
+            Union[lsp_types.WorkspaceFolder, str],
+            _workspace_folder_hook,
+        ),
+        (
+            Optional[
+                Union[
+                    lsp_types.TextDocumentContentOptions,
+                    lsp_types.TextDocumentContentRegistrationOptions,
+                ]
+            ],
+            _text_document_content_hook,
+        ),
+        (
+            Union[
+                lsp_types.TextDocumentContentOptions,
+                lsp_types.TextDocumentContentRegistrationOptions,
+            ],
+            _text_document_content_hook,
         ),
     ]
     for type_, hook in structure_hooks:
@@ -1085,9 +1188,9 @@ def _register_required_structure_hooks(
         object_: Any, _: type
     ) -> Union[
         str,
-        lsp_types.TextDocumentFilter_Type1,
-        lsp_types.TextDocumentFilter_Type2,
-        lsp_types.TextDocumentFilter_Type3,
+        lsp_types.TextDocumentFilterLanguage,
+        lsp_types.TextDocumentFilterScheme,
+        lsp_types.TextDocumentFilterPattern,
         lsp_types.NotebookCellTextDocumentFilter,
     ]:
         if isinstance(object_, str):
@@ -1097,30 +1200,31 @@ def _register_required_structure_hooks(
                 object_, lsp_types.NotebookCellTextDocumentFilter
             )
         elif "language" in object_:
-            return converter.structure(object_, lsp_types.TextDocumentFilter_Type1)
+            return converter.structure(object_, lsp_types.TextDocumentFilterLanguage)
         elif "scheme" in object_:
-            return converter.structure(object_, lsp_types.TextDocumentFilter_Type2)
+            return converter.structure(object_, lsp_types.TextDocumentFilterScheme)
         else:
-            return converter.structure(object_, lsp_types.TextDocumentFilter_Type3)
+            return converter.structure(object_, lsp_types.TextDocumentFilterPattern)
 
     def _notebook_filter_hook(
         object_: Any, _: type
     ) -> Union[
         str,
-        lsp_types.NotebookDocumentFilter_Type1,
-        lsp_types.NotebookDocumentFilter_Type2,
-        lsp_types.NotebookDocumentFilter_Type3,
+        lsp_types.NotebookDocumentFilterNotebookType,
+        lsp_types.NotebookDocumentFilterScheme,
+        lsp_types.NotebookDocumentFilterPattern,
     ]:
         if isinstance(object_, str):
             return str(object_)
         elif "notebookType" in object_:
-            return converter.structure(object_, lsp_types.NotebookDocumentFilter_Type1)
+            return converter.structure(
+                object_, lsp_types.NotebookDocumentFilterNotebookType
+            )
         elif "scheme" in object_:
-            return converter.structure(object_, lsp_types.NotebookDocumentFilter_Type2)
+            return converter.structure(object_, lsp_types.NotebookDocumentFilterScheme)
         else:
-            return converter.structure(object_, lsp_types.NotebookDocumentFilter_Type3)
+            return converter.structure(object_, lsp_types.NotebookDocumentFilterPattern)
 
-    # TODO: Remove the ignore after this issue with attrs is addressed in either attrs or mypy
     NotebookSelectorItem = attrs.fields(
         lsp_types.NotebookCellTextDocumentFilter
     ).notebook.type
@@ -1133,9 +1237,9 @@ def _register_required_structure_hooks(
         (Optional[Union[bool, Any]], lambda object_, _type: object_),
         (
             Union[
-                lsp_types.TextDocumentFilter_Type1,
-                lsp_types.TextDocumentFilter_Type2,
-                lsp_types.TextDocumentFilter_Type3,
+                lsp_types.TextDocumentFilterLanguage,
+                lsp_types.TextDocumentFilterScheme,
+                lsp_types.TextDocumentFilterPattern,
                 lsp_types.NotebookCellTextDocumentFilter,
             ],
             _text_document_filter_hook,
@@ -1144,20 +1248,26 @@ def _register_required_structure_hooks(
         (
             Union[
                 str,
-                lsp_types.NotebookDocumentFilter_Type1,
-                lsp_types.NotebookDocumentFilter_Type2,
-                lsp_types.NotebookDocumentFilter_Type3,
+                lsp_types.NotebookDocumentFilterNotebookType,
+                lsp_types.NotebookDocumentFilterScheme,
+                lsp_types.NotebookDocumentFilterPattern,
             ],
             _notebook_filter_hook,
         ),
         (NotebookSelectorItem, _notebook_filter_hook),
         (
-            Union[lsp_types.LSPObject, List["LSPAny"], str, int, float, bool, None],
+            Union[lsp_types.LSPObject, Sequence["LSPAny"], str, int, float, bool, None],
             _lsp_object_hook,
         ),
         (
             Union[
-                lsp_types.LSPObject, List[lsp_types.LSPAny], str, int, float, bool, None
+                lsp_types.LSPObject,
+                Sequence[lsp_types.LSPAny],
+                str,
+                int,
+                float,
+                bool,
+                None,
             ],
             _lsp_object_hook,
         ),
@@ -1173,10 +1283,10 @@ def _register_required_structure_hooks(
             (
                 Union[
                     lsp_types.LSPObject,
-                    List[
+                    Sequence[
                         Union[
                             lsp_types.LSPObject,
-                            List["LSPAny"],
+                            Sequence["LSPAny"],
                             str,
                             int,
                             float,
@@ -1220,7 +1330,7 @@ def _register_custom_property_hooks(converter: cattrs.Converter) -> cattrs.Conve
             )
             for a in attrs.fields(cls)
         }
-        return cattrs.gen.make_dict_unstructure_fn(cls, converter, **attributes)
+        return cattrs.gen.make_dict_unstructure_fn(cls, converter, **attributes)  # type: ignore
 
     def _with_custom_structure(cls: type) -> Any:
         attributes = {
@@ -1230,7 +1340,7 @@ def _register_custom_property_hooks(converter: cattrs.Converter) -> cattrs.Conve
             )
             for a in attrs.fields(cls)
         }
-        return cattrs.gen.make_dict_structure_fn(cls, converter, **attributes)
+        return cattrs.gen.make_dict_structure_fn(cls, converter, **attributes)  # type: ignore
 
     converter.register_unstructure_hook_factory(attrs.has, _with_custom_unstructure)
     converter.register_structure_hook_factory(attrs.has, _with_custom_structure)

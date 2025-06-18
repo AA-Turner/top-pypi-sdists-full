@@ -32,6 +32,7 @@ use library::run::LspArgs;
 use library::standard_config_finder;
 use path_absolutize::Absolutize;
 use pyrefly::library::library::library::library;
+use pyrefly::library::library::library::library::Severity;
 use pyrefly::library::library::library::library::finder::ConfigError;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::args::clap_env;
@@ -170,6 +171,18 @@ fn get_explicit_config(
     )
 }
 
+fn add_config_errors(config_finder: &ConfigFinder, errors: Vec<ConfigError>) -> anyhow::Result<()> {
+    if errors.iter().any(|e| e.severity() == Severity::Error) {
+        for e in errors {
+            e.print();
+        }
+        Err(anyhow::anyhow!("Fatal configuration error"))
+    } else {
+        config_finder.add_errors(errors);
+        Ok(())
+    }
+}
+
 /// Get inputs for a full-project check. We will look for a config file and type-check the project it defines.
 fn get_globs_and_config_for_project(
     config: Option<PathBuf>,
@@ -210,7 +223,7 @@ fn get_globs_and_config_for_project(
 
     // We want our config_finder to never actually
     let config_finder = ConfigFinder::new_constant(config.dupe());
-    config_finder.add_errors(errors);
+    add_config_errors(&config_finder, errors)?;
 
     debug!("Config is: {}", config);
 
@@ -227,15 +240,33 @@ fn get_globs_and_config_for_files(
 ) -> anyhow::Result<(FilteredGlobs, ConfigFinder)> {
     let project_excludes = project_excludes.unwrap_or_else(ConfigFile::default_project_excludes);
     let files_to_check = absolutize(files_to_check)?;
-    let config_finder = match config {
+    let (config_finder, errors) = match config {
         Some(explicit) => {
             let (config, errors) = get_explicit_config(&explicit, args);
             let config_finder = ConfigFinder::new_constant(config);
-            config_finder.add_errors(errors);
-            config_finder
+            (config_finder, errors)
         }
-        None => config_finder(args.clone()),
+        None => {
+            let config_finder = config_finder(args.clone());
+            // If there is only one input and one root, we treat config parse errors as fatal,
+            // so that `pyrefly check .` exits immediately on an unparseable config, matching the
+            // behavior of `pyrefly check` (see get_globs_and_config_for_project).
+            let solo_root = if files_to_check.len() == 1 {
+                files_to_check.roots().first().cloned()
+            } else {
+                None
+            };
+            if let Some(root) = solo_root {
+                // We don't care about the contents of the config, only if we generated any errors while parsing it.
+                config_finder.directory(&root);
+                let errors = config_finder.errors();
+                (config_finder, errors)
+            } else {
+                (config_finder, Vec::new())
+            }
+        }
     };
+    add_config_errors(&config_finder, errors)?;
     Ok((
         FilteredGlobs::new(files_to_check, project_excludes),
         config_finder,

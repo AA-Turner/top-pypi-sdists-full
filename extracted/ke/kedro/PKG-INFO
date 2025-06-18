@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 0.19.13
+Version: 0.19.14
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -57,7 +57,7 @@ Requires-Dist: pytest-cov<7,>=3; extra == "test"
 Requires-Dist: pytest-mock<4.0,>=1.7.1; extra == "test"
 Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "test"
 Requires-Dist: pytest<9.0,>=7.2; extra == "test"
-Requires-Dist: s3fs<2025.4,>=2021.4; extra == "test"
+Requires-Dist: s3fs<2025.6,>=2021.4; extra == "test"
 Requires-Dist: requests_mock; extra == "test"
 Requires-Dist: pandas-stubs; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"

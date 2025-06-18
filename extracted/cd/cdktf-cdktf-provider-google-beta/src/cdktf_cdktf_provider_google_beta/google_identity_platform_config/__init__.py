@@ -1,7 +1,7 @@
 r'''
 # `google_identity_platform_config`
 
-Refer to the Terraform Registry for docs: [`google_identity_platform_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config).
+Refer to the Terraform Registry for docs: [`google_identity_platform_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleIdentityPlatformConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleIdentityPlatformConfig.GoogleIdentityPlatformConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config google_identity_platform_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config google_identity_platform_config}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class GoogleIdentityPlatformConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config google_identity_platform_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config google_identity_platform_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authorized_domains: List of domains authorized for OAuth redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#authorized_domains GoogleIdentityPlatformConfig#authorized_domains}
-        :param autodelete_anonymous_users: Whether anonymous users will be auto-deleted after a period of 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#autodelete_anonymous_users GoogleIdentityPlatformConfig#autodelete_anonymous_users}
-        :param blocking_functions: blocking_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#blocking_functions GoogleIdentityPlatformConfig#blocking_functions}
-        :param client: client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#client GoogleIdentityPlatformConfig#client}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#id GoogleIdentityPlatformConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mfa: mfa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#mfa GoogleIdentityPlatformConfig#mfa}
-        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#monitoring GoogleIdentityPlatformConfig#monitoring}
-        :param multi_tenant: multi_tenant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#multi_tenant GoogleIdentityPlatformConfig#multi_tenant}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#project GoogleIdentityPlatformConfig#project}.
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
-        :param sign_in: sign_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sign_in GoogleIdentityPlatformConfig#sign_in}
-        :param sms_region_config: sms_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sms_region_config GoogleIdentityPlatformConfig#sms_region_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#timeouts GoogleIdentityPlatformConfig#timeouts}
+        :param authorized_domains: List of domains authorized for OAuth redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#authorized_domains GoogleIdentityPlatformConfig#authorized_domains}
+        :param autodelete_anonymous_users: Whether anonymous users will be auto-deleted after a period of 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#autodelete_anonymous_users GoogleIdentityPlatformConfig#autodelete_anonymous_users}
+        :param blocking_functions: blocking_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#blocking_functions GoogleIdentityPlatformConfig#blocking_functions}
+        :param client: client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#client GoogleIdentityPlatformConfig#client}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#id GoogleIdentityPlatformConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mfa: mfa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#mfa GoogleIdentityPlatformConfig#mfa}
+        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#monitoring GoogleIdentityPlatformConfig#monitoring}
+        :param multi_tenant: multi_tenant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#multi_tenant GoogleIdentityPlatformConfig#multi_tenant}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#project GoogleIdentityPlatformConfig#project}.
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
+        :param sign_in: sign_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sign_in GoogleIdentityPlatformConfig#sign_in}
+        :param sms_region_config: sms_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sms_region_config GoogleIdentityPlatformConfig#sms_region_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#timeouts GoogleIdentityPlatformConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class GoogleIdentityPlatformConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleIdentityPlatformConfig to import.
-        :param import_from_id: The id of the existing GoogleIdentityPlatformConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleIdentityPlatformConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleIdentityPlatformConfig to import is found.
         '''
         if __debug__:
@@ -158,8 +158,8 @@ class GoogleIdentityPlatformConfig(
         forward_inbound_credentials: typing.Optional[typing.Union["GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#triggers GoogleIdentityPlatformConfig#triggers}
-        :param forward_inbound_credentials: forward_inbound_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#forward_inbound_credentials GoogleIdentityPlatformConfig#forward_inbound_credentials}
+        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#triggers GoogleIdentityPlatformConfig#triggers}
+        :param forward_inbound_credentials: forward_inbound_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#forward_inbound_credentials GoogleIdentityPlatformConfig#forward_inbound_credentials}
         '''
         value = GoogleIdentityPlatformConfigBlockingFunctions(
             triggers=triggers, forward_inbound_credentials=forward_inbound_credentials
@@ -174,7 +174,7 @@ class GoogleIdentityPlatformConfig(
         permissions: typing.Optional[typing.Union["GoogleIdentityPlatformConfigClientPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#permissions GoogleIdentityPlatformConfig#permissions}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#permissions GoogleIdentityPlatformConfig#permissions}
         '''
         value = GoogleIdentityPlatformConfigClient(permissions=permissions)
 
@@ -189,9 +189,9 @@ class GoogleIdentityPlatformConfig(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled_providers: A list of usable second factors for this project. Possible values: ["PHONE_SMS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled_providers GoogleIdentityPlatformConfig#enabled_providers}
-        :param provider_configs: provider_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#provider_configs GoogleIdentityPlatformConfig#provider_configs}
-        :param state: Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
+        :param enabled_providers: A list of usable second factors for this project. Possible values: ["PHONE_SMS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled_providers GoogleIdentityPlatformConfig#enabled_providers}
+        :param provider_configs: provider_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#provider_configs GoogleIdentityPlatformConfig#provider_configs}
+        :param state: Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
         '''
         value = GoogleIdentityPlatformConfigMfa(
             enabled_providers=enabled_providers,
@@ -208,7 +208,7 @@ class GoogleIdentityPlatformConfig(
         request_logging: typing.Optional[typing.Union["GoogleIdentityPlatformConfigMonitoringRequestLogging", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param request_logging: request_logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#request_logging GoogleIdentityPlatformConfig#request_logging}
+        :param request_logging: request_logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#request_logging GoogleIdentityPlatformConfig#request_logging}
         '''
         value = GoogleIdentityPlatformConfigMonitoring(request_logging=request_logging)
 
@@ -222,8 +222,8 @@ class GoogleIdentityPlatformConfig(
         default_tenant_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_tenants: Whether this project can have tenants or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_tenants GoogleIdentityPlatformConfig#allow_tenants}
-        :param default_tenant_location: The default cloud parent org or folder that the tenant project should be created under. The parent resource name should be in the format of "/", such as "folders/123" or "organizations/456". If the value is not set, the tenant will be created under the same organization or folder as the agent project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#default_tenant_location GoogleIdentityPlatformConfig#default_tenant_location}
+        :param allow_tenants: Whether this project can have tenants or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_tenants GoogleIdentityPlatformConfig#allow_tenants}
+        :param default_tenant_location: The default cloud parent org or folder that the tenant project should be created under. The parent resource name should be in the format of "/", such as "folders/123" or "organizations/456". If the value is not set, the tenant will be created under the same organization or folder as the agent project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#default_tenant_location GoogleIdentityPlatformConfig#default_tenant_location}
         '''
         value = GoogleIdentityPlatformConfigMultiTenant(
             allow_tenants=allow_tenants,
@@ -239,7 +239,7 @@ class GoogleIdentityPlatformConfig(
         sign_up_quota_config: typing.Optional[typing.Union["GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param sign_up_quota_config: sign_up_quota_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sign_up_quota_config GoogleIdentityPlatformConfig#sign_up_quota_config}
+        :param sign_up_quota_config: sign_up_quota_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sign_up_quota_config GoogleIdentityPlatformConfig#sign_up_quota_config}
         '''
         value = GoogleIdentityPlatformConfigQuota(
             sign_up_quota_config=sign_up_quota_config
@@ -257,10 +257,10 @@ class GoogleIdentityPlatformConfig(
         phone_number: typing.Optional[typing.Union["GoogleIdentityPlatformConfigSignInPhoneNumber", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_duplicate_emails: Whether to allow more than one account to have the same email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_duplicate_emails GoogleIdentityPlatformConfig#allow_duplicate_emails}
-        :param anonymous: anonymous block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#anonymous GoogleIdentityPlatformConfig#anonymous}
-        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#email GoogleIdentityPlatformConfig#email}
-        :param phone_number: phone_number block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#phone_number GoogleIdentityPlatformConfig#phone_number}
+        :param allow_duplicate_emails: Whether to allow more than one account to have the same email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_duplicate_emails GoogleIdentityPlatformConfig#allow_duplicate_emails}
+        :param anonymous: anonymous block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#anonymous GoogleIdentityPlatformConfig#anonymous}
+        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#email GoogleIdentityPlatformConfig#email}
+        :param phone_number: phone_number block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#phone_number GoogleIdentityPlatformConfig#phone_number}
         '''
         value = GoogleIdentityPlatformConfigSignIn(
             allow_duplicate_emails=allow_duplicate_emails,
@@ -279,8 +279,8 @@ class GoogleIdentityPlatformConfig(
         allowlist_only: typing.Optional[typing.Union["GoogleIdentityPlatformConfigSmsRegionConfigAllowlistOnly", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_by_default: allow_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_by_default GoogleIdentityPlatformConfig#allow_by_default}
-        :param allowlist_only: allowlist_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allowlist_only GoogleIdentityPlatformConfig#allowlist_only}
+        :param allow_by_default: allow_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_by_default GoogleIdentityPlatformConfig#allow_by_default}
+        :param allowlist_only: allowlist_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allowlist_only GoogleIdentityPlatformConfig#allowlist_only}
         '''
         value = GoogleIdentityPlatformConfigSmsRegionConfig(
             allow_by_default=allow_by_default, allowlist_only=allowlist_only
@@ -297,9 +297,9 @@ class GoogleIdentityPlatformConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#create GoogleIdentityPlatformConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#delete GoogleIdentityPlatformConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#update GoogleIdentityPlatformConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#create GoogleIdentityPlatformConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#delete GoogleIdentityPlatformConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#update GoogleIdentityPlatformConfig#update}.
         '''
         value = GoogleIdentityPlatformConfigTimeouts(
             create=create, delete=delete, update=update
@@ -573,8 +573,8 @@ class GoogleIdentityPlatformConfigBlockingFunctions:
         forward_inbound_credentials: typing.Optional[typing.Union["GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#triggers GoogleIdentityPlatformConfig#triggers}
-        :param forward_inbound_credentials: forward_inbound_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#forward_inbound_credentials GoogleIdentityPlatformConfig#forward_inbound_credentials}
+        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#triggers GoogleIdentityPlatformConfig#triggers}
+        :param forward_inbound_credentials: forward_inbound_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#forward_inbound_credentials GoogleIdentityPlatformConfig#forward_inbound_credentials}
         '''
         if isinstance(forward_inbound_credentials, dict):
             forward_inbound_credentials = GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials(**forward_inbound_credentials)
@@ -594,7 +594,7 @@ class GoogleIdentityPlatformConfigBlockingFunctions:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleIdentityPlatformConfigBlockingFunctionsTriggers"]]:
         '''triggers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#triggers GoogleIdentityPlatformConfig#triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#triggers GoogleIdentityPlatformConfig#triggers}
         '''
         result = self._values.get("triggers")
         assert result is not None, "Required property 'triggers' is missing"
@@ -606,7 +606,7 @@ class GoogleIdentityPlatformConfigBlockingFunctions:
     ) -> typing.Optional["GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials"]:
         '''forward_inbound_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#forward_inbound_credentials GoogleIdentityPlatformConfig#forward_inbound_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#forward_inbound_credentials GoogleIdentityPlatformConfig#forward_inbound_credentials}
         '''
         result = self._values.get("forward_inbound_credentials")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials"], result)
@@ -641,9 +641,9 @@ class GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials:
         refresh_token: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_token: Whether to pass the user's OAuth identity provider's access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#access_token GoogleIdentityPlatformConfig#access_token}
-        :param id_token: Whether to pass the user's OIDC identity provider's ID token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#id_token GoogleIdentityPlatformConfig#id_token}
-        :param refresh_token: Whether to pass the user's OAuth identity provider's refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#refresh_token GoogleIdentityPlatformConfig#refresh_token}
+        :param access_token: Whether to pass the user's OAuth identity provider's access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#access_token GoogleIdentityPlatformConfig#access_token}
+        :param id_token: Whether to pass the user's OIDC identity provider's ID token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#id_token GoogleIdentityPlatformConfig#id_token}
+        :param refresh_token: Whether to pass the user's OAuth identity provider's refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#refresh_token GoogleIdentityPlatformConfig#refresh_token}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b5e9f0f21c65f1e68fafc7f7e999939bee330ef374023061efb61bcb26028bb)
@@ -664,7 +664,7 @@ class GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to pass the user's OAuth identity provider's access token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#access_token GoogleIdentityPlatformConfig#access_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#access_token GoogleIdentityPlatformConfig#access_token}
         '''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -675,7 +675,7 @@ class GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to pass the user's OIDC identity provider's ID token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#id_token GoogleIdentityPlatformConfig#id_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#id_token GoogleIdentityPlatformConfig#id_token}
         '''
         result = self._values.get("id_token")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -686,7 +686,7 @@ class GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to pass the user's OAuth identity provider's refresh token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#refresh_token GoogleIdentityPlatformConfig#refresh_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#refresh_token GoogleIdentityPlatformConfig#refresh_token}
         '''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -848,9 +848,9 @@ class GoogleIdentityPlatformConfigBlockingFunctionsOutputReference(
         refresh_token: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_token: Whether to pass the user's OAuth identity provider's access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#access_token GoogleIdentityPlatformConfig#access_token}
-        :param id_token: Whether to pass the user's OIDC identity provider's ID token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#id_token GoogleIdentityPlatformConfig#id_token}
-        :param refresh_token: Whether to pass the user's OAuth identity provider's refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#refresh_token GoogleIdentityPlatformConfig#refresh_token}
+        :param access_token: Whether to pass the user's OAuth identity provider's access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#access_token GoogleIdentityPlatformConfig#access_token}
+        :param id_token: Whether to pass the user's OIDC identity provider's ID token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#id_token GoogleIdentityPlatformConfig#id_token}
+        :param refresh_token: Whether to pass the user's OAuth identity provider's refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#refresh_token GoogleIdentityPlatformConfig#refresh_token}
         '''
         value = GoogleIdentityPlatformConfigBlockingFunctionsForwardInboundCredentials(
             access_token=access_token, id_token=id_token, refresh_token=refresh_token
@@ -927,8 +927,8 @@ class GoogleIdentityPlatformConfigBlockingFunctionsOutputReference(
 class GoogleIdentityPlatformConfigBlockingFunctionsTriggers:
     def __init__(self, *, event_type: builtins.str, function_uri: builtins.str) -> None:
         '''
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#event_type GoogleIdentityPlatformConfig#event_type}.
-        :param function_uri: HTTP URI trigger for the Cloud Function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#function_uri GoogleIdentityPlatformConfig#function_uri}
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#event_type GoogleIdentityPlatformConfig#event_type}.
+        :param function_uri: HTTP URI trigger for the Cloud Function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#function_uri GoogleIdentityPlatformConfig#function_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da792164b4d269f5c1fcf2ede0584376c10adf486cae79d82e5e5fc45e966f37)
@@ -941,7 +941,7 @@ class GoogleIdentityPlatformConfigBlockingFunctionsTriggers:
 
     @builtins.property
     def event_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#event_type GoogleIdentityPlatformConfig#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#event_type GoogleIdentityPlatformConfig#event_type}.'''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
         return typing.cast(builtins.str, result)
@@ -950,7 +950,7 @@ class GoogleIdentityPlatformConfigBlockingFunctionsTriggers:
     def function_uri(self) -> builtins.str:
         '''HTTP URI trigger for the Cloud Function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#function_uri GoogleIdentityPlatformConfig#function_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#function_uri GoogleIdentityPlatformConfig#function_uri}
         '''
         result = self._values.get("function_uri")
         assert result is not None, "Required property 'function_uri' is missing"
@@ -1156,7 +1156,7 @@ class GoogleIdentityPlatformConfigClient:
         permissions: typing.Optional[typing.Union["GoogleIdentityPlatformConfigClientPermissions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#permissions GoogleIdentityPlatformConfig#permissions}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#permissions GoogleIdentityPlatformConfig#permissions}
         '''
         if isinstance(permissions, dict):
             permissions = GoogleIdentityPlatformConfigClientPermissions(**permissions)
@@ -1173,7 +1173,7 @@ class GoogleIdentityPlatformConfigClient:
     ) -> typing.Optional["GoogleIdentityPlatformConfigClientPermissions"]:
         '''permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#permissions GoogleIdentityPlatformConfig#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#permissions GoogleIdentityPlatformConfig#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigClientPermissions"], result)
@@ -1218,8 +1218,8 @@ class GoogleIdentityPlatformConfigClientOutputReference(
         disabled_user_signup: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disabled_user_deletion: When true, end users cannot delete their account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disabled_user_deletion GoogleIdentityPlatformConfig#disabled_user_deletion}
-        :param disabled_user_signup: When true, end users cannot sign up for a new account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disabled_user_signup GoogleIdentityPlatformConfig#disabled_user_signup}
+        :param disabled_user_deletion: When true, end users cannot delete their account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disabled_user_deletion GoogleIdentityPlatformConfig#disabled_user_deletion}
+        :param disabled_user_signup: When true, end users cannot sign up for a new account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disabled_user_signup GoogleIdentityPlatformConfig#disabled_user_signup}
         '''
         value = GoogleIdentityPlatformConfigClientPermissions(
             disabled_user_deletion=disabled_user_deletion,
@@ -1288,8 +1288,8 @@ class GoogleIdentityPlatformConfigClientPermissions:
         disabled_user_signup: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disabled_user_deletion: When true, end users cannot delete their account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disabled_user_deletion GoogleIdentityPlatformConfig#disabled_user_deletion}
-        :param disabled_user_signup: When true, end users cannot sign up for a new account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disabled_user_signup GoogleIdentityPlatformConfig#disabled_user_signup}
+        :param disabled_user_deletion: When true, end users cannot delete their account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disabled_user_deletion GoogleIdentityPlatformConfig#disabled_user_deletion}
+        :param disabled_user_signup: When true, end users cannot sign up for a new account on the associated project through any of our API methods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disabled_user_signup GoogleIdentityPlatformConfig#disabled_user_signup}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be044133d9fa5d2b098fdfdafd8f71355747e34d32017d61323a9f790fabf44e)
@@ -1307,7 +1307,7 @@ class GoogleIdentityPlatformConfigClientPermissions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, end users cannot delete their account on the associated project through any of our API methods.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disabled_user_deletion GoogleIdentityPlatformConfig#disabled_user_deletion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disabled_user_deletion GoogleIdentityPlatformConfig#disabled_user_deletion}
         '''
         result = self._values.get("disabled_user_deletion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1318,7 +1318,7 @@ class GoogleIdentityPlatformConfigClientPermissions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, end users cannot sign up for a new account on the associated project through any of our API methods.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disabled_user_signup GoogleIdentityPlatformConfig#disabled_user_signup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disabled_user_signup GoogleIdentityPlatformConfig#disabled_user_signup}
         '''
         result = self._values.get("disabled_user_signup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1488,19 +1488,19 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authorized_domains: List of domains authorized for OAuth redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#authorized_domains GoogleIdentityPlatformConfig#authorized_domains}
-        :param autodelete_anonymous_users: Whether anonymous users will be auto-deleted after a period of 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#autodelete_anonymous_users GoogleIdentityPlatformConfig#autodelete_anonymous_users}
-        :param blocking_functions: blocking_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#blocking_functions GoogleIdentityPlatformConfig#blocking_functions}
-        :param client: client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#client GoogleIdentityPlatformConfig#client}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#id GoogleIdentityPlatformConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mfa: mfa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#mfa GoogleIdentityPlatformConfig#mfa}
-        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#monitoring GoogleIdentityPlatformConfig#monitoring}
-        :param multi_tenant: multi_tenant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#multi_tenant GoogleIdentityPlatformConfig#multi_tenant}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#project GoogleIdentityPlatformConfig#project}.
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
-        :param sign_in: sign_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sign_in GoogleIdentityPlatformConfig#sign_in}
-        :param sms_region_config: sms_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sms_region_config GoogleIdentityPlatformConfig#sms_region_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#timeouts GoogleIdentityPlatformConfig#timeouts}
+        :param authorized_domains: List of domains authorized for OAuth redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#authorized_domains GoogleIdentityPlatformConfig#authorized_domains}
+        :param autodelete_anonymous_users: Whether anonymous users will be auto-deleted after a period of 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#autodelete_anonymous_users GoogleIdentityPlatformConfig#autodelete_anonymous_users}
+        :param blocking_functions: blocking_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#blocking_functions GoogleIdentityPlatformConfig#blocking_functions}
+        :param client: client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#client GoogleIdentityPlatformConfig#client}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#id GoogleIdentityPlatformConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mfa: mfa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#mfa GoogleIdentityPlatformConfig#mfa}
+        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#monitoring GoogleIdentityPlatformConfig#monitoring}
+        :param multi_tenant: multi_tenant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#multi_tenant GoogleIdentityPlatformConfig#multi_tenant}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#project GoogleIdentityPlatformConfig#project}.
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
+        :param sign_in: sign_in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sign_in GoogleIdentityPlatformConfig#sign_in}
+        :param sms_region_config: sms_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sms_region_config GoogleIdentityPlatformConfig#sms_region_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#timeouts GoogleIdentityPlatformConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1654,7 +1654,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def authorized_domains(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of domains authorized for OAuth redirects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#authorized_domains GoogleIdentityPlatformConfig#authorized_domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#authorized_domains GoogleIdentityPlatformConfig#authorized_domains}
         '''
         result = self._values.get("authorized_domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1665,7 +1665,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether anonymous users will be auto-deleted after a period of 30 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#autodelete_anonymous_users GoogleIdentityPlatformConfig#autodelete_anonymous_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#autodelete_anonymous_users GoogleIdentityPlatformConfig#autodelete_anonymous_users}
         '''
         result = self._values.get("autodelete_anonymous_users")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1676,7 +1676,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[GoogleIdentityPlatformConfigBlockingFunctions]:
         '''blocking_functions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#blocking_functions GoogleIdentityPlatformConfig#blocking_functions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#blocking_functions GoogleIdentityPlatformConfig#blocking_functions}
         '''
         result = self._values.get("blocking_functions")
         return typing.cast(typing.Optional[GoogleIdentityPlatformConfigBlockingFunctions], result)
@@ -1685,14 +1685,14 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def client(self) -> typing.Optional[GoogleIdentityPlatformConfigClient]:
         '''client block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#client GoogleIdentityPlatformConfig#client}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#client GoogleIdentityPlatformConfig#client}
         '''
         result = self._values.get("client")
         return typing.cast(typing.Optional[GoogleIdentityPlatformConfigClient], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#id GoogleIdentityPlatformConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#id GoogleIdentityPlatformConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1704,7 +1704,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def mfa(self) -> typing.Optional["GoogleIdentityPlatformConfigMfa"]:
         '''mfa block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#mfa GoogleIdentityPlatformConfig#mfa}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#mfa GoogleIdentityPlatformConfig#mfa}
         '''
         result = self._values.get("mfa")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigMfa"], result)
@@ -1713,7 +1713,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def monitoring(self) -> typing.Optional["GoogleIdentityPlatformConfigMonitoring"]:
         '''monitoring block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#monitoring GoogleIdentityPlatformConfig#monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#monitoring GoogleIdentityPlatformConfig#monitoring}
         '''
         result = self._values.get("monitoring")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigMonitoring"], result)
@@ -1724,14 +1724,14 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["GoogleIdentityPlatformConfigMultiTenant"]:
         '''multi_tenant block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#multi_tenant GoogleIdentityPlatformConfig#multi_tenant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#multi_tenant GoogleIdentityPlatformConfig#multi_tenant}
         '''
         result = self._values.get("multi_tenant")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigMultiTenant"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#project GoogleIdentityPlatformConfig#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#project GoogleIdentityPlatformConfig#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1739,7 +1739,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def quota(self) -> typing.Optional["GoogleIdentityPlatformConfigQuota"]:
         '''quota block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigQuota"], result)
@@ -1748,7 +1748,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def sign_in(self) -> typing.Optional["GoogleIdentityPlatformConfigSignIn"]:
         '''sign_in block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sign_in GoogleIdentityPlatformConfig#sign_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sign_in GoogleIdentityPlatformConfig#sign_in}
         '''
         result = self._values.get("sign_in")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigSignIn"], result)
@@ -1759,7 +1759,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["GoogleIdentityPlatformConfigSmsRegionConfig"]:
         '''sms_region_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sms_region_config GoogleIdentityPlatformConfig#sms_region_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sms_region_config GoogleIdentityPlatformConfig#sms_region_config}
         '''
         result = self._values.get("sms_region_config")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigSmsRegionConfig"], result)
@@ -1768,7 +1768,7 @@ class GoogleIdentityPlatformConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["GoogleIdentityPlatformConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#timeouts GoogleIdentityPlatformConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#timeouts GoogleIdentityPlatformConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigTimeouts"], result)
@@ -1803,9 +1803,9 @@ class GoogleIdentityPlatformConfigMfa:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled_providers: A list of usable second factors for this project. Possible values: ["PHONE_SMS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled_providers GoogleIdentityPlatformConfig#enabled_providers}
-        :param provider_configs: provider_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#provider_configs GoogleIdentityPlatformConfig#provider_configs}
-        :param state: Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
+        :param enabled_providers: A list of usable second factors for this project. Possible values: ["PHONE_SMS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled_providers GoogleIdentityPlatformConfig#enabled_providers}
+        :param provider_configs: provider_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#provider_configs GoogleIdentityPlatformConfig#provider_configs}
+        :param state: Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b18702fffe3caffd16c3ae5f2c904a7e1e8a3e4da8029686384e2b43fc7e85c)
@@ -1824,7 +1824,7 @@ class GoogleIdentityPlatformConfigMfa:
     def enabled_providers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of usable second factors for this project. Possible values: ["PHONE_SMS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled_providers GoogleIdentityPlatformConfig#enabled_providers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled_providers GoogleIdentityPlatformConfig#enabled_providers}
         '''
         result = self._values.get("enabled_providers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1835,7 +1835,7 @@ class GoogleIdentityPlatformConfigMfa:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleIdentityPlatformConfigMfaProviderConfigs"]]]:
         '''provider_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#provider_configs GoogleIdentityPlatformConfig#provider_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#provider_configs GoogleIdentityPlatformConfig#provider_configs}
         '''
         result = self._values.get("provider_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleIdentityPlatformConfigMfaProviderConfigs"]]], result)
@@ -1844,7 +1844,7 @@ class GoogleIdentityPlatformConfigMfa:
     def state(self) -> typing.Optional[builtins.str]:
         '''Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1981,8 +1981,8 @@ class GoogleIdentityPlatformConfigMfaProviderConfigs:
         totp_provider_config: typing.Optional[typing.Union["GoogleIdentityPlatformConfigMfaProviderConfigsTotpProviderConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param state: Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
-        :param totp_provider_config: totp_provider_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#totp_provider_config GoogleIdentityPlatformConfig#totp_provider_config}
+        :param state: Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
+        :param totp_provider_config: totp_provider_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#totp_provider_config GoogleIdentityPlatformConfig#totp_provider_config}
         '''
         if isinstance(totp_provider_config, dict):
             totp_provider_config = GoogleIdentityPlatformConfigMfaProviderConfigsTotpProviderConfig(**totp_provider_config)
@@ -2000,7 +2000,7 @@ class GoogleIdentityPlatformConfigMfaProviderConfigs:
     def state(self) -> typing.Optional[builtins.str]:
         '''Whether MultiFactor Authentication has been enabled for this project. Possible values: ["DISABLED", "ENABLED", "MANDATORY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#state GoogleIdentityPlatformConfig#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2011,7 +2011,7 @@ class GoogleIdentityPlatformConfigMfaProviderConfigs:
     ) -> typing.Optional["GoogleIdentityPlatformConfigMfaProviderConfigsTotpProviderConfig"]:
         '''totp_provider_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#totp_provider_config GoogleIdentityPlatformConfig#totp_provider_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#totp_provider_config GoogleIdentityPlatformConfig#totp_provider_config}
         '''
         result = self._values.get("totp_provider_config")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigMfaProviderConfigsTotpProviderConfig"], result)
@@ -2154,7 +2154,7 @@ class GoogleIdentityPlatformConfigMfaProviderConfigsOutputReference(
         adjacent_intervals: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param adjacent_intervals: The allowed number of adjacent intervals that will be used for verification to avoid clock skew. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#adjacent_intervals GoogleIdentityPlatformConfig#adjacent_intervals}
+        :param adjacent_intervals: The allowed number of adjacent intervals that will be used for verification to avoid clock skew. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#adjacent_intervals GoogleIdentityPlatformConfig#adjacent_intervals}
         '''
         value = GoogleIdentityPlatformConfigMfaProviderConfigsTotpProviderConfig(
             adjacent_intervals=adjacent_intervals
@@ -2231,7 +2231,7 @@ class GoogleIdentityPlatformConfigMfaProviderConfigsTotpProviderConfig:
         adjacent_intervals: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param adjacent_intervals: The allowed number of adjacent intervals that will be used for verification to avoid clock skew. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#adjacent_intervals GoogleIdentityPlatformConfig#adjacent_intervals}
+        :param adjacent_intervals: The allowed number of adjacent intervals that will be used for verification to avoid clock skew. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#adjacent_intervals GoogleIdentityPlatformConfig#adjacent_intervals}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__715e84f5ecf14e42b6870e7184047c850497c86c74d2a9c7b9fc69e3b46c5607)
@@ -2244,7 +2244,7 @@ class GoogleIdentityPlatformConfigMfaProviderConfigsTotpProviderConfig:
     def adjacent_intervals(self) -> typing.Optional[jsii.Number]:
         '''The allowed number of adjacent intervals that will be used for verification to avoid clock skew.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#adjacent_intervals GoogleIdentityPlatformConfig#adjacent_intervals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#adjacent_intervals GoogleIdentityPlatformConfig#adjacent_intervals}
         '''
         result = self._values.get("adjacent_intervals")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2332,7 +2332,7 @@ class GoogleIdentityPlatformConfigMonitoring:
         request_logging: typing.Optional[typing.Union["GoogleIdentityPlatformConfigMonitoringRequestLogging", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param request_logging: request_logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#request_logging GoogleIdentityPlatformConfig#request_logging}
+        :param request_logging: request_logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#request_logging GoogleIdentityPlatformConfig#request_logging}
         '''
         if isinstance(request_logging, dict):
             request_logging = GoogleIdentityPlatformConfigMonitoringRequestLogging(**request_logging)
@@ -2349,7 +2349,7 @@ class GoogleIdentityPlatformConfigMonitoring:
     ) -> typing.Optional["GoogleIdentityPlatformConfigMonitoringRequestLogging"]:
         '''request_logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#request_logging GoogleIdentityPlatformConfig#request_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#request_logging GoogleIdentityPlatformConfig#request_logging}
         '''
         result = self._values.get("request_logging")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigMonitoringRequestLogging"], result)
@@ -2393,7 +2393,7 @@ class GoogleIdentityPlatformConfigMonitoringOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether logging is enabled for this project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param enabled: Whether logging is enabled for this project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         value = GoogleIdentityPlatformConfigMonitoringRequestLogging(enabled=enabled)
 
@@ -2445,7 +2445,7 @@ class GoogleIdentityPlatformConfigMonitoringRequestLogging:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether logging is enabled for this project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param enabled: Whether logging is enabled for this project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58bbc80869022df553e6a886e90f023a84eaf7bc8db5fa492da698170b1714f4)
@@ -2460,7 +2460,7 @@ class GoogleIdentityPlatformConfigMonitoringRequestLogging:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether logging is enabled for this project or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2557,8 +2557,8 @@ class GoogleIdentityPlatformConfigMultiTenant:
         default_tenant_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_tenants: Whether this project can have tenants or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_tenants GoogleIdentityPlatformConfig#allow_tenants}
-        :param default_tenant_location: The default cloud parent org or folder that the tenant project should be created under. The parent resource name should be in the format of "/", such as "folders/123" or "organizations/456". If the value is not set, the tenant will be created under the same organization or folder as the agent project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#default_tenant_location GoogleIdentityPlatformConfig#default_tenant_location}
+        :param allow_tenants: Whether this project can have tenants or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_tenants GoogleIdentityPlatformConfig#allow_tenants}
+        :param default_tenant_location: The default cloud parent org or folder that the tenant project should be created under. The parent resource name should be in the format of "/", such as "folders/123" or "organizations/456". If the value is not set, the tenant will be created under the same organization or folder as the agent project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#default_tenant_location GoogleIdentityPlatformConfig#default_tenant_location}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__226a802c3ecf50d1ce7935044f37b5c63508baeacf072e943696f64b73ab8a2b)
@@ -2576,7 +2576,7 @@ class GoogleIdentityPlatformConfigMultiTenant:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this project can have tenants or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_tenants GoogleIdentityPlatformConfig#allow_tenants}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_tenants GoogleIdentityPlatformConfig#allow_tenants}
         '''
         result = self._values.get("allow_tenants")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2588,7 +2588,7 @@ class GoogleIdentityPlatformConfigMultiTenant:
         The parent resource name should be in the format of "/", such as "folders/123" or "organizations/456".
         If the value is not set, the tenant will be created under the same organization or folder as the agent project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#default_tenant_location GoogleIdentityPlatformConfig#default_tenant_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#default_tenant_location GoogleIdentityPlatformConfig#default_tenant_location}
         '''
         result = self._values.get("default_tenant_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2702,7 +2702,7 @@ class GoogleIdentityPlatformConfigQuota:
         sign_up_quota_config: typing.Optional[typing.Union["GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param sign_up_quota_config: sign_up_quota_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sign_up_quota_config GoogleIdentityPlatformConfig#sign_up_quota_config}
+        :param sign_up_quota_config: sign_up_quota_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sign_up_quota_config GoogleIdentityPlatformConfig#sign_up_quota_config}
         '''
         if isinstance(sign_up_quota_config, dict):
             sign_up_quota_config = GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig(**sign_up_quota_config)
@@ -2719,7 +2719,7 @@ class GoogleIdentityPlatformConfigQuota:
     ) -> typing.Optional["GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig"]:
         '''sign_up_quota_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#sign_up_quota_config GoogleIdentityPlatformConfig#sign_up_quota_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#sign_up_quota_config GoogleIdentityPlatformConfig#sign_up_quota_config}
         '''
         result = self._values.get("sign_up_quota_config")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig"], result)
@@ -2765,9 +2765,9 @@ class GoogleIdentityPlatformConfigQuotaOutputReference(
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param quota: A sign up APIs quota that customers can override temporarily. Value can be in between 1 and 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
-        :param quota_duration: How long this quota will be active for. It is measurred in seconds, e.g., Example: "9.615s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota_duration GoogleIdentityPlatformConfig#quota_duration}
-        :param start_time: When this quota will take affect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#start_time GoogleIdentityPlatformConfig#start_time}
+        :param quota: A sign up APIs quota that customers can override temporarily. Value can be in between 1 and 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
+        :param quota_duration: How long this quota will be active for. It is measurred in seconds, e.g., Example: "9.615s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota_duration GoogleIdentityPlatformConfig#quota_duration}
+        :param start_time: When this quota will take affect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#start_time GoogleIdentityPlatformConfig#start_time}
         '''
         value = GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig(
             quota=quota, quota_duration=quota_duration, start_time=start_time
@@ -2827,9 +2827,9 @@ class GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param quota: A sign up APIs quota that customers can override temporarily. Value can be in between 1 and 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
-        :param quota_duration: How long this quota will be active for. It is measurred in seconds, e.g., Example: "9.615s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota_duration GoogleIdentityPlatformConfig#quota_duration}
-        :param start_time: When this quota will take affect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#start_time GoogleIdentityPlatformConfig#start_time}
+        :param quota: A sign up APIs quota that customers can override temporarily. Value can be in between 1 and 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
+        :param quota_duration: How long this quota will be active for. It is measurred in seconds, e.g., Example: "9.615s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota_duration GoogleIdentityPlatformConfig#quota_duration}
+        :param start_time: When this quota will take affect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#start_time GoogleIdentityPlatformConfig#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4dd6a6f79d93692d6ffd7aa47cee1623d50e025a41f5978ce80279e8b9bd4ac)
@@ -2848,7 +2848,7 @@ class GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig:
     def quota(self) -> typing.Optional[jsii.Number]:
         '''A sign up APIs quota that customers can override temporarily. Value can be in between 1 and 1000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota GoogleIdentityPlatformConfig#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2857,7 +2857,7 @@ class GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig:
     def quota_duration(self) -> typing.Optional[builtins.str]:
         '''How long this quota will be active for. It is measurred in seconds, e.g., Example: "9.615s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#quota_duration GoogleIdentityPlatformConfig#quota_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#quota_duration GoogleIdentityPlatformConfig#quota_duration}
         '''
         result = self._values.get("quota_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2866,7 +2866,7 @@ class GoogleIdentityPlatformConfigQuotaSignUpQuotaConfig:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''When this quota will take affect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#start_time GoogleIdentityPlatformConfig#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#start_time GoogleIdentityPlatformConfig#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3004,10 +3004,10 @@ class GoogleIdentityPlatformConfigSignIn:
         phone_number: typing.Optional[typing.Union["GoogleIdentityPlatformConfigSignInPhoneNumber", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_duplicate_emails: Whether to allow more than one account to have the same email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_duplicate_emails GoogleIdentityPlatformConfig#allow_duplicate_emails}
-        :param anonymous: anonymous block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#anonymous GoogleIdentityPlatformConfig#anonymous}
-        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#email GoogleIdentityPlatformConfig#email}
-        :param phone_number: phone_number block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#phone_number GoogleIdentityPlatformConfig#phone_number}
+        :param allow_duplicate_emails: Whether to allow more than one account to have the same email. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_duplicate_emails GoogleIdentityPlatformConfig#allow_duplicate_emails}
+        :param anonymous: anonymous block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#anonymous GoogleIdentityPlatformConfig#anonymous}
+        :param email: email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#email GoogleIdentityPlatformConfig#email}
+        :param phone_number: phone_number block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#phone_number GoogleIdentityPlatformConfig#phone_number}
         '''
         if isinstance(anonymous, dict):
             anonymous = GoogleIdentityPlatformConfigSignInAnonymous(**anonymous)
@@ -3037,7 +3037,7 @@ class GoogleIdentityPlatformConfigSignIn:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to allow more than one account to have the same email.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_duplicate_emails GoogleIdentityPlatformConfig#allow_duplicate_emails}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_duplicate_emails GoogleIdentityPlatformConfig#allow_duplicate_emails}
         '''
         result = self._values.get("allow_duplicate_emails")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3048,7 +3048,7 @@ class GoogleIdentityPlatformConfigSignIn:
     ) -> typing.Optional["GoogleIdentityPlatformConfigSignInAnonymous"]:
         '''anonymous block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#anonymous GoogleIdentityPlatformConfig#anonymous}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#anonymous GoogleIdentityPlatformConfig#anonymous}
         '''
         result = self._values.get("anonymous")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigSignInAnonymous"], result)
@@ -3057,7 +3057,7 @@ class GoogleIdentityPlatformConfigSignIn:
     def email(self) -> typing.Optional["GoogleIdentityPlatformConfigSignInEmail"]:
         '''email block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#email GoogleIdentityPlatformConfig#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#email GoogleIdentityPlatformConfig#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigSignInEmail"], result)
@@ -3068,7 +3068,7 @@ class GoogleIdentityPlatformConfigSignIn:
     ) -> typing.Optional["GoogleIdentityPlatformConfigSignInPhoneNumber"]:
         '''phone_number block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#phone_number GoogleIdentityPlatformConfig#phone_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#phone_number GoogleIdentityPlatformConfig#phone_number}
         '''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigSignInPhoneNumber"], result)
@@ -3097,7 +3097,7 @@ class GoogleIdentityPlatformConfigSignInAnonymous:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether anonymous user auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param enabled: Whether anonymous user auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46b4d67995507aec4aabe4b404eebbafb24a25dbfeea4b0c8f3e6fc31d87d30d)
@@ -3110,7 +3110,7 @@ class GoogleIdentityPlatformConfigSignInAnonymous:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether anonymous user auth is enabled for the project or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -3201,8 +3201,8 @@ class GoogleIdentityPlatformConfigSignInEmail:
         password_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether email auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
-        :param password_required: Whether a password is required for email auth or not. If true, both an email and password must be provided to sign in. If false, a user may sign in via either email/password or email link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#password_required GoogleIdentityPlatformConfig#password_required}
+        :param enabled: Whether email auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param password_required: Whether a password is required for email auth or not. If true, both an email and password must be provided to sign in. If false, a user may sign in via either email/password or email link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#password_required GoogleIdentityPlatformConfig#password_required}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a21de46d12a029c54282417ac2dcbf67a70cb58abc9c9aa5908bfac046525aa0)
@@ -3218,7 +3218,7 @@ class GoogleIdentityPlatformConfigSignInEmail:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether email auth is enabled for the project or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -3234,7 +3234,7 @@ class GoogleIdentityPlatformConfigSignInEmail:
         password must be provided to sign in. If false, a user may sign in via either
         email/password or email link.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#password_required GoogleIdentityPlatformConfig#password_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#password_required GoogleIdentityPlatformConfig#password_required}
         '''
         result = self._values.get("password_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3532,7 +3532,7 @@ class GoogleIdentityPlatformConfigSignInOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether anonymous user auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param enabled: Whether anonymous user auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         value = GoogleIdentityPlatformConfigSignInAnonymous(enabled=enabled)
 
@@ -3546,8 +3546,8 @@ class GoogleIdentityPlatformConfigSignInOutputReference(
         password_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether email auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
-        :param password_required: Whether a password is required for email auth or not. If true, both an email and password must be provided to sign in. If false, a user may sign in via either email/password or email link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#password_required GoogleIdentityPlatformConfig#password_required}
+        :param enabled: Whether email auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param password_required: Whether a password is required for email auth or not. If true, both an email and password must be provided to sign in. If false, a user may sign in via either email/password or email link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#password_required GoogleIdentityPlatformConfig#password_required}
         '''
         value = GoogleIdentityPlatformConfigSignInEmail(
             enabled=enabled, password_required=password_required
@@ -3563,8 +3563,8 @@ class GoogleIdentityPlatformConfigSignInOutputReference(
         test_phone_numbers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param enabled: Whether phone number auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
-        :param test_phone_numbers: A map of <test phone number, fake code> that can be used for phone auth testing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#test_phone_numbers GoogleIdentityPlatformConfig#test_phone_numbers}
+        :param enabled: Whether phone number auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param test_phone_numbers: A map of <test phone number, fake code> that can be used for phone auth testing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#test_phone_numbers GoogleIdentityPlatformConfig#test_phone_numbers}
         '''
         value = GoogleIdentityPlatformConfigSignInPhoneNumber(
             enabled=enabled, test_phone_numbers=test_phone_numbers
@@ -3682,8 +3682,8 @@ class GoogleIdentityPlatformConfigSignInPhoneNumber:
         test_phone_numbers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param enabled: Whether phone number auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
-        :param test_phone_numbers: A map of <test phone number, fake code> that can be used for phone auth testing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#test_phone_numbers GoogleIdentityPlatformConfig#test_phone_numbers}
+        :param enabled: Whether phone number auth is enabled for the project or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        :param test_phone_numbers: A map of <test phone number, fake code> that can be used for phone auth testing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#test_phone_numbers GoogleIdentityPlatformConfig#test_phone_numbers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85b0f8b8938ef63993ef7b4c8b94220689c2d7146bd92e8172d4d4e2fec7361c)
@@ -3699,7 +3699,7 @@ class GoogleIdentityPlatformConfigSignInPhoneNumber:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether phone number auth is enabled for the project or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#enabled GoogleIdentityPlatformConfig#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -3711,7 +3711,7 @@ class GoogleIdentityPlatformConfigSignInPhoneNumber:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A map of <test phone number, fake code> that can be used for phone auth testing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#test_phone_numbers GoogleIdentityPlatformConfig#test_phone_numbers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#test_phone_numbers GoogleIdentityPlatformConfig#test_phone_numbers}
         '''
         result = self._values.get("test_phone_numbers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3830,8 +3830,8 @@ class GoogleIdentityPlatformConfigSmsRegionConfig:
         allowlist_only: typing.Optional[typing.Union["GoogleIdentityPlatformConfigSmsRegionConfigAllowlistOnly", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_by_default: allow_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_by_default GoogleIdentityPlatformConfig#allow_by_default}
-        :param allowlist_only: allowlist_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allowlist_only GoogleIdentityPlatformConfig#allowlist_only}
+        :param allow_by_default: allow_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_by_default GoogleIdentityPlatformConfig#allow_by_default}
+        :param allowlist_only: allowlist_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allowlist_only GoogleIdentityPlatformConfig#allowlist_only}
         '''
         if isinstance(allow_by_default, dict):
             allow_by_default = GoogleIdentityPlatformConfigSmsRegionConfigAllowByDefault(**allow_by_default)
@@ -3853,7 +3853,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfig:
     ) -> typing.Optional["GoogleIdentityPlatformConfigSmsRegionConfigAllowByDefault"]:
         '''allow_by_default block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allow_by_default GoogleIdentityPlatformConfig#allow_by_default}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allow_by_default GoogleIdentityPlatformConfig#allow_by_default}
         '''
         result = self._values.get("allow_by_default")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigSmsRegionConfigAllowByDefault"], result)
@@ -3864,7 +3864,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfig:
     ) -> typing.Optional["GoogleIdentityPlatformConfigSmsRegionConfigAllowlistOnly"]:
         '''allowlist_only block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allowlist_only GoogleIdentityPlatformConfig#allowlist_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allowlist_only GoogleIdentityPlatformConfig#allowlist_only}
         '''
         result = self._values.get("allowlist_only")
         return typing.cast(typing.Optional["GoogleIdentityPlatformConfigSmsRegionConfigAllowlistOnly"], result)
@@ -3893,7 +3893,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfigAllowByDefault:
         disallowed_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param disallowed_regions: Two letter unicode region codes to disallow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disallowed_regions GoogleIdentityPlatformConfig#disallowed_regions}
+        :param disallowed_regions: Two letter unicode region codes to disallow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disallowed_regions GoogleIdentityPlatformConfig#disallowed_regions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20b9bbc751366e3de85f16c0c685401683013b57ac2dc3d40c179e459f3b899c)
@@ -3906,7 +3906,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfigAllowByDefault:
     def disallowed_regions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Two letter unicode region codes to disallow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disallowed_regions GoogleIdentityPlatformConfig#disallowed_regions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disallowed_regions GoogleIdentityPlatformConfig#disallowed_regions}
         '''
         result = self._values.get("disallowed_regions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3994,7 +3994,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfigAllowlistOnly:
         allowed_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_regions: Two letter unicode region codes to allow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allowed_regions GoogleIdentityPlatformConfig#allowed_regions}
+        :param allowed_regions: Two letter unicode region codes to allow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allowed_regions GoogleIdentityPlatformConfig#allowed_regions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f8a76c229f695d1a882e2559e1bfda6f6b3108bc868c34bf8ace3f2ebe00ea9)
@@ -4007,7 +4007,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfigAllowlistOnly:
     def allowed_regions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Two letter unicode region codes to allow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allowed_regions GoogleIdentityPlatformConfig#allowed_regions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allowed_regions GoogleIdentityPlatformConfig#allowed_regions}
         '''
         result = self._values.get("allowed_regions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4110,7 +4110,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfigOutputReference(
         disallowed_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param disallowed_regions: Two letter unicode region codes to disallow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#disallowed_regions GoogleIdentityPlatformConfig#disallowed_regions}
+        :param disallowed_regions: Two letter unicode region codes to disallow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#disallowed_regions GoogleIdentityPlatformConfig#disallowed_regions}
         '''
         value = GoogleIdentityPlatformConfigSmsRegionConfigAllowByDefault(
             disallowed_regions=disallowed_regions
@@ -4125,7 +4125,7 @@ class GoogleIdentityPlatformConfigSmsRegionConfigOutputReference(
         allowed_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_regions: Two letter unicode region codes to allow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#allowed_regions GoogleIdentityPlatformConfig#allowed_regions}
+        :param allowed_regions: Two letter unicode region codes to allow as defined by https://cldr.unicode.org/ The full list of these region codes is here: https://github.com/unicode-cldr/cldr-localenames-full/blob/master/main/en/territories.json. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#allowed_regions GoogleIdentityPlatformConfig#allowed_regions}
         '''
         value = GoogleIdentityPlatformConfigSmsRegionConfigAllowlistOnly(
             allowed_regions=allowed_regions
@@ -4201,9 +4201,9 @@ class GoogleIdentityPlatformConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#create GoogleIdentityPlatformConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#delete GoogleIdentityPlatformConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#update GoogleIdentityPlatformConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#create GoogleIdentityPlatformConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#delete GoogleIdentityPlatformConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#update GoogleIdentityPlatformConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5556e26d89c8d6201715a0a3ea716f4ae344d2b1c73063b8401a418067b7914)
@@ -4220,19 +4220,19 @@ class GoogleIdentityPlatformConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#create GoogleIdentityPlatformConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#create GoogleIdentityPlatformConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#delete GoogleIdentityPlatformConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#delete GoogleIdentityPlatformConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_identity_platform_config#update GoogleIdentityPlatformConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_identity_platform_config#update GoogleIdentityPlatformConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

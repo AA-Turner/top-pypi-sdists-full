@@ -49,6 +49,7 @@ class OnboardingConfiguration:
     create_warehouse: bool = True
 
     is_active: bool = True
+    is_consumer_connection: bool = False
 
 
 @dataclass_json(letter_case=LetterCase.CAMEL, undefined=Undefined.INCLUDE)  # type: ignore

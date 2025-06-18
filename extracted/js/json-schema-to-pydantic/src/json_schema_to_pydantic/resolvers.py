@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Any, List, Literal, Optional, Set
 from uuid import UUID
 
@@ -25,11 +25,11 @@ class TypeResolver(ITypeResolver):
 
         if "const" in schema:
             if schema["const"] is None:
-                return Optional[Any]
+                return type(None)
             return Literal[schema["const"]]
 
         if schema.get("type") == "null":
-            return Optional[Any]
+            return type(None)
 
         # Handle array of types (e.g. ["string", "null"])
         if isinstance(schema.get("type"), list):
@@ -92,6 +92,8 @@ class TypeResolver(ITypeResolver):
             format_type = schema["format"]
             format_map = {
                 "date-time": datetime,
+                "date": date,
+                "time": time,
                 "email": str,
                 "uri": AnyUrl,
                 "uuid": UUID,

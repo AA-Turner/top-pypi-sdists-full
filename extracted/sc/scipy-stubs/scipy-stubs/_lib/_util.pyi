@@ -1,15 +1,16 @@
 import multiprocessing.pool as mpp
+import sys
 import types
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Concatenate, Final, Generic, Literal, NamedTuple, TypeAlias, overload
-from typing_extensions import Never, TypeVar, override
+from typing import Any, Concatenate, Final, Generic, Literal, NamedTuple, Never, TypeAlias, overload
+from typing_extensions import TypeVar, override
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
 import optype.numpy.compat as npc
 from numpy.random import Generator as Generator  # implicit re-export
-from optype.numpy.compat import DTypePromotionError as DTypePromotionError  # implicit re-export
+
 from scipy._typing import RNG, EnterSelfMixin
 
 _AnyRNGT = TypeVar("_AnyRNGT", np.random.RandomState, np.random.Generator)
@@ -38,8 +39,10 @@ GeneratorType = TypeVar("GeneratorType", bound=_RNG)  # noqa: PYI001  # oof
 
 ###
 
-class ComplexWarning(RuntimeWarning): ...
-class VisibleDeprecationWarning(UserWarning): ...
+# mypy<=1.16.1 workaround
+if sys.version_info >= (3, 14):
+    # see https://github.com/python/cpython/pull/130935
+    __conditional_annotations__: Final[set[int]] = ...
 
 class AxisError(ValueError, IndexError):
     _msg: Final[str | None]
@@ -121,3 +124,13 @@ def normalize_axis_index(axis: int, ndim: onp.NDim) -> onp.NDim: ...
 def normalize_axis_index(axis: int | _AxisT, ndim: _AxisT) -> _AxisT: ...
 @overload
 def normalize_axis_index(axis: _AxisT, ndim: onp.NDim | _AxisT) -> _AxisT: ...
+@overload
+def np_vecdot(x1: onp.ToIntStrict1D, x2: onp.ToIntStrict1D, /, *, axis: op.CanIndex = -1) -> np.integer: ...
+@overload
+def np_vecdot(x1: onp.ToFloatStrict1D, x2: onp.ToJustFloatStrict1D, /, *, axis: op.CanIndex = -1) -> npc.floating: ...
+@overload
+def np_vecdot(x1: onp.ToJustFloatStrict1D, x2: onp.ToFloatStrict1D, /, *, axis: op.CanIndex = -1) -> npc.floating: ...
+@overload
+def np_vecdot(x1: onp.ToComplexStrict1D, x2: onp.ToJustComplexStrict1D, /, *, axis: op.CanIndex = -1) -> npc.complexfloating: ...
+@overload
+def np_vecdot(x1: onp.ToJustComplexStrict1D, x2: onp.ToComplexStrict1D, /, *, axis: op.CanIndex = -1) -> npc.complexfloating: ...

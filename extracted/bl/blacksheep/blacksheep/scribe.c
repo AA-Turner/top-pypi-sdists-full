@@ -3251,8 +3251,9 @@ static const char __pyx_k_id[] = "id: ";
 static const char __pyx_k_re[] = "re";
 static const char __pyx_k_0_2[] = "0\r\n\r\n";
 static const char __pyx_k__13[] = "";
-static const char __pyx_k__17[] = "*";
-static const char __pyx_k__36[] = "\r\n|\n";
+static const char __pyx_k__17[] = "\n";
+static const char __pyx_k__18[] = "*";
+static const char __pyx_k__37[] = "\r\n|\n";
 static const char __pyx_k_hex[] = "hex";
 static const char __pyx_k_sub[] = "sub";
 static const char __pyx_k_url[] = "url";
@@ -3480,10 +3481,11 @@ typedef struct {
   PyObject *__pyx_n_s_ValueError;
   PyObject *__pyx_kp_b__13;
   PyObject *__pyx_kp_u__13;
-  PyObject *__pyx_n_s__17;
+  PyObject *__pyx_kp_b__17;
+  PyObject *__pyx_n_s__18;
   PyObject *__pyx_kp_b__2;
   PyObject *__pyx_kp_b__3;
-  PyObject *__pyx_kp_u__36;
+  PyObject *__pyx_kp_u__37;
   PyObject *__pyx_kp_b__4;
   PyObject *__pyx_kp_b__5;
   PyObject *__pyx_n_s__6;
@@ -3575,18 +3577,18 @@ typedef struct {
   PyObject *__pyx_tuple_;
   PyObject *__pyx_slice__8;
   PyObject *__pyx_tuple__10;
-  PyObject *__pyx_tuple__18;
-  PyObject *__pyx_tuple__20;
-  PyObject *__pyx_tuple__22;
+  PyObject *__pyx_tuple__19;
+  PyObject *__pyx_tuple__21;
   PyObject *__pyx_tuple__23;
-  PyObject *__pyx_tuple__28;
-  PyObject *__pyx_tuple__31;
+  PyObject *__pyx_tuple__24;
+  PyObject *__pyx_tuple__29;
   PyObject *__pyx_tuple__32;
   PyObject *__pyx_tuple__33;
   PyObject *__pyx_tuple__34;
   PyObject *__pyx_tuple__35;
-  PyObject *__pyx_tuple__37;
+  PyObject *__pyx_tuple__36;
   PyObject *__pyx_tuple__38;
+  PyObject *__pyx_tuple__39;
   PyObject *__pyx_codeobj__7;
   PyObject *__pyx_codeobj__9;
   PyObject *__pyx_codeobj__11;
@@ -3594,15 +3596,15 @@ typedef struct {
   PyObject *__pyx_codeobj__14;
   PyObject *__pyx_codeobj__15;
   PyObject *__pyx_codeobj__16;
-  PyObject *__pyx_codeobj__19;
-  PyObject *__pyx_codeobj__21;
-  PyObject *__pyx_codeobj__24;
+  PyObject *__pyx_codeobj__20;
+  PyObject *__pyx_codeobj__22;
   PyObject *__pyx_codeobj__25;
   PyObject *__pyx_codeobj__26;
   PyObject *__pyx_codeobj__27;
-  PyObject *__pyx_codeobj__29;
+  PyObject *__pyx_codeobj__28;
   PyObject *__pyx_codeobj__30;
-  PyObject *__pyx_codeobj__39;
+  PyObject *__pyx_codeobj__31;
+  PyObject *__pyx_codeobj__40;
 } __pyx_mstate;
 
 #if CYTHON_USE_MODULE_STATE
@@ -3704,10 +3706,11 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_ValueError);
   Py_CLEAR(clear_module_state->__pyx_kp_b__13);
   Py_CLEAR(clear_module_state->__pyx_kp_u__13);
-  Py_CLEAR(clear_module_state->__pyx_n_s__17);
+  Py_CLEAR(clear_module_state->__pyx_kp_b__17);
+  Py_CLEAR(clear_module_state->__pyx_n_s__18);
   Py_CLEAR(clear_module_state->__pyx_kp_b__2);
   Py_CLEAR(clear_module_state->__pyx_kp_b__3);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__36);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__37);
   Py_CLEAR(clear_module_state->__pyx_kp_b__4);
   Py_CLEAR(clear_module_state->__pyx_kp_b__5);
   Py_CLEAR(clear_module_state->__pyx_n_s__6);
@@ -3799,18 +3802,18 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_tuple_);
   Py_CLEAR(clear_module_state->__pyx_slice__8);
   Py_CLEAR(clear_module_state->__pyx_tuple__10);
-  Py_CLEAR(clear_module_state->__pyx_tuple__18);
-  Py_CLEAR(clear_module_state->__pyx_tuple__20);
-  Py_CLEAR(clear_module_state->__pyx_tuple__22);
+  Py_CLEAR(clear_module_state->__pyx_tuple__19);
+  Py_CLEAR(clear_module_state->__pyx_tuple__21);
   Py_CLEAR(clear_module_state->__pyx_tuple__23);
-  Py_CLEAR(clear_module_state->__pyx_tuple__28);
-  Py_CLEAR(clear_module_state->__pyx_tuple__31);
+  Py_CLEAR(clear_module_state->__pyx_tuple__24);
+  Py_CLEAR(clear_module_state->__pyx_tuple__29);
   Py_CLEAR(clear_module_state->__pyx_tuple__32);
   Py_CLEAR(clear_module_state->__pyx_tuple__33);
   Py_CLEAR(clear_module_state->__pyx_tuple__34);
   Py_CLEAR(clear_module_state->__pyx_tuple__35);
-  Py_CLEAR(clear_module_state->__pyx_tuple__37);
+  Py_CLEAR(clear_module_state->__pyx_tuple__36);
   Py_CLEAR(clear_module_state->__pyx_tuple__38);
+  Py_CLEAR(clear_module_state->__pyx_tuple__39);
   Py_CLEAR(clear_module_state->__pyx_codeobj__7);
   Py_CLEAR(clear_module_state->__pyx_codeobj__9);
   Py_CLEAR(clear_module_state->__pyx_codeobj__11);
@@ -3818,15 +3821,15 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_codeobj__14);
   Py_CLEAR(clear_module_state->__pyx_codeobj__15);
   Py_CLEAR(clear_module_state->__pyx_codeobj__16);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__19);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__21);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__24);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__20);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__22);
   Py_CLEAR(clear_module_state->__pyx_codeobj__25);
   Py_CLEAR(clear_module_state->__pyx_codeobj__26);
   Py_CLEAR(clear_module_state->__pyx_codeobj__27);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__29);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__28);
   Py_CLEAR(clear_module_state->__pyx_codeobj__30);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__39);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__31);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__40);
   return 0;
 }
 #endif
@@ -3906,10 +3909,11 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_ValueError);
   Py_VISIT(traverse_module_state->__pyx_kp_b__13);
   Py_VISIT(traverse_module_state->__pyx_kp_u__13);
-  Py_VISIT(traverse_module_state->__pyx_n_s__17);
+  Py_VISIT(traverse_module_state->__pyx_kp_b__17);
+  Py_VISIT(traverse_module_state->__pyx_n_s__18);
   Py_VISIT(traverse_module_state->__pyx_kp_b__2);
   Py_VISIT(traverse_module_state->__pyx_kp_b__3);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__36);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__37);
   Py_VISIT(traverse_module_state->__pyx_kp_b__4);
   Py_VISIT(traverse_module_state->__pyx_kp_b__5);
   Py_VISIT(traverse_module_state->__pyx_n_s__6);
@@ -4001,18 +4005,18 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_tuple_);
   Py_VISIT(traverse_module_state->__pyx_slice__8);
   Py_VISIT(traverse_module_state->__pyx_tuple__10);
-  Py_VISIT(traverse_module_state->__pyx_tuple__18);
-  Py_VISIT(traverse_module_state->__pyx_tuple__20);
-  Py_VISIT(traverse_module_state->__pyx_tuple__22);
+  Py_VISIT(traverse_module_state->__pyx_tuple__19);
+  Py_VISIT(traverse_module_state->__pyx_tuple__21);
   Py_VISIT(traverse_module_state->__pyx_tuple__23);
-  Py_VISIT(traverse_module_state->__pyx_tuple__28);
-  Py_VISIT(traverse_module_state->__pyx_tuple__31);
+  Py_VISIT(traverse_module_state->__pyx_tuple__24);
+  Py_VISIT(traverse_module_state->__pyx_tuple__29);
   Py_VISIT(traverse_module_state->__pyx_tuple__32);
   Py_VISIT(traverse_module_state->__pyx_tuple__33);
   Py_VISIT(traverse_module_state->__pyx_tuple__34);
   Py_VISIT(traverse_module_state->__pyx_tuple__35);
-  Py_VISIT(traverse_module_state->__pyx_tuple__37);
+  Py_VISIT(traverse_module_state->__pyx_tuple__36);
   Py_VISIT(traverse_module_state->__pyx_tuple__38);
+  Py_VISIT(traverse_module_state->__pyx_tuple__39);
   Py_VISIT(traverse_module_state->__pyx_codeobj__7);
   Py_VISIT(traverse_module_state->__pyx_codeobj__9);
   Py_VISIT(traverse_module_state->__pyx_codeobj__11);
@@ -4020,15 +4024,15 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_codeobj__14);
   Py_VISIT(traverse_module_state->__pyx_codeobj__15);
   Py_VISIT(traverse_module_state->__pyx_codeobj__16);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__19);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__21);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__24);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__20);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__22);
   Py_VISIT(traverse_module_state->__pyx_codeobj__25);
   Py_VISIT(traverse_module_state->__pyx_codeobj__26);
   Py_VISIT(traverse_module_state->__pyx_codeobj__27);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__29);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__28);
   Py_VISIT(traverse_module_state->__pyx_codeobj__30);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__39);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__31);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__40);
   return 0;
 }
 #endif
@@ -4146,10 +4150,11 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_ValueError __pyx_mstate_global->__pyx_n_s_ValueError
 #define __pyx_kp_b__13 __pyx_mstate_global->__pyx_kp_b__13
 #define __pyx_kp_u__13 __pyx_mstate_global->__pyx_kp_u__13
-#define __pyx_n_s__17 __pyx_mstate_global->__pyx_n_s__17
+#define __pyx_kp_b__17 __pyx_mstate_global->__pyx_kp_b__17
+#define __pyx_n_s__18 __pyx_mstate_global->__pyx_n_s__18
 #define __pyx_kp_b__2 __pyx_mstate_global->__pyx_kp_b__2
 #define __pyx_kp_b__3 __pyx_mstate_global->__pyx_kp_b__3
-#define __pyx_kp_u__36 __pyx_mstate_global->__pyx_kp_u__36
+#define __pyx_kp_u__37 __pyx_mstate_global->__pyx_kp_u__37
 #define __pyx_kp_b__4 __pyx_mstate_global->__pyx_kp_b__4
 #define __pyx_kp_b__5 __pyx_mstate_global->__pyx_kp_b__5
 #define __pyx_n_s__6 __pyx_mstate_global->__pyx_n_s__6
@@ -4241,18 +4246,18 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_tuple_ __pyx_mstate_global->__pyx_tuple_
 #define __pyx_slice__8 __pyx_mstate_global->__pyx_slice__8
 #define __pyx_tuple__10 __pyx_mstate_global->__pyx_tuple__10
-#define __pyx_tuple__18 __pyx_mstate_global->__pyx_tuple__18
-#define __pyx_tuple__20 __pyx_mstate_global->__pyx_tuple__20
-#define __pyx_tuple__22 __pyx_mstate_global->__pyx_tuple__22
+#define __pyx_tuple__19 __pyx_mstate_global->__pyx_tuple__19
+#define __pyx_tuple__21 __pyx_mstate_global->__pyx_tuple__21
 #define __pyx_tuple__23 __pyx_mstate_global->__pyx_tuple__23
-#define __pyx_tuple__28 __pyx_mstate_global->__pyx_tuple__28
-#define __pyx_tuple__31 __pyx_mstate_global->__pyx_tuple__31
+#define __pyx_tuple__24 __pyx_mstate_global->__pyx_tuple__24
+#define __pyx_tuple__29 __pyx_mstate_global->__pyx_tuple__29
 #define __pyx_tuple__32 __pyx_mstate_global->__pyx_tuple__32
 #define __pyx_tuple__33 __pyx_mstate_global->__pyx_tuple__33
 #define __pyx_tuple__34 __pyx_mstate_global->__pyx_tuple__34
 #define __pyx_tuple__35 __pyx_mstate_global->__pyx_tuple__35
-#define __pyx_tuple__37 __pyx_mstate_global->__pyx_tuple__37
+#define __pyx_tuple__36 __pyx_mstate_global->__pyx_tuple__36
 #define __pyx_tuple__38 __pyx_mstate_global->__pyx_tuple__38
+#define __pyx_tuple__39 __pyx_mstate_global->__pyx_tuple__39
 #define __pyx_codeobj__7 __pyx_mstate_global->__pyx_codeobj__7
 #define __pyx_codeobj__9 __pyx_mstate_global->__pyx_codeobj__9
 #define __pyx_codeobj__11 __pyx_mstate_global->__pyx_codeobj__11
@@ -4260,15 +4265,15 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_codeobj__14 __pyx_mstate_global->__pyx_codeobj__14
 #define __pyx_codeobj__15 __pyx_mstate_global->__pyx_codeobj__15
 #define __pyx_codeobj__16 __pyx_mstate_global->__pyx_codeobj__16
-#define __pyx_codeobj__19 __pyx_mstate_global->__pyx_codeobj__19
-#define __pyx_codeobj__21 __pyx_mstate_global->__pyx_codeobj__21
-#define __pyx_codeobj__24 __pyx_mstate_global->__pyx_codeobj__24
+#define __pyx_codeobj__20 __pyx_mstate_global->__pyx_codeobj__20
+#define __pyx_codeobj__22 __pyx_mstate_global->__pyx_codeobj__22
 #define __pyx_codeobj__25 __pyx_mstate_global->__pyx_codeobj__25
 #define __pyx_codeobj__26 __pyx_mstate_global->__pyx_codeobj__26
 #define __pyx_codeobj__27 __pyx_mstate_global->__pyx_codeobj__27
-#define __pyx_codeobj__29 __pyx_mstate_global->__pyx_codeobj__29
+#define __pyx_codeobj__28 __pyx_mstate_global->__pyx_codeobj__28
 #define __pyx_codeobj__30 __pyx_mstate_global->__pyx_codeobj__30
-#define __pyx_codeobj__39 __pyx_mstate_global->__pyx_codeobj__39
+#define __pyx_codeobj__31 __pyx_mstate_global->__pyx_codeobj__31
+#define __pyx_codeobj__40 __pyx_mstate_global->__pyx_codeobj__40
 /* #### Code section: module_code ### */
 
 /* "cpython/datetime.pxd":72
@@ -13980,7 +13985,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
  *     cdef bytearray value = bytearray()
  * 
  *     if event.id:             # <<<<<<<<<<<<<<
- *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\r\n")
+ *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\n")
  * 
  */
   __pyx_t_2 = (__pyx_v_event->id != Py_None)&&(__Pyx_PyUnicode_IS_TRUE(__pyx_v_event->id) != 0);
@@ -13989,7 +13994,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     /* "blacksheep/scribe.pyx":369
  * 
  *     if event.id:
- *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\r\n")             # <<<<<<<<<<<<<<
+ *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\n")             # <<<<<<<<<<<<<<
  * 
  *     if event.comment:
  */
@@ -14048,7 +14053,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     __pyx_t_5 = PyNumber_Add(__pyx_kp_b_id, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 369, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyNumber_Add(__pyx_t_5, __pyx_kp_b__3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 369, __pyx_L1_error)
+    __pyx_t_1 = PyNumber_Add(__pyx_t_5, __pyx_kp_b__17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 369, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_5 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyByteArray_Type_extend, __pyx_v_value, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 369, __pyx_L1_error)
@@ -14060,17 +14065,17 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
  *     cdef bytearray value = bytearray()
  * 
  *     if event.id:             # <<<<<<<<<<<<<<
- *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\r\n")
+ *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\n")
  * 
  */
   }
 
   /* "blacksheep/scribe.pyx":371
- *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\r\n")
+ *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\n")
  * 
  *     if event.comment:             # <<<<<<<<<<<<<<
  *         for part in _NEW_LINES_RX.split(event.comment):
- *             value.extend(b": " + part.encode("utf8") + b"\r\n")
+ *             value.extend(b": " + part.encode("utf8") + b"\n")
  */
   __pyx_t_2 = (__pyx_v_event->comment != Py_None)&&(__Pyx_PyUnicode_IS_TRUE(__pyx_v_event->comment) != 0);
   if (__pyx_t_2) {
@@ -14079,7 +14084,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
  * 
  *     if event.comment:
  *         for part in _NEW_LINES_RX.split(event.comment):             # <<<<<<<<<<<<<<
- *             value.extend(b": " + part.encode("utf8") + b"\r\n")
+ *             value.extend(b": " + part.encode("utf8") + b"\n")
  * 
  */
     __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_NEW_LINES_RX); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 372, __pyx_L1_error)
@@ -14168,7 +14173,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
       /* "blacksheep/scribe.pyx":373
  *     if event.comment:
  *         for part in _NEW_LINES_RX.split(event.comment):
- *             value.extend(b": " + part.encode("utf8") + b"\r\n")             # <<<<<<<<<<<<<<
+ *             value.extend(b": " + part.encode("utf8") + b"\n")             # <<<<<<<<<<<<<<
  * 
  *     if event.event:
  */
@@ -14199,7 +14204,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
       __pyx_t_1 = PyNumber_Add(__pyx_kp_b__2, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 373, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = PyNumber_Add(__pyx_t_1, __pyx_kp_b__3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 373, __pyx_L1_error)
+      __pyx_t_5 = PyNumber_Add(__pyx_t_1, __pyx_kp_b__17); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 373, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyByteArray_Type_extend, __pyx_v_value, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 373, __pyx_L1_error)
@@ -14211,26 +14216,26 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
  * 
  *     if event.comment:
  *         for part in _NEW_LINES_RX.split(event.comment):             # <<<<<<<<<<<<<<
- *             value.extend(b": " + part.encode("utf8") + b"\r\n")
+ *             value.extend(b": " + part.encode("utf8") + b"\n")
  * 
  */
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
     /* "blacksheep/scribe.pyx":371
- *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\r\n")
+ *         value.extend(b"id: " + _NEW_LINES_RX.sub("", event.id).encode("utf8") + b"\n")
  * 
  *     if event.comment:             # <<<<<<<<<<<<<<
  *         for part in _NEW_LINES_RX.split(event.comment):
- *             value.extend(b": " + part.encode("utf8") + b"\r\n")
+ *             value.extend(b": " + part.encode("utf8") + b"\n")
  */
   }
 
   /* "blacksheep/scribe.pyx":375
- *             value.extend(b": " + part.encode("utf8") + b"\r\n")
+ *             value.extend(b": " + part.encode("utf8") + b"\n")
  * 
  *     if event.event:             # <<<<<<<<<<<<<<
- *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\r\n")
+ *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\n")
  * 
  */
   __pyx_t_2 = (__pyx_v_event->event != Py_None)&&(__Pyx_PyUnicode_IS_TRUE(__pyx_v_event->event) != 0);
@@ -14239,7 +14244,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     /* "blacksheep/scribe.pyx":376
  * 
  *     if event.event:
- *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\r\n")             # <<<<<<<<<<<<<<
+ *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\n")             # <<<<<<<<<<<<<<
  * 
  *     if event.data:
  */
@@ -14298,7 +14303,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     __pyx_t_4 = PyNumber_Add(__pyx_kp_b_event, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_kp_b__3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 376, __pyx_L1_error)
+    __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_kp_b__17); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 376, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_4 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyByteArray_Type_extend, __pyx_v_value, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 376, __pyx_L1_error)
@@ -14307,19 +14312,19 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
     /* "blacksheep/scribe.pyx":375
- *             value.extend(b": " + part.encode("utf8") + b"\r\n")
+ *             value.extend(b": " + part.encode("utf8") + b"\n")
  * 
  *     if event.event:             # <<<<<<<<<<<<<<
- *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\r\n")
+ *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\n")
  * 
  */
   }
 
   /* "blacksheep/scribe.pyx":378
- *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\r\n")
+ *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\n")
  * 
  *     if event.data:             # <<<<<<<<<<<<<<
- *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\r\n")
+ *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\n")
  * 
  */
   __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_event->data); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 378, __pyx_L1_error)
@@ -14328,7 +14333,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     /* "blacksheep/scribe.pyx":379
  * 
  *     if event.data:
- *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\r\n")             # <<<<<<<<<<<<<<
+ *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\n")             # <<<<<<<<<<<<<<
  * 
  *     if event.retry > -1:
  */
@@ -14344,7 +14349,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     __pyx_t_4 = PyNumber_Add(__pyx_kp_b_data_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 379, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_kp_b__3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 379, __pyx_L1_error)
+    __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_kp_b__17); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 379, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_4 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyByteArray_Type_extend, __pyx_v_value, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 379, __pyx_L1_error)
@@ -14353,19 +14358,19 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
     /* "blacksheep/scribe.pyx":378
- *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\r\n")
+ *         value.extend(b"event: " + _NEW_LINES_RX.sub("", event.event).encode("utf8") + b"\n")
  * 
  *     if event.data:             # <<<<<<<<<<<<<<
- *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\r\n")
+ *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\n")
  * 
  */
   }
 
   /* "blacksheep/scribe.pyx":381
- *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\r\n")
+ *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\n")
  * 
  *     if event.retry > -1:             # <<<<<<<<<<<<<<
- *         value.extend(b"retry: " + str(event.retry).encode() + b"\r\n")
+ *         value.extend(b"retry: " + str(event.retry).encode() + b"\n")
  * 
  */
   __pyx_t_2 = (__pyx_v_event->retry > -1L);
@@ -14374,9 +14379,9 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     /* "blacksheep/scribe.pyx":382
  * 
  *     if event.retry > -1:
- *         value.extend(b"retry: " + str(event.retry).encode() + b"\r\n")             # <<<<<<<<<<<<<<
+ *         value.extend(b"retry: " + str(event.retry).encode() + b"\n")             # <<<<<<<<<<<<<<
  * 
- *     value.extend(b"\r\n")
+ *     value.extend(b"\n")
  */
     __pyx_t_4 = __Pyx_PyInt_From_int(__pyx_v_event->retry); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 382, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
@@ -14389,7 +14394,7 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     __pyx_t_3 = PyNumber_Add(__pyx_kp_b_retry, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_kp_b__3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 382, __pyx_L1_error)
+    __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_kp_b__17); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 382, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyByteArray_Type_extend, __pyx_v_value, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error)
@@ -14398,27 +14403,27 @@ static PyObject *__pyx_f_10blacksheep_6scribe_write_sse(struct __pyx_obj_10black
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
     /* "blacksheep/scribe.pyx":381
- *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\r\n")
+ *         value.extend(b"data: " + event.write_data().encode("utf8") + b"\n")
  * 
  *     if event.retry > -1:             # <<<<<<<<<<<<<<
- *         value.extend(b"retry: " + str(event.retry).encode() + b"\r\n")
+ *         value.extend(b"retry: " + str(event.retry).encode() + b"\n")
  * 
  */
   }
 
   /* "blacksheep/scribe.pyx":384
- *         value.extend(b"retry: " + str(event.retry).encode() + b"\r\n")
+ *         value.extend(b"retry: " + str(event.retry).encode() + b"\n")
  * 
- *     value.extend(b"\r\n")             # <<<<<<<<<<<<<<
+ *     value.extend(b"\n")             # <<<<<<<<<<<<<<
  *     return bytes(value)
  */
-  __pyx_t_3 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyByteArray_Type_extend, __pyx_v_value, __pyx_kp_b__3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 384, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CallUnboundCMethod1(&__pyx_umethod_PyByteArray_Type_extend, __pyx_v_value, __pyx_kp_b__17); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 384, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "blacksheep/scribe.pyx":385
  * 
- *     value.extend(b"\r\n")
+ *     value.extend(b"\n")
  *     return bytes(value)             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
@@ -15820,10 +15825,11 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_ValueError, __pyx_k_ValueError, sizeof(__pyx_k_ValueError), 0, 0, 1, 1},
     {&__pyx_kp_b__13, __pyx_k__13, sizeof(__pyx_k__13), 0, 0, 0, 0},
     {&__pyx_kp_u__13, __pyx_k__13, sizeof(__pyx_k__13), 0, 1, 0, 0},
-    {&__pyx_n_s__17, __pyx_k__17, sizeof(__pyx_k__17), 0, 0, 1, 1},
+    {&__pyx_kp_b__17, __pyx_k__17, sizeof(__pyx_k__17), 0, 0, 0, 0},
+    {&__pyx_n_s__18, __pyx_k__18, sizeof(__pyx_k__18), 0, 0, 1, 1},
     {&__pyx_kp_b__2, __pyx_k__2, sizeof(__pyx_k__2), 0, 0, 0, 0},
     {&__pyx_kp_b__3, __pyx_k__3, sizeof(__pyx_k__3), 0, 0, 0, 0},
-    {&__pyx_kp_u__36, __pyx_k__36, sizeof(__pyx_k__36), 0, 1, 0, 0},
+    {&__pyx_kp_u__37, __pyx_k__37, sizeof(__pyx_k__37), 0, 1, 0, 0},
     {&__pyx_kp_b__4, __pyx_k__4, sizeof(__pyx_k__4), 0, 0, 0, 0},
     {&__pyx_kp_b__5, __pyx_k__5, sizeof(__pyx_k__5), 0, 0, 0, 0},
     {&__pyx_n_s__6, __pyx_k__6, sizeof(__pyx_k__6), 0, 0, 1, 1},
@@ -15970,10 +15976,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     return STATUS_LINES[status]
  * 
  */
-  __pyx_tuple__18 = PyTuple_Pack(1, __pyx_n_s_status); if (unlikely(!__pyx_tuple__18)) __PYX_ERR(0, 46, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__18);
-  __Pyx_GIVEREF(__pyx_tuple__18);
-  __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__18, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_get_status_line, 46, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_tuple__19 = PyTuple_Pack(1, __pyx_n_s_status); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__19);
+  __Pyx_GIVEREF(__pyx_tuple__19);
+  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_get_status_line, 46, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 46, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":103
  * 
@@ -15982,10 +15988,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     return write_cookie_for_response(cookie)
  * 
  */
-  __pyx_tuple__20 = PyTuple_Pack(1, __pyx_n_s_cookie); if (unlikely(!__pyx_tuple__20)) __PYX_ERR(0, 103, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__20);
-  __Pyx_GIVEREF(__pyx_tuple__20);
-  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__20, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_response_cookie, 103, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_tuple__21 = PyTuple_Pack(1, __pyx_n_s_cookie); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__21);
+  __Pyx_GIVEREF(__pyx_tuple__21);
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__21, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_response_cookie, 103, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 103, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":107
  * 
@@ -15994,10 +16000,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     """
  *     Writes chunks for transfer encoding. This method only works when using
  */
-  __pyx_tuple__22 = PyTuple_Pack(2, __pyx_n_s_http_content, __pyx_n_s_chunk); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 107, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__22);
-  __Pyx_GIVEREF(__pyx_tuple__22);
-  __pyx_codeobj__7 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__22, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_chunks, 107, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__7)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __pyx_tuple__23 = PyTuple_Pack(2, __pyx_n_s_http_content, __pyx_n_s_chunk); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__23);
+  __Pyx_GIVEREF(__pyx_tuple__23);
+  __pyx_codeobj__7 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_chunks, 107, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__7)) __PYX_ERR(0, 107, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":130
  * 
@@ -16006,10 +16012,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef Content content = request.content
  *     if not content:
  */
-  __pyx_tuple__23 = PyTuple_Pack(1, __pyx_n_s_request); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__23);
-  __Pyx_GIVEREF(__pyx_tuple__23);
-  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_is_small_request, 130, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_tuple__24 = PyTuple_Pack(1, __pyx_n_s_request); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__24);
+  __Pyx_GIVEREF(__pyx_tuple__24);
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_is_small_request, 130, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 130, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":143
  * 
@@ -16018,7 +16024,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef Content content = request.content
  *     if not content or content.length == 0:
  */
-  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_request_has_body, 143, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_request_has_body, 143, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 143, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":152
  * 
@@ -16027,7 +16033,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef bytearray data = bytearray()
  *     data.extend(write_request_method(request) + b' ' + write_request_uri(request) + b' HTTP/1.1\r\n')
  */
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_request_without_body, 152, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_request_without_body, 152, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 152, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":163
  * 
@@ -16036,7 +16042,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef bytearray data = bytearray()
  *     data.extend(write_request_method(request) + b' ' + write_request_uri(request) + b' HTTP/1.1\r\n')
  */
-  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_small_request, 163, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_small_request, 163, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 163, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":188
  * 
@@ -16045,10 +16051,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     return write_small_response(response)
  * 
  */
-  __pyx_tuple__28 = PyTuple_Pack(1, __pyx_n_s_response); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 188, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__28);
-  __Pyx_GIVEREF(__pyx_tuple__28);
-  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__28, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_py_write_small_response, 188, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_tuple__29 = PyTuple_Pack(1, __pyx_n_s_response); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__29);
+  __Pyx_GIVEREF(__pyx_tuple__29);
+  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_py_write_small_response, 188, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 188, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":192
  * 
@@ -16057,7 +16063,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     return write_small_request(request)
  * 
  */
-  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_py_write_small_request, 192, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_py_write_small_request, 192, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 192, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":196
  * 
@@ -16066,10 +16072,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     # This method is used only for Expect: 100-continue scenario;
  *     # in such case the request headers are sent before the body
  */
-  __pyx_tuple__31 = PyTuple_Pack(4, __pyx_n_s_request, __pyx_n_s_data, __pyx_n_s_chunk, __pyx_n_s_content); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(0, 196, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__31);
-  __Pyx_GIVEREF(__pyx_tuple__31);
-  __pyx_codeobj__9 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__31, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_request_body_only, 196, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__9)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_tuple__32 = PyTuple_Pack(4, __pyx_n_s_request, __pyx_n_s_data, __pyx_n_s_chunk, __pyx_n_s_content); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__32);
+  __Pyx_GIVEREF(__pyx_tuple__32);
+  __pyx_codeobj__9 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_request_body_only, 196, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__9)) __PYX_ERR(0, 196, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":224
  * 
@@ -16078,7 +16084,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef bytes data
  *     cdef bytes chunk
  */
-  __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__31, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_request, 224, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) __PYX_ERR(0, 224, __pyx_L1_error)
+  __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_request, 224, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) __PYX_ERR(0, 224, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":255
  * 
@@ -16087,10 +16093,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef int i
  *     for i in range(0, len(data), MAX_RESPONSE_CHUNK_SIZE):
  */
-  __pyx_tuple__32 = PyTuple_Pack(2, __pyx_n_s_data, __pyx_n_s_i); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 255, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__32);
-  __Pyx_GIVEREF(__pyx_tuple__32);
-  __pyx_codeobj__12 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_get_chunks, 255, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__12)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_tuple__33 = PyTuple_Pack(2, __pyx_n_s_data, __pyx_n_s_i); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__33);
+  __Pyx_GIVEREF(__pyx_tuple__33);
+  __pyx_codeobj__12 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_get_chunks, 255, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__12)) __PYX_ERR(0, 255, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":262
  * 
@@ -16099,10 +16105,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef Content content
  *     cdef bytes data, chunk
  */
-  __pyx_tuple__33 = PyTuple_Pack(4, __pyx_n_s_response, __pyx_n_s_content, __pyx_n_s_data, __pyx_n_s_chunk); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(0, 262, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__33);
-  __Pyx_GIVEREF(__pyx_tuple__33);
-  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__33, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_response_content, 262, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_tuple__34 = PyTuple_Pack(4, __pyx_n_s_response, __pyx_n_s_content, __pyx_n_s_data, __pyx_n_s_chunk); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__34);
+  __Pyx_GIVEREF(__pyx_tuple__34);
+  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__34, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_response_content, 262, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(0, 262, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":287
  * 
@@ -16111,10 +16117,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef bytes data
  *     cdef bytes chunk
  */
-  __pyx_tuple__34 = PyTuple_Pack(4, __pyx_n_s_response, __pyx_n_s_data, __pyx_n_s_chunk, __pyx_n_s_content); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 287, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__34);
-  __Pyx_GIVEREF(__pyx_tuple__34);
-  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__34, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_response, 287, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_tuple__35 = PyTuple_Pack(4, __pyx_n_s_response, __pyx_n_s_data, __pyx_n_s_chunk, __pyx_n_s_content); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__35);
+  __Pyx_GIVEREF(__pyx_tuple__35);
+  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_ASYNC_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_response, 287, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 287, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":301
  * 
@@ -16123,10 +16129,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     cdef bytes chunk
  *     cdef Content content = response.content
  */
-  __pyx_tuple__35 = PyTuple_Pack(5, __pyx_n_s_response, __pyx_n_s_send, __pyx_n_s_chunk, __pyx_n_s_content, __pyx_n_s_closing_chunk); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 301, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__35);
-  __Pyx_GIVEREF(__pyx_tuple__35);
-  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_send_asgi_response, 301, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_tuple__36 = PyTuple_Pack(5, __pyx_n_s_response, __pyx_n_s_send, __pyx_n_s_chunk, __pyx_n_s_content, __pyx_n_s_closing_chunk); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__36);
+  __Pyx_GIVEREF(__pyx_tuple__36);
+  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__36, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_send_asgi_response, 301, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 301, __pyx_L1_error)
 
   /* "blacksheep/scribe.pyx":359
  * 
@@ -16135,9 +16141,9 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * 
  * 
  */
-  __pyx_tuple__37 = PyTuple_Pack(1, __pyx_kp_u__36); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 359, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__37);
-  __Pyx_GIVEREF(__pyx_tuple__37);
+  __pyx_tuple__38 = PyTuple_Pack(1, __pyx_kp_u__37); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__38);
+  __Pyx_GIVEREF(__pyx_tuple__38);
 
   /* "blacksheep/scribe.pyx":362
  * 
@@ -16146,10 +16152,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *     """
  *     Writes a ServerSentEvent object to bytes.
  */
-  __pyx_tuple__38 = PyTuple_Pack(1, __pyx_n_s_event_2); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 362, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__38);
-  __Pyx_GIVEREF(__pyx_tuple__38);
-  __pyx_codeobj__39 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__38, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_sse, 362, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__39)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_tuple__39 = PyTuple_Pack(1, __pyx_n_s_event_2); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__39);
+  __Pyx_GIVEREF(__pyx_tuple__39);
+  __pyx_codeobj__40 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_blacksheep_scribe_pyx, __pyx_n_s_write_sse, 362, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__40)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -16858,7 +16864,7 @@ if (!__Pyx_RefNanny) {
  *     return STATUS_LINES[status]
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_1get_status_line, 0, __pyx_n_s_get_status_line, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__19)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_1get_status_line, 0, __pyx_n_s_get_status_line, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_get_status_line, __pyx_t_2) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16870,7 +16876,7 @@ if (!__Pyx_RefNanny) {
  *     return write_cookie_for_response(cookie)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_3write_response_cookie, 0, __pyx_n_s_write_response_cookie, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_3write_response_cookie, 0, __pyx_n_s_write_response_cookie, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_write_response_cookie, __pyx_t_2) < 0) __PYX_ERR(0, 103, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16894,7 +16900,7 @@ if (!__Pyx_RefNanny) {
  *     cdef Content content = request.content
  *     if not content:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_8is_small_request, 0, __pyx_n_s_is_small_request, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_8is_small_request, 0, __pyx_n_s_is_small_request, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_small_request, __pyx_t_2) < 0) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16906,7 +16912,7 @@ if (!__Pyx_RefNanny) {
  *     cdef Content content = request.content
  *     if not content or content.length == 0:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_10request_has_body, 0, __pyx_n_s_request_has_body, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_10request_has_body, 0, __pyx_n_s_request_has_body, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_request_has_body, __pyx_t_2) < 0) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16918,7 +16924,7 @@ if (!__Pyx_RefNanny) {
  *     cdef bytearray data = bytearray()
  *     data.extend(write_request_method(request) + b' ' + write_request_uri(request) + b' HTTP/1.1\r\n')
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_12write_request_without_body, 0, __pyx_n_s_write_request_without_body, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_12write_request_without_body, 0, __pyx_n_s_write_request_without_body, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_write_request_without_body, __pyx_t_2) < 0) __PYX_ERR(0, 152, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16930,7 +16936,7 @@ if (!__Pyx_RefNanny) {
  *     cdef bytearray data = bytearray()
  *     data.extend(write_request_method(request) + b' ' + write_request_uri(request) + b' HTTP/1.1\r\n')
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_14write_small_request, 0, __pyx_n_s_write_small_request, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_14write_small_request, 0, __pyx_n_s_write_small_request, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_write_small_request, __pyx_t_2) < 0) __PYX_ERR(0, 163, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16942,7 +16948,7 @@ if (!__Pyx_RefNanny) {
  *     return write_small_response(response)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_16py_write_small_response, 0, __pyx_n_s_py_write_small_response, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__29)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_16py_write_small_response, 0, __pyx_n_s_py_write_small_response, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_py_write_small_response, __pyx_t_2) < 0) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16954,7 +16960,7 @@ if (!__Pyx_RefNanny) {
  *     return write_small_request(request)
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_18py_write_small_request, 0, __pyx_n_s_py_write_small_request, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_18py_write_small_request, 0, __pyx_n_s_py_write_small_request, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_py_write_small_request, __pyx_t_2) < 0) __PYX_ERR(0, 192, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -17043,7 +17049,7 @@ if (!__Pyx_RefNanny) {
   __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_compile); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 359, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__37, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__38, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 359, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_NEW_LINES_RX, __pyx_t_2) < 0) __PYX_ERR(0, 359, __pyx_L1_error)
@@ -17056,7 +17062,7 @@ if (!__Pyx_RefNanny) {
  *     """
  *     Writes a ServerSentEvent object to bytes.
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_38write_sse, 0, __pyx_n_s_write_sse, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__39)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_10blacksheep_6scribe_38write_sse, 0, __pyx_n_s_write_sse, NULL, __pyx_n_s_blacksheep_scribe, __pyx_d, ((PyObject *)__pyx_codeobj__40)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_write_sse, __pyx_t_2) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -21233,7 +21239,7 @@ static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *
 #endif
 static PyObject *__Pyx__ImportDottedModule(PyObject *name, PyObject *parts_tuple) {
 #if PY_MAJOR_VERSION < 3
-    PyObject *module, *from_list, *star = __pyx_n_s__17;
+    PyObject *module, *from_list, *star = __pyx_n_s__18;
     CYTHON_UNUSED_VAR(parts_tuple);
     from_list = PyList_New(1);
     if (unlikely(!from_list))

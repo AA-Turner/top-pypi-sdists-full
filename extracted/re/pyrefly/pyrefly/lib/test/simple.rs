@@ -6,6 +6,7 @@
  */
 
 use crate::test::util::TestEnv;
+use crate::test::util::testcase_for_macro;
 use crate::testcase;
 
 testcase!(
@@ -1176,6 +1177,14 @@ x: list[str] | int = ["a", *["b"]]
 );
 
 testcase!(
+    test_negative_subscript_bytes_no_panic,
+    r#"
+# panic reported in https://github.com/facebook/pyrefly/issues/502
+b''[-1]  # E: Index `-1` out of range for bytes with 0 elements
+"#,
+);
+
+testcase!(
     test_parse_error,
     r#"
 if  # E: Parse error: Expected an expression
@@ -1401,3 +1410,21 @@ reveal_type(T)  # E: type[TypeVar[T]]
 reveal_type(TypeForm)  # E: revealed type: type[type[TypeVar[T]]]
     "#,
 );
+
+testcase!(
+    test_union_function_exponential,
+    r#"
+# This used to take an exponential amount of time to type check
+from typing import Any, Callable, reveal_type
+
+def check(f: Callable[[int], bool] | Callable[[str], bool]) -> Any:
+    f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(True)))))))))))))))))))))))) # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E: # E:
+"#,
+);
+
+#[test]
+fn test_panic_on_unicode() {
+    // This used to panic, see https://github.com/facebook/pyrefly/issues/501
+    let _ = testcase_for_macro(TestEnv::new(), "e\u{81}\n", file!(), line!());
+    // We manually ignore the missing expectations, because adding `# E:` would change the test.
+}

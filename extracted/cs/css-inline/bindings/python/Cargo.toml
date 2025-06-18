@@ -1,6 +1,6 @@
 [package]
 name = "css-inline-python"
-version = "0.14.6"
+version = "0.15.0"
 authors = ["Dmitry Dygalo <dmitry@dygalo.dev>"]
 edition = "2021"
 rust-version = "1.71.1"
@@ -11,11 +11,11 @@ name = "css_inline"
 crate-type = ["cdylib"]
 
 [build-dependencies]
-built = { version = "0.7.1", features = ["cargo-lock", "chrono"] }
+built = { version = "0.8.0", features = ["cargo-lock", "chrono"] }
 
 [dependencies]
-pyo3 = { version = "0.22.0", features = ["extension-module", "abi3-py37"] }
-pyo3-built = "0.5"
+pyo3 = { version = "0.25.0", features = ["extension-module", "abi3-py39"] }
+pyo3-built = "0.6"
 rayon = "1"
 url = "2"
 

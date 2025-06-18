@@ -27,7 +27,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15gateway/api_key.proto\x12\x07gateway\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb5\x01\n\x06\x41piKey\x12\x16\n\x06key_id\x18\x01 \x01(\tB\x06\xe2\x41\x03\x01\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x13\n\x03key\x18\x03 \x01(\tB\x06\xe2\x41\x03\x01\x03\x05\x12\x36\n\x0b\x63reate_time\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x15\n\x06secure\x18\x06 \x01(\x08\x42\x05\xe2\x41\x02\x03\x05\x12\x13\n\x05\x65mail\x18\x07 \x01(\tB\x04\xe2\x41\x01\x03\"S\n\x13\x43reateApiKeyRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12&\n\x07\x61pi_key\x18\x02 \x01(\x0b\x32\x0f.gateway.ApiKeyB\x04\xe2\x41\x01\x02\"\xc0\x01\n\x12ListApiKeysRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"e\n\x13ListApiKeysResponse\x12!\n\x08\x61pi_keys\x18\x01 \x03(\x0b\x32\x0f.gateway.ApiKey\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"A\n\x13\x44\x65leteApiKeyRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x14\n\x06key_id\x18\x02 \x01(\tB\x04\xe2\x41\x01\x02\"0\n\x18GetInternalApiKeyRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\"R\n\x1aUpdateApiKeyAccountRequest\x12\x19\n\x0bold_account\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x19\n\x0bnew_account\x18\x02 \x01(\tB\x04\xe2\x41\x01\x02\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15gateway/api_key.proto\x12\x07gateway\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcb\x01\n\x06\x41piKey\x12\x16\n\x06key_id\x18\x01 \x01(\tB\x06\xe2\x41\x03\x01\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x13\n\x03key\x18\x03 \x01(\tB\x06\xe2\x41\x03\x01\x03\x05\x12\x36\n\x0b\x63reate_time\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x15\n\x06secure\x18\x06 \x01(\x08\x42\x05\xe2\x41\x02\x03\x05\x12\x13\n\x05\x65mail\x18\x07 \x01(\tB\x04\xe2\x41\x01\x03\x12\x14\n\x06prefix\x18\x08 \x01(\tB\x04\xe2\x41\x01\x03\"S\n\x13\x43reateApiKeyRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12&\n\x07\x61pi_key\x18\x02 \x01(\x0b\x32\x0f.gateway.ApiKeyB\x04\xe2\x41\x01\x02\"\xc0\x01\n\x12ListApiKeysRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"e\n\x13ListApiKeysResponse\x12!\n\x08\x61pi_keys\x18\x01 \x03(\x0b\x32\x0f.gateway.ApiKey\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"A\n\x13\x44\x65leteApiKeyRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x14\n\x06key_id\x18\x02 \x01(\tB\x04\xe2\x41\x01\x02\"0\n\x18GetInternalApiKeyRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\"R\n\x1aUpdateApiKeyAccountRequest\x12\x19\n\x0bold_account\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x19\n\x0bnew_account\x18\x02 \x01(\tB\x04\xe2\x41\x01\x02\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -47,6 +47,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_APIKEY'].fields_by_name['secure']._serialized_options = b'\342A\002\003\005'
   _globals['_APIKEY'].fields_by_name['email']._loaded_options = None
   _globals['_APIKEY'].fields_by_name['email']._serialized_options = b'\342A\001\003'
+  _globals['_APIKEY'].fields_by_name['prefix']._loaded_options = None
+  _globals['_APIKEY'].fields_by_name['prefix']._serialized_options = b'\342A\001\003'
   _globals['_CREATEAPIKEYREQUEST'].fields_by_name['parent']._loaded_options = None
   _globals['_CREATEAPIKEYREQUEST'].fields_by_name['parent']._serialized_options = b'\342A\001\002'
   _globals['_CREATEAPIKEYREQUEST'].fields_by_name['api_key']._loaded_options = None
@@ -74,17 +76,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_UPDATEAPIKEYACCOUNTREQUEST'].fields_by_name['new_account']._loaded_options = None
   _globals['_UPDATEAPIKEYACCOUNTREQUEST'].fields_by_name['new_account']._serialized_options = b'\342A\001\002'
   _globals['_APIKEY']._serialized_start=135
-  _globals['_APIKEY']._serialized_end=316
-  _globals['_CREATEAPIKEYREQUEST']._serialized_start=318
-  _globals['_CREATEAPIKEYREQUEST']._serialized_end=401
-  _globals['_LISTAPIKEYSREQUEST']._serialized_start=404
-  _globals['_LISTAPIKEYSREQUEST']._serialized_end=596
-  _globals['_LISTAPIKEYSRESPONSE']._serialized_start=598
-  _globals['_LISTAPIKEYSRESPONSE']._serialized_end=699
-  _globals['_DELETEAPIKEYREQUEST']._serialized_start=701
-  _globals['_DELETEAPIKEYREQUEST']._serialized_end=766
-  _globals['_GETINTERNALAPIKEYREQUEST']._serialized_start=768
-  _globals['_GETINTERNALAPIKEYREQUEST']._serialized_end=816
-  _globals['_UPDATEAPIKEYACCOUNTREQUEST']._serialized_start=818
-  _globals['_UPDATEAPIKEYACCOUNTREQUEST']._serialized_end=900
+  _globals['_APIKEY']._serialized_end=338
+  _globals['_CREATEAPIKEYREQUEST']._serialized_start=340
+  _globals['_CREATEAPIKEYREQUEST']._serialized_end=423
+  _globals['_LISTAPIKEYSREQUEST']._serialized_start=426
+  _globals['_LISTAPIKEYSREQUEST']._serialized_end=618
+  _globals['_LISTAPIKEYSRESPONSE']._serialized_start=620
+  _globals['_LISTAPIKEYSRESPONSE']._serialized_end=721
+  _globals['_DELETEAPIKEYREQUEST']._serialized_start=723
+  _globals['_DELETEAPIKEYREQUEST']._serialized_end=788
+  _globals['_GETINTERNALAPIKEYREQUEST']._serialized_start=790
+  _globals['_GETINTERNALAPIKEYREQUEST']._serialized_end=838
+  _globals['_UPDATEAPIKEYACCOUNTREQUEST']._serialized_start=840
+  _globals['_UPDATEAPIKEYACCOUNTREQUEST']._serialized_end=922
 # @@protoc_insertion_point(module_scope)

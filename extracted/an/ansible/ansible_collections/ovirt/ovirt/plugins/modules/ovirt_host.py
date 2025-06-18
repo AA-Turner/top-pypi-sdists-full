@@ -12,9 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_host
 short_description: Module to manage hosts in oVirt/RHV
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage hosts in oVirt/RHV"
 options:
@@ -275,7 +273,7 @@ EXAMPLES = '''
 - ovirt.ovirt.ovirt_host:
     state: absent
     name: myhost
-    force: True
+    force: true
 
 # Retry removing host when failed (https://bugzilla.redhat.com/show_bug.cgi?id=1719271)
 - ovirt.ovirt.ovirt_host:
@@ -295,7 +293,7 @@ EXAMPLES = '''
   ovirt.ovirt.ovirt_host:
     state: maintenance
     name: myhost
-    enroll_certificate: True
+    enroll_certificate: true
 '''
 
 RETURN = '''

@@ -134,7 +134,7 @@ class GoogleCloudStorage(GoogleClientManager):
         if use_redis:
             if self._redis is None:
                 raise ValueError("Can not use redis. Redis is not initialized")
-            url = await self._redis.get(blob_name)
+            url = await self._redis.get(f"{self.key}:{blob_name}")
             if url is not None:
                 return url
 

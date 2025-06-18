@@ -1,10 +1,13 @@
+# https://github.com/scipy/scipy/blob/maintenance/1.16.x/scipy/spatial/transform/_rotation.pyx
+
 from collections.abc import Sequence
-from typing import Final, Literal as L, TypeAlias, overload
-from typing_extensions import Self, TypeVar
+from typing import Final, Literal as L, Self, TypeAlias, overload
+from typing_extensions import TypeVar
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
+
 from scipy._typing import ToRNG
 
 _Float1D: TypeAlias = onp.Array1D[np.float64]
@@ -34,11 +37,7 @@ class Rotation:
 
     #
     def __init__(
-        self,
-        /,
-        quat: onp.ToFloat1D | onp.ToFloat2D,
-        normalize: bool = True,
-        copy: bool = False,
+        self, /, quat: onp.ToFloat1D | onp.ToFloat2D, normalize: bool = True, copy: bool = False
     ) -> None: ...  # undocumented
     def __setstate_cython__(self, pyx_state: object, /) -> None: ...  # undocumented
     def __reduce_cython__(self, /) -> None: ...  # undocumented
@@ -63,38 +62,21 @@ class Rotation:
     def magnitude(self, /) -> float | np.float64 | _Float1D: ...
     def apply(self, /, vectors: onp.ToFloat1D | onp.ToFloat2D, inverse: bool = False) -> _Float1D2D: ...
     def approx_equal(
-        self,
-        /,
-        other: Rotation,
-        atol: onp.ToFloat | None = None,
-        degrees: bool = False,
+        self, /, other: Rotation, atol: onp.ToFloat | None = None, degrees: bool = False
     ) -> bool | np.bool_ | onp.Array1D[np.bool_]: ...
 
     #
     @overload
     def reduce(
-        self,
-        /,
-        left: Rotation | None = None,
-        right: Rotation | None = None,
-        return_indices: L[False] = False,
+        self, /, left: Rotation | None = None, right: Rotation | None = None, return_indices: L[False] = False
     ) -> Self: ...
     @overload
     def reduce(
-        self,
-        /,
-        left: Rotation | None,
-        right: Rotation | None,
-        return_indices: L[True],
+        self, /, left: Rotation | None, right: Rotation | None, return_indices: L[True]
     ) -> tuple[Self, onp.ArrayND[np.int32 | np.int64], onp.ArrayND[np.int32 | np.int64]]: ...
     @overload
     def reduce(
-        self,
-        /,
-        left: Rotation | None = None,
-        right: Rotation | None = None,
-        *,
-        return_indices: L[True],
+        self, /, left: Rotation | None = None, right: Rotation | None = None, *, return_indices: L[True]
     ) -> tuple[Self, onp.ArrayND[np.int32 | np.int64], onp.ArrayND[np.int32 | np.int64]]: ...
 
     #
@@ -170,3 +152,6 @@ class Slerp:
 
     def __init__(self, /, times: onp.ToFloat1D, rotations: Rotation) -> None: ...
     def __call__(self, /, times: onp.ToFloat1D) -> Rotation: ...
+
+# (double[:, :], double[:, :]) -> noexcept double[:, :]
+def compose_quat(p: onp.ArrayND[np.float64], q: onp.ArrayND[np.float64]) -> onp.Array2D[np.float64]: ...  # undocumented

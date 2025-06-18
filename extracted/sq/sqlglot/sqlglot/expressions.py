@@ -1947,6 +1947,7 @@ class GeneratedAsIdentityColumnConstraint(ColumnConstraintKind):
         "minvalue": False,
         "maxvalue": False,
         "cycle": False,
+        "order": False,
     }
 
 
@@ -7042,6 +7043,12 @@ class NextValueFor(Func):
 # select 1; -- my comment
 class Semicolon(Expression):
     arg_types = {}
+
+
+# BigQuery allows SELECT t FROM t and treats the projection as a struct value. This expression
+# type is intended to be constructed by qualify so that we can properly annotate its type later
+class TableColumn(Expression):
+    pass
 
 
 def _norm_arg(arg):

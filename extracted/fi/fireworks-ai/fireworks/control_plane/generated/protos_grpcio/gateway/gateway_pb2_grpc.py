@@ -450,6 +450,11 @@ class GatewayStub(object):
                 request_serializer=gateway_dot_deployment__pb2.GetDeploymentMetricsRequest.SerializeToString,
                 response_deserializer=gateway_dot_deployment__pb2.GetDeploymentMetricsResponse.FromString,
                 _registered_method=True)
+        self.ListDeploymentMetrics = channel.unary_unary(
+                '/gateway.Gateway/ListDeploymentMetrics',
+                request_serializer=gateway_dot_deployment__pb2.ListDeploymentMetricsRequest.SerializeToString,
+                response_deserializer=gateway_dot_deployment__pb2.ListDeploymentMetricsResponse.FromString,
+                _registered_method=True)
         self.CreateDeploymentTemplate = channel.unary_unary(
                 '/gateway.Gateway/CreateDeploymentTemplate',
                 request_serializer=gateway_dot_deployment__template__pb2.CreateDeploymentTemplateRequest.SerializeToString,
@@ -899,6 +904,11 @@ class GatewayStub(object):
                 '/gateway.Gateway/DeleteDatasetValidationJob',
                 request_serializer=gateway_dot_dataset__validation__job__pb2.DeleteDatasetValidationJobRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SplitDataset = channel.unary_unary(
+                '/gateway.Gateway/SplitDataset',
+                request_serializer=gateway_dot_dataset__pb2.SplitDatasetRequest.SerializeToString,
+                response_deserializer=gateway_dot_dataset__pb2.SplitDatasetResponse.FromString,
                 _registered_method=True)
         self.ValidateAssertions = channel.unary_unary(
                 '/gateway.Gateway/ValidateAssertions',
@@ -1490,6 +1500,13 @@ class GatewayServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetDeploymentMetrics(self, request, context):
+        """Get Deployment Metrics (Deprecated)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListDeploymentMetrics(self, request, context):
         """Get Deployment Metrics
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2131,6 +2148,12 @@ class GatewayServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SplitDataset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ValidateAssertions(self, request, context):
         """Validate evaluation assertions
         """
@@ -2566,6 +2589,11 @@ def add_GatewayServicer_to_server(servicer, server):
                     servicer.GetDeploymentMetrics,
                     request_deserializer=gateway_dot_deployment__pb2.GetDeploymentMetricsRequest.FromString,
                     response_serializer=gateway_dot_deployment__pb2.GetDeploymentMetricsResponse.SerializeToString,
+            ),
+            'ListDeploymentMetrics': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListDeploymentMetrics,
+                    request_deserializer=gateway_dot_deployment__pb2.ListDeploymentMetricsRequest.FromString,
+                    response_serializer=gateway_dot_deployment__pb2.ListDeploymentMetricsResponse.SerializeToString,
             ),
             'CreateDeploymentTemplate': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateDeploymentTemplate,
@@ -3016,6 +3044,11 @@ def add_GatewayServicer_to_server(servicer, server):
                     servicer.DeleteDatasetValidationJob,
                     request_deserializer=gateway_dot_dataset__validation__job__pb2.DeleteDatasetValidationJobRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'SplitDataset': grpc.unary_unary_rpc_method_handler(
+                    servicer.SplitDataset,
+                    request_deserializer=gateway_dot_dataset__pb2.SplitDatasetRequest.FromString,
+                    response_serializer=gateway_dot_dataset__pb2.SplitDatasetResponse.SerializeToString,
             ),
             'ValidateAssertions': grpc.unary_unary_rpc_method_handler(
                     servicer.ValidateAssertions,
@@ -5110,6 +5143,33 @@ class Gateway(object):
             '/gateway.Gateway/GetDeploymentMetrics',
             gateway_dot_deployment__pb2.GetDeploymentMetricsRequest.SerializeToString,
             gateway_dot_deployment__pb2.GetDeploymentMetricsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListDeploymentMetrics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/ListDeploymentMetrics',
+            gateway_dot_deployment__pb2.ListDeploymentMetricsRequest.SerializeToString,
+            gateway_dot_deployment__pb2.ListDeploymentMetricsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -7540,6 +7600,33 @@ class Gateway(object):
             '/gateway.Gateway/DeleteDatasetValidationJob',
             gateway_dot_dataset__validation__job__pb2.DeleteDatasetValidationJobRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SplitDataset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/SplitDataset',
+            gateway_dot_dataset__pb2.SplitDatasetRequest.SerializeToString,
+            gateway_dot_dataset__pb2.SplitDatasetResponse.FromString,
             options,
             channel_credentials,
             insecure,

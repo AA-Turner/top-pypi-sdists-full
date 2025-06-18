@@ -251,6 +251,16 @@ class BaseOnboardingService:
             connection_request["dcId"] = onboarding_config.connection_options.dc_id
         if onboarding_config.is_active is not None and not onboarding_config.is_active:
             connection_request["isActive"] = False
+        if (
+            onboarding_config.is_consumer_connection
+            and onboarding_config.connection_options
+            and onboarding_config.connection_options.monolith_base_payload
+        ):
+            connection_request["producerResourceId"] = (
+                onboarding_config.connection_options.monolith_base_payload.get(
+                    "producer_resource_id"
+                )
+            )
 
         response = self._request_wrapper.make_request_v2(
             query=onboarding_config.connection_query or ADD_CONNECTION_MUTATION,

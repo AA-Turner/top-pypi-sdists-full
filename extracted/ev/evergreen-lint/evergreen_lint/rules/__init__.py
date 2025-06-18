@@ -16,6 +16,9 @@ from evergreen_lint.rules.enforce_tags_for_variants import EnforceTagsForVariant
 from evergreen_lint.rules.forbid_tasks_with_tag_on_variants import (
     ForbidTasksWithTagOnVariants,
 )
+from evergreen_lint.rules.enforce_tasks_distro_with_special_tag import (
+    EnforceTasksDistroWithSpecialTag,
+)
 from evergreen_lint.rules.invalid_build_parameter import InvalidBuildParameter
 from evergreen_lint.rules.required_expansions_write import RequiredExpansionsWrite
 from evergreen_lint.rules.tasks_for_variants import TasksForVariants
@@ -36,6 +39,7 @@ RULES: Dict[str, Type[Rule]] = {
     "enforce-tags-for-variants": EnforceTagsForVariants,
     "variant-expansions": VariantExpansions,
     "forbid-tasks-with-tag-on-variants": ForbidTasksWithTagOnVariants,
+    "enforce-tasks-distro-with-special-tag": EnforceTasksDistroWithSpecialTag,
 }
 # Thoughts on Writing Rules
 # - see .helpers for reliable iteration helpers

@@ -1,7 +1,7 @@
 r'''
 # `google_public_ca_external_account_key`
 
-Refer to the Terraform Registry for docs: [`google_public_ca_external_account_key`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key).
+Refer to the Terraform Registry for docs: [`google_public_ca_external_account_key`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GooglePublicCaExternalAccountKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googlePublicCaExternalAccountKey.GooglePublicCaExternalAccountKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key google_public_ca_external_account_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key google_public_ca_external_account_key}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GooglePublicCaExternalAccountKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key google_public_ca_external_account_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key google_public_ca_external_account_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#id GooglePublicCaExternalAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Location for the externalAccountKey. Currently only 'global' is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#location GooglePublicCaExternalAccountKey#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#project GooglePublicCaExternalAccountKey#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#timeouts GooglePublicCaExternalAccountKey#timeouts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#id GooglePublicCaExternalAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Location for the externalAccountKey. Currently only 'global' is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#location GooglePublicCaExternalAccountKey#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#project GooglePublicCaExternalAccountKey#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#timeouts GooglePublicCaExternalAccountKey#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GooglePublicCaExternalAccountKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GooglePublicCaExternalAccountKey to import.
-        :param import_from_id: The id of the existing GooglePublicCaExternalAccountKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GooglePublicCaExternalAccountKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GooglePublicCaExternalAccountKey to import is found.
         '''
         if __debug__:
@@ -131,8 +131,8 @@ class GooglePublicCaExternalAccountKey(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#create GooglePublicCaExternalAccountKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#delete GooglePublicCaExternalAccountKey#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#create GooglePublicCaExternalAccountKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#delete GooglePublicCaExternalAccountKey#delete}.
         '''
         value = GooglePublicCaExternalAccountKeyTimeouts(create=create, delete=delete)
 
@@ -292,10 +292,10 @@ class GooglePublicCaExternalAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#id GooglePublicCaExternalAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Location for the externalAccountKey. Currently only 'global' is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#location GooglePublicCaExternalAccountKey#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#project GooglePublicCaExternalAccountKey#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#timeouts GooglePublicCaExternalAccountKey#timeouts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#id GooglePublicCaExternalAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Location for the externalAccountKey. Currently only 'global' is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#location GooglePublicCaExternalAccountKey#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#project GooglePublicCaExternalAccountKey#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#timeouts GooglePublicCaExternalAccountKey#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -404,7 +404,7 @@ class GooglePublicCaExternalAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#id GooglePublicCaExternalAccountKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#id GooglePublicCaExternalAccountKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -416,14 +416,14 @@ class GooglePublicCaExternalAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def location(self) -> typing.Optional[builtins.str]:
         '''Location for the externalAccountKey. Currently only 'global' is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#location GooglePublicCaExternalAccountKey#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#location GooglePublicCaExternalAccountKey#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#project GooglePublicCaExternalAccountKey#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#project GooglePublicCaExternalAccountKey#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -431,7 +431,7 @@ class GooglePublicCaExternalAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["GooglePublicCaExternalAccountKeyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#timeouts GooglePublicCaExternalAccountKey#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#timeouts GooglePublicCaExternalAccountKey#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GooglePublicCaExternalAccountKeyTimeouts"], result)
@@ -461,8 +461,8 @@ class GooglePublicCaExternalAccountKeyTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#create GooglePublicCaExternalAccountKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#delete GooglePublicCaExternalAccountKey#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#create GooglePublicCaExternalAccountKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#delete GooglePublicCaExternalAccountKey#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ea5df27e7bb4c15884f7c2ac0c09111a483706c287826978b99c34fe7cd7e27)
@@ -476,13 +476,13 @@ class GooglePublicCaExternalAccountKeyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#create GooglePublicCaExternalAccountKey#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#create GooglePublicCaExternalAccountKey#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_public_ca_external_account_key#delete GooglePublicCaExternalAccountKey#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_public_ca_external_account_key#delete GooglePublicCaExternalAccountKey#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `google_logging_log_scope`
 
-Refer to the Terraform Registry for docs: [`google_logging_log_scope`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope).
+Refer to the Terraform Registry for docs: [`google_logging_log_scope`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleLoggingLogScope(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleLoggingLogScope.GoogleLoggingLogScope",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope google_logging_log_scope}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope google_logging_log_scope}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleLoggingLogScope(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope google_logging_log_scope} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope google_logging_log_scope} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The resource name of the log scope. For example: 'projects/my-project/locations/global/logScopes/my-log-scope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#name GoogleLoggingLogScope#name}
-        :param resource_names: Names of one or more parent resources : * 'projects/[PROJECT_ID]' May alternatively be one or more views : * 'projects/[PROJECT_ID]/locations/[LOCATION_ID]/buckets/[BUCKET_ID]/views/[VIEW_ID]' A log scope can include a maximum of 50 projects and a maximum of 100 resources in total. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#resource_names GoogleLoggingLogScope#resource_names}
-        :param description: Describes this log scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#description GoogleLoggingLogScope#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#id GoogleLoggingLogScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location of the resource. The only supported location is global so far. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#location GoogleLoggingLogScope#location}
-        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#parent GoogleLoggingLogScope#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#timeouts GoogleLoggingLogScope#timeouts}
+        :param name: The resource name of the log scope. For example: 'projects/my-project/locations/global/logScopes/my-log-scope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#name GoogleLoggingLogScope#name}
+        :param resource_names: Names of one or more parent resources : * 'projects/[PROJECT_ID]' May alternatively be one or more views : * 'projects/[PROJECT_ID]/locations/[LOCATION_ID]/buckets/[BUCKET_ID]/views/[VIEW_ID]' A log scope can include a maximum of 50 projects and a maximum of 100 resources in total. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#resource_names GoogleLoggingLogScope#resource_names}
+        :param description: Describes this log scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#description GoogleLoggingLogScope#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#id GoogleLoggingLogScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location of the resource. The only supported location is global so far. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#location GoogleLoggingLogScope#location}
+        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#parent GoogleLoggingLogScope#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#timeouts GoogleLoggingLogScope#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleLoggingLogScope(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleLoggingLogScope to import.
-        :param import_from_id: The id of the existing GoogleLoggingLogScope that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleLoggingLogScope that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleLoggingLogScope to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class GoogleLoggingLogScope(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#create GoogleLoggingLogScope#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#delete GoogleLoggingLogScope#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#update GoogleLoggingLogScope#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#create GoogleLoggingLogScope#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#delete GoogleLoggingLogScope#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#update GoogleLoggingLogScope#update}.
         '''
         value = GoogleLoggingLogScopeTimeouts(
             create=create, delete=delete, update=update
@@ -356,13 +356,13 @@ class GoogleLoggingLogScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The resource name of the log scope. For example: 'projects/my-project/locations/global/logScopes/my-log-scope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#name GoogleLoggingLogScope#name}
-        :param resource_names: Names of one or more parent resources : * 'projects/[PROJECT_ID]' May alternatively be one or more views : * 'projects/[PROJECT_ID]/locations/[LOCATION_ID]/buckets/[BUCKET_ID]/views/[VIEW_ID]' A log scope can include a maximum of 50 projects and a maximum of 100 resources in total. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#resource_names GoogleLoggingLogScope#resource_names}
-        :param description: Describes this log scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#description GoogleLoggingLogScope#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#id GoogleLoggingLogScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location of the resource. The only supported location is global so far. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#location GoogleLoggingLogScope#location}
-        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#parent GoogleLoggingLogScope#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#timeouts GoogleLoggingLogScope#timeouts}
+        :param name: The resource name of the log scope. For example: 'projects/my-project/locations/global/logScopes/my-log-scope'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#name GoogleLoggingLogScope#name}
+        :param resource_names: Names of one or more parent resources : * 'projects/[PROJECT_ID]' May alternatively be one or more views : * 'projects/[PROJECT_ID]/locations/[LOCATION_ID]/buckets/[BUCKET_ID]/views/[VIEW_ID]' A log scope can include a maximum of 50 projects and a maximum of 100 resources in total. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#resource_names GoogleLoggingLogScope#resource_names}
+        :param description: Describes this log scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#description GoogleLoggingLogScope#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#id GoogleLoggingLogScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location of the resource. The only supported location is global so far. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#location GoogleLoggingLogScope#location}
+        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#parent GoogleLoggingLogScope#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#timeouts GoogleLoggingLogScope#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -481,7 +481,7 @@ class GoogleLoggingLogScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name of the log scope. For example: 'projects/my-project/locations/global/logScopes/my-log-scope'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#name GoogleLoggingLogScope#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#name GoogleLoggingLogScope#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -491,7 +491,7 @@ class GoogleLoggingLogScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_names(self) -> typing.List[builtins.str]:
         '''Names of one or more parent resources : *  'projects/[PROJECT_ID]' May alternatively be one or more views : * 'projects/[PROJECT_ID]/locations/[LOCATION_ID]/buckets/[BUCKET_ID]/views/[VIEW_ID]' A log scope can include a maximum of 50 projects and a maximum of 100 resources in total.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#resource_names GoogleLoggingLogScope#resource_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#resource_names GoogleLoggingLogScope#resource_names}
         '''
         result = self._values.get("resource_names")
         assert result is not None, "Required property 'resource_names' is missing"
@@ -501,14 +501,14 @@ class GoogleLoggingLogScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Describes this log scopes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#description GoogleLoggingLogScope#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#description GoogleLoggingLogScope#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#id GoogleLoggingLogScope#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#id GoogleLoggingLogScope#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -520,7 +520,7 @@ class GoogleLoggingLogScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location of the resource. The only supported location is global so far.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#location GoogleLoggingLogScope#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#location GoogleLoggingLogScope#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -529,7 +529,7 @@ class GoogleLoggingLogScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The parent of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#parent GoogleLoggingLogScope#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#parent GoogleLoggingLogScope#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -538,7 +538,7 @@ class GoogleLoggingLogScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleLoggingLogScopeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#timeouts GoogleLoggingLogScope#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#timeouts GoogleLoggingLogScope#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleLoggingLogScopeTimeouts"], result)
@@ -569,9 +569,9 @@ class GoogleLoggingLogScopeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#create GoogleLoggingLogScope#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#delete GoogleLoggingLogScope#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#update GoogleLoggingLogScope#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#create GoogleLoggingLogScope#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#delete GoogleLoggingLogScope#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#update GoogleLoggingLogScope#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e32c90dee231f6214be57fa94711acc4e63bf511b35e140cdcc9047787a89aca)
@@ -588,19 +588,19 @@ class GoogleLoggingLogScopeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#create GoogleLoggingLogScope#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#create GoogleLoggingLogScope#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#delete GoogleLoggingLogScope#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#delete GoogleLoggingLogScope#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_logging_log_scope#update GoogleLoggingLogScope#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_logging_log_scope#update GoogleLoggingLogScope#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

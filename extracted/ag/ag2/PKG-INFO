@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.9.2
+Version: 0.9.3
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -72,7 +72,7 @@ Requires-Dist: azure-cosmos>=4.2.0; extra == 'cosmosdb'
 Provides-Extra: crawl4ai
 Requires-Dist: crawl4ai<0.5,>=0.4.247; extra == 'crawl4ai'
 Provides-Extra: deepseek
-Requires-Dist: openai>=1.66.2; extra == 'deepseek'
+Requires-Dist: openai>=1.87.0; extra == 'deepseek'
 Provides-Extra: dev
 Requires-Dist: cairosvg; extra == 'dev'
 Requires-Dist: codespell==2.4.1; extra == 'dev'
@@ -96,7 +96,7 @@ Requires-Dist: mypy==1.15.0; extra == 'dev'
 Requires-Dist: nbclient==0.10.2; extra == 'dev'
 Requires-Dist: nbconvert==7.16.6; extra == 'dev'
 Requires-Dist: nbformat==5.10.4; extra == 'dev'
-Requires-Dist: openai>=1.66.2; extra == 'dev'
+Requires-Dist: openai>=1.87.0; extra == 'dev'
 Requires-Dist: pandas==2.2.3; extra == 'dev'
 Requires-Dist: pdoc3==0.11.6; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
@@ -130,6 +130,8 @@ Requires-Dist: pillow; extra == 'docs'
 Requires-Dist: pyyaml==6.0.2; extra == 'docs'
 Requires-Dist: termcolor==3.0.1; extra == 'docs'
 Requires-Dist: typer==0.15.2; extra == 'docs'
+Provides-Extra: duckduckgo
+Requires-Dist: duckduckgo-search>=8.0.2; extra == 'duckduckgo'
 Provides-Extra: flaml
 Requires-Dist: flaml; extra == 'flaml'
 Requires-Dist: numpy<2.0.0,>=1.24.0; (python_version < '3.13') and extra == 'flaml'
@@ -138,14 +140,14 @@ Provides-Extra: gemini
 Requires-Dist: google-api-core; extra == 'gemini'
 Requires-Dist: google-auth; extra == 'gemini'
 Requires-Dist: google-cloud-aiplatform; extra == 'gemini'
-Requires-Dist: google-genai>=1.2.0; extra == 'gemini'
+Requires-Dist: google-genai>=1.20.0; extra == 'gemini'
 Requires-Dist: jsonschema; extra == 'gemini'
 Requires-Dist: pillow; extra == 'gemini'
 Provides-Extra: gemini-realtime
 Requires-Dist: google-api-core; extra == 'gemini-realtime'
 Requires-Dist: google-auth; extra == 'gemini-realtime'
 Requires-Dist: google-cloud-aiplatform; extra == 'gemini-realtime'
-Requires-Dist: google-genai>=1.2.0; extra == 'gemini-realtime'
+Requires-Dist: google-genai>=1.20.0; extra == 'gemini-realtime'
 Requires-Dist: jsonschema; extra == 'gemini-realtime'
 Requires-Dist: pillow; extra == 'gemini-realtime'
 Requires-Dist: websockets<16,>=14.0; extra == 'gemini-realtime'
@@ -198,7 +200,7 @@ Provides-Extra: mathchat
 Requires-Dist: sympy; extra == 'mathchat'
 Requires-Dist: wolframalpha; extra == 'mathchat'
 Provides-Extra: mcp
-Requires-Dist: mcp<1.6,>=1.4.0; (python_version >= '3.10') and extra == 'mcp'
+Requires-Dist: mcp>=1.9.4; (python_version >= '3.10') and extra == 'mcp'
 Provides-Extra: mcp-proxy-gen
 Requires-Dist: fastapi-code-generator>=0.5.4; extra == 'mcp-proxy-gen'
 Requires-Dist: fastapi<1,>=0.112; extra == 'mcp-proxy-gen'
@@ -216,9 +218,9 @@ Provides-Extra: ollama
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'ollama'
 Requires-Dist: ollama>=0.4.7; extra == 'ollama'
 Provides-Extra: openai
-Requires-Dist: openai>=1.66.2; extra == 'openai'
+Requires-Dist: openai>=1.87.0; extra == 'openai'
 Provides-Extra: openai-realtime
-Requires-Dist: openai>=1.66.2; extra == 'openai-realtime'
+Requires-Dist: openai>=1.87.0; extra == 'openai-realtime'
 Requires-Dist: openai[realtime]; extra == 'openai-realtime'
 Provides-Extra: rag
 Requires-Dist: chromadb<1,>=0.5; extra == 'rag'
@@ -282,6 +284,8 @@ Requires-Dist: protobuf==5.29.3; extra == 'retrievechat-qdrant'
 Requires-Dist: pypdf; extra == 'retrievechat-qdrant'
 Requires-Dist: qdrant-client; extra == 'retrievechat-qdrant'
 Requires-Dist: sentence-transformers<=4.1.0; extra == 'retrievechat-qdrant'
+Provides-Extra: tavily
+Requires-Dist: tavily-python>=0.7.4; extra == 'tavily'
 Provides-Extra: teachable
 Requires-Dist: chromadb; extra == 'teachable'
 Provides-Extra: test
@@ -309,7 +313,7 @@ Requires-Dist: mock==5.2.0; extra == 'types'
 Requires-Dist: mypy==1.15.0; extra == 'types'
 Requires-Dist: nbconvert==7.16.6; extra == 'types'
 Requires-Dist: nbformat==5.10.4; extra == 'types'
-Requires-Dist: openai>=1.66.2; extra == 'types'
+Requires-Dist: openai>=1.87.0; extra == 'types'
 Requires-Dist: pandas==2.2.3; extra == 'types'
 Requires-Dist: pytest-asyncio==0.26.0; extra == 'types'
 Requires-Dist: pytest-cov==6.1.1; extra == 'types'
@@ -678,7 +682,7 @@ AG2 supports more advanced concepts to help you build your AI agent workflows. Y
 
 - [Structured Output](https://docs.ag2.ai/latest/docs/user-guide/basic-concepts/structured-outputs)
 - [Ending a conversation](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/ending-a-chat/)
-- [Retrieval Augmented Generation (RAG)](https://docs.ag2.ai/docs/user-guide/advanced-concepts/rag)
+- [Retrieval Augmented Generation (RAG)](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/rag/)
 - [Code Execution](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/code-execution)
 - [Tools with Secrets](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/tools/tools-with-secrets/)
 

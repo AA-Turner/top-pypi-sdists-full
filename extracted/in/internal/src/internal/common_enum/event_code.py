@@ -14,6 +14,9 @@ class EventCodeEnum(str, Enum):
     MANUAL_BOOKING_MESSAGE_SERVICE_TICKET = "manual_booking_message_service_ticket"
     MANUAL_DELIVERY_MESSAGE_SERVICE_TICKET = "manual_delivery_message_service_ticket"
 
+    SYSTEM_TRACING_START_SERVICE_TICKET = "system_tracing_start_service_ticket"
+    SYSTEM_TRACING_STOP_SERVICE_TICKET = "system_tracing_stop_service_ticket"
+
     NOSHOW_SERVICE_TICKET_AUTO_CANCEL = "noshow_service_ticket_auto_cancel"
     IMPORT_RESERVATION_CONFLICT_AUTO_CANCEL = "import_reservation_conflict_auto_cancel"
     BOOKING_REMINDING_SERVICE_TICKET = "booking_reminding_service_ticket"

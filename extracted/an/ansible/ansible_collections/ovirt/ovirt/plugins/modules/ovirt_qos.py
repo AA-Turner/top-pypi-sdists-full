@@ -11,8 +11,7 @@ DOCUMENTATION = '''
 ---
 module: ovirt_qos
 short_description: "Module to manage QoS entries in ovirt"
-author:
-- "Niall O Donnell (@odonnelln)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage QoS entries in ovirt."
     - "Doesn't support updating a QoS that exists"
@@ -244,8 +243,6 @@ from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     check_sdk,
     create_connection,
     ovirt_full_argument_spec,
-    search_by_name,
-    get_entity,
     get_id_by_name
 )
 

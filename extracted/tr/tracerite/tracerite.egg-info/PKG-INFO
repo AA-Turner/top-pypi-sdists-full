@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tracerite
-Version: 1.1.1
+Version: 1.1.2
 Summary: Human-readable HTML tracebacks for Python exceptions
 Home-page: https://github.com/sanic-org/tracerite
 Author: Sanic Community
@@ -11,6 +11,16 @@ Classifier: License :: Public Domain
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: html5tagger>=1.2.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # Nicer error messages for Python
 

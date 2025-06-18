@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daytona_sdk"
-version = "0.21.0"
+version = "0.21.1"
 authors = [
     { name = "Daytona Platforms Inc.", email = "support@daytona.io"  },
 ]
@@ -39,6 +39,11 @@ classifiers = [
 ]
 keywords = ["daytona", "sdk"]
 license = {text = "Apache-2.0"}
+
+[project.urls]
+Documentation = "https://www.daytona.io/docs"
+Repository = "https://github.com/daytonaio/daytona"
+Issues = "https://github.com/daytonaio/daytona/issues"
 
 [project.optional-dependencies]
 dev = [

@@ -30,6 +30,8 @@ from .literals import (
     IndexStatusType,
     IndexType,
     LegalHoldStatusType,
+    MpaRevokeSessionStatusType,
+    MpaSessionStatusType,
     RecoveryPointStatusType,
     RestoreDeletionStatusType,
     RestoreJobStateType,
@@ -57,6 +59,7 @@ __all__ = (
     "AdvancedBackupSettingOutputTypeDef",
     "AdvancedBackupSettingTypeDef",
     "AdvancedBackupSettingUnionTypeDef",
+    "AssociateBackupVaultMpaApprovalTeamInputTypeDef",
     "BackupJobSummaryTypeDef",
     "BackupJobTypeDef",
     "BackupPlanInputTypeDef",
@@ -97,6 +100,8 @@ __all__ = (
     "CreateLogicallyAirGappedBackupVaultOutputTypeDef",
     "CreateReportPlanInputTypeDef",
     "CreateReportPlanOutputTypeDef",
+    "CreateRestoreAccessBackupVaultInputTypeDef",
+    "CreateRestoreAccessBackupVaultOutputTypeDef",
     "CreateRestoreTestingPlanInputTypeDef",
     "CreateRestoreTestingPlanOutputTypeDef",
     "CreateRestoreTestingSelectionInputTypeDef",
@@ -135,6 +140,7 @@ __all__ = (
     "DescribeReportPlanOutputTypeDef",
     "DescribeRestoreJobInputTypeDef",
     "DescribeRestoreJobOutputTypeDef",
+    "DisassociateBackupVaultMpaApprovalTeamInputTypeDef",
     "DisassociateRecoveryPointFromParentInputTypeDef",
     "DisassociateRecoveryPointInputTypeDef",
     "EmptyResponseMetadataTypeDef",
@@ -176,6 +182,8 @@ __all__ = (
     "IndexActionUnionTypeDef",
     "IndexedRecoveryPointTypeDef",
     "KeyValueTypeDef",
+    "LatestMpaApprovalTeamUpdateTypeDef",
+    "LatestRevokeRequestTypeDef",
     "LegalHoldTypeDef",
     "LifecycleTypeDef",
     "ListBackupJobSummariesInputTypeDef",
@@ -230,6 +238,9 @@ __all__ = (
     "ListReportJobsOutputTypeDef",
     "ListReportPlansInputTypeDef",
     "ListReportPlansOutputTypeDef",
+    "ListRestoreAccessBackupVaultsInputPaginateTypeDef",
+    "ListRestoreAccessBackupVaultsInputTypeDef",
+    "ListRestoreAccessBackupVaultsOutputTypeDef",
     "ListRestoreJobSummariesInputTypeDef",
     "ListRestoreJobSummariesOutputTypeDef",
     "ListRestoreJobsByProtectedResourceInputPaginateTypeDef",
@@ -272,6 +283,7 @@ __all__ = (
     "ReportSettingTypeDef",
     "ReportSettingUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "RestoreAccessBackupVaultListMemberTypeDef",
     "RestoreJobCreatorTypeDef",
     "RestoreJobSummaryTypeDef",
     "RestoreJobsListMemberTypeDef",
@@ -286,6 +298,7 @@ __all__ = (
     "RestoreTestingSelectionForGetTypeDef",
     "RestoreTestingSelectionForListTypeDef",
     "RestoreTestingSelectionForUpdateTypeDef",
+    "RevokeRestoreAccessBackupVaultInputTypeDef",
     "StartBackupJobInputTypeDef",
     "StartBackupJobOutputTypeDef",
     "StartCopyJobInputTypeDef",
@@ -323,6 +336,11 @@ class AdvancedBackupSettingOutputTypeDef(TypedDict):
 class AdvancedBackupSettingTypeDef(TypedDict):
     ResourceType: NotRequired[str]
     BackupOptions: NotRequired[Mapping[str, str]]
+
+class AssociateBackupVaultMpaApprovalTeamInputTypeDef(TypedDict):
+    BackupVaultName: str
+    MpaApprovalTeamArn: str
+    RequesterComment: NotRequired[str]
 
 class BackupJobSummaryTypeDef(TypedDict):
     Region: NotRequired[str]
@@ -436,6 +454,13 @@ class CreateLogicallyAirGappedBackupVaultInputTypeDef(TypedDict):
     BackupVaultTags: NotRequired[Mapping[str, str]]
     CreatorRequestId: NotRequired[str]
 
+class CreateRestoreAccessBackupVaultInputTypeDef(TypedDict):
+    SourceBackupVaultArn: str
+    BackupVaultName: NotRequired[str]
+    BackupVaultTags: NotRequired[Mapping[str, str]]
+    CreatorRequestId: NotRequired[str]
+    RequesterComment: NotRequired[str]
+
 class DateRangeOutputTypeDef(TypedDict):
     FromDate: datetime
     ToDate: datetime
@@ -485,6 +510,13 @@ class DescribeBackupVaultInputTypeDef(TypedDict):
     BackupVaultName: str
     BackupVaultAccountId: NotRequired[str]
 
+class LatestMpaApprovalTeamUpdateTypeDef(TypedDict):
+    MpaSessionArn: NotRequired[str]
+    Status: NotRequired[MpaSessionStatusType]
+    StatusMessage: NotRequired[str]
+    InitiationDate: NotRequired[datetime]
+    ExpiryDate: NotRequired[datetime]
+
 class DescribeCopyJobInputTypeDef(TypedDict):
     CopyJobId: str
 
@@ -510,6 +542,10 @@ class DescribeRestoreJobInputTypeDef(TypedDict):
 
 class RestoreJobCreatorTypeDef(TypedDict):
     RestoreTestingPlanArn: NotRequired[str]
+
+class DisassociateBackupVaultMpaApprovalTeamInputTypeDef(TypedDict):
+    BackupVaultName: str
+    RequesterComment: NotRequired[str]
 
 class DisassociateRecoveryPointFromParentInputTypeDef(TypedDict):
     BackupVaultName: str
@@ -594,6 +630,13 @@ class IndexedRecoveryPointTypeDef(TypedDict):
 class KeyValueTypeDef(TypedDict):
     Key: str
     Value: str
+
+class LatestRevokeRequestTypeDef(TypedDict):
+    MpaSessionArn: NotRequired[str]
+    Status: NotRequired[MpaRevokeSessionStatusType]
+    StatusMessage: NotRequired[str]
+    InitiationDate: NotRequired[datetime]
+    ExpiryDate: NotRequired[datetime]
 
 class LegalHoldTypeDef(TypedDict):
     Title: NotRequired[str]
@@ -714,6 +757,11 @@ class ListReportPlansInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListRestoreAccessBackupVaultsInputTypeDef(TypedDict):
+    BackupVaultName: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class ListRestoreJobSummariesInputTypeDef(TypedDict):
     AccountId: NotRequired[str]
     State: NotRequired[RestoreJobStateType]
@@ -826,6 +874,11 @@ class RestoreTestingRecoveryPointSelectionTypeDef(TypedDict):
     IncludeVaults: NotRequired[Sequence[str]]
     RecoveryPointTypes: NotRequired[Sequence[RestoreTestingRecoveryPointTypeType]]
     SelectionWindowDays: NotRequired[int]
+
+class RevokeRestoreAccessBackupVaultInputTypeDef(TypedDict):
+    BackupVaultName: str
+    RestoreAccessBackupVaultArn: str
+    RequesterComment: NotRequired[str]
 
 class StartReportJobInputTypeDef(TypedDict):
     ReportPlanName: str
@@ -970,6 +1023,7 @@ class RecoveryPointByBackupVaultTypeDef(TypedDict):
     Status: NotRequired[RecoveryPointStatusType]
     StatusMessage: NotRequired[str]
     CreationDate: NotRequired[datetime]
+    InitiationDate: NotRequired[datetime]
     CompletionDate: NotRequired[datetime]
     BackupSizeInBytes: NotRequired[int]
     CalculatedLifecycle: NotRequired[CalculatedLifecycleTypeDef]
@@ -1042,6 +1096,13 @@ class CreateReportPlanOutputTypeDef(TypedDict):
     CreationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateRestoreAccessBackupVaultOutputTypeDef(TypedDict):
+    RestoreAccessBackupVaultArn: str
+    VaultState: VaultStateType
+    RestoreAccessBackupVaultName: str
+    CreationDate: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateRestoreTestingPlanOutputTypeDef(TypedDict):
     CreationTime: datetime
     RestoreTestingPlanArn: str
@@ -1092,21 +1153,6 @@ class DescribeBackupJobOutputTypeDef(TypedDict):
     MessageCategory: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class DescribeBackupVaultOutputTypeDef(TypedDict):
-    BackupVaultName: str
-    BackupVaultArn: str
-    VaultType: VaultTypeType
-    VaultState: VaultStateType
-    EncryptionKeyArn: str
-    CreationDate: datetime
-    CreatorRequestId: str
-    NumberOfRecoveryPoints: int
-    Locked: bool
-    MinRetentionDays: int
-    MaxRetentionDays: int
-    LockDate: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class DescribeGlobalSettingsOutputTypeDef(TypedDict):
     GlobalSettings: Dict[str, str]
     LastUpdateTime: datetime
@@ -1136,6 +1182,7 @@ class DescribeRecoveryPointOutputTypeDef(TypedDict):
     Status: RecoveryPointStatusType
     StatusMessage: str
     CreationDate: datetime
+    InitiationDate: datetime
     CompletionDate: datetime
     BackupSizeInBytes: int
     CalculatedLifecycle: CalculatedLifecycleTypeDef
@@ -1400,6 +1447,25 @@ class ListRestoreJobsInputTypeDef(TypedDict):
     ByCompleteAfter: NotRequired[TimestampTypeDef]
     ByRestoreTestingPlanArn: NotRequired[str]
 
+class DescribeBackupVaultOutputTypeDef(TypedDict):
+    BackupVaultName: str
+    BackupVaultArn: str
+    VaultType: VaultTypeType
+    VaultState: VaultStateType
+    EncryptionKeyArn: str
+    CreationDate: datetime
+    CreatorRequestId: str
+    NumberOfRecoveryPoints: int
+    Locked: bool
+    MinRetentionDays: int
+    MaxRetentionDays: int
+    LockDate: datetime
+    SourceBackupVaultArn: str
+    MpaApprovalTeamArn: str
+    MpaSessionArn: str
+    LatestMpaApprovalTeamUpdate: LatestMpaApprovalTeamUpdateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeRestoreJobOutputTypeDef(TypedDict):
     AccountId: str
     RestoreJobId: str
@@ -1462,6 +1528,13 @@ class ProtectedResourceConditionsOutputTypeDef(TypedDict):
 class ProtectedResourceConditionsTypeDef(TypedDict):
     StringEquals: NotRequired[Sequence[KeyValueTypeDef]]
     StringNotEquals: NotRequired[Sequence[KeyValueTypeDef]]
+
+class RestoreAccessBackupVaultListMemberTypeDef(TypedDict):
+    RestoreAccessBackupVaultArn: NotRequired[str]
+    CreationDate: NotRequired[datetime]
+    ApprovalDate: NotRequired[datetime]
+    VaultState: NotRequired[VaultStateType]
+    LatestRevokeRequest: NotRequired[LatestRevokeRequestTypeDef]
 
 class ListLegalHoldsOutputTypeDef(TypedDict):
     LegalHolds: List[LegalHoldTypeDef]
@@ -1553,6 +1626,10 @@ class ListRecoveryPointsByLegalHoldInputPaginateTypeDef(TypedDict):
 class ListRecoveryPointsByResourceInputPaginateTypeDef(TypedDict):
     ResourceArn: str
     ManagedByAWSBackupOnly: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListRestoreAccessBackupVaultsInputPaginateTypeDef(TypedDict):
+    BackupVaultName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRestoreJobsByProtectedResourceInputPaginateTypeDef(TypedDict):
@@ -1800,6 +1877,11 @@ class RestoreTestingSelectionForGetTypeDef(TypedDict):
 ProtectedResourceConditionsUnionTypeDef = Union[
     ProtectedResourceConditionsTypeDef, ProtectedResourceConditionsOutputTypeDef
 ]
+
+class ListRestoreAccessBackupVaultsOutputTypeDef(TypedDict):
+    RestoreAccessBackupVaults: List[RestoreAccessBackupVaultListMemberTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class DescribeReportJobOutputTypeDef(TypedDict):
     ReportJob: ReportJobTypeDef

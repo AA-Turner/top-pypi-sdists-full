@@ -27,7 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_quota_info
 short_description: Retrieve information about one or more oVirt/RHV quotas
 version_added: "1.0.0"
-author: "Maor Lipchuk (@machacekondra)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV quotas."
     - This module was called C(ovirt_quota_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -55,6 +55,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

@@ -82,13 +82,13 @@ def get_spark_session(self, db_token: str):  # type: ignore[no-untyped-def]
     db_host = f"https://{server_hostname}"
 
     if sys.version_info >= (3, 9, 0):
-        session_builder = DatabricksSession.Builder()
+        session_builder = DatabricksSession.Builder()  # type: ignore[no-untyped-call]
         session_builder.host(db_host)
         session_builder.token(db_token)
         session_builder.clusterId(db_cluster_id)
     else:
         conn_string = _get_connection_string(db_host, db_token, db_cluster_id)
-        session_builder = DatabricksSession.Builder().remote(conn_string)
+        session_builder = DatabricksSession.Builder().remote(conn_string)  # type: ignore[no-untyped-call]
 
     try:
         session_builder.userAgent(SPARK_CONNECT_USER_AGENT)

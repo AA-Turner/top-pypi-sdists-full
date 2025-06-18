@@ -1,9 +1,9 @@
 from collections.abc import Callable
-from typing import Literal, TypeAlias
-from typing_extensions import Self
+from typing import Literal, Self, TypeAlias
 
 import numpy as np
 import optype.numpy as onp
+
 from scipy._typing import ToRNG
 
 __all__ = ["gaussian_kde"]
@@ -41,11 +41,7 @@ class gaussian_kde:
     def integrate_gaussian(self, /, mean: onp.ToFloat1D, cov: onp.ToFloat2D) -> np.float64 | np.float32: ...
     def integrate_box_1d(self, /, low: onp.ToFloat, high: onp.ToFloat) -> np.float64 | np.float32: ...
     def integrate_box(
-        self,
-        /,
-        low_bounds: onp.ToFloat1D,
-        high_bounds: onp.ToFloat1D,
-        maxpts: int | None = None,
+        self, /, low_bounds: onp.ToFloat1D, high_bounds: onp.ToFloat1D, maxpts: int | None = None, *, rng: ToRNG = None
     ) -> np.float64 | np.float32: ...
     def integrate_kde(self, /, other: Self) -> np.float64 | np.float32: ...
     def resample(self, /, size: int | None = None, seed: ToRNG = None) -> _Float2D: ...

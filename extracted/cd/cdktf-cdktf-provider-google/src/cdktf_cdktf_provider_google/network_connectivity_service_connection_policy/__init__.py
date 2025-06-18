@@ -1,7 +1,7 @@
 r'''
 # `google_network_connectivity_service_connection_policy`
 
-Refer to the Terraform Registry for docs: [`google_network_connectivity_service_connection_policy`](https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy).
+Refer to the Terraform Registry for docs: [`google_network_connectivity_service_connection_policy`](https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkConnectivityServiceConnectionPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.networkConnectivityServiceConnectionPolicy.NetworkConnectivityServiceConnectionPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy google_network_connectivity_service_connection_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy google_network_connectivity_service_connection_policy}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class NetworkConnectivityServiceConnectionPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy google_network_connectivity_service_connection_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy google_network_connectivity_service_connection_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the ServiceConnectionPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#location NetworkConnectivityServiceConnectionPolicy#location}
-        :param name: The name of a ServiceConnectionPolicy. Format: projects/{project}/locations/{location}/serviceConnectionPolicies/{service_connection_policy} See: https://google.aip.dev/122#fields-representing-resource-names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#name NetworkConnectivityServiceConnectionPolicy#name}
-        :param network: The resource path of the consumer network. Example: - projects/{projectNumOrId}/global/networks/{resourceId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#network NetworkConnectivityServiceConnectionPolicy#network}
-        :param service_class: The service class identifier for which this ServiceConnectionPolicy is for. The service class identifier is a unique, symbolic representation of a ServiceClass. It is provided by the Service Producer. Google services have a prefix of gcp. For example, gcp-cloud-sql. 3rd party services do not. For example, test-service-a3dfcx. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#service_class NetworkConnectivityServiceConnectionPolicy#service_class}
-        :param description: Free-text description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#description NetworkConnectivityServiceConnectionPolicy#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#id NetworkConnectivityServiceConnectionPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#labels NetworkConnectivityServiceConnectionPolicy#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#project NetworkConnectivityServiceConnectionPolicy#project}.
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#psc_config NetworkConnectivityServiceConnectionPolicy#psc_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#timeouts NetworkConnectivityServiceConnectionPolicy#timeouts}
+        :param location: The location of the ServiceConnectionPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#location NetworkConnectivityServiceConnectionPolicy#location}
+        :param name: The name of a ServiceConnectionPolicy. Format: projects/{project}/locations/{location}/serviceConnectionPolicies/{service_connection_policy} See: https://google.aip.dev/122#fields-representing-resource-names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#name NetworkConnectivityServiceConnectionPolicy#name}
+        :param network: The resource path of the consumer network. Example: - projects/{projectNumOrId}/global/networks/{resourceId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#network NetworkConnectivityServiceConnectionPolicy#network}
+        :param service_class: The service class identifier for which this ServiceConnectionPolicy is for. The service class identifier is a unique, symbolic representation of a ServiceClass. It is provided by the Service Producer. Google services have a prefix of gcp. For example, gcp-cloud-sql. 3rd party services do not. For example, test-service-a3dfcx. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#service_class NetworkConnectivityServiceConnectionPolicy#service_class}
+        :param description: Free-text description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#description NetworkConnectivityServiceConnectionPolicy#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#id NetworkConnectivityServiceConnectionPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#labels NetworkConnectivityServiceConnectionPolicy#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#project NetworkConnectivityServiceConnectionPolicy#project}.
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#psc_config NetworkConnectivityServiceConnectionPolicy#psc_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#timeouts NetworkConnectivityServiceConnectionPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class NetworkConnectivityServiceConnectionPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkConnectivityServiceConnectionPolicy to import.
-        :param import_from_id: The id of the existing NetworkConnectivityServiceConnectionPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkConnectivityServiceConnectionPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkConnectivityServiceConnectionPolicy to import is found.
         '''
         if __debug__:
@@ -146,14 +146,21 @@ class NetworkConnectivityServiceConnectionPolicy(
         self,
         *,
         subnetworks: typing.Sequence[builtins.str],
+        allowed_google_producers_resource_hierarchy_level: typing.Optional[typing.Sequence[builtins.str]] = None,
         limit: typing.Optional[builtins.str] = None,
+        producer_instance_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subnetworks: IDs of the subnetworks or fully qualified identifiers for the subnetworks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#subnetworks NetworkConnectivityServiceConnectionPolicy#subnetworks}
-        :param limit: Max number of PSC connections for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#limit NetworkConnectivityServiceConnectionPolicy#limit}
+        :param subnetworks: IDs of the subnetworks or fully qualified identifiers for the subnetworks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#subnetworks NetworkConnectivityServiceConnectionPolicy#subnetworks}
+        :param allowed_google_producers_resource_hierarchy_level: List of Projects, Folders, or Organizations from where the Producer instance can be within. For example, a network administrator can provide both 'organizations/foo' and 'projects/bar' as allowed_google_producers_resource_hierarchy_levels. This allowlists this network to connect with any Producer instance within the 'foo' organization or the 'bar' project. By default, allowedGoogleProducersResourceHierarchyLevel is empty. The format for each allowedGoogleProducersResourceHierarchyLevel is / where is one of 'projects', 'folders', or 'organizations' and is either the ID or the number of the resource type. Format for each allowedGoogleProducersResourceHierarchyLevel value: 'projects/' or 'folders/' or 'organizations/' Eg. [projects/my-project-id, projects/567, folders/891, organizations/123] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#allowed_google_producers_resource_hierarchy_level NetworkConnectivityServiceConnectionPolicy#allowed_google_producers_resource_hierarchy_level}
+        :param limit: Max number of PSC connections for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#limit NetworkConnectivityServiceConnectionPolicy#limit}
+        :param producer_instance_location: ProducerInstanceLocation is used to specify which authorization mechanism to use to determine which projects the Producer instance can be within. Possible values: ["PRODUCER_INSTANCE_LOCATION_UNSPECIFIED", "CUSTOM_RESOURCE_HIERARCHY_LEVELS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#producer_instance_location NetworkConnectivityServiceConnectionPolicy#producer_instance_location}
         '''
         value = NetworkConnectivityServiceConnectionPolicyPscConfig(
-            subnetworks=subnetworks, limit=limit
+            subnetworks=subnetworks,
+            allowed_google_producers_resource_hierarchy_level=allowed_google_producers_resource_hierarchy_level,
+            limit=limit,
+            producer_instance_location=producer_instance_location,
         )
 
         return typing.cast(None, jsii.invoke(self, "putPscConfig", [value]))
@@ -167,9 +174,9 @@ class NetworkConnectivityServiceConnectionPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#create NetworkConnectivityServiceConnectionPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#delete NetworkConnectivityServiceConnectionPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#update NetworkConnectivityServiceConnectionPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#create NetworkConnectivityServiceConnectionPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#delete NetworkConnectivityServiceConnectionPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#update NetworkConnectivityServiceConnectionPolicy#update}.
         '''
         value = NetworkConnectivityServiceConnectionPolicyTimeouts(
             create=create, delete=delete, update=update
@@ -473,16 +480,16 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the ServiceConnectionPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#location NetworkConnectivityServiceConnectionPolicy#location}
-        :param name: The name of a ServiceConnectionPolicy. Format: projects/{project}/locations/{location}/serviceConnectionPolicies/{service_connection_policy} See: https://google.aip.dev/122#fields-representing-resource-names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#name NetworkConnectivityServiceConnectionPolicy#name}
-        :param network: The resource path of the consumer network. Example: - projects/{projectNumOrId}/global/networks/{resourceId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#network NetworkConnectivityServiceConnectionPolicy#network}
-        :param service_class: The service class identifier for which this ServiceConnectionPolicy is for. The service class identifier is a unique, symbolic representation of a ServiceClass. It is provided by the Service Producer. Google services have a prefix of gcp. For example, gcp-cloud-sql. 3rd party services do not. For example, test-service-a3dfcx. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#service_class NetworkConnectivityServiceConnectionPolicy#service_class}
-        :param description: Free-text description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#description NetworkConnectivityServiceConnectionPolicy#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#id NetworkConnectivityServiceConnectionPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#labels NetworkConnectivityServiceConnectionPolicy#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#project NetworkConnectivityServiceConnectionPolicy#project}.
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#psc_config NetworkConnectivityServiceConnectionPolicy#psc_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#timeouts NetworkConnectivityServiceConnectionPolicy#timeouts}
+        :param location: The location of the ServiceConnectionPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#location NetworkConnectivityServiceConnectionPolicy#location}
+        :param name: The name of a ServiceConnectionPolicy. Format: projects/{project}/locations/{location}/serviceConnectionPolicies/{service_connection_policy} See: https://google.aip.dev/122#fields-representing-resource-names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#name NetworkConnectivityServiceConnectionPolicy#name}
+        :param network: The resource path of the consumer network. Example: - projects/{projectNumOrId}/global/networks/{resourceId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#network NetworkConnectivityServiceConnectionPolicy#network}
+        :param service_class: The service class identifier for which this ServiceConnectionPolicy is for. The service class identifier is a unique, symbolic representation of a ServiceClass. It is provided by the Service Producer. Google services have a prefix of gcp. For example, gcp-cloud-sql. 3rd party services do not. For example, test-service-a3dfcx. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#service_class NetworkConnectivityServiceConnectionPolicy#service_class}
+        :param description: Free-text description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#description NetworkConnectivityServiceConnectionPolicy#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#id NetworkConnectivityServiceConnectionPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#labels NetworkConnectivityServiceConnectionPolicy#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#project NetworkConnectivityServiceConnectionPolicy#project}.
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#psc_config NetworkConnectivityServiceConnectionPolicy#psc_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#timeouts NetworkConnectivityServiceConnectionPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -610,7 +617,7 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
     def location(self) -> builtins.str:
         '''The location of the ServiceConnectionPolicy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#location NetworkConnectivityServiceConnectionPolicy#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#location NetworkConnectivityServiceConnectionPolicy#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -620,7 +627,7 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
     def name(self) -> builtins.str:
         '''The name of a ServiceConnectionPolicy. Format: projects/{project}/locations/{location}/serviceConnectionPolicies/{service_connection_policy} See: https://google.aip.dev/122#fields-representing-resource-names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#name NetworkConnectivityServiceConnectionPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#name NetworkConnectivityServiceConnectionPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -630,7 +637,7 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
     def network(self) -> builtins.str:
         '''The resource path of the consumer network. Example: - projects/{projectNumOrId}/global/networks/{resourceId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#network NetworkConnectivityServiceConnectionPolicy#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#network NetworkConnectivityServiceConnectionPolicy#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -643,7 +650,7 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
         The service class identifier is a unique, symbolic representation of a ServiceClass.
         It is provided by the Service Producer. Google services have a prefix of gcp. For example, gcp-cloud-sql. 3rd party services do not. For example, test-service-a3dfcx.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#service_class NetworkConnectivityServiceConnectionPolicy#service_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#service_class NetworkConnectivityServiceConnectionPolicy#service_class}
         '''
         result = self._values.get("service_class")
         assert result is not None, "Required property 'service_class' is missing"
@@ -653,14 +660,14 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
     def description(self) -> typing.Optional[builtins.str]:
         '''Free-text description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#description NetworkConnectivityServiceConnectionPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#description NetworkConnectivityServiceConnectionPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#id NetworkConnectivityServiceConnectionPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#id NetworkConnectivityServiceConnectionPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -675,14 +682,14 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#labels NetworkConnectivityServiceConnectionPolicy#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#labels NetworkConnectivityServiceConnectionPolicy#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#project NetworkConnectivityServiceConnectionPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#project NetworkConnectivityServiceConnectionPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -692,7 +699,7 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
     ) -> typing.Optional["NetworkConnectivityServiceConnectionPolicyPscConfig"]:
         '''psc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#psc_config NetworkConnectivityServiceConnectionPolicy#psc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#psc_config NetworkConnectivityServiceConnectionPolicy#psc_config}
         '''
         result = self._values.get("psc_config")
         return typing.cast(typing.Optional["NetworkConnectivityServiceConnectionPolicyPscConfig"], result)
@@ -703,7 +710,7 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
     ) -> typing.Optional["NetworkConnectivityServiceConnectionPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#timeouts NetworkConnectivityServiceConnectionPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#timeouts NetworkConnectivityServiceConnectionPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkConnectivityServiceConnectionPolicyTimeouts"], result)
@@ -723,46 +730,93 @@ class NetworkConnectivityServiceConnectionPolicyConfig(
 @jsii.data_type(
     jsii_type="@cdktf/provider-google.networkConnectivityServiceConnectionPolicy.NetworkConnectivityServiceConnectionPolicyPscConfig",
     jsii_struct_bases=[],
-    name_mapping={"subnetworks": "subnetworks", "limit": "limit"},
+    name_mapping={
+        "subnetworks": "subnetworks",
+        "allowed_google_producers_resource_hierarchy_level": "allowedGoogleProducersResourceHierarchyLevel",
+        "limit": "limit",
+        "producer_instance_location": "producerInstanceLocation",
+    },
 )
 class NetworkConnectivityServiceConnectionPolicyPscConfig:
     def __init__(
         self,
         *,
         subnetworks: typing.Sequence[builtins.str],
+        allowed_google_producers_resource_hierarchy_level: typing.Optional[typing.Sequence[builtins.str]] = None,
         limit: typing.Optional[builtins.str] = None,
+        producer_instance_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subnetworks: IDs of the subnetworks or fully qualified identifiers for the subnetworks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#subnetworks NetworkConnectivityServiceConnectionPolicy#subnetworks}
-        :param limit: Max number of PSC connections for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#limit NetworkConnectivityServiceConnectionPolicy#limit}
+        :param subnetworks: IDs of the subnetworks or fully qualified identifiers for the subnetworks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#subnetworks NetworkConnectivityServiceConnectionPolicy#subnetworks}
+        :param allowed_google_producers_resource_hierarchy_level: List of Projects, Folders, or Organizations from where the Producer instance can be within. For example, a network administrator can provide both 'organizations/foo' and 'projects/bar' as allowed_google_producers_resource_hierarchy_levels. This allowlists this network to connect with any Producer instance within the 'foo' organization or the 'bar' project. By default, allowedGoogleProducersResourceHierarchyLevel is empty. The format for each allowedGoogleProducersResourceHierarchyLevel is / where is one of 'projects', 'folders', or 'organizations' and is either the ID or the number of the resource type. Format for each allowedGoogleProducersResourceHierarchyLevel value: 'projects/' or 'folders/' or 'organizations/' Eg. [projects/my-project-id, projects/567, folders/891, organizations/123] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#allowed_google_producers_resource_hierarchy_level NetworkConnectivityServiceConnectionPolicy#allowed_google_producers_resource_hierarchy_level}
+        :param limit: Max number of PSC connections for this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#limit NetworkConnectivityServiceConnectionPolicy#limit}
+        :param producer_instance_location: ProducerInstanceLocation is used to specify which authorization mechanism to use to determine which projects the Producer instance can be within. Possible values: ["PRODUCER_INSTANCE_LOCATION_UNSPECIFIED", "CUSTOM_RESOURCE_HIERARCHY_LEVELS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#producer_instance_location NetworkConnectivityServiceConnectionPolicy#producer_instance_location}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ce56d3b04bf2992128a9be6ce773fbf20e9b7b522b17477eca3e4c3f9114693)
             check_type(argname="argument subnetworks", value=subnetworks, expected_type=type_hints["subnetworks"])
+            check_type(argname="argument allowed_google_producers_resource_hierarchy_level", value=allowed_google_producers_resource_hierarchy_level, expected_type=type_hints["allowed_google_producers_resource_hierarchy_level"])
             check_type(argname="argument limit", value=limit, expected_type=type_hints["limit"])
+            check_type(argname="argument producer_instance_location", value=producer_instance_location, expected_type=type_hints["producer_instance_location"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subnetworks": subnetworks,
         }
+        if allowed_google_producers_resource_hierarchy_level is not None:
+            self._values["allowed_google_producers_resource_hierarchy_level"] = allowed_google_producers_resource_hierarchy_level
         if limit is not None:
             self._values["limit"] = limit
+        if producer_instance_location is not None:
+            self._values["producer_instance_location"] = producer_instance_location
 
     @builtins.property
     def subnetworks(self) -> typing.List[builtins.str]:
         '''IDs of the subnetworks or fully qualified identifiers for the subnetworks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#subnetworks NetworkConnectivityServiceConnectionPolicy#subnetworks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#subnetworks NetworkConnectivityServiceConnectionPolicy#subnetworks}
         '''
         result = self._values.get("subnetworks")
         assert result is not None, "Required property 'subnetworks' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
+    def allowed_google_producers_resource_hierarchy_level(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of Projects, Folders, or Organizations from where the Producer instance can be within.
+
+        For example,
+        a network administrator can provide both 'organizations/foo' and 'projects/bar' as
+        allowed_google_producers_resource_hierarchy_levels. This allowlists this network to connect with any Producer
+        instance within the 'foo' organization or the 'bar' project. By default,
+        allowedGoogleProducersResourceHierarchyLevel is empty. The format for each
+        allowedGoogleProducersResourceHierarchyLevel is / where is one of 'projects', 'folders', or 'organizations'
+        and is either the ID or the number of the resource type. Format for each
+        allowedGoogleProducersResourceHierarchyLevel value: 'projects/' or 'folders/' or 'organizations/' Eg.
+        [projects/my-project-id, projects/567, folders/891, organizations/123]
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#allowed_google_producers_resource_hierarchy_level NetworkConnectivityServiceConnectionPolicy#allowed_google_producers_resource_hierarchy_level}
+        '''
+        result = self._values.get("allowed_google_producers_resource_hierarchy_level")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def limit(self) -> typing.Optional[builtins.str]:
         '''Max number of PSC connections for this policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#limit NetworkConnectivityServiceConnectionPolicy#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#limit NetworkConnectivityServiceConnectionPolicy#limit}
         '''
         result = self._values.get("limit")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def producer_instance_location(self) -> typing.Optional[builtins.str]:
+        '''ProducerInstanceLocation is used to specify which authorization mechanism to use to determine which projects the Producer instance can be within.
+
+        Possible values: ["PRODUCER_INSTANCE_LOCATION_UNSPECIFIED", "CUSTOM_RESOURCE_HIERARCHY_LEVELS"]
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#producer_instance_location NetworkConnectivityServiceConnectionPolicy#producer_instance_location}
+        '''
+        result = self._values.get("producer_instance_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -797,9 +851,24 @@ class NetworkConnectivityServiceConnectionPolicyPscConfigOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="resetAllowedGoogleProducersResourceHierarchyLevel")
+    def reset_allowed_google_producers_resource_hierarchy_level(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAllowedGoogleProducersResourceHierarchyLevel", []))
+
     @jsii.member(jsii_name="resetLimit")
     def reset_limit(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLimit", []))
+
+    @jsii.member(jsii_name="resetProducerInstanceLocation")
+    def reset_producer_instance_location(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetProducerInstanceLocation", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="allowedGoogleProducersResourceHierarchyLevelInput")
+    def allowed_google_producers_resource_hierarchy_level_input(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "allowedGoogleProducersResourceHierarchyLevelInput"))
 
     @builtins.property
     @jsii.member(jsii_name="limitInput")
@@ -807,9 +876,31 @@ class NetworkConnectivityServiceConnectionPolicyPscConfigOutputReference(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "limitInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="producerInstanceLocationInput")
+    def producer_instance_location_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "producerInstanceLocationInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="subnetworksInput")
     def subnetworks_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "subnetworksInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allowedGoogleProducersResourceHierarchyLevel")
+    def allowed_google_producers_resource_hierarchy_level(
+        self,
+    ) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "allowedGoogleProducersResourceHierarchyLevel"))
+
+    @allowed_google_producers_resource_hierarchy_level.setter
+    def allowed_google_producers_resource_hierarchy_level(
+        self,
+        value: typing.List[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2073b745f0dec088a924828ecad267b2c622c32879033ced9999f3a93108e87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allowedGoogleProducersResourceHierarchyLevel", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="limit")
@@ -822,6 +913,18 @@ class NetworkConnectivityServiceConnectionPolicyPscConfigOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__47736e5276994ecdfc296c3c242aaa84099d0503822badd1ff6edc5c43d72c9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "limit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="producerInstanceLocation")
+    def producer_instance_location(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "producerInstanceLocation"))
+
+    @producer_instance_location.setter
+    def producer_instance_location(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a66777b1e1c414af20e856313e262e053e3d42f0b1f93ce381e5ae0df7b0826)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "producerInstanceLocation", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="subnetworks")
@@ -1369,9 +1472,9 @@ class NetworkConnectivityServiceConnectionPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#create NetworkConnectivityServiceConnectionPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#delete NetworkConnectivityServiceConnectionPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#update NetworkConnectivityServiceConnectionPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#create NetworkConnectivityServiceConnectionPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#delete NetworkConnectivityServiceConnectionPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#update NetworkConnectivityServiceConnectionPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c25a0312c586f51bd90e4c05a476f6625f8423f501d6e30d2d3785996be3f543)
@@ -1388,19 +1491,19 @@ class NetworkConnectivityServiceConnectionPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#create NetworkConnectivityServiceConnectionPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#create NetworkConnectivityServiceConnectionPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#delete NetworkConnectivityServiceConnectionPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#delete NetworkConnectivityServiceConnectionPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/resources/network_connectivity_service_connection_policy#update NetworkConnectivityServiceConnectionPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/resources/network_connectivity_service_connection_policy#update NetworkConnectivityServiceConnectionPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1645,7 +1748,9 @@ def _typecheckingstub__23ef0cabee387c59d3e9afe5a646d1b9f43158422723ba9c66cf0bfae
 def _typecheckingstub__8ce56d3b04bf2992128a9be6ce773fbf20e9b7b522b17477eca3e4c3f9114693(
     *,
     subnetworks: typing.Sequence[builtins.str],
+    allowed_google_producers_resource_hierarchy_level: typing.Optional[typing.Sequence[builtins.str]] = None,
     limit: typing.Optional[builtins.str] = None,
+    producer_instance_location: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1657,7 +1762,19 @@ def _typecheckingstub__3bdc743e7e33da88dce74411c4a5239da027c0ee5d3049e1b3588daf7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b2073b745f0dec088a924828ecad267b2c622c32879033ced9999f3a93108e87(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__47736e5276994ecdfc296c3c242aaa84099d0503822badd1ff6edc5c43d72c9a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a66777b1e1c414af20e856313e262e053e3d42f0b1f93ce381e5ae0df7b0826(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""

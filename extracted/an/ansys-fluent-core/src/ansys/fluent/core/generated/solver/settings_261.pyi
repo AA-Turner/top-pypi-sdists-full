@@ -54560,11 +54560,17 @@ class boundary_zone(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
+class open_channel_initialization_method(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class flat_init(Boolean):
+    _deprecated_version: str
     _version: str
     fluent_name: str
     _python_name: str
 class wavy_surface_init(Boolean):
+    _deprecated_version: str
     _version: str
     fluent_name: str
     _python_name: str
@@ -54574,6 +54580,7 @@ class open_channel_auto_init(Group):
     _python_name: str
     child_names: list[str]
     boundary_zone: boundary_zone
+    open_channel_initialization_method: open_channel_initialization_method
     flat_init: flat_init
     wavy_surface_init: wavy_surface_init
 class fmg_courant_number(Real):
@@ -54660,7 +54667,7 @@ class initialization_1(Group):
             from_zone_type : str
                 Boundary/zone type.
             from_zone_name : str
-                Selecte zone name.
+                Zone name.
             phase : str
                 Phase name.
         """
@@ -55342,10 +55349,6 @@ class calculation_activity(Group):
     solution_animations: solution_animations
     case_modification: case_modification
     poor_mesh_numerics: poor_mesh_numerics_1
-class verbosity_19(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
 class time_step_method_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
@@ -55359,6 +55362,10 @@ class length_scale_methods(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 class time_step_size_scale_factor_1(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class verbosity_19(Integer):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55387,6 +55394,7 @@ class time_step_method(Group):
     pseudo_time_step_size: pseudo_time_step_size
     length_scale_methods: length_scale_methods
     time_step_size_scale_factor: time_step_size_scale_factor_1
+    verbosity: verbosity_19
     length_scale: length_scale_1
     auto_time_size_calc_solid_zone: auto_time_size_calc_solid_zone
     time_solid_scale_factor: time_solid_scale_factor
@@ -55396,12 +55404,8 @@ class pseudo_time_settings(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    verbosity: verbosity_19
     time_step_method: time_step_method
-class iter_count_2(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
+    _child_aliases: dict
 class enabled_66(Boolean):
     _version: str
     fluent_name: str
@@ -55488,14 +55492,6 @@ class cfl_based_adaptive_time_stepping(Group):
     max_time_step: max_time_step
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
-class reporting_interval(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class profile_update_interval(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
 class enable_28(Boolean):
     _version: str
     fluent_name: str
@@ -55597,10 +55593,6 @@ class solution_status(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class extrapolate_variables(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
 class max_flow_time(Real):
     _version: str
     fluent_name: str
@@ -55629,6 +55621,26 @@ class update_interval_3(Integer):
     _version: str
     fluent_name: str
     _python_name: str
+class control_time_step_size_variation(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class use_average_cfl(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class cfl_type(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class advanced_options(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    control_time_step_size_variation: control_time_step_size_variation
+    use_average_cfl: use_average_cfl
+    cfl_type: cfl_type
 class cfl_based_time_stepping(Group):
     _version: str
     fluent_name: str
@@ -55642,27 +55654,12 @@ class cfl_based_time_stepping(Group):
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
     update_interval: update_interval_3
-class control_time_step_size_variation(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class use_average_cfl(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class cfl_type(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class cfl_based_time_stepping_advanced_options(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    control_time_step_size_variation: control_time_step_size_variation
-    use_average_cfl: use_average_cfl
-    cfl_type: cfl_type
+    advanced_options: advanced_options
 class error_tolerance_3(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class undo_timestep(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55679,10 +55676,7 @@ class error_based_time_stepping(Group):
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
     update_interval: update_interval_3
-class undo_timestep(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
+    undo_timestep: undo_timestep
 class predict_next(Boolean):
     _version: str
     fluent_name: str
@@ -55699,6 +55693,63 @@ class global_courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
+class moving_mesh_constraint(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class mesh_courant_number(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class moving_mesh_cfl_constraint(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    moving_mesh_constraint: moving_mesh_constraint
+    mesh_courant_number: mesh_courant_number
+class physics_based_constraint(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class viscous_scale(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class gravity_scale(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class surface_tension_scale(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class acoustic_scale(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class time_scale_options(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    viscous_scale: viscous_scale
+    gravity_scale: gravity_scale
+    surface_tension_scale: surface_tension_scale
+    acoustic_scale: acoustic_scale
+class verbosity_20(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class time_constraints(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    moving_mesh_cfl_constraint: moving_mesh_cfl_constraint
+    physics_based_constraint: physics_based_constraint
+    time_scale_options: time_scale_options
+    verbosity: verbosity_20
 class mp_specific_time_stepping(Group):
     _version: str
     fluent_name: str
@@ -55713,6 +55764,7 @@ class mp_specific_time_stepping(Group):
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
     update_interval: update_interval_3
+    time_constraints: time_constraints
 class udf_hook(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
@@ -55763,63 +55815,6 @@ class fixed_periodic(Group):
     time_steps_per_period: time_steps_per_period
     total_periods: total_periods
     _child_aliases: dict
-class moving_mesh_constraint(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class mesh_courant_number(Real):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class moving_mesh_cfl_constraint(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    moving_mesh_constraint: moving_mesh_constraint
-    mesh_courant_number: mesh_courant_number
-class physics_based_constraint(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class viscous_scale(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class gravity_scale(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class surface_tension_scale(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class acoustic_scale(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class time_scale_options(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    viscous_scale: viscous_scale
-    gravity_scale: gravity_scale
-    surface_tension_scale: surface_tension_scale
-    acoustic_scale: acoustic_scale
-class verbosity_20(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class multiphase_specific_time_constraints(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    moving_mesh_cfl_constraint: moving_mesh_cfl_constraint
-    physics_based_constraint: physics_based_constraint
-    time_scale_options: time_scale_options
-    verbosity: verbosity_20
 class enable_solid_time_step(Boolean):
     _version: str
     fluent_name: str
@@ -55841,6 +55836,10 @@ class solid_time_step_size(Group):
     choose_auto_time_stepping: choose_auto_time_stepping
     time_step_size: time_step_size_2
 class time_step_size_for_acoustic_export(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class extrapolate_variables(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55925,25 +55924,43 @@ class transient_controls(Group):
     flow_time: flow_time
     total_time_step_count: total_time_step_count
     solution_status: solution_status
-    extrapolate_variables: extrapolate_variables
     max_flow_time: max_flow_time
     cfl_based_time_stepping: cfl_based_time_stepping
-    cfl_based_time_stepping_advanced_options: cfl_based_time_stepping_advanced_options
     error_based_time_stepping: error_based_time_stepping
-    undo_timestep: undo_timestep
     predict_next: predict_next
     rotating_mesh_flow_predictor: rotating_mesh_flow_predictor
     mp_specific_time_stepping: mp_specific_time_stepping
     udf_hook: udf_hook
     fixed_periodic: fixed_periodic
-    multiphase_specific_time_constraints: multiphase_specific_time_constraints
     solid_time_step_size: solid_time_step_size
     time_step_size_for_acoustic_export: time_step_size_for_acoustic_export
+    extrapolate_variables: extrapolate_variables
     extrapolate_eqn_vars: extrapolate_eqn_vars
     def simulation_status(self):
         """
         Get the simulation status.
         """
+    _child_aliases: dict
+class iter_count_2(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class reporting_interval(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class profile_update_interval(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class parameters_8(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    iter_count: iter_count_2
+    reporting_interval: reporting_interval
+    profile_update_interval: profile_update_interval
 class postprocess(Boolean):
     _version: str
     fluent_name: str
@@ -56176,14 +56193,12 @@ class run_calculation(Group):
     command_names: list[str]
     query_names: list[str]
     pseudo_time_settings: pseudo_time_settings
-    iter_count: iter_count_2
     adaptive_time_stepping: adaptive_time_stepping
     cfl_based_adaptive_time_stepping: cfl_based_adaptive_time_stepping
-    reporting_interval: reporting_interval
-    profile_update_interval: profile_update_interval
     solution_steering: solution_steering
     time_step_count: time_step_count_1
     transient_controls: transient_controls
+    parameters: parameters_8
     pollutants: pollutants
     data_sampling: data_sampling
     data_sampling_options: data_sampling_options
@@ -56237,6 +56252,7 @@ class run_calculation(Group):
         """
         'iterating' query.
         """
+    _child_aliases: dict
 class solution(Group):
     _version: str
     fluent_name: str
@@ -68191,7 +68207,7 @@ class constraints(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class parameters_8(Real):
+class parameters_9(Real):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68201,7 +68217,7 @@ class tolerances(Group):
     _python_name: str
     child_names: list[str]
     constraints: constraints
-    parameters: parameters_8
+    parameters: parameters_9
 class polynomials(Group):
     _version: str
     fluent_name: str
@@ -68744,14 +68760,14 @@ class value_21(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class parameters_9_child(Group):
+class parameters_10_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     prescribed: prescribed
     value: value_21
-class parameters_9(NamedObject[parameters_9_child]):
+class parameters_10(NamedObject[parameters_10_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68809,7 +68825,7 @@ class parameters_9(NamedObject[parameters_9_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: parameters_9_child
+    child_object_type: parameters_10_child
 class x_10(Group):
     _version: str
     fluent_name: str
@@ -68962,7 +68978,7 @@ class definition_3_child(Group):
     fit_imported_surfaces: fit_imported_surfaces
     bounding_offset: bounding_offset
     deformation_profile: deformation_profile
-    parameters: parameters_9
+    parameters: parameters_10
     displacement: displacement
     scaling_type: scaling_type
     scale_factor: scale_factor_2
@@ -69339,14 +69355,14 @@ class affected_conditions(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class parameters_10_child(Group):
+class parameters_11_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     value: value_23
     affected_conditions: affected_conditions
-class parameters_10(NamedObject[parameters_10_child]):
+class parameters_11(NamedObject[parameters_11_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -69404,7 +69420,7 @@ class parameters_10(NamedObject[parameters_10_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: parameters_10_child
+    child_object_type: parameters_11_child
 class file_name_30(String):
     _version: str
     fluent_name: str
@@ -69599,7 +69615,7 @@ class design_change(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    parameters: parameters_10
+    parameters: parameters_11
     results: results_1
     export: export_2
     preview: preview_1
@@ -69687,11 +69703,11 @@ class parameters_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
-class parameters_11_child(String, AllowedValuesMixin):
+class parameters_12_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class parameters_11(ListObject[parameters_11_child]):
+class parameters_12(ListObject[parameters_12_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -69714,7 +69730,7 @@ class parameters_11(ListObject[parameters_11_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: parameters_11_child
+    child_object_type: parameters_12_child
 class id_1(Integer):
     _version: str
     fluent_name: str
@@ -69723,11 +69739,11 @@ class active_4(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class parameters_12_child(Real):
+class parameters_13_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class parameters_12(NamedObject[parameters_12_child]):
+class parameters_13(NamedObject[parameters_13_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -69785,7 +69801,7 @@ class parameters_12(NamedObject[parameters_12_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: parameters_12_child
+    child_object_type: parameters_13_child
 class conditions_2_child(Group):
     _version: str
     fluent_name: str
@@ -69793,7 +69809,7 @@ class conditions_2_child(Group):
     child_names: list[str]
     id: id_1
     active: active_4
-    parameters: parameters_12
+    parameters: parameters_13
 class conditions_2(ListObject[conditions_2_child]):
     _version: str
     fluent_name: str
@@ -69825,7 +69841,7 @@ class operating_conditions_1(Group):
     child_names: list[str]
     count: count_1
     parameters_count: parameters_count
-    parameters: parameters_11
+    parameters: parameters_12
     conditions: conditions_2
 class id_2(Integer):
     _version: str

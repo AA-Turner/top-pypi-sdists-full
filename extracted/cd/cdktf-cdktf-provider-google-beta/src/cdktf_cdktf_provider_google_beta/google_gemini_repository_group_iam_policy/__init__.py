@@ -1,7 +1,7 @@
 r'''
 # `google_gemini_repository_group_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_gemini_repository_group_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy).
+Refer to the Terraform Registry for docs: [`google_gemini_repository_group_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleGeminiRepositoryGroupIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleGeminiRepositoryGroupIamPolicy.GoogleGeminiRepositoryGroupIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy google_gemini_repository_group_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy google_gemini_repository_group_iam_policy}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleGeminiRepositoryGroupIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy google_gemini_repository_group_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy google_gemini_repository_group_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param code_repository_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#code_repository_index GoogleGeminiRepositoryGroupIamPolicy#code_repository_index}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#policy_data GoogleGeminiRepositoryGroupIamPolicy#policy_data}.
-        :param repository_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#repository_group_id GoogleGeminiRepositoryGroupIamPolicy#repository_group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#id GoogleGeminiRepositoryGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#location GoogleGeminiRepositoryGroupIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#project GoogleGeminiRepositoryGroupIamPolicy#project}.
+        :param code_repository_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#code_repository_index GoogleGeminiRepositoryGroupIamPolicy#code_repository_index}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#policy_data GoogleGeminiRepositoryGroupIamPolicy#policy_data}.
+        :param repository_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#repository_group_id GoogleGeminiRepositoryGroupIamPolicy#repository_group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#id GoogleGeminiRepositoryGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#location GoogleGeminiRepositoryGroupIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#project GoogleGeminiRepositoryGroupIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleGeminiRepositoryGroupIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleGeminiRepositoryGroupIamPolicy to import.
-        :param import_from_id: The id of the existing GoogleGeminiRepositoryGroupIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleGeminiRepositoryGroupIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleGeminiRepositoryGroupIamPolicy to import is found.
         '''
         if __debug__:
@@ -309,12 +309,12 @@ class GoogleGeminiRepositoryGroupIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param code_repository_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#code_repository_index GoogleGeminiRepositoryGroupIamPolicy#code_repository_index}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#policy_data GoogleGeminiRepositoryGroupIamPolicy#policy_data}.
-        :param repository_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#repository_group_id GoogleGeminiRepositoryGroupIamPolicy#repository_group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#id GoogleGeminiRepositoryGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#location GoogleGeminiRepositoryGroupIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#project GoogleGeminiRepositoryGroupIamPolicy#project}.
+        :param code_repository_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#code_repository_index GoogleGeminiRepositoryGroupIamPolicy#code_repository_index}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#policy_data GoogleGeminiRepositoryGroupIamPolicy#policy_data}.
+        :param repository_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#repository_group_id GoogleGeminiRepositoryGroupIamPolicy#repository_group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#id GoogleGeminiRepositoryGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#location GoogleGeminiRepositoryGroupIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#project GoogleGeminiRepositoryGroupIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -425,28 +425,28 @@ class GoogleGeminiRepositoryGroupIamPolicyConfig(
 
     @builtins.property
     def code_repository_index(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#code_repository_index GoogleGeminiRepositoryGroupIamPolicy#code_repository_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#code_repository_index GoogleGeminiRepositoryGroupIamPolicy#code_repository_index}.'''
         result = self._values.get("code_repository_index")
         assert result is not None, "Required property 'code_repository_index' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#policy_data GoogleGeminiRepositoryGroupIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#policy_data GoogleGeminiRepositoryGroupIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#repository_group_id GoogleGeminiRepositoryGroupIamPolicy#repository_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#repository_group_id GoogleGeminiRepositoryGroupIamPolicy#repository_group_id}.'''
         result = self._values.get("repository_group_id")
         assert result is not None, "Required property 'repository_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#id GoogleGeminiRepositoryGroupIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#id GoogleGeminiRepositoryGroupIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -456,13 +456,13 @@ class GoogleGeminiRepositoryGroupIamPolicyConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#location GoogleGeminiRepositoryGroupIamPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#location GoogleGeminiRepositoryGroupIamPolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_gemini_repository_group_iam_policy#project GoogleGeminiRepositoryGroupIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_gemini_repository_group_iam_policy#project GoogleGeminiRepositoryGroupIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -85,6 +85,8 @@ from .type_defs import (
     DescribeRuleGroupMetadataResponseTypeDef,
     DescribeRuleGroupRequestTypeDef,
     DescribeRuleGroupResponseTypeDef,
+    DescribeRuleGroupSummaryRequestTypeDef,
+    DescribeRuleGroupSummaryResponseTypeDef,
     DescribeTLSInspectionConfigurationRequestTypeDef,
     DescribeTLSInspectionConfigurationResponseTypeDef,
     DescribeVpcEndpointAssociationRequestTypeDef,
@@ -456,6 +458,16 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_rule_group_metadata.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#describe_rule_group_metadata)
+        """
+
+    def describe_rule_group_summary(
+        self, **kwargs: Unpack[DescribeRuleGroupSummaryRequestTypeDef]
+    ) -> DescribeRuleGroupSummaryResponseTypeDef:
+        """
+        Returns detailed information for a stateful rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_rule_group_summary.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#describe_rule_group_summary)
         """
 
     def describe_tls_inspection_configuration(

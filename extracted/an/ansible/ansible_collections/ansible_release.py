@@ -3,4 +3,4 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-ansible_version = '11.6.0'
+ansible_version = '11.7.0'

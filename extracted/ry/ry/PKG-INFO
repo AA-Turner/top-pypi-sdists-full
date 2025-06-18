@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ry
-Version: 0.0.46
+Version: 0.0.47
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -49,7 +49,7 @@ ergonomic.
 
 **API:** [ryo3.dev/api](https://ryo3.dev/api)
 
-**⚠️ This is a work in progress — feedback and PRs are welcome.**
+**This is a work in progress — feedback and PRs are welcome.**
 
 ## Highlights
 

@@ -282,9 +282,7 @@ async def janela_conhecimento_frete(cte):
 
     try:
         # Clicar no botão - para apagar registro se existir
-        main_window.child_window(
-            class_name="TDBIBitBtn", found_index=4
-        ).click()
+        main_window.child_window(class_name="TDBIBitBtn", found_index=4).click()
 
         await worker_sleep(2)
 
@@ -387,7 +385,6 @@ async def importar_cte_xml(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO
             )
 
         await kill_all_emsys()
-        
 
         app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3_35.exe")
         warnings.filterwarnings(
@@ -424,7 +421,7 @@ async def importar_cte_xml(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO
         await importar_xml_conhecimento()
         await selecionar_xml(cte)
         await janela_conhecimento_frete(cte)
-        await worker_sleep(3)
+        await worker_sleep(8)
         try:
             await janela_information()
         except:

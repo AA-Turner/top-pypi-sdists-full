@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: apswutils
-Version: 0.0.2
+Version: 0.1.0
 Summary: A fork of sqlite-minutils for apsw
 Home-page: https://github.com/AnswerDotAI/apswutils
 Author: Daniel and Audrey Roy Greenfeld, and Jeremy Howard
@@ -19,6 +19,19 @@ License-File: LICENSE
 Requires-Dist: fastcore
 Requires-Dist: apsw
 Provides-Extra: dev
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # apswutils
 

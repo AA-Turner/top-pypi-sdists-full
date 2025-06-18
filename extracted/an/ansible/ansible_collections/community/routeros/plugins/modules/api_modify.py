@@ -79,6 +79,7 @@ options:
       - interface ethernet poe
       - interface ethernet switch
       - interface ethernet switch port
+      - interface ethernet switch port-isolation
       - interface gre
       - interface gre6
       - interface l2tp-client
@@ -159,6 +160,7 @@ options:
       - ip firewall service-port
       - ip hotspot service-port
       - ip ipsec identity
+      - ip ipsec mode-config
       - ip ipsec peer
       - ip ipsec policy
       - ip ipsec profile
@@ -213,6 +215,7 @@ options:
       - queue type
       - radius
       - radius incoming
+      - routing bfd configuration
       - routing bgp aggregate
       - routing bgp connection
       - routing bgp instance
@@ -360,6 +363,7 @@ seealso:
 """
 
 EXAMPLES = r"""
+---
 - name: Setup DHCP server networks
   # Ensures that we have exactly two DHCP server networks (in the specified order)
   community.routeros.api_modify:

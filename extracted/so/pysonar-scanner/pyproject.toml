@@ -10,7 +10,7 @@ keywords = ['sonar', 'sonarqube', 'sonarcloud', 'cleancode']
 license = 'LGPL-3.0-only'
 name = 'pysonar-scanner'
 readme = 'README.md'
-version = '0.3.0.1966'
+version = '0.3.0.2016'
 
 [[project.authors]]
 email = 'quality.data-ml@sonarsource.com'

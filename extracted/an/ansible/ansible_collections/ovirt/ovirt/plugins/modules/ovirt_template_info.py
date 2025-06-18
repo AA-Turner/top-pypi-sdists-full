@@ -27,9 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_template_info
 short_description: Retrieve information about one or more oVirt/RHV templates
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV templates."
     - This module was called C(ovirt_template_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -45,6 +43,7 @@ options:
             - "For example to search template X from datacenter Y use following pattern:
                name=X and datacenter=Y"
         type: str
+        default: ''
     follow:
         description:
             - List of linked entities, which should be fetched along with the main entity.
@@ -54,6 +53,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

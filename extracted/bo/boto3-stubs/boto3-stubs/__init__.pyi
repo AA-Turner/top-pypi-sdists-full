@@ -281,6 +281,7 @@ from mypy_boto3_migration_hub_refactor_spaces.client import MigrationHubRefactor
 from mypy_boto3_migrationhub_config.client import MigrationHubConfigClient
 from mypy_boto3_migrationhuborchestrator.client import MigrationHubOrchestratorClient
 from mypy_boto3_migrationhubstrategy.client import MigrationHubStrategyRecommendationsClient
+from mypy_boto3_mpa.client import MultipartyApprovalClient
 from mypy_boto3_mq.client import MQClient
 from mypy_boto3_mturk.client import MTurkClient
 from mypy_boto3_mwaa.client import MWAAClient
@@ -5084,6 +5085,24 @@ def client(
 ) -> MigrationHubStrategyRecommendationsClient:
     """
     Create client for MigrationHubStrategyRecommendations service.
+    """
+
+@overload
+def client(
+    service_name: Literal["mpa"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> MultipartyApprovalClient:
+    """
+    Create client for MultipartyApproval service.
     """
 
 @overload

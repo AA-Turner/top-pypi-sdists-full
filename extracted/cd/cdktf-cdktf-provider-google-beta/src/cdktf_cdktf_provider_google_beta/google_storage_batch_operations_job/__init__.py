@@ -1,7 +1,7 @@
 r'''
 # `google_storage_batch_operations_job`
 
-Refer to the Terraform Registry for docs: [`google_storage_batch_operations_job`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job).
+Refer to the Terraform Registry for docs: [`google_storage_batch_operations_job`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleStorageBatchOperationsJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleStorageBatchOperationsJob.GoogleStorageBatchOperationsJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job google_storage_batch_operations_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job google_storage_batch_operations_job}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleStorageBatchOperationsJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job google_storage_batch_operations_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job google_storage_batch_operations_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket_list: bucket_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#bucket_list GoogleStorageBatchOperationsJob#bucket_list}
-        :param delete_object: delete_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete_object GoogleStorageBatchOperationsJob#delete_object}
-        :param delete_protection: If set to 'true', the storage batch operation job will not be deleted and new job will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete_protection GoogleStorageBatchOperationsJob#delete_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#id GoogleStorageBatchOperationsJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_id: The ID of the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#job_id GoogleStorageBatchOperationsJob#job_id}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#project GoogleStorageBatchOperationsJob#project}.
-        :param put_metadata: put_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#put_metadata GoogleStorageBatchOperationsJob#put_metadata}
-        :param put_object_hold: put_object_hold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#put_object_hold GoogleStorageBatchOperationsJob#put_object_hold}
-        :param rewrite_object: rewrite_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#rewrite_object GoogleStorageBatchOperationsJob#rewrite_object}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#timeouts GoogleStorageBatchOperationsJob#timeouts}
+        :param bucket_list: bucket_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#bucket_list GoogleStorageBatchOperationsJob#bucket_list}
+        :param delete_object: delete_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete_object GoogleStorageBatchOperationsJob#delete_object}
+        :param delete_protection: If set to 'true', the storage batch operation job will not be deleted and new job will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete_protection GoogleStorageBatchOperationsJob#delete_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#id GoogleStorageBatchOperationsJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_id: The ID of the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#job_id GoogleStorageBatchOperationsJob#job_id}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#project GoogleStorageBatchOperationsJob#project}.
+        :param put_metadata: put_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#put_metadata GoogleStorageBatchOperationsJob#put_metadata}
+        :param put_object_hold: put_object_hold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#put_object_hold GoogleStorageBatchOperationsJob#put_object_hold}
+        :param rewrite_object: rewrite_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#rewrite_object GoogleStorageBatchOperationsJob#rewrite_object}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#timeouts GoogleStorageBatchOperationsJob#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleStorageBatchOperationsJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleStorageBatchOperationsJob to import.
-        :param import_from_id: The id of the existing GoogleStorageBatchOperationsJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleStorageBatchOperationsJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleStorageBatchOperationsJob to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class GoogleStorageBatchOperationsJob(
         buckets: typing.Union["GoogleStorageBatchOperationsJobBucketListBuckets", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param buckets: buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#buckets GoogleStorageBatchOperationsJob#buckets}
+        :param buckets: buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#buckets GoogleStorageBatchOperationsJob#buckets}
         '''
         value = GoogleStorageBatchOperationsJobBucketListStruct(buckets=buckets)
 
@@ -161,7 +161,7 @@ class GoogleStorageBatchOperationsJob(
         permanent_object_deletion_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param permanent_object_deletion_enabled: enable flag to permanently delete object and all object versions if versioning is enabled on bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#permanent_object_deletion_enabled GoogleStorageBatchOperationsJob#permanent_object_deletion_enabled}
+        :param permanent_object_deletion_enabled: enable flag to permanently delete object and all object versions if versioning is enabled on bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#permanent_object_deletion_enabled GoogleStorageBatchOperationsJob#permanent_object_deletion_enabled}
         '''
         value = GoogleStorageBatchOperationsJobDeleteObject(
             permanent_object_deletion_enabled=permanent_object_deletion_enabled
@@ -182,13 +182,13 @@ class GoogleStorageBatchOperationsJob(
         custom_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#cache_control GoogleStorageBatchOperationsJob#cache_control}
-        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_disposition GoogleStorageBatchOperationsJob#content_disposition}
-        :param content_encoding: Content Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_encoding GoogleStorageBatchOperationsJob#content_encoding}
-        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_language GoogleStorageBatchOperationsJob#content_language}
-        :param content_type: Content-Type of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_type GoogleStorageBatchOperationsJob#content_type}
-        :param custom_metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#custom_metadata GoogleStorageBatchOperationsJob#custom_metadata}
-        :param custom_time: Updates the objects fixed custom time metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#custom_time GoogleStorageBatchOperationsJob#custom_time}
+        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#cache_control GoogleStorageBatchOperationsJob#cache_control}
+        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_disposition GoogleStorageBatchOperationsJob#content_disposition}
+        :param content_encoding: Content Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_encoding GoogleStorageBatchOperationsJob#content_encoding}
+        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_language GoogleStorageBatchOperationsJob#content_language}
+        :param content_type: Content-Type of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_type GoogleStorageBatchOperationsJob#content_type}
+        :param custom_metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#custom_metadata GoogleStorageBatchOperationsJob#custom_metadata}
+        :param custom_time: Updates the objects fixed custom time metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#custom_time GoogleStorageBatchOperationsJob#custom_time}
         '''
         value = GoogleStorageBatchOperationsJobPutMetadata(
             cache_control=cache_control,
@@ -210,8 +210,8 @@ class GoogleStorageBatchOperationsJob(
         temporary_hold: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param event_based_hold: set/unset to update event based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#event_based_hold GoogleStorageBatchOperationsJob#event_based_hold}
-        :param temporary_hold: set/unset to update temporary based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#temporary_hold GoogleStorageBatchOperationsJob#temporary_hold}
+        :param event_based_hold: set/unset to update event based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#event_based_hold GoogleStorageBatchOperationsJob#event_based_hold}
+        :param temporary_hold: set/unset to update temporary based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#temporary_hold GoogleStorageBatchOperationsJob#temporary_hold}
         '''
         value = GoogleStorageBatchOperationsJobPutObjectHold(
             event_based_hold=event_based_hold, temporary_hold=temporary_hold
@@ -222,7 +222,7 @@ class GoogleStorageBatchOperationsJob(
     @jsii.member(jsii_name="putRewriteObject")
     def put_rewrite_object(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: valid kms key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#kms_key GoogleStorageBatchOperationsJob#kms_key}
+        :param kms_key: valid kms key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#kms_key GoogleStorageBatchOperationsJob#kms_key}
         '''
         value = GoogleStorageBatchOperationsJobRewriteObject(kms_key=kms_key)
 
@@ -237,9 +237,9 @@ class GoogleStorageBatchOperationsJob(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#create GoogleStorageBatchOperationsJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete GoogleStorageBatchOperationsJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#update GoogleStorageBatchOperationsJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#create GoogleStorageBatchOperationsJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete GoogleStorageBatchOperationsJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#update GoogleStorageBatchOperationsJob#update}.
         '''
         value = GoogleStorageBatchOperationsJobTimeouts(
             create=create, delete=delete, update=update
@@ -501,9 +501,9 @@ class GoogleStorageBatchOperationsJobBucketListBuckets:
         prefix_list: typing.Optional[typing.Union["GoogleStorageBatchOperationsJobBucketListBucketsPrefixListStruct", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket: Bucket name for the objects to be transformed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#bucket GoogleStorageBatchOperationsJob#bucket}
-        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#manifest GoogleStorageBatchOperationsJob#manifest}
-        :param prefix_list: prefix_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#prefix_list GoogleStorageBatchOperationsJob#prefix_list}
+        :param bucket: Bucket name for the objects to be transformed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#bucket GoogleStorageBatchOperationsJob#bucket}
+        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#manifest GoogleStorageBatchOperationsJob#manifest}
+        :param prefix_list: prefix_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#prefix_list GoogleStorageBatchOperationsJob#prefix_list}
         '''
         if isinstance(manifest, dict):
             manifest = GoogleStorageBatchOperationsJobBucketListBucketsManifest(**manifest)
@@ -526,7 +526,7 @@ class GoogleStorageBatchOperationsJobBucketListBuckets:
     def bucket(self) -> builtins.str:
         '''Bucket name for the objects to be transformed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#bucket GoogleStorageBatchOperationsJob#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#bucket GoogleStorageBatchOperationsJob#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -538,7 +538,7 @@ class GoogleStorageBatchOperationsJobBucketListBuckets:
     ) -> typing.Optional["GoogleStorageBatchOperationsJobBucketListBucketsManifest"]:
         '''manifest block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#manifest GoogleStorageBatchOperationsJob#manifest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#manifest GoogleStorageBatchOperationsJob#manifest}
         '''
         result = self._values.get("manifest")
         return typing.cast(typing.Optional["GoogleStorageBatchOperationsJobBucketListBucketsManifest"], result)
@@ -549,7 +549,7 @@ class GoogleStorageBatchOperationsJobBucketListBuckets:
     ) -> typing.Optional["GoogleStorageBatchOperationsJobBucketListBucketsPrefixListStruct"]:
         '''prefix_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#prefix_list GoogleStorageBatchOperationsJob#prefix_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#prefix_list GoogleStorageBatchOperationsJob#prefix_list}
         '''
         result = self._values.get("prefix_list")
         return typing.cast(typing.Optional["GoogleStorageBatchOperationsJobBucketListBucketsPrefixListStruct"], result)
@@ -578,7 +578,7 @@ class GoogleStorageBatchOperationsJobBucketListBucketsManifest:
         manifest_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param manifest_location: Specifies objects in a manifest file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#manifest_location GoogleStorageBatchOperationsJob#manifest_location}
+        :param manifest_location: Specifies objects in a manifest file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#manifest_location GoogleStorageBatchOperationsJob#manifest_location}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7963fc59265aefcc8a4490781442b612119050812566ac11962c322964b9ab4)
@@ -591,7 +591,7 @@ class GoogleStorageBatchOperationsJobBucketListBucketsManifest:
     def manifest_location(self) -> typing.Optional[builtins.str]:
         '''Specifies objects in a manifest file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#manifest_location GoogleStorageBatchOperationsJob#manifest_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#manifest_location GoogleStorageBatchOperationsJob#manifest_location}
         '''
         result = self._values.get("manifest_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -694,7 +694,7 @@ class GoogleStorageBatchOperationsJobBucketListBucketsOutputReference(
         manifest_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param manifest_location: Specifies objects in a manifest file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#manifest_location GoogleStorageBatchOperationsJob#manifest_location}
+        :param manifest_location: Specifies objects in a manifest file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#manifest_location GoogleStorageBatchOperationsJob#manifest_location}
         '''
         value = GoogleStorageBatchOperationsJobBucketListBucketsManifest(
             manifest_location=manifest_location
@@ -709,7 +709,7 @@ class GoogleStorageBatchOperationsJobBucketListBucketsOutputReference(
         included_object_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_object_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#included_object_prefixes GoogleStorageBatchOperationsJob#included_object_prefixes}.
+        :param included_object_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#included_object_prefixes GoogleStorageBatchOperationsJob#included_object_prefixes}.
         '''
         value = GoogleStorageBatchOperationsJobBucketListBucketsPrefixListStruct(
             included_object_prefixes=included_object_prefixes
@@ -800,7 +800,7 @@ class GoogleStorageBatchOperationsJobBucketListBucketsPrefixListStruct:
         included_object_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_object_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#included_object_prefixes GoogleStorageBatchOperationsJob#included_object_prefixes}.
+        :param included_object_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#included_object_prefixes GoogleStorageBatchOperationsJob#included_object_prefixes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e816eb3f25ded2443ff02523c4cd5e2e50ea603881bc4802c1a34c65f39204e)
@@ -811,7 +811,7 @@ class GoogleStorageBatchOperationsJobBucketListBucketsPrefixListStruct:
 
     @builtins.property
     def included_object_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#included_object_prefixes GoogleStorageBatchOperationsJob#included_object_prefixes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#included_object_prefixes GoogleStorageBatchOperationsJob#included_object_prefixes}.'''
         result = self._values.get("included_object_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -900,7 +900,7 @@ class GoogleStorageBatchOperationsJobBucketListStruct:
         buckets: typing.Union[GoogleStorageBatchOperationsJobBucketListBuckets, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param buckets: buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#buckets GoogleStorageBatchOperationsJob#buckets}
+        :param buckets: buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#buckets GoogleStorageBatchOperationsJob#buckets}
         '''
         if isinstance(buckets, dict):
             buckets = GoogleStorageBatchOperationsJobBucketListBuckets(**buckets)
@@ -915,7 +915,7 @@ class GoogleStorageBatchOperationsJobBucketListStruct:
     def buckets(self) -> GoogleStorageBatchOperationsJobBucketListBuckets:
         '''buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#buckets GoogleStorageBatchOperationsJob#buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#buckets GoogleStorageBatchOperationsJob#buckets}
         '''
         result = self._values.get("buckets")
         assert result is not None, "Required property 'buckets' is missing"
@@ -962,9 +962,9 @@ class GoogleStorageBatchOperationsJobBucketListStructOutputReference(
         prefix_list: typing.Optional[typing.Union[GoogleStorageBatchOperationsJobBucketListBucketsPrefixListStruct, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket: Bucket name for the objects to be transformed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#bucket GoogleStorageBatchOperationsJob#bucket}
-        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#manifest GoogleStorageBatchOperationsJob#manifest}
-        :param prefix_list: prefix_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#prefix_list GoogleStorageBatchOperationsJob#prefix_list}
+        :param bucket: Bucket name for the objects to be transformed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#bucket GoogleStorageBatchOperationsJob#bucket}
+        :param manifest: manifest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#manifest GoogleStorageBatchOperationsJob#manifest}
+        :param prefix_list: prefix_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#prefix_list GoogleStorageBatchOperationsJob#prefix_list}
         '''
         value = GoogleStorageBatchOperationsJobBucketListBuckets(
             bucket=bucket, manifest=manifest, prefix_list=prefix_list
@@ -1057,16 +1057,16 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket_list: bucket_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#bucket_list GoogleStorageBatchOperationsJob#bucket_list}
-        :param delete_object: delete_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete_object GoogleStorageBatchOperationsJob#delete_object}
-        :param delete_protection: If set to 'true', the storage batch operation job will not be deleted and new job will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete_protection GoogleStorageBatchOperationsJob#delete_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#id GoogleStorageBatchOperationsJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_id: The ID of the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#job_id GoogleStorageBatchOperationsJob#job_id}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#project GoogleStorageBatchOperationsJob#project}.
-        :param put_metadata: put_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#put_metadata GoogleStorageBatchOperationsJob#put_metadata}
-        :param put_object_hold: put_object_hold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#put_object_hold GoogleStorageBatchOperationsJob#put_object_hold}
-        :param rewrite_object: rewrite_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#rewrite_object GoogleStorageBatchOperationsJob#rewrite_object}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#timeouts GoogleStorageBatchOperationsJob#timeouts}
+        :param bucket_list: bucket_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#bucket_list GoogleStorageBatchOperationsJob#bucket_list}
+        :param delete_object: delete_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete_object GoogleStorageBatchOperationsJob#delete_object}
+        :param delete_protection: If set to 'true', the storage batch operation job will not be deleted and new job will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete_protection GoogleStorageBatchOperationsJob#delete_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#id GoogleStorageBatchOperationsJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_id: The ID of the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#job_id GoogleStorageBatchOperationsJob#job_id}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#project GoogleStorageBatchOperationsJob#project}.
+        :param put_metadata: put_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#put_metadata GoogleStorageBatchOperationsJob#put_metadata}
+        :param put_object_hold: put_object_hold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#put_object_hold GoogleStorageBatchOperationsJob#put_object_hold}
+        :param rewrite_object: rewrite_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#rewrite_object GoogleStorageBatchOperationsJob#rewrite_object}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#timeouts GoogleStorageBatchOperationsJob#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1207,7 +1207,7 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[GoogleStorageBatchOperationsJobBucketListStruct]:
         '''bucket_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#bucket_list GoogleStorageBatchOperationsJob#bucket_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#bucket_list GoogleStorageBatchOperationsJob#bucket_list}
         '''
         result = self._values.get("bucket_list")
         return typing.cast(typing.Optional[GoogleStorageBatchOperationsJobBucketListStruct], result)
@@ -1218,7 +1218,7 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["GoogleStorageBatchOperationsJobDeleteObject"]:
         '''delete_object block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete_object GoogleStorageBatchOperationsJob#delete_object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete_object GoogleStorageBatchOperationsJob#delete_object}
         '''
         result = self._values.get("delete_object")
         return typing.cast(typing.Optional["GoogleStorageBatchOperationsJobDeleteObject"], result)
@@ -1229,14 +1229,14 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to 'true', the storage batch operation job will not be deleted and new job will be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete_protection GoogleStorageBatchOperationsJob#delete_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete_protection GoogleStorageBatchOperationsJob#delete_protection}
         '''
         result = self._values.get("delete_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#id GoogleStorageBatchOperationsJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#id GoogleStorageBatchOperationsJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1248,14 +1248,14 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def job_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the job.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#job_id GoogleStorageBatchOperationsJob#job_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#job_id GoogleStorageBatchOperationsJob#job_id}
         '''
         result = self._values.get("job_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#project GoogleStorageBatchOperationsJob#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#project GoogleStorageBatchOperationsJob#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1265,7 +1265,7 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["GoogleStorageBatchOperationsJobPutMetadata"]:
         '''put_metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#put_metadata GoogleStorageBatchOperationsJob#put_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#put_metadata GoogleStorageBatchOperationsJob#put_metadata}
         '''
         result = self._values.get("put_metadata")
         return typing.cast(typing.Optional["GoogleStorageBatchOperationsJobPutMetadata"], result)
@@ -1276,7 +1276,7 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["GoogleStorageBatchOperationsJobPutObjectHold"]:
         '''put_object_hold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#put_object_hold GoogleStorageBatchOperationsJob#put_object_hold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#put_object_hold GoogleStorageBatchOperationsJob#put_object_hold}
         '''
         result = self._values.get("put_object_hold")
         return typing.cast(typing.Optional["GoogleStorageBatchOperationsJobPutObjectHold"], result)
@@ -1287,7 +1287,7 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["GoogleStorageBatchOperationsJobRewriteObject"]:
         '''rewrite_object block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#rewrite_object GoogleStorageBatchOperationsJob#rewrite_object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#rewrite_object GoogleStorageBatchOperationsJob#rewrite_object}
         '''
         result = self._values.get("rewrite_object")
         return typing.cast(typing.Optional["GoogleStorageBatchOperationsJobRewriteObject"], result)
@@ -1296,7 +1296,7 @@ class GoogleStorageBatchOperationsJobConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["GoogleStorageBatchOperationsJobTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#timeouts GoogleStorageBatchOperationsJob#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#timeouts GoogleStorageBatchOperationsJob#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleStorageBatchOperationsJobTimeouts"], result)
@@ -1327,7 +1327,7 @@ class GoogleStorageBatchOperationsJobDeleteObject:
         permanent_object_deletion_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param permanent_object_deletion_enabled: enable flag to permanently delete object and all object versions if versioning is enabled on bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#permanent_object_deletion_enabled GoogleStorageBatchOperationsJob#permanent_object_deletion_enabled}
+        :param permanent_object_deletion_enabled: enable flag to permanently delete object and all object versions if versioning is enabled on bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#permanent_object_deletion_enabled GoogleStorageBatchOperationsJob#permanent_object_deletion_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13af6fdc5d60385c28263c629ae61b358d892ea7cf4969ee70529da4fa05cedd)
@@ -1342,7 +1342,7 @@ class GoogleStorageBatchOperationsJobDeleteObject:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''enable flag to permanently delete object and all object versions if versioning is enabled on bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#permanent_object_deletion_enabled GoogleStorageBatchOperationsJob#permanent_object_deletion_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#permanent_object_deletion_enabled GoogleStorageBatchOperationsJob#permanent_object_deletion_enabled}
         '''
         result = self._values.get("permanent_object_deletion_enabled")
         assert result is not None, "Required property 'permanent_object_deletion_enabled' is missing"
@@ -1448,13 +1448,13 @@ class GoogleStorageBatchOperationsJobPutMetadata:
         custom_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#cache_control GoogleStorageBatchOperationsJob#cache_control}
-        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_disposition GoogleStorageBatchOperationsJob#content_disposition}
-        :param content_encoding: Content Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_encoding GoogleStorageBatchOperationsJob#content_encoding}
-        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_language GoogleStorageBatchOperationsJob#content_language}
-        :param content_type: Content-Type of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_type GoogleStorageBatchOperationsJob#content_type}
-        :param custom_metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#custom_metadata GoogleStorageBatchOperationsJob#custom_metadata}
-        :param custom_time: Updates the objects fixed custom time metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#custom_time GoogleStorageBatchOperationsJob#custom_time}
+        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#cache_control GoogleStorageBatchOperationsJob#cache_control}
+        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_disposition GoogleStorageBatchOperationsJob#content_disposition}
+        :param content_encoding: Content Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_encoding GoogleStorageBatchOperationsJob#content_encoding}
+        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_language GoogleStorageBatchOperationsJob#content_language}
+        :param content_type: Content-Type of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_type GoogleStorageBatchOperationsJob#content_type}
+        :param custom_metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#custom_metadata GoogleStorageBatchOperationsJob#custom_metadata}
+        :param custom_time: Updates the objects fixed custom time metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#custom_time GoogleStorageBatchOperationsJob#custom_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0dc88480b09a0d7cd9bab9c5172fe32a81683cd58f5c0c6899e8d6754410353)
@@ -1487,7 +1487,7 @@ class GoogleStorageBatchOperationsJobPutMetadata:
 
         If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#cache_control GoogleStorageBatchOperationsJob#cache_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#cache_control GoogleStorageBatchOperationsJob#cache_control}
         '''
         result = self._values.get("cache_control")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1496,7 +1496,7 @@ class GoogleStorageBatchOperationsJobPutMetadata:
     def content_disposition(self) -> typing.Optional[builtins.str]:
         '''Content-Disposition of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_disposition GoogleStorageBatchOperationsJob#content_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_disposition GoogleStorageBatchOperationsJob#content_disposition}
         '''
         result = self._values.get("content_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1505,7 +1505,7 @@ class GoogleStorageBatchOperationsJobPutMetadata:
     def content_encoding(self) -> typing.Optional[builtins.str]:
         '''Content Encoding of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_encoding GoogleStorageBatchOperationsJob#content_encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_encoding GoogleStorageBatchOperationsJob#content_encoding}
         '''
         result = self._values.get("content_encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1514,7 +1514,7 @@ class GoogleStorageBatchOperationsJobPutMetadata:
     def content_language(self) -> typing.Optional[builtins.str]:
         '''Content-Language of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_language GoogleStorageBatchOperationsJob#content_language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_language GoogleStorageBatchOperationsJob#content_language}
         '''
         result = self._values.get("content_language")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1523,7 +1523,7 @@ class GoogleStorageBatchOperationsJobPutMetadata:
     def content_type(self) -> typing.Optional[builtins.str]:
         '''Content-Type of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#content_type GoogleStorageBatchOperationsJob#content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#content_type GoogleStorageBatchOperationsJob#content_type}
         '''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1534,7 +1534,7 @@ class GoogleStorageBatchOperationsJobPutMetadata:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''User-provided metadata, in key/value pairs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#custom_metadata GoogleStorageBatchOperationsJob#custom_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#custom_metadata GoogleStorageBatchOperationsJob#custom_metadata}
         '''
         result = self._values.get("custom_metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1543,7 +1543,7 @@ class GoogleStorageBatchOperationsJobPutMetadata:
     def custom_time(self) -> typing.Optional[builtins.str]:
         '''Updates the objects fixed custom time metadata.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#custom_time GoogleStorageBatchOperationsJob#custom_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#custom_time GoogleStorageBatchOperationsJob#custom_time}
         '''
         result = self._values.get("custom_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1766,8 +1766,8 @@ class GoogleStorageBatchOperationsJobPutObjectHold:
         temporary_hold: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param event_based_hold: set/unset to update event based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#event_based_hold GoogleStorageBatchOperationsJob#event_based_hold}
-        :param temporary_hold: set/unset to update temporary based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#temporary_hold GoogleStorageBatchOperationsJob#temporary_hold}
+        :param event_based_hold: set/unset to update event based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#event_based_hold GoogleStorageBatchOperationsJob#event_based_hold}
+        :param temporary_hold: set/unset to update temporary based hold for objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#temporary_hold GoogleStorageBatchOperationsJob#temporary_hold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5603291c35e37009870c17080226ede17141123dfef0c804cb806ff15b9f5bb)
@@ -1783,7 +1783,7 @@ class GoogleStorageBatchOperationsJobPutObjectHold:
     def event_based_hold(self) -> typing.Optional[builtins.str]:
         '''set/unset to update event based hold for objects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#event_based_hold GoogleStorageBatchOperationsJob#event_based_hold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#event_based_hold GoogleStorageBatchOperationsJob#event_based_hold}
         '''
         result = self._values.get("event_based_hold")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1792,7 +1792,7 @@ class GoogleStorageBatchOperationsJobPutObjectHold:
     def temporary_hold(self) -> typing.Optional[builtins.str]:
         '''set/unset to update temporary based hold for objects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#temporary_hold GoogleStorageBatchOperationsJob#temporary_hold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#temporary_hold GoogleStorageBatchOperationsJob#temporary_hold}
         '''
         result = self._values.get("temporary_hold")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1897,7 +1897,7 @@ class GoogleStorageBatchOperationsJobPutObjectHoldOutputReference(
 class GoogleStorageBatchOperationsJobRewriteObject:
     def __init__(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: valid kms key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#kms_key GoogleStorageBatchOperationsJob#kms_key}
+        :param kms_key: valid kms key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#kms_key GoogleStorageBatchOperationsJob#kms_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__595c10d03e4368ed26f04017d76165642a3c0775e08622d45176494a2bbefd65)
@@ -1910,7 +1910,7 @@ class GoogleStorageBatchOperationsJobRewriteObject:
     def kms_key(self) -> builtins.str:
         '''valid kms key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#kms_key GoogleStorageBatchOperationsJob#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#kms_key GoogleStorageBatchOperationsJob#kms_key}
         '''
         result = self._values.get("kms_key")
         assert result is not None, "Required property 'kms_key' is missing"
@@ -1997,9 +1997,9 @@ class GoogleStorageBatchOperationsJobTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#create GoogleStorageBatchOperationsJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete GoogleStorageBatchOperationsJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#update GoogleStorageBatchOperationsJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#create GoogleStorageBatchOperationsJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete GoogleStorageBatchOperationsJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#update GoogleStorageBatchOperationsJob#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b86115d64afb661f806314433d69bfc68804c874763800253f1e9a4462bec0a2)
@@ -2016,19 +2016,19 @@ class GoogleStorageBatchOperationsJobTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#create GoogleStorageBatchOperationsJob#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#create GoogleStorageBatchOperationsJob#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#delete GoogleStorageBatchOperationsJob#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#delete GoogleStorageBatchOperationsJob#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_batch_operations_job#update GoogleStorageBatchOperationsJob#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_batch_operations_job#update GoogleStorageBatchOperationsJob#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

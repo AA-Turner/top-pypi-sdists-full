@@ -1,7 +1,7 @@
 r'''
 # `google_bigquery_job`
 
-Refer to the Terraform Registry for docs: [`google_bigquery_job`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job).
+Refer to the Terraform Registry for docs: [`google_bigquery_job`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleBigqueryJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleBigqueryJob.GoogleBigqueryJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job google_bigquery_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job google_bigquery_job}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GoogleBigqueryJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job google_bigquery_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job google_bigquery_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param job_id: The ID of the job. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#job_id GoogleBigqueryJob#job_id}
-        :param copy: copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#copy GoogleBigqueryJob#copy}
-        :param extract: extract block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#extract GoogleBigqueryJob#extract}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#id GoogleBigqueryJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_timeout_ms: Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt to terminate the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#job_timeout_ms GoogleBigqueryJob#job_timeout_ms}
-        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#labels GoogleBigqueryJob#labels}
-        :param load: load block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#load GoogleBigqueryJob#load}
-        :param location: The geographic location of the job. The default value is US. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#location GoogleBigqueryJob#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project GoogleBigqueryJob#project}.
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#timeouts GoogleBigqueryJob#timeouts}
+        :param job_id: The ID of the job. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#job_id GoogleBigqueryJob#job_id}
+        :param copy: copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#copy GoogleBigqueryJob#copy}
+        :param extract: extract block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#extract GoogleBigqueryJob#extract}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#id GoogleBigqueryJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_timeout_ms: Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt to terminate the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#job_timeout_ms GoogleBigqueryJob#job_timeout_ms}
+        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#labels GoogleBigqueryJob#labels}
+        :param load: load block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#load GoogleBigqueryJob#load}
+        :param location: The geographic location of the job. The default value is US. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#location GoogleBigqueryJob#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project GoogleBigqueryJob#project}.
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#timeouts GoogleBigqueryJob#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GoogleBigqueryJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleBigqueryJob to import.
-        :param import_from_id: The id of the existing GoogleBigqueryJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleBigqueryJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleBigqueryJob to import is found.
         '''
         if __debug__:
@@ -155,11 +155,11 @@ class GoogleBigqueryJob(
         write_disposition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_tables: source_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_tables GoogleBigqueryJob#source_tables}
-        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
-        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
-        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
-        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        :param source_tables: source_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_tables GoogleBigqueryJob#source_tables}
+        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         value = GoogleBigqueryJobCopy(
             source_tables=source_tables,
@@ -185,14 +185,14 @@ class GoogleBigqueryJob(
         use_avro_logical_types: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination_uris: A list of fully-qualified Google Cloud Storage URIs where the extracted table should be written. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_uris GoogleBigqueryJob#destination_uris}
-        :param compression: The compression type to use for exported files. Possible values include GZIP, DEFLATE, SNAPPY, and NONE. The default value is NONE. DEFLATE and SNAPPY are only supported for Avro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#compression GoogleBigqueryJob#compression}
-        :param destination_format: The exported file format. Possible values include CSV, NEWLINE_DELIMITED_JSON and AVRO for tables and SAVED_MODEL for models. The default value for tables is CSV. Tables with nested or repeated fields cannot be exported as CSV. The default value for models is SAVED_MODEL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_format GoogleBigqueryJob#destination_format}
-        :param field_delimiter: When extracting data in CSV format, this defines the delimiter to use between fields in the exported data. Default is ',' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
-        :param print_header: Whether to print out a header row in the results. Default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#print_header GoogleBigqueryJob#print_header}
-        :param source_model: source_model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_model GoogleBigqueryJob#source_model}
-        :param source_table: source_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_table GoogleBigqueryJob#source_table}
-        :param use_avro_logical_types: Whether to use logical types when extracting to AVRO format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_avro_logical_types GoogleBigqueryJob#use_avro_logical_types}
+        :param destination_uris: A list of fully-qualified Google Cloud Storage URIs where the extracted table should be written. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_uris GoogleBigqueryJob#destination_uris}
+        :param compression: The compression type to use for exported files. Possible values include GZIP, DEFLATE, SNAPPY, and NONE. The default value is NONE. DEFLATE and SNAPPY are only supported for Avro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#compression GoogleBigqueryJob#compression}
+        :param destination_format: The exported file format. Possible values include CSV, NEWLINE_DELIMITED_JSON and AVRO for tables and SAVED_MODEL for models. The default value for tables is CSV. Tables with nested or repeated fields cannot be exported as CSV. The default value for models is SAVED_MODEL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_format GoogleBigqueryJob#destination_format}
+        :param field_delimiter: When extracting data in CSV format, this defines the delimiter to use between fields in the exported data. Default is ',' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
+        :param print_header: Whether to print out a header row in the results. Default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#print_header GoogleBigqueryJob#print_header}
+        :param source_model: source_model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_model GoogleBigqueryJob#source_model}
+        :param source_table: source_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_table GoogleBigqueryJob#source_table}
+        :param use_avro_logical_types: Whether to use logical types when extracting to AVRO format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_avro_logical_types GoogleBigqueryJob#use_avro_logical_types}
         '''
         value = GoogleBigqueryJobExtract(
             destination_uris=destination_uris,
@@ -234,27 +234,27 @@ class GoogleBigqueryJob(
         write_disposition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
-        :param source_uris: The fully-qualified URIs that point to your data in Google Cloud. For Google Cloud Storage URIs: Each URI can contain one '*' wildcard character and it must come after the 'bucket' name. Size limits related to load jobs apply to external data sources. For Google Cloud Bigtable URIs: Exactly one URI can be specified and it has be a fully specified and valid HTTPS URL for a Google Cloud Bigtable table. For Google Cloud Datastore backups: Exactly one URI can be specified. Also, the '*' wildcard character is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_uris GoogleBigqueryJob#source_uris}
-        :param allow_jagged_rows: Accept rows that are missing trailing optional columns. The missing values are treated as nulls. If false, records with missing trailing columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Only applicable to CSV, ignored for other formats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_jagged_rows GoogleBigqueryJob#allow_jagged_rows}
-        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_quoted_newlines GoogleBigqueryJob#allow_quoted_newlines}
-        :param autodetect: Indicates if we should automatically infer the options and schema for CSV and JSON sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#autodetect GoogleBigqueryJob#autodetect}
-        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
-        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
-        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. The default value is UTF-8. BigQuery decodes the data after the raw, binary data has been split using the values of the quote and fieldDelimiter properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#encoding GoogleBigqueryJob#encoding}
-        :param field_delimiter: The separator for fields in a CSV file. The separator can be any ISO-8859-1 single-byte character. To use a character in the range 128-255, you must encode the character as UTF8. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. BigQuery also supports the escape sequence "\\t" to specify a tab separator. The default value is a comma (','). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
-        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. The sourceFormat property determines what BigQuery treats as an extra value: CSV: Trailing columns JSON: Named values that don't match any column names Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#ignore_unknown_values GoogleBigqueryJob#ignore_unknown_values}
-        :param json_extension: If sourceFormat is set to newline-delimited JSON, indicates whether it should be processed as a JSON variant such as GeoJSON. For a sourceFormat other than JSON, omit this field. If the sourceFormat is newline-delimited JSON: - for newline-delimited GeoJSON: set to GEOJSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#json_extension GoogleBigqueryJob#json_extension}
-        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when running the job. If the number of bad records exceeds this value, an invalid error is returned in the job result. The default value is 0, which requires that all records are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#max_bad_records GoogleBigqueryJob#max_bad_records}
-        :param null_marker: Specifies a string that represents a null value in a CSV file. For example, if you specify "\\N", BigQuery interprets "\\N" as a null value when loading a CSV file. The default value is the empty string. If you set this property to a custom value, BigQuery throws an error if an empty string is present for all data types except for STRING and BYTE. For STRING and BYTE columns, BigQuery interprets the empty string as an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#null_marker GoogleBigqueryJob#null_marker}
-        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#parquet_options GoogleBigqueryJob#parquet_options}
-        :param projection_fields: If sourceFormat is set to "DATASTORE_BACKUP", indicates which entity properties to load into BigQuery from a Cloud Datastore backup. Property names are case sensitive and must be top-level properties. If no properties are specified, BigQuery loads all properties. If any named property isn't found in the Cloud Datastore backup, an invalid error is returned in the job result. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#projection_fields GoogleBigqueryJob#projection_fields}
-        :param quote: The value that is used to quote data sections in a CSV file. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. The default value is a double-quote ('"'). If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allowQuotedNewlines property to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#quote GoogleBigqueryJob#quote}
-        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the load job if a schema is autodetected or supplied in the job configuration. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
-        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when loading the data. The default value is 0. This property is useful if you have header rows in the file that should be skipped. When autodetect is on, the behavior is the following: skipLeadingRows unspecified - Autodetect tries to detect headers in the first row. If they are not detected, the row is read as data. Otherwise data is read starting from the second row. skipLeadingRows is 0 - Instructs autodetect that there are no headers and data should be read starting from the first row. skipLeadingRows = N > 0 - Autodetect skips N-1 rows and tries to detect headers in row N. If headers are not detected, row N is just skipped. Otherwise row N is used to extract column names for the detected schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#skip_leading_rows GoogleBigqueryJob#skip_leading_rows}
-        :param source_format: The format of the data files. For CSV files, specify "CSV". For datastore backups, specify "DATASTORE_BACKUP". For newline-delimited JSON, specify "NEWLINE_DELIMITED_JSON". For Avro, specify "AVRO". For parquet, specify "PARQUET". For orc, specify "ORC". [Beta] For Bigtable, specify "BIGTABLE". The default value is CSV. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_format GoogleBigqueryJob#source_format}
-        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#time_partitioning GoogleBigqueryJob#time_partitioning}
-        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        :param source_uris: The fully-qualified URIs that point to your data in Google Cloud. For Google Cloud Storage URIs: Each URI can contain one '*' wildcard character and it must come after the 'bucket' name. Size limits related to load jobs apply to external data sources. For Google Cloud Bigtable URIs: Exactly one URI can be specified and it has be a fully specified and valid HTTPS URL for a Google Cloud Bigtable table. For Google Cloud Datastore backups: Exactly one URI can be specified. Also, the '*' wildcard character is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_uris GoogleBigqueryJob#source_uris}
+        :param allow_jagged_rows: Accept rows that are missing trailing optional columns. The missing values are treated as nulls. If false, records with missing trailing columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Only applicable to CSV, ignored for other formats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_jagged_rows GoogleBigqueryJob#allow_jagged_rows}
+        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_quoted_newlines GoogleBigqueryJob#allow_quoted_newlines}
+        :param autodetect: Indicates if we should automatically infer the options and schema for CSV and JSON sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#autodetect GoogleBigqueryJob#autodetect}
+        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. The default value is UTF-8. BigQuery decodes the data after the raw, binary data has been split using the values of the quote and fieldDelimiter properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#encoding GoogleBigqueryJob#encoding}
+        :param field_delimiter: The separator for fields in a CSV file. The separator can be any ISO-8859-1 single-byte character. To use a character in the range 128-255, you must encode the character as UTF8. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. BigQuery also supports the escape sequence "\\t" to specify a tab separator. The default value is a comma (','). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
+        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. The sourceFormat property determines what BigQuery treats as an extra value: CSV: Trailing columns JSON: Named values that don't match any column names Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#ignore_unknown_values GoogleBigqueryJob#ignore_unknown_values}
+        :param json_extension: If sourceFormat is set to newline-delimited JSON, indicates whether it should be processed as a JSON variant such as GeoJSON. For a sourceFormat other than JSON, omit this field. If the sourceFormat is newline-delimited JSON: - for newline-delimited GeoJSON: set to GEOJSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#json_extension GoogleBigqueryJob#json_extension}
+        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when running the job. If the number of bad records exceeds this value, an invalid error is returned in the job result. The default value is 0, which requires that all records are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#max_bad_records GoogleBigqueryJob#max_bad_records}
+        :param null_marker: Specifies a string that represents a null value in a CSV file. For example, if you specify "\\N", BigQuery interprets "\\N" as a null value when loading a CSV file. The default value is the empty string. If you set this property to a custom value, BigQuery throws an error if an empty string is present for all data types except for STRING and BYTE. For STRING and BYTE columns, BigQuery interprets the empty string as an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#null_marker GoogleBigqueryJob#null_marker}
+        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#parquet_options GoogleBigqueryJob#parquet_options}
+        :param projection_fields: If sourceFormat is set to "DATASTORE_BACKUP", indicates which entity properties to load into BigQuery from a Cloud Datastore backup. Property names are case sensitive and must be top-level properties. If no properties are specified, BigQuery loads all properties. If any named property isn't found in the Cloud Datastore backup, an invalid error is returned in the job result. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#projection_fields GoogleBigqueryJob#projection_fields}
+        :param quote: The value that is used to quote data sections in a CSV file. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. The default value is a double-quote ('"'). If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allowQuotedNewlines property to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#quote GoogleBigqueryJob#quote}
+        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the load job if a schema is autodetected or supplied in the job configuration. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
+        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when loading the data. The default value is 0. This property is useful if you have header rows in the file that should be skipped. When autodetect is on, the behavior is the following: skipLeadingRows unspecified - Autodetect tries to detect headers in the first row. If they are not detected, the row is read as data. Otherwise data is read starting from the second row. skipLeadingRows is 0 - Instructs autodetect that there are no headers and data should be read starting from the first row. skipLeadingRows = N > 0 - Autodetect skips N-1 rows and tries to detect headers in row N. If headers are not detected, row N is just skipped. Otherwise row N is used to extract column names for the detected schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#skip_leading_rows GoogleBigqueryJob#skip_leading_rows}
+        :param source_format: The format of the data files. For CSV files, specify "CSV". For datastore backups, specify "DATASTORE_BACKUP". For newline-delimited JSON, specify "NEWLINE_DELIMITED_JSON". For Avro, specify "AVRO". For parquet, specify "PARQUET". For orc, specify "ORC". [Beta] For Bigtable, specify "BIGTABLE". The default value is CSV. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_format GoogleBigqueryJob#source_format}
+        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#time_partitioning GoogleBigqueryJob#time_partitioning}
+        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         value = GoogleBigqueryJobLoad(
             destination_table=destination_table,
@@ -306,24 +306,24 @@ class GoogleBigqueryJob(
         write_disposition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: SQL query text to execute. The useLegacySql field can be used to indicate whether the query uses legacy SQL or standard SQL. *NOTE*: queries containing `DML language <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-language>`_ ('DELETE', 'UPDATE', 'MERGE', 'INSERT') must specify 'create_disposition = ""' and 'write_disposition = ""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
-        :param allow_large_results: If true and query uses legacy SQL dialect, allows the query to produce arbitrarily large result tables at a slight cost in performance. Requires destinationTable to be set. For standard SQL queries, this flag is ignored and large results are always allowed. However, you must still set destinationTable when result size exceeds the allowed maximum response size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_large_results GoogleBigqueryJob#allow_large_results}
-        :param continuous: Whether to run the query as continuous or a regular query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#continuous GoogleBigqueryJob#continuous}
-        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
-        :param default_dataset: default_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#default_dataset GoogleBigqueryJob#default_dataset}
-        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
-        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
-        :param flatten_results: If true and query uses legacy SQL dialect, flattens all nested and repeated fields in the query results. allowLargeResults must be true if this is set to false. For standard SQL queries, this flag is ignored and results are never flattened. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#flatten_results GoogleBigqueryJob#flatten_results}
-        :param maximum_billing_tier: Limits the billing tier for this job. Queries that have resource usage beyond this tier will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#maximum_billing_tier GoogleBigqueryJob#maximum_billing_tier}
-        :param maximum_bytes_billed: Limits the bytes billed for this job. Queries that will have bytes billed beyond this limit will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#maximum_bytes_billed GoogleBigqueryJob#maximum_bytes_billed}
-        :param parameter_mode: Standard SQL only. Set to POSITIONAL to use positional (?) query parameters or to NAMED to use named (@myparam) query parameters in this query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#parameter_mode GoogleBigqueryJob#parameter_mode}
-        :param priority: Specifies a priority for the query. Default value: "INTERACTIVE" Possible values: ["INTERACTIVE", "BATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#priority GoogleBigqueryJob#priority}
-        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the query job. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
-        :param script_options: script_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#script_options GoogleBigqueryJob#script_options}
-        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL dialect for this query. The default value is true. If set to false, the query will use BigQuery's standard SQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_legacy_sql GoogleBigqueryJob#use_legacy_sql}
-        :param use_query_cache: Whether to look for the result in the query cache. The query cache is a best-effort cache that will be flushed whenever tables in the query are modified. Moreover, the query cache is only available when a query does not have a destination table specified. The default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_query_cache GoogleBigqueryJob#use_query_cache}
-        :param user_defined_function_resources: user_defined_function_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#user_defined_function_resources GoogleBigqueryJob#user_defined_function_resources}
-        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        :param query: SQL query text to execute. The useLegacySql field can be used to indicate whether the query uses legacy SQL or standard SQL. *NOTE*: queries containing `DML language <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-language>`_ ('DELETE', 'UPDATE', 'MERGE', 'INSERT') must specify 'create_disposition = ""' and 'write_disposition = ""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
+        :param allow_large_results: If true and query uses legacy SQL dialect, allows the query to produce arbitrarily large result tables at a slight cost in performance. Requires destinationTable to be set. For standard SQL queries, this flag is ignored and large results are always allowed. However, you must still set destinationTable when result size exceeds the allowed maximum response size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_large_results GoogleBigqueryJob#allow_large_results}
+        :param continuous: Whether to run the query as continuous or a regular query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#continuous GoogleBigqueryJob#continuous}
+        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        :param default_dataset: default_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#default_dataset GoogleBigqueryJob#default_dataset}
+        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        :param flatten_results: If true and query uses legacy SQL dialect, flattens all nested and repeated fields in the query results. allowLargeResults must be true if this is set to false. For standard SQL queries, this flag is ignored and results are never flattened. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#flatten_results GoogleBigqueryJob#flatten_results}
+        :param maximum_billing_tier: Limits the billing tier for this job. Queries that have resource usage beyond this tier will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#maximum_billing_tier GoogleBigqueryJob#maximum_billing_tier}
+        :param maximum_bytes_billed: Limits the bytes billed for this job. Queries that will have bytes billed beyond this limit will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#maximum_bytes_billed GoogleBigqueryJob#maximum_bytes_billed}
+        :param parameter_mode: Standard SQL only. Set to POSITIONAL to use positional (?) query parameters or to NAMED to use named (@myparam) query parameters in this query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#parameter_mode GoogleBigqueryJob#parameter_mode}
+        :param priority: Specifies a priority for the query. Default value: "INTERACTIVE" Possible values: ["INTERACTIVE", "BATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#priority GoogleBigqueryJob#priority}
+        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the query job. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
+        :param script_options: script_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#script_options GoogleBigqueryJob#script_options}
+        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL dialect for this query. The default value is true. If set to false, the query will use BigQuery's standard SQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_legacy_sql GoogleBigqueryJob#use_legacy_sql}
+        :param use_query_cache: Whether to look for the result in the query cache. The query cache is a best-effort cache that will be flushed whenever tables in the query are modified. Moreover, the query cache is only available when a query does not have a destination table specified. The default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_query_cache GoogleBigqueryJob#use_query_cache}
+        :param user_defined_function_resources: user_defined_function_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#user_defined_function_resources GoogleBigqueryJob#user_defined_function_resources}
+        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         value = GoogleBigqueryJobQuery(
             query=query,
@@ -357,9 +357,9 @@ class GoogleBigqueryJob(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create GoogleBigqueryJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#delete GoogleBigqueryJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#update GoogleBigqueryJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create GoogleBigqueryJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#delete GoogleBigqueryJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#update GoogleBigqueryJob#update}.
         '''
         value = GoogleBigqueryJobTimeouts(create=create, delete=delete, update=update)
 
@@ -655,17 +655,17 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param job_id: The ID of the job. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#job_id GoogleBigqueryJob#job_id}
-        :param copy: copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#copy GoogleBigqueryJob#copy}
-        :param extract: extract block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#extract GoogleBigqueryJob#extract}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#id GoogleBigqueryJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_timeout_ms: Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt to terminate the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#job_timeout_ms GoogleBigqueryJob#job_timeout_ms}
-        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#labels GoogleBigqueryJob#labels}
-        :param load: load block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#load GoogleBigqueryJob#load}
-        :param location: The geographic location of the job. The default value is US. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#location GoogleBigqueryJob#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project GoogleBigqueryJob#project}.
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#timeouts GoogleBigqueryJob#timeouts}
+        :param job_id: The ID of the job. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#job_id GoogleBigqueryJob#job_id}
+        :param copy: copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#copy GoogleBigqueryJob#copy}
+        :param extract: extract block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#extract GoogleBigqueryJob#extract}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#id GoogleBigqueryJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_timeout_ms: Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt to terminate the job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#job_timeout_ms GoogleBigqueryJob#job_timeout_ms}
+        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#labels GoogleBigqueryJob#labels}
+        :param load: load block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#load GoogleBigqueryJob#load}
+        :param location: The geographic location of the job. The default value is US. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#location GoogleBigqueryJob#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project GoogleBigqueryJob#project}.
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#timeouts GoogleBigqueryJob#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -807,7 +807,7 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). The maximum length is 1,024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#job_id GoogleBigqueryJob#job_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#job_id GoogleBigqueryJob#job_id}
         '''
         result = self._values.get("job_id")
         assert result is not None, "Required property 'job_id' is missing"
@@ -817,7 +817,7 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def copy(self) -> typing.Optional["GoogleBigqueryJobCopy"]:
         '''copy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#copy GoogleBigqueryJob#copy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#copy GoogleBigqueryJob#copy}
         '''
         result = self._values.get("copy")
         return typing.cast(typing.Optional["GoogleBigqueryJobCopy"], result)
@@ -826,14 +826,14 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def extract(self) -> typing.Optional["GoogleBigqueryJobExtract"]:
         '''extract block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#extract GoogleBigqueryJob#extract}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#extract GoogleBigqueryJob#extract}
         '''
         result = self._values.get("extract")
         return typing.cast(typing.Optional["GoogleBigqueryJobExtract"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#id GoogleBigqueryJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#id GoogleBigqueryJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -845,7 +845,7 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def job_timeout_ms(self) -> typing.Optional[builtins.str]:
         '''Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt to terminate the job.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#job_timeout_ms GoogleBigqueryJob#job_timeout_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#job_timeout_ms GoogleBigqueryJob#job_timeout_ms}
         '''
         result = self._values.get("job_timeout_ms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -857,7 +857,7 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#labels GoogleBigqueryJob#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#labels GoogleBigqueryJob#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -866,7 +866,7 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def load(self) -> typing.Optional["GoogleBigqueryJobLoad"]:
         '''load block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#load GoogleBigqueryJob#load}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#load GoogleBigqueryJob#load}
         '''
         result = self._values.get("load")
         return typing.cast(typing.Optional["GoogleBigqueryJobLoad"], result)
@@ -875,14 +875,14 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The geographic location of the job. The default value is US.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#location GoogleBigqueryJob#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#location GoogleBigqueryJob#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project GoogleBigqueryJob#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project GoogleBigqueryJob#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -890,7 +890,7 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> typing.Optional["GoogleBigqueryJobQuery"]:
         '''query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional["GoogleBigqueryJobQuery"], result)
@@ -899,7 +899,7 @@ class GoogleBigqueryJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleBigqueryJobTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#timeouts GoogleBigqueryJob#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#timeouts GoogleBigqueryJob#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleBigqueryJobTimeouts"], result)
@@ -938,11 +938,11 @@ class GoogleBigqueryJobCopy:
         write_disposition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_tables: source_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_tables GoogleBigqueryJob#source_tables}
-        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
-        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
-        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
-        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        :param source_tables: source_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_tables GoogleBigqueryJob#source_tables}
+        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         if isinstance(destination_encryption_configuration, dict):
             destination_encryption_configuration = GoogleBigqueryJobCopyDestinationEncryptionConfiguration(**destination_encryption_configuration)
@@ -973,7 +973,7 @@ class GoogleBigqueryJobCopy:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryJobCopySourceTables"]]:
         '''source_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_tables GoogleBigqueryJob#source_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_tables GoogleBigqueryJob#source_tables}
         '''
         result = self._values.get("source_tables")
         assert result is not None, "Required property 'source_tables' is missing"
@@ -988,7 +988,7 @@ class GoogleBigqueryJobCopy:
         CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result.
         Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
         '''
         result = self._values.get("create_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -999,7 +999,7 @@ class GoogleBigqueryJobCopy:
     ) -> typing.Optional["GoogleBigqueryJobCopyDestinationEncryptionConfiguration"]:
         '''destination_encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
         '''
         result = self._values.get("destination_encryption_configuration")
         return typing.cast(typing.Optional["GoogleBigqueryJobCopyDestinationEncryptionConfiguration"], result)
@@ -1010,7 +1010,7 @@ class GoogleBigqueryJobCopy:
     ) -> typing.Optional["GoogleBigqueryJobCopyDestinationTable"]:
         '''destination_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
         '''
         result = self._values.get("destination_table")
         return typing.cast(typing.Optional["GoogleBigqueryJobCopyDestinationTable"], result)
@@ -1026,7 +1026,7 @@ class GoogleBigqueryJobCopy:
         Each action is atomic and only occurs if BigQuery is able to complete the job successfully.
         Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         result = self._values.get("write_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1051,7 +1051,7 @@ class GoogleBigqueryJobCopy:
 class GoogleBigqueryJobCopyDestinationEncryptionConfiguration:
     def __init__(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c2b910f57b28de9cea0a17ac575a6b9d4fc3e9412d213d37121381185d7af94)
@@ -1066,7 +1066,7 @@ class GoogleBigqueryJobCopyDestinationEncryptionConfiguration:
 
         The BigQuery Service Account associated with your project requires access to this encryption key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -1162,9 +1162,9 @@ class GoogleBigqueryJobCopyDestinationTable:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7942fffd8225e0f837de7f4ec382d21e410f9a4153914a05ca69763b6dd9c2fb)
@@ -1183,7 +1183,7 @@ class GoogleBigqueryJobCopyDestinationTable:
     def table_id(self) -> builtins.str:
         '''The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -1193,7 +1193,7 @@ class GoogleBigqueryJobCopyDestinationTable:
     def dataset_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
         '''
         result = self._values.get("dataset_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1202,7 +1202,7 @@ class GoogleBigqueryJobCopyDestinationTable:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1341,7 +1341,7 @@ class GoogleBigqueryJobCopyOutputReference(
         kms_key_name: builtins.str,
     ) -> None:
         '''
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         value = GoogleBigqueryJobCopyDestinationEncryptionConfiguration(
             kms_key_name=kms_key_name
@@ -1358,9 +1358,9 @@ class GoogleBigqueryJobCopyOutputReference(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         value = GoogleBigqueryJobCopyDestinationTable(
             table_id=table_id, dataset_id=dataset_id, project_id=project_id
@@ -1500,9 +1500,9 @@ class GoogleBigqueryJobCopySourceTables:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4f398a8598a936143bec78bad8df5df250cdbe17e1b261dd8068bf2164f7219)
@@ -1521,7 +1521,7 @@ class GoogleBigqueryJobCopySourceTables:
     def table_id(self) -> builtins.str:
         '''The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -1531,7 +1531,7 @@ class GoogleBigqueryJobCopySourceTables:
     def dataset_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
         '''
         result = self._values.get("dataset_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1540,7 +1540,7 @@ class GoogleBigqueryJobCopySourceTables:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1781,14 +1781,14 @@ class GoogleBigqueryJobExtract:
         use_avro_logical_types: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination_uris: A list of fully-qualified Google Cloud Storage URIs where the extracted table should be written. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_uris GoogleBigqueryJob#destination_uris}
-        :param compression: The compression type to use for exported files. Possible values include GZIP, DEFLATE, SNAPPY, and NONE. The default value is NONE. DEFLATE and SNAPPY are only supported for Avro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#compression GoogleBigqueryJob#compression}
-        :param destination_format: The exported file format. Possible values include CSV, NEWLINE_DELIMITED_JSON and AVRO for tables and SAVED_MODEL for models. The default value for tables is CSV. Tables with nested or repeated fields cannot be exported as CSV. The default value for models is SAVED_MODEL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_format GoogleBigqueryJob#destination_format}
-        :param field_delimiter: When extracting data in CSV format, this defines the delimiter to use between fields in the exported data. Default is ',' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
-        :param print_header: Whether to print out a header row in the results. Default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#print_header GoogleBigqueryJob#print_header}
-        :param source_model: source_model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_model GoogleBigqueryJob#source_model}
-        :param source_table: source_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_table GoogleBigqueryJob#source_table}
-        :param use_avro_logical_types: Whether to use logical types when extracting to AVRO format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_avro_logical_types GoogleBigqueryJob#use_avro_logical_types}
+        :param destination_uris: A list of fully-qualified Google Cloud Storage URIs where the extracted table should be written. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_uris GoogleBigqueryJob#destination_uris}
+        :param compression: The compression type to use for exported files. Possible values include GZIP, DEFLATE, SNAPPY, and NONE. The default value is NONE. DEFLATE and SNAPPY are only supported for Avro. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#compression GoogleBigqueryJob#compression}
+        :param destination_format: The exported file format. Possible values include CSV, NEWLINE_DELIMITED_JSON and AVRO for tables and SAVED_MODEL for models. The default value for tables is CSV. Tables with nested or repeated fields cannot be exported as CSV. The default value for models is SAVED_MODEL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_format GoogleBigqueryJob#destination_format}
+        :param field_delimiter: When extracting data in CSV format, this defines the delimiter to use between fields in the exported data. Default is ',' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
+        :param print_header: Whether to print out a header row in the results. Default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#print_header GoogleBigqueryJob#print_header}
+        :param source_model: source_model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_model GoogleBigqueryJob#source_model}
+        :param source_table: source_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_table GoogleBigqueryJob#source_table}
+        :param use_avro_logical_types: Whether to use logical types when extracting to AVRO format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_avro_logical_types GoogleBigqueryJob#use_avro_logical_types}
         '''
         if isinstance(source_model, dict):
             source_model = GoogleBigqueryJobExtractSourceModel(**source_model)
@@ -1826,7 +1826,7 @@ class GoogleBigqueryJobExtract:
     def destination_uris(self) -> typing.List[builtins.str]:
         '''A list of fully-qualified Google Cloud Storage URIs where the extracted table should be written.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_uris GoogleBigqueryJob#destination_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_uris GoogleBigqueryJob#destination_uris}
         '''
         result = self._values.get("destination_uris")
         assert result is not None, "Required property 'destination_uris' is missing"
@@ -1839,7 +1839,7 @@ class GoogleBigqueryJobExtract:
         Possible values include GZIP, DEFLATE, SNAPPY, and NONE.
         The default value is NONE. DEFLATE and SNAPPY are only supported for Avro.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#compression GoogleBigqueryJob#compression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#compression GoogleBigqueryJob#compression}
         '''
         result = self._values.get("compression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1852,7 +1852,7 @@ class GoogleBigqueryJobExtract:
         The default value for tables is CSV. Tables with nested or repeated fields cannot be exported as CSV.
         The default value for models is SAVED_MODEL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_format GoogleBigqueryJob#destination_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_format GoogleBigqueryJob#destination_format}
         '''
         result = self._values.get("destination_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1863,7 +1863,7 @@ class GoogleBigqueryJobExtract:
 
         Default is ','
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
         '''
         result = self._values.get("field_delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1874,7 +1874,7 @@ class GoogleBigqueryJobExtract:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to print out a header row in the results. Default is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#print_header GoogleBigqueryJob#print_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#print_header GoogleBigqueryJob#print_header}
         '''
         result = self._values.get("print_header")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1883,7 +1883,7 @@ class GoogleBigqueryJobExtract:
     def source_model(self) -> typing.Optional["GoogleBigqueryJobExtractSourceModel"]:
         '''source_model block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_model GoogleBigqueryJob#source_model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_model GoogleBigqueryJob#source_model}
         '''
         result = self._values.get("source_model")
         return typing.cast(typing.Optional["GoogleBigqueryJobExtractSourceModel"], result)
@@ -1892,7 +1892,7 @@ class GoogleBigqueryJobExtract:
     def source_table(self) -> typing.Optional["GoogleBigqueryJobExtractSourceTable"]:
         '''source_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_table GoogleBigqueryJob#source_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_table GoogleBigqueryJob#source_table}
         '''
         result = self._values.get("source_table")
         return typing.cast(typing.Optional["GoogleBigqueryJobExtractSourceTable"], result)
@@ -1903,7 +1903,7 @@ class GoogleBigqueryJobExtract:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to use logical types when extracting to AVRO format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_avro_logical_types GoogleBigqueryJob#use_avro_logical_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_avro_logical_types GoogleBigqueryJob#use_avro_logical_types}
         '''
         result = self._values.get("use_avro_logical_types")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1949,9 +1949,9 @@ class GoogleBigqueryJobExtractOutputReference(
         project_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param model_id: The ID of the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#model_id GoogleBigqueryJob#model_id}
-        :param project_id: The ID of the project containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param dataset_id: The ID of the dataset containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param model_id: The ID of the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#model_id GoogleBigqueryJob#model_id}
+        :param project_id: The ID of the project containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         value = GoogleBigqueryJobExtractSourceModel(
             dataset_id=dataset_id, model_id=model_id, project_id=project_id
@@ -1968,9 +1968,9 @@ class GoogleBigqueryJobExtractOutputReference(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         value = GoogleBigqueryJobExtractSourceTable(
             table_id=table_id, dataset_id=dataset_id, project_id=project_id
@@ -2175,9 +2175,9 @@ class GoogleBigqueryJobExtractSourceModel:
         project_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param model_id: The ID of the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#model_id GoogleBigqueryJob#model_id}
-        :param project_id: The ID of the project containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param dataset_id: The ID of the dataset containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param model_id: The ID of the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#model_id GoogleBigqueryJob#model_id}
+        :param project_id: The ID of the project containing this model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__953a33c1ad45eb37b1090a561bffcd44327027840767b0706d80d44d3269f0b9)
@@ -2194,7 +2194,7 @@ class GoogleBigqueryJobExtractSourceModel:
     def dataset_id(self) -> builtins.str:
         '''The ID of the dataset containing this model.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -2204,7 +2204,7 @@ class GoogleBigqueryJobExtractSourceModel:
     def model_id(self) -> builtins.str:
         '''The ID of the model.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#model_id GoogleBigqueryJob#model_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#model_id GoogleBigqueryJob#model_id}
         '''
         result = self._values.get("model_id")
         assert result is not None, "Required property 'model_id' is missing"
@@ -2214,7 +2214,7 @@ class GoogleBigqueryJobExtractSourceModel:
     def project_id(self) -> builtins.str:
         '''The ID of the project containing this model.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -2337,9 +2337,9 @@ class GoogleBigqueryJobExtractSourceTable:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27ea5274027064d1b82e2dc12be903c3fa487f501ac44081c13905c1bbd3a79a)
@@ -2358,7 +2358,7 @@ class GoogleBigqueryJobExtractSourceTable:
     def table_id(self) -> builtins.str:
         '''The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -2368,7 +2368,7 @@ class GoogleBigqueryJobExtractSourceTable:
     def dataset_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
         '''
         result = self._values.get("dataset_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2377,7 +2377,7 @@ class GoogleBigqueryJobExtractSourceTable:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2543,27 +2543,27 @@ class GoogleBigqueryJobLoad:
         write_disposition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
-        :param source_uris: The fully-qualified URIs that point to your data in Google Cloud. For Google Cloud Storage URIs: Each URI can contain one '*' wildcard character and it must come after the 'bucket' name. Size limits related to load jobs apply to external data sources. For Google Cloud Bigtable URIs: Exactly one URI can be specified and it has be a fully specified and valid HTTPS URL for a Google Cloud Bigtable table. For Google Cloud Datastore backups: Exactly one URI can be specified. Also, the '*' wildcard character is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_uris GoogleBigqueryJob#source_uris}
-        :param allow_jagged_rows: Accept rows that are missing trailing optional columns. The missing values are treated as nulls. If false, records with missing trailing columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Only applicable to CSV, ignored for other formats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_jagged_rows GoogleBigqueryJob#allow_jagged_rows}
-        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_quoted_newlines GoogleBigqueryJob#allow_quoted_newlines}
-        :param autodetect: Indicates if we should automatically infer the options and schema for CSV and JSON sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#autodetect GoogleBigqueryJob#autodetect}
-        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
-        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
-        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. The default value is UTF-8. BigQuery decodes the data after the raw, binary data has been split using the values of the quote and fieldDelimiter properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#encoding GoogleBigqueryJob#encoding}
-        :param field_delimiter: The separator for fields in a CSV file. The separator can be any ISO-8859-1 single-byte character. To use a character in the range 128-255, you must encode the character as UTF8. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. BigQuery also supports the escape sequence "\\t" to specify a tab separator. The default value is a comma (','). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
-        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. The sourceFormat property determines what BigQuery treats as an extra value: CSV: Trailing columns JSON: Named values that don't match any column names Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#ignore_unknown_values GoogleBigqueryJob#ignore_unknown_values}
-        :param json_extension: If sourceFormat is set to newline-delimited JSON, indicates whether it should be processed as a JSON variant such as GeoJSON. For a sourceFormat other than JSON, omit this field. If the sourceFormat is newline-delimited JSON: - for newline-delimited GeoJSON: set to GEOJSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#json_extension GoogleBigqueryJob#json_extension}
-        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when running the job. If the number of bad records exceeds this value, an invalid error is returned in the job result. The default value is 0, which requires that all records are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#max_bad_records GoogleBigqueryJob#max_bad_records}
-        :param null_marker: Specifies a string that represents a null value in a CSV file. For example, if you specify "\\N", BigQuery interprets "\\N" as a null value when loading a CSV file. The default value is the empty string. If you set this property to a custom value, BigQuery throws an error if an empty string is present for all data types except for STRING and BYTE. For STRING and BYTE columns, BigQuery interprets the empty string as an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#null_marker GoogleBigqueryJob#null_marker}
-        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#parquet_options GoogleBigqueryJob#parquet_options}
-        :param projection_fields: If sourceFormat is set to "DATASTORE_BACKUP", indicates which entity properties to load into BigQuery from a Cloud Datastore backup. Property names are case sensitive and must be top-level properties. If no properties are specified, BigQuery loads all properties. If any named property isn't found in the Cloud Datastore backup, an invalid error is returned in the job result. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#projection_fields GoogleBigqueryJob#projection_fields}
-        :param quote: The value that is used to quote data sections in a CSV file. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. The default value is a double-quote ('"'). If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allowQuotedNewlines property to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#quote GoogleBigqueryJob#quote}
-        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the load job if a schema is autodetected or supplied in the job configuration. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
-        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when loading the data. The default value is 0. This property is useful if you have header rows in the file that should be skipped. When autodetect is on, the behavior is the following: skipLeadingRows unspecified - Autodetect tries to detect headers in the first row. If they are not detected, the row is read as data. Otherwise data is read starting from the second row. skipLeadingRows is 0 - Instructs autodetect that there are no headers and data should be read starting from the first row. skipLeadingRows = N > 0 - Autodetect skips N-1 rows and tries to detect headers in row N. If headers are not detected, row N is just skipped. Otherwise row N is used to extract column names for the detected schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#skip_leading_rows GoogleBigqueryJob#skip_leading_rows}
-        :param source_format: The format of the data files. For CSV files, specify "CSV". For datastore backups, specify "DATASTORE_BACKUP". For newline-delimited JSON, specify "NEWLINE_DELIMITED_JSON". For Avro, specify "AVRO". For parquet, specify "PARQUET". For orc, specify "ORC". [Beta] For Bigtable, specify "BIGTABLE". The default value is CSV. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_format GoogleBigqueryJob#source_format}
-        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#time_partitioning GoogleBigqueryJob#time_partitioning}
-        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        :param source_uris: The fully-qualified URIs that point to your data in Google Cloud. For Google Cloud Storage URIs: Each URI can contain one '*' wildcard character and it must come after the 'bucket' name. Size limits related to load jobs apply to external data sources. For Google Cloud Bigtable URIs: Exactly one URI can be specified and it has be a fully specified and valid HTTPS URL for a Google Cloud Bigtable table. For Google Cloud Datastore backups: Exactly one URI can be specified. Also, the '*' wildcard character is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_uris GoogleBigqueryJob#source_uris}
+        :param allow_jagged_rows: Accept rows that are missing trailing optional columns. The missing values are treated as nulls. If false, records with missing trailing columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Only applicable to CSV, ignored for other formats. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_jagged_rows GoogleBigqueryJob#allow_jagged_rows}
+        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_quoted_newlines GoogleBigqueryJob#allow_quoted_newlines}
+        :param autodetect: Indicates if we should automatically infer the options and schema for CSV and JSON sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#autodetect GoogleBigqueryJob#autodetect}
+        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. The default value is UTF-8. BigQuery decodes the data after the raw, binary data has been split using the values of the quote and fieldDelimiter properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#encoding GoogleBigqueryJob#encoding}
+        :param field_delimiter: The separator for fields in a CSV file. The separator can be any ISO-8859-1 single-byte character. To use a character in the range 128-255, you must encode the character as UTF8. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. BigQuery also supports the escape sequence "\\t" to specify a tab separator. The default value is a comma (','). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
+        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. The sourceFormat property determines what BigQuery treats as an extra value: CSV: Trailing columns JSON: Named values that don't match any column names Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#ignore_unknown_values GoogleBigqueryJob#ignore_unknown_values}
+        :param json_extension: If sourceFormat is set to newline-delimited JSON, indicates whether it should be processed as a JSON variant such as GeoJSON. For a sourceFormat other than JSON, omit this field. If the sourceFormat is newline-delimited JSON: - for newline-delimited GeoJSON: set to GEOJSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#json_extension GoogleBigqueryJob#json_extension}
+        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when running the job. If the number of bad records exceeds this value, an invalid error is returned in the job result. The default value is 0, which requires that all records are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#max_bad_records GoogleBigqueryJob#max_bad_records}
+        :param null_marker: Specifies a string that represents a null value in a CSV file. For example, if you specify "\\N", BigQuery interprets "\\N" as a null value when loading a CSV file. The default value is the empty string. If you set this property to a custom value, BigQuery throws an error if an empty string is present for all data types except for STRING and BYTE. For STRING and BYTE columns, BigQuery interprets the empty string as an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#null_marker GoogleBigqueryJob#null_marker}
+        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#parquet_options GoogleBigqueryJob#parquet_options}
+        :param projection_fields: If sourceFormat is set to "DATASTORE_BACKUP", indicates which entity properties to load into BigQuery from a Cloud Datastore backup. Property names are case sensitive and must be top-level properties. If no properties are specified, BigQuery loads all properties. If any named property isn't found in the Cloud Datastore backup, an invalid error is returned in the job result. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#projection_fields GoogleBigqueryJob#projection_fields}
+        :param quote: The value that is used to quote data sections in a CSV file. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. The default value is a double-quote ('"'). If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allowQuotedNewlines property to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#quote GoogleBigqueryJob#quote}
+        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the load job if a schema is autodetected or supplied in the job configuration. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
+        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when loading the data. The default value is 0. This property is useful if you have header rows in the file that should be skipped. When autodetect is on, the behavior is the following: skipLeadingRows unspecified - Autodetect tries to detect headers in the first row. If they are not detected, the row is read as data. Otherwise data is read starting from the second row. skipLeadingRows is 0 - Instructs autodetect that there are no headers and data should be read starting from the first row. skipLeadingRows = N > 0 - Autodetect skips N-1 rows and tries to detect headers in row N. If headers are not detected, row N is just skipped. Otherwise row N is used to extract column names for the detected schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#skip_leading_rows GoogleBigqueryJob#skip_leading_rows}
+        :param source_format: The format of the data files. For CSV files, specify "CSV". For datastore backups, specify "DATASTORE_BACKUP". For newline-delimited JSON, specify "NEWLINE_DELIMITED_JSON". For Avro, specify "AVRO". For parquet, specify "PARQUET". For orc, specify "ORC". [Beta] For Bigtable, specify "BIGTABLE". The default value is CSV. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_format GoogleBigqueryJob#source_format}
+        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#time_partitioning GoogleBigqueryJob#time_partitioning}
+        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         if isinstance(destination_table, dict):
             destination_table = GoogleBigqueryJobLoadDestinationTable(**destination_table)
@@ -2643,7 +2643,7 @@ class GoogleBigqueryJobLoad:
     def destination_table(self) -> "GoogleBigqueryJobLoadDestinationTable":
         '''destination_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
         '''
         result = self._values.get("destination_table")
         assert result is not None, "Required property 'destination_table' is missing"
@@ -2659,7 +2659,7 @@ class GoogleBigqueryJobLoad:
         specified and it has be a fully specified and valid HTTPS URL for a Google Cloud Bigtable table.
         For Google Cloud Datastore backups: Exactly one URI can be specified. Also, the '*' wildcard character is not allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_uris GoogleBigqueryJob#source_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_uris GoogleBigqueryJob#source_uris}
         '''
         result = self._values.get("source_uris")
         assert result is not None, "Required property 'source_uris' is missing"
@@ -2675,7 +2675,7 @@ class GoogleBigqueryJobLoad:
         If false, records with missing trailing columns are treated as bad records, and if there are too many bad records,
         an invalid error is returned in the job result. The default value is false. Only applicable to CSV, ignored for other formats.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_jagged_rows GoogleBigqueryJob#allow_jagged_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_jagged_rows GoogleBigqueryJob#allow_jagged_rows}
         '''
         result = self._values.get("allow_jagged_rows")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2688,7 +2688,7 @@ class GoogleBigqueryJobLoad:
 
         The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_quoted_newlines GoogleBigqueryJob#allow_quoted_newlines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_quoted_newlines GoogleBigqueryJob#allow_quoted_newlines}
         '''
         result = self._values.get("allow_quoted_newlines")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2699,7 +2699,7 @@ class GoogleBigqueryJobLoad:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates if we should automatically infer the options and schema for CSV and JSON sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#autodetect GoogleBigqueryJob#autodetect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#autodetect GoogleBigqueryJob#autodetect}
         '''
         result = self._values.get("autodetect")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2713,7 +2713,7 @@ class GoogleBigqueryJobLoad:
         CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result.
         Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
         '''
         result = self._values.get("create_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2724,7 +2724,7 @@ class GoogleBigqueryJobLoad:
     ) -> typing.Optional["GoogleBigqueryJobLoadDestinationEncryptionConfiguration"]:
         '''destination_encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
         '''
         result = self._values.get("destination_encryption_configuration")
         return typing.cast(typing.Optional["GoogleBigqueryJobLoadDestinationEncryptionConfiguration"], result)
@@ -2737,7 +2737,7 @@ class GoogleBigqueryJobLoad:
         The default value is UTF-8. BigQuery decodes the data after the raw, binary data
         has been split using the values of the quote and fieldDelimiter properties.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#encoding GoogleBigqueryJob#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#encoding GoogleBigqueryJob#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2752,7 +2752,7 @@ class GoogleBigqueryJobLoad:
         data in its raw, binary state. BigQuery also supports the escape sequence "\\t" to specify a tab separator.
         The default value is a comma (',').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field_delimiter GoogleBigqueryJob#field_delimiter}
         '''
         result = self._values.get("field_delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2769,7 +2769,7 @@ class GoogleBigqueryJobLoad:
         CSV: Trailing columns
         JSON: Named values that don't match any column names
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#ignore_unknown_values GoogleBigqueryJob#ignore_unknown_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#ignore_unknown_values GoogleBigqueryJob#ignore_unknown_values}
         '''
         result = self._values.get("ignore_unknown_values")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2781,7 +2781,7 @@ class GoogleBigqueryJobLoad:
         For a sourceFormat other than JSON, omit this field. If the sourceFormat is newline-delimited JSON: - for newline-delimited
         GeoJSON: set to GEOJSON.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#json_extension GoogleBigqueryJob#json_extension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#json_extension GoogleBigqueryJob#json_extension}
         '''
         result = self._values.get("json_extension")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2793,7 +2793,7 @@ class GoogleBigqueryJobLoad:
         If the number of bad records exceeds this value,
         an invalid error is returned in the job result. The default value is 0, which requires that all records are valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#max_bad_records GoogleBigqueryJob#max_bad_records}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#max_bad_records GoogleBigqueryJob#max_bad_records}
         '''
         result = self._values.get("max_bad_records")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2807,7 +2807,7 @@ class GoogleBigqueryJobLoad:
         empty string is present for all data types except for STRING and BYTE. For STRING and BYTE columns, BigQuery interprets the empty string as
         an empty value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#null_marker GoogleBigqueryJob#null_marker}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#null_marker GoogleBigqueryJob#null_marker}
         '''
         result = self._values.get("null_marker")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2816,7 +2816,7 @@ class GoogleBigqueryJobLoad:
     def parquet_options(self) -> typing.Optional["GoogleBigqueryJobLoadParquetOptions"]:
         '''parquet_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#parquet_options GoogleBigqueryJob#parquet_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#parquet_options GoogleBigqueryJob#parquet_options}
         '''
         result = self._values.get("parquet_options")
         return typing.cast(typing.Optional["GoogleBigqueryJobLoadParquetOptions"], result)
@@ -2828,7 +2828,7 @@ class GoogleBigqueryJobLoad:
         Property names are case sensitive and must be top-level properties. If no properties are specified, BigQuery loads all properties.
         If any named property isn't found in the Cloud Datastore backup, an invalid error is returned in the job result.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#projection_fields GoogleBigqueryJob#projection_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#projection_fields GoogleBigqueryJob#projection_fields}
         '''
         result = self._values.get("projection_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2842,7 +2842,7 @@ class GoogleBigqueryJobLoad:
         The default value is a double-quote ('"'). If your data does not contain quoted sections, set the property value to an empty string.
         If your data contains quoted newline characters, you must also set the allowQuotedNewlines property to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#quote GoogleBigqueryJob#quote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#quote GoogleBigqueryJob#quote}
         '''
         result = self._values.get("quote")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2857,7 +2857,7 @@ class GoogleBigqueryJobLoad:
         ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema.
         ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
         '''
         result = self._values.get("schema_update_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2874,7 +2874,7 @@ class GoogleBigqueryJobLoad:
         skipLeadingRows = N > 0 - Autodetect skips N-1 rows and tries to detect headers in row N. If headers are not detected,
         row N is just skipped. Otherwise row N is used to extract column names for the detected schema.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#skip_leading_rows GoogleBigqueryJob#skip_leading_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#skip_leading_rows GoogleBigqueryJob#skip_leading_rows}
         '''
         result = self._values.get("skip_leading_rows")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2888,7 +2888,7 @@ class GoogleBigqueryJobLoad:
         For orc, specify "ORC". [Beta] For Bigtable, specify "BIGTABLE".
         The default value is CSV.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#source_format GoogleBigqueryJob#source_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#source_format GoogleBigqueryJob#source_format}
         '''
         result = self._values.get("source_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2899,7 +2899,7 @@ class GoogleBigqueryJobLoad:
     ) -> typing.Optional["GoogleBigqueryJobLoadTimePartitioning"]:
         '''time_partitioning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#time_partitioning GoogleBigqueryJob#time_partitioning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#time_partitioning GoogleBigqueryJob#time_partitioning}
         '''
         result = self._values.get("time_partitioning")
         return typing.cast(typing.Optional["GoogleBigqueryJobLoadTimePartitioning"], result)
@@ -2915,7 +2915,7 @@ class GoogleBigqueryJobLoad:
         Each action is atomic and only occurs if BigQuery is able to complete the job successfully.
         Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         result = self._values.get("write_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2940,7 +2940,7 @@ class GoogleBigqueryJobLoad:
 class GoogleBigqueryJobLoadDestinationEncryptionConfiguration:
     def __init__(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__970bd2c072850434de24403f52f86e1592244c053cf6eb010e586f310537a8df)
@@ -2955,7 +2955,7 @@ class GoogleBigqueryJobLoadDestinationEncryptionConfiguration:
 
         The BigQuery Service Account associated with your project requires access to this encryption key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -3051,9 +3051,9 @@ class GoogleBigqueryJobLoadDestinationTable:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea22afb464c998203a21c72ad410ddfb64dfec9600b70b96c9c650e25292c46b)
@@ -3072,7 +3072,7 @@ class GoogleBigqueryJobLoadDestinationTable:
     def table_id(self) -> builtins.str:
         '''The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -3082,7 +3082,7 @@ class GoogleBigqueryJobLoadDestinationTable:
     def dataset_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
         '''
         result = self._values.get("dataset_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3091,7 +3091,7 @@ class GoogleBigqueryJobLoadDestinationTable:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3230,7 +3230,7 @@ class GoogleBigqueryJobLoadOutputReference(
         kms_key_name: builtins.str,
     ) -> None:
         '''
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         value = GoogleBigqueryJobLoadDestinationEncryptionConfiguration(
             kms_key_name=kms_key_name
@@ -3247,9 +3247,9 @@ class GoogleBigqueryJobLoadOutputReference(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         value = GoogleBigqueryJobLoadDestinationTable(
             table_id=table_id, dataset_id=dataset_id, project_id=project_id
@@ -3265,8 +3265,8 @@ class GoogleBigqueryJobLoadOutputReference(
         enum_as_string: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_list_inference: If sourceFormat is set to PARQUET, indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#enable_list_inference GoogleBigqueryJob#enable_list_inference}
-        :param enum_as_string: If sourceFormat is set to PARQUET, indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#enum_as_string GoogleBigqueryJob#enum_as_string}
+        :param enable_list_inference: If sourceFormat is set to PARQUET, indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#enable_list_inference GoogleBigqueryJob#enable_list_inference}
+        :param enum_as_string: If sourceFormat is set to PARQUET, indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#enum_as_string GoogleBigqueryJob#enum_as_string}
         '''
         value = GoogleBigqueryJobLoadParquetOptions(
             enable_list_inference=enable_list_inference, enum_as_string=enum_as_string
@@ -3283,9 +3283,9 @@ class GoogleBigqueryJobLoadOutputReference(
         field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: The only type supported is DAY, which will generate one partition per day. Providing an empty string used to cause an error, but in OnePlatform the field will be treated as unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#type GoogleBigqueryJob#type}
-        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. A wrapper is used here because 0 is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#expiration_ms GoogleBigqueryJob#expiration_ms}
-        :param field: If not set, the table is partitioned by pseudo column '_PARTITIONTIME'; if set, the table is partitioned by this field. The field must be a top-level TIMESTAMP or DATE field. Its mode must be NULLABLE or REQUIRED. A wrapper is used here because an empty string is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field GoogleBigqueryJob#field}
+        :param type: The only type supported is DAY, which will generate one partition per day. Providing an empty string used to cause an error, but in OnePlatform the field will be treated as unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#type GoogleBigqueryJob#type}
+        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. A wrapper is used here because 0 is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#expiration_ms GoogleBigqueryJob#expiration_ms}
+        :param field: If not set, the table is partitioned by pseudo column '_PARTITIONTIME'; if set, the table is partitioned by this field. The field must be a top-level TIMESTAMP or DATE field. Its mode must be NULLABLE or REQUIRED. A wrapper is used here because an empty string is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field GoogleBigqueryJob#field}
         '''
         value = GoogleBigqueryJobLoadTimePartitioning(
             type=type, expiration_ms=expiration_ms, field=field
@@ -3765,8 +3765,8 @@ class GoogleBigqueryJobLoadParquetOptions:
         enum_as_string: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_list_inference: If sourceFormat is set to PARQUET, indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#enable_list_inference GoogleBigqueryJob#enable_list_inference}
-        :param enum_as_string: If sourceFormat is set to PARQUET, indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#enum_as_string GoogleBigqueryJob#enum_as_string}
+        :param enable_list_inference: If sourceFormat is set to PARQUET, indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#enable_list_inference GoogleBigqueryJob#enable_list_inference}
+        :param enum_as_string: If sourceFormat is set to PARQUET, indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#enum_as_string GoogleBigqueryJob#enum_as_string}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__495696a71e6a0e119da6de34dae3a153fd6b8b1ede85df734e00b4385cd266fb)
@@ -3784,7 +3784,7 @@ class GoogleBigqueryJobLoadParquetOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If sourceFormat is set to PARQUET, indicates whether to use schema inference specifically for Parquet LIST logical type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#enable_list_inference GoogleBigqueryJob#enable_list_inference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#enable_list_inference GoogleBigqueryJob#enable_list_inference}
         '''
         result = self._values.get("enable_list_inference")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3795,7 +3795,7 @@ class GoogleBigqueryJobLoadParquetOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If sourceFormat is set to PARQUET, indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#enum_as_string GoogleBigqueryJob#enum_as_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#enum_as_string GoogleBigqueryJob#enum_as_string}
         '''
         result = self._values.get("enum_as_string")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3918,9 +3918,9 @@ class GoogleBigqueryJobLoadTimePartitioning:
         field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: The only type supported is DAY, which will generate one partition per day. Providing an empty string used to cause an error, but in OnePlatform the field will be treated as unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#type GoogleBigqueryJob#type}
-        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. A wrapper is used here because 0 is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#expiration_ms GoogleBigqueryJob#expiration_ms}
-        :param field: If not set, the table is partitioned by pseudo column '_PARTITIONTIME'; if set, the table is partitioned by this field. The field must be a top-level TIMESTAMP or DATE field. Its mode must be NULLABLE or REQUIRED. A wrapper is used here because an empty string is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field GoogleBigqueryJob#field}
+        :param type: The only type supported is DAY, which will generate one partition per day. Providing an empty string used to cause an error, but in OnePlatform the field will be treated as unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#type GoogleBigqueryJob#type}
+        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. A wrapper is used here because 0 is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#expiration_ms GoogleBigqueryJob#expiration_ms}
+        :param field: If not set, the table is partitioned by pseudo column '_PARTITIONTIME'; if set, the table is partitioned by this field. The field must be a top-level TIMESTAMP or DATE field. Its mode must be NULLABLE or REQUIRED. A wrapper is used here because an empty string is an invalid value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field GoogleBigqueryJob#field}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f763ab8fa69b9cf9b6e148e5d772cf8b07e6a12c8494eee584d6e728aae7c6d6)
@@ -3942,7 +3942,7 @@ class GoogleBigqueryJobLoadTimePartitioning:
         Providing an empty string used to cause an error,
         but in OnePlatform the field will be treated as unset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#type GoogleBigqueryJob#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#type GoogleBigqueryJob#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -3954,7 +3954,7 @@ class GoogleBigqueryJobLoadTimePartitioning:
 
         A wrapper is used here because 0 is an invalid value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#expiration_ms GoogleBigqueryJob#expiration_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#expiration_ms GoogleBigqueryJob#expiration_ms}
         '''
         result = self._values.get("expiration_ms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3967,7 +3967,7 @@ class GoogleBigqueryJobLoadTimePartitioning:
         The field must be a top-level TIMESTAMP or DATE field. Its mode must be NULLABLE or REQUIRED.
         A wrapper is used here because an empty string is an invalid value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#field GoogleBigqueryJob#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#field GoogleBigqueryJob#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4127,24 +4127,24 @@ class GoogleBigqueryJobQuery:
         write_disposition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: SQL query text to execute. The useLegacySql field can be used to indicate whether the query uses legacy SQL or standard SQL. *NOTE*: queries containing `DML language <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-language>`_ ('DELETE', 'UPDATE', 'MERGE', 'INSERT') must specify 'create_disposition = ""' and 'write_disposition = ""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
-        :param allow_large_results: If true and query uses legacy SQL dialect, allows the query to produce arbitrarily large result tables at a slight cost in performance. Requires destinationTable to be set. For standard SQL queries, this flag is ignored and large results are always allowed. However, you must still set destinationTable when result size exceeds the allowed maximum response size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_large_results GoogleBigqueryJob#allow_large_results}
-        :param continuous: Whether to run the query as continuous or a regular query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#continuous GoogleBigqueryJob#continuous}
-        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
-        :param default_dataset: default_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#default_dataset GoogleBigqueryJob#default_dataset}
-        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
-        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
-        :param flatten_results: If true and query uses legacy SQL dialect, flattens all nested and repeated fields in the query results. allowLargeResults must be true if this is set to false. For standard SQL queries, this flag is ignored and results are never flattened. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#flatten_results GoogleBigqueryJob#flatten_results}
-        :param maximum_billing_tier: Limits the billing tier for this job. Queries that have resource usage beyond this tier will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#maximum_billing_tier GoogleBigqueryJob#maximum_billing_tier}
-        :param maximum_bytes_billed: Limits the bytes billed for this job. Queries that will have bytes billed beyond this limit will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#maximum_bytes_billed GoogleBigqueryJob#maximum_bytes_billed}
-        :param parameter_mode: Standard SQL only. Set to POSITIONAL to use positional (?) query parameters or to NAMED to use named (@myparam) query parameters in this query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#parameter_mode GoogleBigqueryJob#parameter_mode}
-        :param priority: Specifies a priority for the query. Default value: "INTERACTIVE" Possible values: ["INTERACTIVE", "BATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#priority GoogleBigqueryJob#priority}
-        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the query job. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
-        :param script_options: script_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#script_options GoogleBigqueryJob#script_options}
-        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL dialect for this query. The default value is true. If set to false, the query will use BigQuery's standard SQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_legacy_sql GoogleBigqueryJob#use_legacy_sql}
-        :param use_query_cache: Whether to look for the result in the query cache. The query cache is a best-effort cache that will be flushed whenever tables in the query are modified. Moreover, the query cache is only available when a query does not have a destination table specified. The default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_query_cache GoogleBigqueryJob#use_query_cache}
-        :param user_defined_function_resources: user_defined_function_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#user_defined_function_resources GoogleBigqueryJob#user_defined_function_resources}
-        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        :param query: SQL query text to execute. The useLegacySql field can be used to indicate whether the query uses legacy SQL or standard SQL. *NOTE*: queries containing `DML language <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-language>`_ ('DELETE', 'UPDATE', 'MERGE', 'INSERT') must specify 'create_disposition = ""' and 'write_disposition = ""'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
+        :param allow_large_results: If true and query uses legacy SQL dialect, allows the query to produce arbitrarily large result tables at a slight cost in performance. Requires destinationTable to be set. For standard SQL queries, this flag is ignored and large results are always allowed. However, you must still set destinationTable when result size exceeds the allowed maximum response size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_large_results GoogleBigqueryJob#allow_large_results}
+        :param continuous: Whether to run the query as continuous or a regular query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#continuous GoogleBigqueryJob#continuous}
+        :param create_disposition: Specifies whether the job is allowed to create new tables. The following values are supported: CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table. CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result. Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        :param default_dataset: default_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#default_dataset GoogleBigqueryJob#default_dataset}
+        :param destination_encryption_configuration: destination_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        :param destination_table: destination_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        :param flatten_results: If true and query uses legacy SQL dialect, flattens all nested and repeated fields in the query results. allowLargeResults must be true if this is set to false. For standard SQL queries, this flag is ignored and results are never flattened. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#flatten_results GoogleBigqueryJob#flatten_results}
+        :param maximum_billing_tier: Limits the billing tier for this job. Queries that have resource usage beyond this tier will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#maximum_billing_tier GoogleBigqueryJob#maximum_billing_tier}
+        :param maximum_bytes_billed: Limits the bytes billed for this job. Queries that will have bytes billed beyond this limit will fail (without incurring a charge). If unspecified, this will be set to your project default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#maximum_bytes_billed GoogleBigqueryJob#maximum_bytes_billed}
+        :param parameter_mode: Standard SQL only. Set to POSITIONAL to use positional (?) query parameters or to NAMED to use named (@myparam) query parameters in this query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#parameter_mode GoogleBigqueryJob#parameter_mode}
+        :param priority: Specifies a priority for the query. Default value: "INTERACTIVE" Possible values: ["INTERACTIVE", "BATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#priority GoogleBigqueryJob#priority}
+        :param schema_update_options: Allows the schema of the destination table to be updated as a side effect of the query job. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema. One or more of the following values are specified: ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema. ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
+        :param script_options: script_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#script_options GoogleBigqueryJob#script_options}
+        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL dialect for this query. The default value is true. If set to false, the query will use BigQuery's standard SQL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_legacy_sql GoogleBigqueryJob#use_legacy_sql}
+        :param use_query_cache: Whether to look for the result in the query cache. The query cache is a best-effort cache that will be flushed whenever tables in the query are modified. Moreover, the query cache is only available when a query does not have a destination table specified. The default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_query_cache GoogleBigqueryJob#use_query_cache}
+        :param user_defined_function_resources: user_defined_function_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#user_defined_function_resources GoogleBigqueryJob#user_defined_function_resources}
+        :param write_disposition: Specifies the action that occurs if the destination table already exists. The following values are supported: WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result. WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         if isinstance(default_dataset, dict):
             default_dataset = GoogleBigqueryJobQueryDefaultDataset(**default_dataset)
@@ -4220,7 +4220,7 @@ class GoogleBigqueryJobQuery:
         *NOTE*: queries containing `DML language <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-language>`_
         ('DELETE', 'UPDATE', 'MERGE', 'INSERT') must specify 'create_disposition = ""' and 'write_disposition = ""'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#query GoogleBigqueryJob#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -4235,7 +4235,7 @@ class GoogleBigqueryJobQuery:
         Requires destinationTable to be set. For standard SQL queries, this flag is ignored and large results are always allowed.
         However, you must still set destinationTable when result size exceeds the allowed maximum response size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#allow_large_results GoogleBigqueryJob#allow_large_results}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#allow_large_results GoogleBigqueryJob#allow_large_results}
         '''
         result = self._values.get("allow_large_results")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4246,7 +4246,7 @@ class GoogleBigqueryJobQuery:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to run the query as continuous or a regular query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#continuous GoogleBigqueryJob#continuous}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#continuous GoogleBigqueryJob#continuous}
         '''
         result = self._values.get("continuous")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4260,7 +4260,7 @@ class GoogleBigqueryJobQuery:
         CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result.
         Creation, truncation and append actions occur as one atomic update upon job completion Default value: "CREATE_IF_NEEDED" Possible values: ["CREATE_IF_NEEDED", "CREATE_NEVER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create_disposition GoogleBigqueryJob#create_disposition}
         '''
         result = self._values.get("create_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4271,7 +4271,7 @@ class GoogleBigqueryJobQuery:
     ) -> typing.Optional["GoogleBigqueryJobQueryDefaultDataset"]:
         '''default_dataset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#default_dataset GoogleBigqueryJob#default_dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#default_dataset GoogleBigqueryJob#default_dataset}
         '''
         result = self._values.get("default_dataset")
         return typing.cast(typing.Optional["GoogleBigqueryJobQueryDefaultDataset"], result)
@@ -4282,7 +4282,7 @@ class GoogleBigqueryJobQuery:
     ) -> typing.Optional["GoogleBigqueryJobQueryDestinationEncryptionConfiguration"]:
         '''destination_encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_encryption_configuration GoogleBigqueryJob#destination_encryption_configuration}
         '''
         result = self._values.get("destination_encryption_configuration")
         return typing.cast(typing.Optional["GoogleBigqueryJobQueryDestinationEncryptionConfiguration"], result)
@@ -4293,7 +4293,7 @@ class GoogleBigqueryJobQuery:
     ) -> typing.Optional["GoogleBigqueryJobQueryDestinationTable"]:
         '''destination_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#destination_table GoogleBigqueryJob#destination_table}
         '''
         result = self._values.get("destination_table")
         return typing.cast(typing.Optional["GoogleBigqueryJobQueryDestinationTable"], result)
@@ -4306,7 +4306,7 @@ class GoogleBigqueryJobQuery:
 
         allowLargeResults must be true if this is set to false. For standard SQL queries, this flag is ignored and results are never flattened.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#flatten_results GoogleBigqueryJob#flatten_results}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#flatten_results GoogleBigqueryJob#flatten_results}
         '''
         result = self._values.get("flatten_results")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4318,7 +4318,7 @@ class GoogleBigqueryJobQuery:
         Queries that have resource usage beyond this tier will fail (without incurring a charge).
         If unspecified, this will be set to your project default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#maximum_billing_tier GoogleBigqueryJob#maximum_billing_tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#maximum_billing_tier GoogleBigqueryJob#maximum_billing_tier}
         '''
         result = self._values.get("maximum_billing_tier")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4330,7 +4330,7 @@ class GoogleBigqueryJobQuery:
         Queries that will have bytes billed beyond this limit will fail (without incurring a charge).
         If unspecified, this will be set to your project default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#maximum_bytes_billed GoogleBigqueryJob#maximum_bytes_billed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#maximum_bytes_billed GoogleBigqueryJob#maximum_bytes_billed}
         '''
         result = self._values.get("maximum_bytes_billed")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4341,7 +4341,7 @@ class GoogleBigqueryJobQuery:
 
         Set to POSITIONAL to use positional (?) query parameters or to NAMED to use named (@myparam) query parameters in this query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#parameter_mode GoogleBigqueryJob#parameter_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#parameter_mode GoogleBigqueryJob#parameter_mode}
         '''
         result = self._values.get("parameter_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4350,7 +4350,7 @@ class GoogleBigqueryJobQuery:
     def priority(self) -> typing.Optional[builtins.str]:
         '''Specifies a priority for the query. Default value: "INTERACTIVE" Possible values: ["INTERACTIVE", "BATCH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#priority GoogleBigqueryJob#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#priority GoogleBigqueryJob#priority}
         '''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4366,7 +4366,7 @@ class GoogleBigqueryJobQuery:
         ALLOW_FIELD_ADDITION: allow adding a nullable field to the schema.
         ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema to nullable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#schema_update_options GoogleBigqueryJob#schema_update_options}
         '''
         result = self._values.get("schema_update_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4375,7 +4375,7 @@ class GoogleBigqueryJobQuery:
     def script_options(self) -> typing.Optional["GoogleBigqueryJobQueryScriptOptions"]:
         '''script_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#script_options GoogleBigqueryJob#script_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#script_options GoogleBigqueryJob#script_options}
         '''
         result = self._values.get("script_options")
         return typing.cast(typing.Optional["GoogleBigqueryJobQueryScriptOptions"], result)
@@ -4389,7 +4389,7 @@ class GoogleBigqueryJobQuery:
         The default value is true.
         If set to false, the query will use BigQuery's standard SQL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_legacy_sql GoogleBigqueryJob#use_legacy_sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_legacy_sql GoogleBigqueryJob#use_legacy_sql}
         '''
         result = self._values.get("use_legacy_sql")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4404,7 +4404,7 @@ class GoogleBigqueryJobQuery:
         tables in the query are modified. Moreover, the query cache is only available when a query does not have a destination table specified.
         The default value is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#use_query_cache GoogleBigqueryJob#use_query_cache}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#use_query_cache GoogleBigqueryJob#use_query_cache}
         '''
         result = self._values.get("use_query_cache")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4415,7 +4415,7 @@ class GoogleBigqueryJobQuery:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryJobQueryUserDefinedFunctionResources"]]]:
         '''user_defined_function_resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#user_defined_function_resources GoogleBigqueryJob#user_defined_function_resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#user_defined_function_resources GoogleBigqueryJob#user_defined_function_resources}
         '''
         result = self._values.get("user_defined_function_resources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryJobQueryUserDefinedFunctionResources"]]], result)
@@ -4431,7 +4431,7 @@ class GoogleBigqueryJobQuery:
         Each action is atomic and only occurs if BigQuery is able to complete the job successfully.
         Creation, truncation and append actions occur as one atomic update upon job completion. Default value: "WRITE_EMPTY" Possible values: ["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#write_disposition GoogleBigqueryJob#write_disposition}
         '''
         result = self._values.get("write_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4461,8 +4461,8 @@ class GoogleBigqueryJobQueryDefaultDataset:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataset_id: The dataset. Can be specified '{{dataset_id}}' if 'project_id' is also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param dataset_id: The dataset. Can be specified '{{dataset_id}}' if 'project_id' is also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39c8d81da5295ed1dded97b87b5bd4ee36ff23649f24dde8b906f707d89d75a6)
@@ -4478,7 +4478,7 @@ class GoogleBigqueryJobQueryDefaultDataset:
     def dataset_id(self) -> builtins.str:
         '''The dataset. Can be specified '{{dataset_id}}' if 'project_id' is also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}' if not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -4488,7 +4488,7 @@ class GoogleBigqueryJobQueryDefaultDataset:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4587,7 +4587,7 @@ class GoogleBigqueryJobQueryDefaultDatasetOutputReference(
 class GoogleBigqueryJobQueryDestinationEncryptionConfiguration:
     def __init__(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd3a5566ebb120a171d4c07ba883d8e1af67a9d6e5aaefcd5c0a44dbdebc3c41)
@@ -4602,7 +4602,7 @@ class GoogleBigqueryJobQueryDestinationEncryptionConfiguration:
 
         The BigQuery Service Account associated with your project requires access to this encryption key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -4698,9 +4698,9 @@ class GoogleBigqueryJobQueryDestinationTable:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d9eb7550c451b0ff94ce57a19b0d16db80b71759e89c970836f80ce362a5024)
@@ -4719,7 +4719,7 @@ class GoogleBigqueryJobQueryDestinationTable:
     def table_id(self) -> builtins.str:
         '''The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -4729,7 +4729,7 @@ class GoogleBigqueryJobQueryDestinationTable:
     def dataset_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
         '''
         result = self._values.get("dataset_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4738,7 +4738,7 @@ class GoogleBigqueryJobQueryDestinationTable:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4878,8 +4878,8 @@ class GoogleBigqueryJobQueryOutputReference(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataset_id: The dataset. Can be specified '{{dataset_id}}' if 'project_id' is also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param dataset_id: The dataset. Can be specified '{{dataset_id}}' if 'project_id' is also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         value = GoogleBigqueryJobQueryDefaultDataset(
             dataset_id=dataset_id, project_id=project_id
@@ -4894,7 +4894,7 @@ class GoogleBigqueryJobQueryOutputReference(
         kms_key_name: builtins.str,
     ) -> None:
         '''
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#kms_key_name GoogleBigqueryJob#kms_key_name}
         '''
         value = GoogleBigqueryJobQueryDestinationEncryptionConfiguration(
             kms_key_name=kms_key_name
@@ -4911,9 +4911,9 @@ class GoogleBigqueryJobQueryOutputReference(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
+        :param table_id: The table. Can be specified '{{table_id}}' if 'project_id' and 'dataset_id' are also set, or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}' if not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#table_id GoogleBigqueryJob#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#dataset_id GoogleBigqueryJob#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#project_id GoogleBigqueryJob#project_id}
         '''
         value = GoogleBigqueryJobQueryDestinationTable(
             table_id=table_id, dataset_id=dataset_id, project_id=project_id
@@ -4930,9 +4930,9 @@ class GoogleBigqueryJobQueryOutputReference(
         statement_timeout_ms: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_result_statement: Determines which statement in the script represents the "key result", used to populate the schema and query results of the script job. Possible values: ["LAST", "FIRST_SELECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#key_result_statement GoogleBigqueryJob#key_result_statement}
-        :param statement_byte_budget: Limit on the number of bytes billed per statement. Exceeding this budget results in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#statement_byte_budget GoogleBigqueryJob#statement_byte_budget}
-        :param statement_timeout_ms: Timeout period for each statement in a script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#statement_timeout_ms GoogleBigqueryJob#statement_timeout_ms}
+        :param key_result_statement: Determines which statement in the script represents the "key result", used to populate the schema and query results of the script job. Possible values: ["LAST", "FIRST_SELECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#key_result_statement GoogleBigqueryJob#key_result_statement}
+        :param statement_byte_budget: Limit on the number of bytes billed per statement. Exceeding this budget results in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#statement_byte_budget GoogleBigqueryJob#statement_byte_budget}
+        :param statement_timeout_ms: Timeout period for each statement in a script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#statement_timeout_ms GoogleBigqueryJob#statement_timeout_ms}
         '''
         value = GoogleBigqueryJobQueryScriptOptions(
             key_result_statement=key_result_statement,
@@ -5374,9 +5374,9 @@ class GoogleBigqueryJobQueryScriptOptions:
         statement_timeout_ms: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_result_statement: Determines which statement in the script represents the "key result", used to populate the schema and query results of the script job. Possible values: ["LAST", "FIRST_SELECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#key_result_statement GoogleBigqueryJob#key_result_statement}
-        :param statement_byte_budget: Limit on the number of bytes billed per statement. Exceeding this budget results in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#statement_byte_budget GoogleBigqueryJob#statement_byte_budget}
-        :param statement_timeout_ms: Timeout period for each statement in a script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#statement_timeout_ms GoogleBigqueryJob#statement_timeout_ms}
+        :param key_result_statement: Determines which statement in the script represents the "key result", used to populate the schema and query results of the script job. Possible values: ["LAST", "FIRST_SELECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#key_result_statement GoogleBigqueryJob#key_result_statement}
+        :param statement_byte_budget: Limit on the number of bytes billed per statement. Exceeding this budget results in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#statement_byte_budget GoogleBigqueryJob#statement_byte_budget}
+        :param statement_timeout_ms: Timeout period for each statement in a script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#statement_timeout_ms GoogleBigqueryJob#statement_timeout_ms}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c35638596eb7d8e5f0fc8ed71649a974d90ecea7f5fed257e78889e8aa737bb)
@@ -5397,7 +5397,7 @@ class GoogleBigqueryJobQueryScriptOptions:
 
         Possible values: ["LAST", "FIRST_SELECT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#key_result_statement GoogleBigqueryJob#key_result_statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#key_result_statement GoogleBigqueryJob#key_result_statement}
         '''
         result = self._values.get("key_result_statement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5406,7 +5406,7 @@ class GoogleBigqueryJobQueryScriptOptions:
     def statement_byte_budget(self) -> typing.Optional[builtins.str]:
         '''Limit on the number of bytes billed per statement. Exceeding this budget results in an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#statement_byte_budget GoogleBigqueryJob#statement_byte_budget}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#statement_byte_budget GoogleBigqueryJob#statement_byte_budget}
         '''
         result = self._values.get("statement_byte_budget")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5415,7 +5415,7 @@ class GoogleBigqueryJobQueryScriptOptions:
     def statement_timeout_ms(self) -> typing.Optional[builtins.str]:
         '''Timeout period for each statement in a script.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#statement_timeout_ms GoogleBigqueryJob#statement_timeout_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#statement_timeout_ms GoogleBigqueryJob#statement_timeout_ms}
         '''
         result = self._values.get("statement_timeout_ms")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5544,8 +5544,8 @@ class GoogleBigqueryJobQueryUserDefinedFunctionResources:
         resource_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param inline_code: An inline resource that contains code for a user-defined function (UDF). Providing a inline code resource is equivalent to providing a URI for a file containing the same code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#inline_code GoogleBigqueryJob#inline_code}
-        :param resource_uri: A code resource to load from a Google Cloud Storage URI (gs://bucket/path). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#resource_uri GoogleBigqueryJob#resource_uri}
+        :param inline_code: An inline resource that contains code for a user-defined function (UDF). Providing a inline code resource is equivalent to providing a URI for a file containing the same code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#inline_code GoogleBigqueryJob#inline_code}
+        :param resource_uri: A code resource to load from a Google Cloud Storage URI (gs://bucket/path). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#resource_uri GoogleBigqueryJob#resource_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__485fd753924d252fd23c59db4c866dc15f7aeeaa34278b76f974124ee9f928b6)
@@ -5563,7 +5563,7 @@ class GoogleBigqueryJobQueryUserDefinedFunctionResources:
 
         Providing a inline code resource is equivalent to providing a URI for a file containing the same code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#inline_code GoogleBigqueryJob#inline_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#inline_code GoogleBigqueryJob#inline_code}
         '''
         result = self._values.get("inline_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5572,7 +5572,7 @@ class GoogleBigqueryJobQueryUserDefinedFunctionResources:
     def resource_uri(self) -> typing.Optional[builtins.str]:
         '''A code resource to load from a Google Cloud Storage URI (gs://bucket/path).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#resource_uri GoogleBigqueryJob#resource_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#resource_uri GoogleBigqueryJob#resource_uri}
         '''
         result = self._values.get("resource_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6235,9 +6235,9 @@ class GoogleBigqueryJobTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create GoogleBigqueryJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#delete GoogleBigqueryJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#update GoogleBigqueryJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create GoogleBigqueryJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#delete GoogleBigqueryJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#update GoogleBigqueryJob#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9b4b01b8537db4f093b43ea26f815c387d108eba7fe50ceb77361b829268fad)
@@ -6254,19 +6254,19 @@ class GoogleBigqueryJobTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#create GoogleBigqueryJob#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#create GoogleBigqueryJob#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#delete GoogleBigqueryJob#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#delete GoogleBigqueryJob#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_bigquery_job#update GoogleBigqueryJob#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_bigquery_job#update GoogleBigqueryJob#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

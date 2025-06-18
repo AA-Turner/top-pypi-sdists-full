@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dank-mids
-Version: 4.20.161
+Version: 4.20.162
 Summary: Multicall batching middleware for asynchronous scripts using web3.py
 License: MIT
 Author: BobTheBuidler

@@ -1,7 +1,7 @@
 r'''
 # `data_google_runtimeconfig_config`
 
-Refer to the Terraform Registry for docs: [`data_google_runtimeconfig_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config).
+Refer to the Terraform Registry for docs: [`data_google_runtimeconfig_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleRuntimeconfigConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.dataGoogleRuntimeconfigConfig.DataGoogleRuntimeconfigConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config google_runtimeconfig_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config google_runtimeconfig_config}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleRuntimeconfigConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config google_runtimeconfig_config} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config google_runtimeconfig_config} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the runtime config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#name DataGoogleRuntimeconfigConfig#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#id DataGoogleRuntimeconfigConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#project DataGoogleRuntimeconfigConfig#project}
+        :param name: The name of the runtime config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#name DataGoogleRuntimeconfigConfig#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#id DataGoogleRuntimeconfigConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#project DataGoogleRuntimeconfigConfig#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleRuntimeconfigConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleRuntimeconfigConfig to import.
-        :param import_from_id: The id of the existing DataGoogleRuntimeconfigConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleRuntimeconfigConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleRuntimeconfigConfig to import is found.
         '''
         if __debug__:
@@ -237,9 +237,9 @@ class DataGoogleRuntimeconfigConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the runtime config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#name DataGoogleRuntimeconfigConfig#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#id DataGoogleRuntimeconfigConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#project DataGoogleRuntimeconfigConfig#project}
+        :param name: The name of the runtime config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#name DataGoogleRuntimeconfigConfig#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#id DataGoogleRuntimeconfigConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#project DataGoogleRuntimeconfigConfig#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -345,7 +345,7 @@ class DataGoogleRuntimeconfigConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def name(self) -> builtins.str:
         '''The name of the runtime config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#name DataGoogleRuntimeconfigConfig#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#name DataGoogleRuntimeconfigConfig#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -353,7 +353,7 @@ class DataGoogleRuntimeconfigConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#id DataGoogleRuntimeconfigConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#id DataGoogleRuntimeconfigConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -367,7 +367,7 @@ class DataGoogleRuntimeconfigConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_runtimeconfig_config#project DataGoogleRuntimeconfigConfig#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_runtimeconfig_config#project DataGoogleRuntimeconfigConfig#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)

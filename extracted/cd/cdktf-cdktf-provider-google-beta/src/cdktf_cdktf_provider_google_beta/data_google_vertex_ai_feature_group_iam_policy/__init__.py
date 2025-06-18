@@ -1,7 +1,7 @@
 r'''
 # `data_google_vertex_ai_feature_group_iam_policy`
 
-Refer to the Terraform Registry for docs: [`data_google_vertex_ai_feature_group_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy).
+Refer to the Terraform Registry for docs: [`data_google_vertex_ai_feature_group_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleVertexAiFeatureGroupIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.dataGoogleVertexAiFeatureGroupIamPolicy.DataGoogleVertexAiFeatureGroupIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy google_vertex_ai_feature_group_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy google_vertex_ai_feature_group_iam_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleVertexAiFeatureGroupIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy google_vertex_ai_feature_group_iam_policy} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy google_vertex_ai_feature_group_iam_policy} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param feature_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#feature_group DataGoogleVertexAiFeatureGroupIamPolicy#feature_group}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#id DataGoogleVertexAiFeatureGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#project DataGoogleVertexAiFeatureGroupIamPolicy#project}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#region DataGoogleVertexAiFeatureGroupIamPolicy#region}.
+        :param feature_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#feature_group DataGoogleVertexAiFeatureGroupIamPolicy#feature_group}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#id DataGoogleVertexAiFeatureGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#project DataGoogleVertexAiFeatureGroupIamPolicy#project}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#region DataGoogleVertexAiFeatureGroupIamPolicy#region}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleVertexAiFeatureGroupIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleVertexAiFeatureGroupIamPolicy to import.
-        :param import_from_id: The id of the existing DataGoogleVertexAiFeatureGroupIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleVertexAiFeatureGroupIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleVertexAiFeatureGroupIamPolicy to import is found.
         '''
         if __debug__:
@@ -270,10 +270,10 @@ class DataGoogleVertexAiFeatureGroupIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param feature_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#feature_group DataGoogleVertexAiFeatureGroupIamPolicy#feature_group}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#id DataGoogleVertexAiFeatureGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#project DataGoogleVertexAiFeatureGroupIamPolicy#project}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#region DataGoogleVertexAiFeatureGroupIamPolicy#region}.
+        :param feature_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#feature_group DataGoogleVertexAiFeatureGroupIamPolicy#feature_group}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#id DataGoogleVertexAiFeatureGroupIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#project DataGoogleVertexAiFeatureGroupIamPolicy#project}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#region DataGoogleVertexAiFeatureGroupIamPolicy#region}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -380,14 +380,14 @@ class DataGoogleVertexAiFeatureGroupIamPolicyConfig(
 
     @builtins.property
     def feature_group(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#feature_group DataGoogleVertexAiFeatureGroupIamPolicy#feature_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#feature_group DataGoogleVertexAiFeatureGroupIamPolicy#feature_group}.'''
         result = self._values.get("feature_group")
         assert result is not None, "Required property 'feature_group' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#id DataGoogleVertexAiFeatureGroupIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#id DataGoogleVertexAiFeatureGroupIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -397,13 +397,13 @@ class DataGoogleVertexAiFeatureGroupIamPolicyConfig(
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#project DataGoogleVertexAiFeatureGroupIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#project DataGoogleVertexAiFeatureGroupIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#region DataGoogleVertexAiFeatureGroupIamPolicy#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/data-sources/google_vertex_ai_feature_group_iam_policy#region DataGoogleVertexAiFeatureGroupIamPolicy#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 

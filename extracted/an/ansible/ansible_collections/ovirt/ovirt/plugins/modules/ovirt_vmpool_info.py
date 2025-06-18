@@ -27,9 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_vmpool_info
 short_description: Retrieve information about one or more oVirt/RHV vmpools
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV vmpools."
     - This module was called C(ovirt_vmpool_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -44,6 +42,7 @@ options:
             - "Search term which is accepted by oVirt/RHV search backend."
             - "For example to search vmpool X: name=X"
         type: str
+        default: ''
     follow:
         description:
             - List of linked entities, which should be fetched along with the main entity.
@@ -53,6 +52,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

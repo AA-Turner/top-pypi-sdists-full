@@ -119,8 +119,7 @@ class ResidualsChart(APIObject):
         }
 
     @classmethod
-    # type: ignore[override]
-    def from_server_data(
+    def from_server_data(  # type: ignore[override]
         cls,
         data: Dict[str, Any],
         keep_attrs: Optional[Iterable[str]] = None,
@@ -154,8 +153,7 @@ class SlicedResidualsChart(ResidualsChart):
     """Wrapper around ResidualsChart to override `from_server_data` method"""
 
     @classmethod
-    # type: ignore[override]
-    def from_server_data(
+    def from_server_data(  # type: ignore[override]
         cls,
         data: Dict[str, Any],
         keep_attrs: Optional[Iterable[str]] = None,

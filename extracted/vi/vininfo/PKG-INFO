@@ -1,45 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: vininfo
-Version: 1.8.0
+Version: 1.9.1
 Summary: Extracts useful information from Vehicle Identification Number (VIN)
-Home-page: https://github.com/idlesign/vininfo
-Author: Igor `idle sign` Starikov
-Author-email: idlesign@yandex.ru
-License: BSD 3-Clause License
-Platform: UNKNOWN
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: License :: OSI Approved :: BSD License
-Provides-Extra: cli
+Project-URL: Homepage, https://github.com/idlesign/vininfo
+Author-email: Igor Starikov <idlesign@yandex.ru>
+License-Expression: BSD-3-Clause
 License-File: LICENSE
-License-File: AUTHORS
+Keywords: vehicles,vin
+Requires-Python: >=3.10
+Provides-Extra: cli
+Requires-Dist: click; extra == 'cli'
+Description-Content-Type: text/markdown
 
-vininfo
-=======
+# vininfo
+
 https://github.com/idlesign/vininfo
 
 
-|release| |lic| |coverage|
-
-.. |release| image:: https://img.shields.io/pypi/v/vininfo.svg
-    :target: https://pypi.python.org/pypi/vininfo
-
-.. |lic| image:: https://img.shields.io/pypi/l/vininfo.svg
-    :target: https://pypi.python.org/pypi/vininfo
-
-.. |coverage| image:: https://img.shields.io/coveralls/idlesign/vininfo/master.svg
-    :target: https://coveralls.io/r/idlesign/vininfo
+[![PyPI - Version](https://img.shields.io/pypi/v/vininfo)](https://pypi.python.org/pypi/vininfo)
+[![License](https://img.shields.io/pypi/l/vininfo)](https://pypi.python.org/pypi/vininfo)
+[![Coverage](https://img.shields.io/coverallsCoverage/github/idlesign/vininfo)](https://coveralls.io/r/idlesign/vininfo)
 
 
-Description
------------
+## Description
 
 *Extracts useful information from Vehicle Identification Number (VIN)*
 
@@ -56,88 +39,79 @@ Additional info available for many vehicles from:
 * Renault
 
 
-Requirements
-------------
+## Requirements
 
-* Python 3.6+
-* ``click`` package for CLI
-
-
-Usage
------
-
-CLI
-~~~
-
-``click`` package is required for CLI. You can install ``vininfo`` with ``click`` using::
-
-    $ pip install vininfo[cli]
+* Python 3.10+
+* `click` package for CLI
 
 
-.. code-block:: bash
+## Usage
 
-    $ vininfo --help
+### CLI
 
-    ; Print out VIN info:
-    $ vininfo show XTAGFK330JY144213
+`click` package is required for CLI. You can install `vininfo` with `click` using:
+```bash
+pip install vininfo[cli]
+```
 
-    ; Basic:
-    ; Country: USSR/CIS
-    ; Manufacturer: AvtoVAZ
-    ; Region: Europe
-    ; Years: 2018, 1988
-    ;
-    ; Details:
-    ; Body: Station Wagon, 5-Door
-    ; Engine: 21179
-    ; Model: Vesta
-    ; Plant: Izhevsk
-    ; Serial: 144213
-    ; Transmission: Manual Renault
+```bash
+$ vininfo --help
 
-    ; Verify checksum
-    $ vininfo check 1M8GDM9AXKP042788
-    ; Checksum is valid
+; Print out VIN info:
+$ vininfo show XTAGFK330JY144213
 
+; Basic:
+; Country: USSR/CIS
+; Manufacturer: AvtoVAZ
+; Region: Europe
+; Years: 2018, 1988
 
-Python
-~~~~~~
+; Details:
+; Body: Station Wagon, 5-Door
+; Engine: 21179
+; Model: Vesta
+; Plant: Izhevsk
+; Serial: 144213
+; Transmission: Manual Renault
 
-.. code-block:: python
+; Verify checksum
+$ vininfo check 1M8GDM9AXKP042788
+; Checksum is valid
+```
 
-    from vininfo import Vin
+### Python
 
-    vin = Vin('VF1LM1B0H36666155')
+```bash
+from vininfo import Vin
 
-    vin.country  # France
-    vin.manufacturer  # Renault
-    vin.region  # Europe
-    vin.wmi  # VF1
-    vin.vds  # LM1B0H
-    vin.vis  # 36666155
+vin = Vin('VF1LM1B0H36666155')
 
-    annotated = vin.annotate()
-    details = vin.details
+vin.country  # France
+vin.manufacturer  # Renault
+vin.region  # Europe
+vin.wmi  # VF1
+vin.vds  # LM1B0H
+vin.vis  # 36666155
 
-    vin.verify_checksum()  # False
-    Vin('1M8GDM9AXKP042788').verify_checksum()  # True
+annotated = vin.annotate()
+details = vin.details
 
+vin.verify_checksum()  # False
+Vin('1M8GDM9AXKP042788').verify_checksum()  # True
+```
 
-Development
------------
+## Development
 
-One can add missing WMI(s) using instructions from ``dicts/wmi.py``:
-``WMI`` dictionary, that maps WMI strings to manufacturers.
+One can add missing WMI(s) using instructions from `dicts/wmi.py`:
+`WMI` dictionary, that maps WMI strings to manufacturers.
 
-Those manufacturers may be represented by simple strings, or instances of ``Brand``
-subclasses (see ``brands.py``).
+Those manufacturers may be represented by simple strings, or instances of `Brand`
+subclasses (see `brands.py`).
 
 If you know how to decode additional information (model, body, engine, etc.)
 encoded in VIN, you may also want to create a so-called `details extractor`
 for a brand.
 
-Details extractors are ``VinDetails`` subclasses in most cases making use of
-``Detail`` descriptors to represent additional information
-(see ``details/nissan.py`` for example).
-
-
+Details extractors are `VinDetails` subclasses in most cases making use of
+`Detail` descriptors to represent additional information
+(see `details/nissan.py` for example).

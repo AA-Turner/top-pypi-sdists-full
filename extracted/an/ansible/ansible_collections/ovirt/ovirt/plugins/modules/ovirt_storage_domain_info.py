@@ -27,9 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_storage_domain_info
 short_description: Retrieve information about one or more oVirt/RHV storage domains
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV storage domains."
     - This module was called C(ovirt_storage_domain_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -45,6 +43,7 @@ options:
             - "For example to search storage domain X from datacenter Y use following pattern:
                name=X and datacenter=Y"
         type: str
+        default: ''
     follow:
         description:
             - List of linked entities, which should be fetched along with the main entity.
@@ -54,6 +53,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

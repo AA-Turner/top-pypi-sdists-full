@@ -11,8 +11,10 @@ __all__ = (
     "AccountState",
     "AccountSuspendState",
     "Region",
+    "MultiRegion",
     "AcceleratorType",
     "DirectRouteType",
+    "Metrics",
     "DeploymentState",
     "DeploymentPrecision",
     "DeploymentEngine",
@@ -72,6 +74,7 @@ __all__ = (
     "ListAwsIamRoleBindingsResponse",
     "DeleteAwsIamRoleBindingRequest",
     "Deployment",
+    "Placement",
     "AutoTune",
     "AutoscalingPolicy",
     "CreateDeploymentRequest",
@@ -87,6 +90,10 @@ __all__ = (
     "GetDeploymentPrerequisitesRequest",
     "DeploymentPrerequisites",
     "DeploymentAcceleratorConfig",
+    "ListDeploymentMetricsRequest",
+    "TimeSeriesPoint",
+    "TimeSeries",
+    "ListDeploymentMetricsResponse",
     "JobProgress",
     "BatchInferenceJob",
     "InferenceParameters",
@@ -156,6 +163,7 @@ __all__ = (
     "Example",
     "UserUploaded",
     "Transformed",
+    "Splitted",
     "FireworksTraced",
     "DraftModelStates",
     "EvaluationResult",
@@ -172,6 +180,8 @@ __all__ = (
     "ListDatasetsRequest",
     "ListDatasetsResponse",
     "DeleteDatasetRequest",
+    "SplitDatasetRequest",
+    "SplitDatasetResponse",
     "DatasetValidationJob",
     "GetDatasetValidationJobRequest",
     "CreateDatasetValidationJobRequest",
@@ -662,6 +672,11 @@ class JobState(betterproto.Enum):
     
     """
 
+    PENDING = 14
+    """
+    
+    """
+
 
 class UserState(betterproto.Enum):
     """ """
@@ -831,6 +846,31 @@ class Region(betterproto.Enum):
     US_WASHINGTON_2 = 19
     """Vultr Seattle"""
 
+    EU_ICELAND_DEV_1 = 20
+    """Crusoe eu-iceland1 (dev)"""
+
+    US_WASHINGTON_3 = 21
+    """Vultr Seattle"""
+
+
+class MultiRegion(betterproto.Enum):
+    """ """
+
+    UNSPECIFIED = 0
+    """
+    
+    """
+
+    GLOBAL = 1
+    """
+    
+    """
+
+    US = 2
+    """
+    
+    """
+
 
 class AcceleratorType(betterproto.Enum):
     """ """
@@ -895,6 +935,131 @@ class DirectRouteType(betterproto.Enum):
 
     AWS_PRIVATELINK = 3
     """The direct route is exposed via AWS PrivateLink"""
+
+
+class Metrics(betterproto.Enum):
+    """ """
+
+    UNSPECIFIED = 0
+    """
+    
+    """
+
+    REPLICA_COUNT = 1
+    """
+    
+    """
+
+    LOAD = 2
+    """
+    
+    """
+
+    CONCURRENT_REQUESTS = 3
+    """
+    
+    """
+
+    PROMPT_CACHE_HIT_RATE = 4
+    """
+    
+    """
+
+    REQUESTS_TOTAL = 5
+    """
+    
+    """
+
+    REQUESTS_ERROR_RATE = 6
+    """
+    
+    """
+
+    TOKENS_PROMPT_PER_REQUEST = 7
+    """
+    
+    """
+
+    TOKENS_GENERATED_PER_REQUEST = 8
+    """
+    
+    """
+
+    SPECULATIVE_HIT_TOTAL = 9
+    """
+    
+    """
+
+    SPECULATIVE_HIT_USER = 10
+    """
+    
+    """
+
+    REQUESTS_PER_SECOND = 11
+    """
+    
+    """
+
+    TOKENS_PER_SECOND = 12
+    """
+    
+    """
+
+    LATENCY = 13
+    """Percentile metrics"""
+
+    GENERATION_QUEUE_LATENCY = 14
+    """
+    
+    """
+
+    PREFILL_QUEUE_LATENCY = 15
+    """
+    
+    """
+
+    FIRST_TOKEN_LATENCY = 16
+    """
+    
+    """
+
+    GENERATION_PER_TOKEN_LATENCY = 17
+    """
+    
+    """
+
+    SERVERLESS_REQUESTS_TOTAL = 18
+    """Serverless account-specific metrics"""
+
+    SERVERLESS_REQUESTS_RATE_MIRROR_PER_ACCOUNT = 19
+    """
+    
+    """
+
+    SERVERLESS_REQUESTS_LIMIT_PER_ACCOUNT = 20
+    """
+    
+    """
+
+    SERVERLESS_TOKENS_PROMPT_LIMIT_PER_ACCOUNT = 21
+    """
+    
+    """
+
+    SERVERLESS_TOKENS_PROMPT_RATE_MIRROR_PER_ACCOUNT = 22
+    """
+    
+    """
+
+    SERVERLESS_TOKENS_GENERATED_LIMIT_PER_ACCOUNT = 23
+    """
+    
+    """
+
+    SERVERLESS_TOKENS_GENERATED_RATE_MIRROR_PER_ACCOUNT = 24
+    """
+    
+    """
 
 
 class DeploymentState(betterproto.Enum):
@@ -982,6 +1147,16 @@ class DeploymentPrecision(betterproto.Enum):
     """
 
     NF4 = 10
+    """
+    
+    """
+
+    FP4 = 11
+    """
+    
+    """
+
+    BFP16 = 12
     """
     
     """
@@ -1450,6 +1625,9 @@ class ModelKind(betterproto.Enum):
     LIVE_MERGE = 8
     """A live-merge model."""
 
+    CUSTOM_MODEL = 9
+    """A customized model"""
+
 
 class BaseModelDetailsCheckpointFormat(betterproto.Enum):
     """ """
@@ -1540,6 +1718,16 @@ class SupervisedFineTuningJobWeightPrecision(betterproto.Enum):
 
     NF4 = 3
     """enable 4-bit quantization with LLM.nf4()"""
+
+    FP8 = 4
+    """
+    
+    """
+
+    FP4_FP8 = 5
+    """
+    
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -1856,6 +2044,11 @@ class Account(betterproto.Message):
     update_time: datetime = betterproto.message_field(18)
     """The update time for the account."""
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("account_type"):
+            warnings.warn("Account.account_type is deprecated", DeprecationWarning)
+
 
 @dataclass(eq=False, repr=False)
 class CreateAccountRequest(betterproto.Message):
@@ -2024,6 +2217,9 @@ class ApiKey(betterproto.Message):
     email: str = betterproto.string_field(7)
     """Email of the user who owns this API key."""
 
+    prefix: str = betterproto.string_field(8)
+    """The first few characters of the API key to visually identify it"""
+
 
 @dataclass(eq=False, repr=False)
 class CreateApiKeyRequest(betterproto.Message):
@@ -2157,7 +2353,7 @@ class AuditLogEntry(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ListAuditLogsRequest(betterproto.Message):
-    """Next ID: 9"""
+    """Next ID: 10"""
 
     parent: str = betterproto.string_field(1)
     """Resource name of the parent account."""
@@ -2336,7 +2532,7 @@ class DeleteAwsIamRoleBindingRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Deployment(betterproto.Message):
-    """Next ID: 68"""
+    """Next ID: 70"""
 
     name: str = betterproto.string_field(1)
     """
@@ -2549,8 +2745,17 @@ class Deployment(betterproto.Message):
     auto_tune: "AutoTune" = betterproto.message_field(40, group="preconfig")
     """The performance profile to use for this deployment."""
 
+    placement: "Placement" = betterproto.message_field(68)
+    """
+    The desired geographic region where the deployment must be placed.
+    If unspecified, the default is the GLOBAL multi-region.
+    """
+
     region: "Region" = betterproto.enum_field(51)
-    """The geographic region where the deployment is located."""
+    """
+    The geographic region where the deployment is presently located. This region may change
+    over time, but within the `placement` constraint.
+    """
 
     disable_accounting: bool = betterproto.bool_field(55)
     """
@@ -2587,6 +2792,26 @@ class Deployment(betterproto.Message):
 
     for_training: bool = betterproto.bool_field(65)
     """Whether this deployment is for training."""
+
+    disable_deployment_size_validation: bool = betterproto.bool_field(69)
+    """Whether the deployment size validation is disabled."""
+
+
+@dataclass(eq=False, repr=False)
+class Placement(betterproto.Message):
+    """
+    The desired geographic region where the deployment must be placed. Exactly one field will be
+    specified.
+    """
+
+    region: "Region" = betterproto.enum_field(1)
+    """The region where the deployment must be placed."""
+
+    multi_region: "MultiRegion" = betterproto.enum_field(2)
+    """The multi-region where the deployment must be placed."""
+
+    regions: List["Region"] = betterproto.enum_field(3)
+    """The list of regions where the deployment must be placed"""
 
 
 @dataclass(eq=False, repr=False)
@@ -2878,6 +3103,83 @@ class DeploymentAcceleratorConfig(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class ListDeploymentMetricsRequest(betterproto.Message):
+    """ """
+
+    parent: str = betterproto.string_field(1)
+    """The resource name of the deployment. Can contain wildcards."""
+
+    account: str = betterproto.string_field(2)
+    """
+    The resource name of the account. Required if parent contains wildcards.
+    """
+
+    model: str = betterproto.string_field(3)
+    """The resource name of the model. Can contain wildcards."""
+
+    metric: "Metrics" = betterproto.enum_field(4)
+    """The metric to fetch time series for."""
+
+    start: datetime = betterproto.message_field(5)
+    """The start time for the time series data."""
+
+    end: datetime = betterproto.message_field(6)
+    """The end time for the time series data."""
+
+    interval: timedelta = betterproto.message_field(7)
+    """
+    The interval between data points. Defaults to 1m.
+    This value is also used as the step size for data aggregation.
+    """
+
+    group_by: str = betterproto.string_field(8)
+    """
+    Optional field to override the default grouping logic.
+    If specified, this will be used as the 'by' clause in the Prometheus query. e.g. "status_code"
+    """
+
+    percentiles: List[float] = betterproto.float_field(9)
+    """
+    The percentiles to calculate for percentile metrics (e.g. [0.5, 0.9, 0.99])
+    Only used when metric is a percentile metric type
+    """
+
+
+@dataclass(eq=False, repr=False)
+class TimeSeriesPoint(betterproto.Message):
+    """ """
+
+    timestamp: int = betterproto.int64_field(1)
+    """Unix timestamp in seconds"""
+
+    value: str = betterproto.string_field(2)
+    """The value at this timestamp"""
+
+
+@dataclass(eq=False, repr=False)
+class TimeSeries(betterproto.Message):
+    """ """
+
+    labels: Dict[str, str] = betterproto.map_field(
+        1, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """
+    Labels for this time series (e.g. {"deployment": "deploy1", "instance": "pod1"})
+    """
+
+    values: List["TimeSeriesPoint"] = betterproto.message_field(2)
+    """Array of [timestamp, value] pairs for this series"""
+
+
+@dataclass(eq=False, repr=False)
+class ListDeploymentMetricsResponse(betterproto.Message):
+    """ """
+
+    series: List["TimeSeries"] = betterproto.message_field(1)
+    """Array of time series, each with its own labels and values"""
+
+
+@dataclass(eq=False, repr=False)
 class JobProgress(betterproto.Message):
     """Progress of a job, e.g. RLOR, EVJ, BIJ etc."""
 
@@ -2890,10 +3192,13 @@ class JobProgress(betterproto.Message):
     This is optional for jobs that don't run in an epoch fasion, e.g. BIJ, EVJ.
     """
 
+    chunk: int = betterproto.int32_field(3)
+    """The chunk index, now only available for RFT epoch."""
+
 
 @dataclass(eq=False, repr=False)
 class BatchInferenceJob(betterproto.Message):
-    """Next ID: 23"""
+    """Next ID: 24"""
 
     name: str = betterproto.string_field(1)
     """
@@ -3004,6 +3309,12 @@ class BatchInferenceJob(betterproto.Message):
 
     job_progress: "JobProgress" = betterproto.message_field(22)
     """Job progress."""
+
+    priority: int = betterproto.int32_field(23)
+    """
+    The priority of the batch inference job
+    If not specified, will default to 0
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -4283,7 +4594,7 @@ class ClusterConnectionInfo(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Dataset(betterproto.Message):
-    """Next ID: 19"""
+    """Next ID: 21"""
 
     name: str = betterproto.string_field(1)
     """
@@ -4347,6 +4658,11 @@ class Dataset(betterproto.Message):
     """
 
     transformed: "Transformed" = betterproto.message_field(18, group="data_source")
+    """
+    
+    """
+
+    splitted: "Splitted" = betterproto.message_field(19, group="data_source")
     """
     
     """
@@ -4447,6 +4763,16 @@ class Transformed(betterproto.Message):
     """
 
     original_format: "DatasetFormat" = betterproto.enum_field(3)
+    """
+    
+    """
+
+
+@dataclass(eq=False, repr=False)
+class Splitted(betterproto.Message):
+    """ """
+
+    source_dataset_id: str = betterproto.string_field(1)
     """
     
     """
@@ -4720,8 +5046,39 @@ class DeleteDatasetRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class SplitDatasetRequest(betterproto.Message):
+    """Request message for splitting a dataset into chunks"""
+
+    name: str = betterproto.string_field(1)
+    """
+    Required. The resource name of the dataset to split.
+    Format: accounts/{account}/datasets/{dataset}
+    """
+
+    chunk_size: int = betterproto.int32_field(2)
+    """Required. The size of each chunk (minimum 200)"""
+
+    parent: str = betterproto.string_field(3)
+    """The parent account ID of the requester."""
+
+
+@dataclass(eq=False, repr=False)
+class SplitDatasetResponse(betterproto.Message):
+    """Response message for dataset splitting"""
+
+    chunk_dataset_names: List[str] = betterproto.string_field(1)
+    """The resource names of the created chunk datasets"""
+
+    chunks_created: int = betterproto.int32_field(2)
+    """The number of chunks created"""
+
+    total_examples: int = betterproto.int64_field(3)
+    """The total number of examples processed"""
+
+
+@dataclass(eq=False, repr=False)
 class DatasetValidationJob(betterproto.Message):
-    """Next ID: 14"""
+    """Next ID: 15"""
 
     name: str = betterproto.string_field(1)
     """
@@ -4782,6 +5139,9 @@ class DatasetValidationJob(betterproto.Message):
 
     region: "Region" = betterproto.enum_field(13)
     """The region where the job is located."""
+
+    custom_image_tag: str = betterproto.string_field(14)
+    """Custom image tag, e.g. /train:dev-xyz."""
 
 
 @dataclass(eq=False, repr=False)
@@ -5050,6 +5410,11 @@ class ListDeployedModelsRequest(betterproto.Message):
     The fields to be returned in the response. If empty or "*", all fields will be returned.
     """
 
+    show_internal: bool = betterproto.bool_field(7)
+    """
+    If true, the internal deployed models will be included in the response.
+    """
+
 
 @dataclass(eq=False, repr=False)
 class ListDeployedModelsResponse(betterproto.Message):
@@ -5088,7 +5453,7 @@ class UpdateDeployedModelRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class DeploymentTemplate(betterproto.Message):
-    """Next ID: 39"""
+    """Next ID: 40"""
 
     name: str = betterproto.string_field(1)
     """
@@ -5253,6 +5618,14 @@ class DeploymentTemplate(betterproto.Message):
 
     max_context_length: Optional[int] = betterproto.int32_field(38, optional=True)
     """The max context length for the deployment template"""
+
+    annotations: Dict[str, str] = betterproto.map_field(
+        39, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """
+    Annotations to identify deployment template properties
+    Key/value pairs may be used by external tools or other services
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -5559,6 +5932,9 @@ class EagleTrainingJob(betterproto.Message):
 
     region: "Region" = betterproto.enum_field(23)
     """The region where the job is located."""
+
+    is_turbo: bool = betterproto.bool_field(24)
+    """Whether to run the eagle training job in turbo mode."""
 
 
 @dataclass(eq=False, repr=False)
@@ -6656,6 +7032,16 @@ class CodeSnippets(betterproto.Message):
     )
     """File name to code snippet, default is main.py"""
 
+    entry_file: str = betterproto.string_field(3)
+    """
+    
+    """
+
+    entry_func: str = betterproto.string_field(4)
+    """
+    
+    """
+
 
 @dataclass(eq=False, repr=False)
 class RollupSettings(betterproto.Message):
@@ -7555,7 +7941,7 @@ class ListInferenceLogsResponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Model(betterproto.Message):
-    """Next ID: 50"""
+    """Next ID: 53"""
 
     name: str = betterproto.string_field(1)
     """
@@ -7735,6 +8121,17 @@ class Model(betterproto.Message):
     rl_tunable: bool = betterproto.bool_field(49)
     """If true, the model is RL tunable."""
 
+    supported_precisions: List["DeploymentPrecision"] = betterproto.enum_field(51)
+    """Supported precisions"""
+
+    supported_precisions_with_calibration: List["DeploymentPrecision"] = (
+        betterproto.enum_field(52)
+    )
+    """Supported precisions if calibrated"""
+
+    training_context_length: int = betterproto.int32_field(50)
+    """The maximum context length supported by the model."""
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("imported_from"):
@@ -7743,7 +8140,7 @@ class Model(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class BaseModelDetails(betterproto.Message):
-    """Next ID: 9"""
+    """Next ID: 10"""
 
     world_size: int = betterproto.int32_field(1)
     """
@@ -7782,6 +8179,9 @@ class BaseModelDetails(betterproto.Message):
 
     supports_fireattention: bool = betterproto.bool_field(8)
     """Whether this model supports fireattention."""
+
+    default_precision: "DeploymentPrecision" = betterproto.enum_field(9)
+    """Default precision of the model."""
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -8836,6 +9236,9 @@ class UpdateQuotaRequest(betterproto.Message):
     )
     """List of field paths to be updated. If empty we replace all fields."""
 
+    allow_missing: bool = betterproto.bool_field(3)
+    """If true, and the quota does not exist, it will be created."""
+
 
 @dataclass(eq=False, repr=False)
 class ListQuotasResponse(betterproto.Message):
@@ -8858,7 +9261,7 @@ class ListQuotasResponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ReinforcementFineTuningEpoch(betterproto.Message):
-    """Next ID: 18"""
+    """Next ID: 19"""
 
     name: str = betterproto.string_field(1)
     """
@@ -8924,6 +9327,9 @@ class ReinforcementFineTuningEpoch(betterproto.Message):
 
     job_progress: "JobProgress" = betterproto.message_field(17)
     """Job progress."""
+
+    inference_parameters: "InferenceParameters" = betterproto.message_field(18)
+    """BIJ parameters."""
 
 
 @dataclass(eq=False, repr=False)
@@ -9041,7 +9447,7 @@ class DeleteReinforcementFineTuningEpochRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ReinforcementFineTuningJob(betterproto.Message):
-    """Next ID: 17"""
+    """Next ID: 20"""
 
     name: str = betterproto.string_field(1)
     """
@@ -9089,9 +9495,6 @@ class ReinforcementFineTuningJob(betterproto.Message):
     evaluator: str = betterproto.string_field(12)
     """The evaluator resource name to use for RLOR fine-tuning job."""
 
-    episodes: int = betterproto.int32_field(13)
-    """The number of episodes to train for."""
-
     wandb_config: "WandbConfig" = betterproto.message_field(14)
     """
     The Weights & Biases team/user account for logging training progress.
@@ -9103,12 +9506,16 @@ class ReinforcementFineTuningJob(betterproto.Message):
     job_progress: "JobProgress" = betterproto.message_field(16)
     """Job progress."""
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if self.is_set("episodes"):
-            warnings.warn(
-                "ReinforcementFineTuningJob.episodes is deprecated", DeprecationWarning
-            )
+    inference_parameters: "InferenceParameters" = betterproto.message_field(17)
+    """BIJ parameters."""
+
+    chunk_size: int = betterproto.int32_field(18)
+    """
+    Data chunking for rollout, default size 200, enabled when dataset > 300.
+    """
+
+    output_stats_internal: str = betterproto.string_field(19)
+    """The internal output stats for the evaluation job."""
 
 
 @dataclass(eq=False, repr=False)
@@ -9818,7 +10225,7 @@ class DeleteSnapshotRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class SupervisedFineTuningJob(betterproto.Message):
-    """Next ID: 32"""
+    """Next ID: 35"""
 
     name: str = betterproto.string_field(1)
     """
@@ -9947,6 +10354,15 @@ class SupervisedFineTuningJob(betterproto.Message):
 
     mtp_freeze_base_model: bool = betterproto.bool_field(31)
     """Whether to freeze the base model parameters during MTP training"""
+
+    job_progress: "JobProgress" = betterproto.message_field(32)
+    """Job progress."""
+
+    custom_image_tag: str = betterproto.string_field(33)
+    """Custom image tag, e.g. /train:dev-xyz."""
+
+    precision: "SupervisedFineTuningJobWeightPrecision" = betterproto.enum_field(34)
+    """Model precision."""
 
 
 @dataclass(eq=False, repr=False)
@@ -11554,12 +11970,31 @@ class GatewayStub(betterproto.ServiceStub):
         deadline: Optional["Deadline"] = None,
         metadata: Optional["MetadataLike"] = None,
     ) -> "GetDeploymentMetricsResponse":
-        """Get Deployment Metrics"""
+        """Get Deployment Metrics (Deprecated)"""
 
         return await self._unary_unary(
             "/gateway.Gateway/GetDeploymentMetrics",
             get_deployment_metrics_request,
             GetDeploymentMetricsResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def list_deployment_metrics(
+        self,
+        list_deployment_metrics_request: "ListDeploymentMetricsRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None,
+    ) -> "ListDeploymentMetricsResponse":
+        """Get Deployment Metrics"""
+
+        return await self._unary_unary(
+            "/gateway.Gateway/ListDeploymentMetrics",
+            list_deployment_metrics_request,
+            ListDeploymentMetricsResponse,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -13335,6 +13770,25 @@ class GatewayStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def split_dataset(
+        self,
+        split_dataset_request: "SplitDatasetRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None,
+    ) -> "SplitDatasetResponse":
+        """ """
+
+        return await self._unary_unary(
+            "/gateway.Gateway/SplitDataset",
+            split_dataset_request,
+            SplitDatasetResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def validate_assertions(
         self,
         validate_assertions_request: "ValidateAssertionsRequest",
@@ -14069,6 +14523,13 @@ class GatewayBase(ServiceBase):
     async def get_deployment_metrics(
         self, get_deployment_metrics_request: "GetDeploymentMetricsRequest"
     ) -> "GetDeploymentMetricsResponse":
+        """Get Deployment Metrics (Deprecated)"""
+
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def list_deployment_metrics(
+        self, list_deployment_metrics_request: "ListDeploymentMetricsRequest"
+    ) -> "ListDeploymentMetricsResponse":
         """Get Deployment Metrics"""
 
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
@@ -14770,6 +15231,13 @@ class GatewayBase(ServiceBase):
 
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def split_dataset(
+        self, split_dataset_request: "SplitDatasetRequest"
+    ) -> "SplitDatasetResponse":
+        """ """
+
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def validate_assertions(
         self, validate_assertions_request: "ValidateAssertionsRequest"
     ) -> "ValidateAssertionsResponse":
@@ -15397,6 +15865,14 @@ class GatewayBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.get_deployment_metrics(request)
+        await stream.send_message(response)
+
+    async def __rpc_list_deployment_metrics(
+        self,
+        stream: "grpclib.server.Stream[ListDeploymentMetricsRequest, ListDeploymentMetricsResponse]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.list_deployment_metrics(request)
         await stream.send_message(response)
 
     async def __rpc_create_deployment_template(
@@ -16092,6 +16568,13 @@ class GatewayBase(ServiceBase):
         response = await self.delete_dataset_validation_job(request)
         await stream.send_message(response)
 
+    async def __rpc_split_dataset(
+        self, stream: "grpclib.server.Stream[SplitDatasetRequest, SplitDatasetResponse]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.split_dataset(request)
+        await stream.send_message(response)
+
     async def __rpc_validate_assertions(
         self,
         stream: "grpclib.server.Stream[ValidateAssertionsRequest, ValidateAssertionsResponse]",
@@ -16612,6 +17095,12 @@ class GatewayBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 GetDeploymentMetricsRequest,
                 GetDeploymentMetricsResponse,
+            ),
+            "/gateway.Gateway/ListDeploymentMetrics": grpclib.const.Handler(
+                self.__rpc_list_deployment_metrics,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                ListDeploymentMetricsRequest,
+                ListDeploymentMetricsResponse,
             ),
             "/gateway.Gateway/CreateDeploymentTemplate": grpclib.const.Handler(
                 self.__rpc_create_deployment_template,
@@ -17152,6 +17641,12 @@ class GatewayBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 DeleteDatasetValidationJobRequest,
                 betterproto_lib_google_protobuf.Empty,
+            ),
+            "/gateway.Gateway/SplitDataset": grpclib.const.Handler(
+                self.__rpc_split_dataset,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                SplitDatasetRequest,
+                SplitDatasetResponse,
             ),
             "/gateway.Gateway/ValidateAssertions": grpclib.const.Handler(
                 self.__rpc_validate_assertions,

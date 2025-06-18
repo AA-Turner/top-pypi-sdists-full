@@ -6,15 +6,17 @@ from uuid import UUID
 
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.utils import CursorWrapper
+from django.db.models import Field
 from django.db.models.base import Model
 from django.db.models.expressions import BaseExpression, Expression, Ref
 from django.db.models.sql.query import Query
 from django.db.models.sql.subqueries import AggregateQuery, DeleteQuery, InsertQuery, UpdateQuery
+from django.utils.datastructures import _ListOrTuple
 from django.utils.functional import cached_property
 
 _ParamT: TypeAlias = str | int
 
-_ParamsT: TypeAlias = list[_ParamT]
+_ParamsT: TypeAlias = _ListOrTuple[_ParamT]
 _AsSqlType: TypeAlias = tuple[str, _ParamsT]
 
 class PositionRef(Ref):
@@ -87,7 +89,6 @@ class SQLCompiler:
         restricted: bool | None = None,
     ) -> list[dict[str, Any]]: ...
     def get_select_for_update_of_arguments(self) -> list[Any]: ...
-    def deferred_to_columns(self) -> dict[type[Model], set[str]]: ...
     def get_converters(self, expressions: list[Expression]) -> dict[int, tuple[list[Callable], Expression]]: ...
     def apply_converters(
         self, rows: Iterable[Iterable[Any]], converters: dict[int, tuple[list[Callable], Expression]]
@@ -119,14 +120,22 @@ class SQLCompiler:
     def execute_sql(
         self, result_type: Literal["multi"] = "multi", chunked_fetch: bool = False, chunk_size: int = 100
     ) -> Iterable[list[Sequence[Any]]] | None: ...
-    def as_subquery_condition(self, alias: str, columns: list[str], compiler: SQLCompiler) -> _AsSqlType: ...
     def explain_query(self) -> Iterator[str]: ...
+    def composite_fields_to_tuples(
+        self, rows: Iterable[Any], expressions: Iterable[Expression]
+    ) -> Iterator[list[tuple[Any, ...]]]: ...
+    def has_composite_fields(self, expressions: Iterable[Expression]) -> bool: ...
 
 class SQLInsertCompiler(SQLCompiler):
     query: InsertQuery
     returning_fields: Sequence[Any] | None
     returning_params: Sequence[Any]
-    def field_as_sql(self, field: Any, val: Any) -> _AsSqlType: ...
+    def field_as_sql(
+        self,
+        field: Field[Any, Any] | None,
+        get_placeholder: Callable[[Any, SQLInsertCompiler, BaseDatabaseWrapper], str],
+        val: Any,
+    ) -> _AsSqlType: ...
     def prepare_value(self, field: Any, value: Any) -> Any: ...
     def pre_save_val(self, field: Any, obj: Any) -> Any: ...
     def assemble_as_sql(self, fields: Any, value_rows: Any) -> tuple[list[list[str]], list[list[Any]]]: ...

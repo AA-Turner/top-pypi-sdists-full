@@ -456,12 +456,16 @@ def fliplr(m: ArrayLike) -> Array: ...
 def flipud(m: ArrayLike) -> Array: ...
 float16: Any
 float32: Any
+float4_e2m1fn: Any
 float64: Any
+float8_e3m4: Any
+float8_e4m3: Any
 float8_e4m3b11fnuz: Any
 float8_e4m3fn: Any
 float8_e4m3fnuz: Any
 float8_e5m2: Any
 float8_e5m2fnuz: Any
+float8_e8m0fnu: Any
 float_: Any
 def float_power(x: ArrayLike, y: ArrayLike, /) -> Array: ...
 floating = _np.floating
@@ -562,6 +566,7 @@ def inner(
 def insert(arr: ArrayLike, obj: ArrayLike | slice, values: ArrayLike,
            axis: int | None = ...) -> Array: ...
 int16: Any
+int2: Any
 int32: Any
 int4: Any
 int64: Any
@@ -653,7 +658,7 @@ def matvec(x1: ArrayLike, x2: ArrayLike, /) -> Array: ...
 def max(a: ArrayLike, axis: _Axis = ..., out: None = ...,
         keepdims: builtins.bool = ..., initial: ArrayLike | None = ...,
         where: ArrayLike | None = ...) -> Array: ...
-def maximum(x: ArrayLike, y: ArrayLike, /) -> Array: ...
+maximum: BinaryUfunc
 def mean(a: ArrayLike, axis: _Axis = ..., dtype: DTypeLike | None = ...,
          out: None = ..., keepdims: builtins.bool = ..., *,
          where: ArrayLike | None = ...) -> Array: ...
@@ -666,7 +671,7 @@ mgrid: _Mgrid
 def min(a: ArrayLike, axis: _Axis = ..., out: None = ...,
         keepdims: builtins.bool = ..., initial: ArrayLike | None = ...,
         where: ArrayLike | None = ...) -> Array: ...
-def minimum(x: ArrayLike, y: ArrayLike, /) -> Array: ...
+minimum: BinaryUfunc
 def mod(x: ArrayLike, y: ArrayLike, /) -> Array: ...
 def modf(x: ArrayLike, /, out=None) -> tuple[Array, Array]: ...
 def moveaxis(a: ArrayLike, source: int | Sequence[int],
@@ -944,6 +949,7 @@ def true_divide(x: ArrayLike, y: ArrayLike, /) -> Array: ...
 def trunc(x: ArrayLike, /) -> Array: ...
 uint: Any
 uint16: Any
+uint2: Any
 uint32: Any
 uint4: Any
 uint64: Any

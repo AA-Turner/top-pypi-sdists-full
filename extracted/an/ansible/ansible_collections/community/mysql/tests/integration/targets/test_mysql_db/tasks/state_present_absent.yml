@@ -41,8 +41,10 @@
   assert:
     that:
       - result is changed
-      - result.db == '{{ db_name }}'
-      - result.executed_commands == ["CREATE DATABASE `{{ db_name }}`"]
+      - result.db == db_name
+      - result.executed_commands == expected_commands
+  vars:
+    expected_commands: ["CREATE DATABASE `{{ db_name }}`"]
 
 - name: State Present Absent | Run command to test state=present for a database name (expect db_name in stdout)
   command: "{{ mysql_command }} -e \"show databases like '{{ db_name | regex_replace(\"([%_\\\\])\", \"\\\\\\1\") }}'\""
@@ -51,7 +53,7 @@
 - name: State Present Absent | Assert database exist
   assert:
     that:
-      - "'{{ db_name }}' in result.stdout"
+      - db_name in result.stdout
 
 # ============================================================
 - name: State Present Absent | Test state=absent for a database name (expect changed=true)
@@ -68,8 +70,10 @@
   assert:
     that:
       - result is changed
-      - result.db == '{{ db_name }}'
-      - result.executed_commands == ["DROP DATABASE `{{ db_name }}`"]
+      - result.db == db_name
+      - result.executed_commands == expected_commands
+  vars:
+    expected_commands: ["DROP DATABASE `{{ db_name }}`"]
 
 - name: State Present Absent | Run command to test state=absent for a database name (expect db_name not in stdout)
   command: "{{ mysql_command }} -e \"show databases like '{{ db_name | regex_replace(\"([%_\\\\])\", \"\\\\\\1\") }}'\""
@@ -78,7 +82,7 @@
 - name: State Present Absent | Assert database does not exist
   assert:
     that:
-      - "'{{ db_name }}' not in result.stdout"
+      - db_name not in result.stdout
 
 # ============================================================
 - name: State Present Absent | Test mysql_db encoding param not valid - issue 8075
@@ -116,7 +120,9 @@
   assert:
     that:
       - result is changed
-      - result.executed_commands == ["CREATE DATABASE `en{{ db_name }}` CHARACTER SET 'utf8'"]
+      - result.executed_commands == expected_commands
+  vars:
+    expected_commands: ["CREATE DATABASE `en{{ db_name }}` CHARACTER SET 'utf8'"]
 
 - name: State Present Absent | Test database was created
   command: "{{ mysql_command }} -e \"SHOW CREATE DATABASE `en{{ db_name }}`\""
@@ -152,7 +158,9 @@
   assert:
     that:
       - result is changed
-      - result.executed_commands == ["CREATE DATABASE `en{{ db_name }}` CHARACTER SET 'binary'"]
+      - result.executed_commands == expected_commands
+  vars:
+    expected_commands: ["CREATE DATABASE `en{{ db_name }}` CHARACTER SET 'binary'"]
 
 - name: State Present Absent | Run command to test database was created
   command: "{{ mysql_command }} -e \"SHOW CREATE DATABASE `en{{ db_name }}`\""
@@ -207,7 +215,7 @@
 - name: State Present Absent | Assert database exist
   assert:
     that:
-      - "'{{ db_user1 }}' in result.stdout"
+      - db_user1 in result.stdout
 
 # ============================================================
 - name: State Present Absent | Create user2 to access database with privilege select only
@@ -245,7 +253,7 @@
 - name: State Present Absent | Assert database does not exist
   assert:
     that:
-      - "'{{ db_user2 }}' not in result.stdout"
+      - db_user2 not in result.stdout
 
 # ============================================================
 - name: State Present Absent | Delete database using user2 with no privilege to delete (expect failed=true)
@@ -272,7 +280,7 @@
 - name: State Present Absent | Assert database still exist
   assert:
     that:
-      - "'{{ db_user1 }}' in result.stdout"
+      - db_user1 in result.stdout
 
 # ============================================================
 - name: State Present Absent | Delete database using user1 with all privilege to delete a database (expect changed=true)
@@ -290,7 +298,9 @@
   assert:
     that:
       - result is changed
-      - result.executed_commands == ["DROP DATABASE `{{ db_user1 }}`"]
+      - result.executed_commands == expected_commands
+  vars:
+    expected_commands: ["DROP DATABASE `{{ db_user1 }}`"]
 
 - name: State Present Absent | Run command to test database was deleted using user1
   command: "{{ mysql_command }} -e \"show databases like '{{ db_name | regex_replace(\"([%_\\\\])\", \"\\\\\\1\") }}'\""
@@ -299,4 +309,4 @@
 - name: State Present Absent | Assert database does not exist
   assert:
     that:
-      - "'{{ db_user1 }}' not in result.stdout"
+      - db_user1 not in result.stdout

@@ -1,3 +1,4 @@
+from . import batch_inference_job_pb2 as _batch_inference_job_pb2
 from . import job_progress_pb2 as _job_progress_pb2
 from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
@@ -16,7 +17,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ReinforcementFineTuningJob(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "training_config", "evaluator", "episodes", "wandb_config", "output_stats", "job_progress")
+    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "training_config", "evaluator", "wandb_config", "output_stats", "job_progress", "inference_parameters", "chunk_size", "output_stats_internal")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -29,10 +30,12 @@ class ReinforcementFineTuningJob(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     TRAINING_CONFIG_FIELD_NUMBER: _ClassVar[int]
     EVALUATOR_FIELD_NUMBER: _ClassVar[int]
-    EPISODES_FIELD_NUMBER: _ClassVar[int]
     WANDB_CONFIG_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_STATS_FIELD_NUMBER: _ClassVar[int]
     JOB_PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    INFERENCE_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    CHUNK_SIZE_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_STATS_INTERNAL_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -45,11 +48,13 @@ class ReinforcementFineTuningJob(_message.Message):
     created_by: str
     training_config: _training_pb2.BaseTrainingConfig
     evaluator: str
-    episodes: int
     wandb_config: _wandb_pb2.WandbConfig
     output_stats: str
     job_progress: _job_progress_pb2.JobProgress
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., episodes: _Optional[int] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., output_stats: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ...) -> None: ...
+    inference_parameters: _batch_inference_job_pb2.InferenceParameters
+    chunk_size: int
+    output_stats_internal: str
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., output_stats: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., inference_parameters: _Optional[_Union[_batch_inference_job_pb2.InferenceParameters, _Mapping]] = ..., chunk_size: _Optional[int] = ..., output_stats_internal: _Optional[str] = ...) -> None: ...
 
 class GetReinforcementFineTuningJobRequest(_message.Message):
     __slots__ = ("name", "read_mask")

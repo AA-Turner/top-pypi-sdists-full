@@ -30,7 +30,7 @@ from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17gateway/evaluator.proto\x12\x07gateway\x1a\x15gateway/options.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x04\n\tEvaluator\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x36\n\x0b\x63reate_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x19\n\ncreated_by\x18\x05 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x35\n\x0bupdate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03\x12-\n\x05state\x18\x07 \x01(\x0e\x32\x17.gateway.EvaluatorStateB\x05\xe2\x41\x02\x03\x05\x12\x1b\n\rmulti_metrics\x18\x08 \x01(\x08\x42\x04\xe2\x41\x01\x05\x12*\n\x08\x63riteria\x18\t \x03(\x0b\x32\x12.gateway.CriterionB\x04\xe2\x41\x01\x05\x12\x1a\n\x0crequirements\x18\n \x01(\tB\x04\xe2\x41\x01\x01\x12;\n\x0frollup_settings\x18\x0b \x01(\x0b\x32\x17.gateway.RollupSettingsB\t\xe2\x41\x02\x05\x01\xa0\xf1\x04\x01:t\xea\x41\x62\n\x1a\x61pi.fireworks.ai/Evaluator\x12-accounts/{AccountId}/evaluators/{EvaluatorId}*\nEvaluators2\tEvaluator\x82\xf1\x04\x0b\n\x07\x41\x63\x63ount\x18\x01\"\xb4\x01\n\tCriterion\x12%\n\x04type\x18\x01 \x01(\x0e\x32\x17.gateway.Criterion.Type\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12,\n\rcode_snippets\x18\x04 \x01(\x0b\x32\x15.gateway.CodeSnippets\"/\n\x04Type\x12\x14\n\x10TYPE_UNSPECIFIED\x10\x00\x12\x11\n\rCODE_SNIPPETS\x10\x01\"\x95\x01\n\x0c\x43odeSnippets\x12\x10\n\x08language\x18\x01 \x01(\t\x12>\n\rfile_contents\x18\x02 \x03(\x0b\x32\'.gateway.CodeSnippets.FileContentsEntry\x1a\x33\n\x11\x46ileContentsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xed\x01\n\x0eRollupSettings\x12L\n\x10\x63riteria_weights\x18\x01 \x03(\x0b\x32,.gateway.RollupSettings.CriteriaWeightsEntryB\x04\xe2\x41\x01\x01\x12\x19\n\x0bpython_code\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x1f\n\x11success_threshold\x18\x03 \x01(\x02\x42\x04\xe2\x41\x01\x01\x12\x19\n\x0bskip_rollup\x18\x04 \x01(\x08\x42\x04\xe2\x41\x01\x01\x1a\x36\n\x14\x43riteriaWeightsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"^\n\x13GetEvaluatorRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xc3\x01\n\x15ListEvaluatorsRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"m\n\x16ListEvaluatorsResponse\x12&\n\nevaluators\x18\x01 \x03(\x0b\x32\x12.gateway.Evaluator\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"w\n\x16\x43reateEvaluatorRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12+\n\tevaluator\x18\x02 \x01(\x0b\x32\x12.gateway.EvaluatorB\x04\xe2\x41\x01\x02\x12\x1a\n\x0c\x65valuator_id\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\",\n\x16\x44\x65leteEvaluatorRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\"\x92\x01\n\x17PreviewEvaluatorRequest\x12+\n\tevaluator\x18\x01 \x01(\x0b\x32\x12.gateway.EvaluatorB\x04\xe2\x41\x01\x02\x12\x19\n\x0bsample_data\x18\x02 \x03(\tB\x04\xe2\x41\x01\x02\x12\x19\n\x0bmax_samples\x18\x03 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x14\n\x06parent\x18\x04 \x01(\tB\x04\xe2\x41\x01\x02\"\xf3\x01\n\x1cPreviewEvaluatorSampleResult\x12\x0f\n\x07success\x18\x01 \x01(\t\x12\r\n\x05score\x18\x02 \x01(\x01\x12S\n\x10per_metric_evals\x18\x03 \x03(\x0b\x32\x39.gateway.PreviewEvaluatorSampleResult.PerMetricEvalsEntry\x12\x0e\n\x06reason\x18\x04 \x01(\t\x1aN\n\x13PerMetricEvalsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct:\x02\x38\x01\"\xa3\x01\n\x18PreviewEvaluatorResponse\x12\x36\n\x07results\x18\x01 \x03(\x0b\x32%.gateway.PreviewEvaluatorSampleResult\x12\x15\n\rtotal_samples\x18\x02 \x01(\x05\x12\x18\n\x10total_runtime_ms\x18\x03 \x01(\x03\x12\x0e\n\x06stdout\x18\x04 \x03(\t\x12\x0e\n\x06stderr\x18\x05 \x03(\t*3\n\x0e\x45valuatorState\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\n\n\x06\x41\x43TIVE\x10\x01\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17gateway/evaluator.proto\x12\x07gateway\x1a\x15gateway/options.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9d\x04\n\tEvaluator\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x14\n\x0c\x64isplay_name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x36\n\x0b\x63reate_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x19\n\ncreated_by\x18\x05 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x35\n\x0bupdate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03\x12-\n\x05state\x18\x07 \x01(\x0e\x32\x17.gateway.EvaluatorStateB\x05\xe2\x41\x02\x03\x05\x12\x1c\n\rmulti_metrics\x18\x08 \x01(\x08\x42\x05\xe2\x41\x02\x05\x01\x12*\n\x08\x63riteria\x18\t \x03(\x0b\x32\x12.gateway.CriterionB\x04\xe2\x41\x01\x05\x12\x1a\n\x0crequirements\x18\n \x01(\tB\x04\xe2\x41\x01\x01\x12;\n\x0frollup_settings\x18\x0b \x01(\x0b\x32\x17.gateway.RollupSettingsB\t\xe2\x41\x02\x05\x01\xa0\xf1\x04\x01:t\xea\x41\x62\n\x1a\x61pi.fireworks.ai/Evaluator\x12-accounts/{AccountId}/evaluators/{EvaluatorId}*\nEvaluators2\tEvaluator\x82\xf1\x04\x0b\n\x07\x41\x63\x63ount\x18\x01\"\xb4\x01\n\tCriterion\x12%\n\x04type\x18\x01 \x01(\x0e\x32\x17.gateway.Criterion.Type\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12,\n\rcode_snippets\x18\x04 \x01(\x0b\x32\x15.gateway.CodeSnippets\"/\n\x04Type\x12\x14\n\x10TYPE_UNSPECIFIED\x10\x00\x12\x11\n\rCODE_SNIPPETS\x10\x01\"\xbd\x01\n\x0c\x43odeSnippets\x12\x10\n\x08language\x18\x01 \x01(\t\x12>\n\rfile_contents\x18\x02 \x03(\x0b\x32\'.gateway.CodeSnippets.FileContentsEntry\x12\x12\n\nentry_file\x18\x03 \x01(\t\x12\x12\n\nentry_func\x18\x04 \x01(\t\x1a\x33\n\x11\x46ileContentsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xed\x01\n\x0eRollupSettings\x12L\n\x10\x63riteria_weights\x18\x01 \x03(\x0b\x32,.gateway.RollupSettings.CriteriaWeightsEntryB\x04\xe2\x41\x01\x01\x12\x19\n\x0bpython_code\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x1f\n\x11success_threshold\x18\x03 \x01(\x02\x42\x04\xe2\x41\x01\x01\x12\x19\n\x0bskip_rollup\x18\x04 \x01(\x08\x42\x04\xe2\x41\x01\x01\x1a\x36\n\x14\x43riteriaWeightsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"^\n\x13GetEvaluatorRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xc3\x01\n\x15ListEvaluatorsRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"m\n\x16ListEvaluatorsResponse\x12&\n\nevaluators\x18\x01 \x03(\x0b\x32\x12.gateway.Evaluator\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"w\n\x16\x43reateEvaluatorRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12+\n\tevaluator\x18\x02 \x01(\x0b\x32\x12.gateway.EvaluatorB\x04\xe2\x41\x01\x02\x12\x1a\n\x0c\x65valuator_id\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\",\n\x16\x44\x65leteEvaluatorRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\"\x92\x01\n\x17PreviewEvaluatorRequest\x12+\n\tevaluator\x18\x01 \x01(\x0b\x32\x12.gateway.EvaluatorB\x04\xe2\x41\x01\x02\x12\x19\n\x0bsample_data\x18\x02 \x03(\tB\x04\xe2\x41\x01\x02\x12\x19\n\x0bmax_samples\x18\x03 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x14\n\x06parent\x18\x04 \x01(\tB\x04\xe2\x41\x01\x02\"\xf3\x01\n\x1cPreviewEvaluatorSampleResult\x12\x0f\n\x07success\x18\x01 \x01(\t\x12\r\n\x05score\x18\x02 \x01(\x01\x12S\n\x10per_metric_evals\x18\x03 \x03(\x0b\x32\x39.gateway.PreviewEvaluatorSampleResult.PerMetricEvalsEntry\x12\x0e\n\x06reason\x18\x04 \x01(\t\x1aN\n\x13PerMetricEvalsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct:\x02\x38\x01\"\xa3\x01\n\x18PreviewEvaluatorResponse\x12\x36\n\x07results\x18\x01 \x03(\x0b\x32%.gateway.PreviewEvaluatorSampleResult\x12\x15\n\rtotal_samples\x18\x02 \x01(\x05\x12\x18\n\x10total_runtime_ms\x18\x03 \x01(\x03\x12\x0e\n\x06stdout\x18\x04 \x03(\t\x12\x0e\n\x06stderr\x18\x05 \x03(\t*3\n\x0e\x45valuatorState\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\n\n\x06\x41\x43TIVE\x10\x01\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -49,7 +49,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_EVALUATOR'].fields_by_name['state']._loaded_options = None
   _globals['_EVALUATOR'].fields_by_name['state']._serialized_options = b'\342A\002\003\005'
   _globals['_EVALUATOR'].fields_by_name['multi_metrics']._loaded_options = None
-  _globals['_EVALUATOR'].fields_by_name['multi_metrics']._serialized_options = b'\342A\001\005'
+  _globals['_EVALUATOR'].fields_by_name['multi_metrics']._serialized_options = b'\342A\002\005\001'
   _globals['_EVALUATOR'].fields_by_name['criteria']._loaded_options = None
   _globals['_EVALUATOR'].fields_by_name['criteria']._serialized_options = b'\342A\001\005'
   _globals['_EVALUATOR'].fields_by_name['requirements']._loaded_options = None
@@ -104,38 +104,38 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PREVIEWEVALUATORREQUEST'].fields_by_name['parent']._serialized_options = b'\342A\001\002'
   _globals['_PREVIEWEVALUATORSAMPLERESULT_PERMETRICEVALSENTRY']._loaded_options = None
   _globals['_PREVIEWEVALUATORSAMPLERESULT_PERMETRICEVALSENTRY']._serialized_options = b'8\001'
-  _globals['_EVALUATORSTATE']._serialized_start=2467
-  _globals['_EVALUATORSTATE']._serialized_end=2518
+  _globals['_EVALUATORSTATE']._serialized_start=2508
+  _globals['_EVALUATORSTATE']._serialized_end=2559
   _globals['_EVALUATOR']._serialized_start=217
-  _globals['_EVALUATOR']._serialized_end=757
-  _globals['_CRITERION']._serialized_start=760
-  _globals['_CRITERION']._serialized_end=940
-  _globals['_CRITERION_TYPE']._serialized_start=893
-  _globals['_CRITERION_TYPE']._serialized_end=940
-  _globals['_CODESNIPPETS']._serialized_start=943
-  _globals['_CODESNIPPETS']._serialized_end=1092
-  _globals['_CODESNIPPETS_FILECONTENTSENTRY']._serialized_start=1041
-  _globals['_CODESNIPPETS_FILECONTENTSENTRY']._serialized_end=1092
-  _globals['_ROLLUPSETTINGS']._serialized_start=1095
-  _globals['_ROLLUPSETTINGS']._serialized_end=1332
-  _globals['_ROLLUPSETTINGS_CRITERIAWEIGHTSENTRY']._serialized_start=1278
-  _globals['_ROLLUPSETTINGS_CRITERIAWEIGHTSENTRY']._serialized_end=1332
-  _globals['_GETEVALUATORREQUEST']._serialized_start=1334
-  _globals['_GETEVALUATORREQUEST']._serialized_end=1428
-  _globals['_LISTEVALUATORSREQUEST']._serialized_start=1431
-  _globals['_LISTEVALUATORSREQUEST']._serialized_end=1626
-  _globals['_LISTEVALUATORSRESPONSE']._serialized_start=1628
-  _globals['_LISTEVALUATORSRESPONSE']._serialized_end=1737
-  _globals['_CREATEEVALUATORREQUEST']._serialized_start=1739
-  _globals['_CREATEEVALUATORREQUEST']._serialized_end=1858
-  _globals['_DELETEEVALUATORREQUEST']._serialized_start=1860
-  _globals['_DELETEEVALUATORREQUEST']._serialized_end=1904
-  _globals['_PREVIEWEVALUATORREQUEST']._serialized_start=1907
-  _globals['_PREVIEWEVALUATORREQUEST']._serialized_end=2053
-  _globals['_PREVIEWEVALUATORSAMPLERESULT']._serialized_start=2056
-  _globals['_PREVIEWEVALUATORSAMPLERESULT']._serialized_end=2299
-  _globals['_PREVIEWEVALUATORSAMPLERESULT_PERMETRICEVALSENTRY']._serialized_start=2221
-  _globals['_PREVIEWEVALUATORSAMPLERESULT_PERMETRICEVALSENTRY']._serialized_end=2299
-  _globals['_PREVIEWEVALUATORRESPONSE']._serialized_start=2302
-  _globals['_PREVIEWEVALUATORRESPONSE']._serialized_end=2465
+  _globals['_EVALUATOR']._serialized_end=758
+  _globals['_CRITERION']._serialized_start=761
+  _globals['_CRITERION']._serialized_end=941
+  _globals['_CRITERION_TYPE']._serialized_start=894
+  _globals['_CRITERION_TYPE']._serialized_end=941
+  _globals['_CODESNIPPETS']._serialized_start=944
+  _globals['_CODESNIPPETS']._serialized_end=1133
+  _globals['_CODESNIPPETS_FILECONTENTSENTRY']._serialized_start=1082
+  _globals['_CODESNIPPETS_FILECONTENTSENTRY']._serialized_end=1133
+  _globals['_ROLLUPSETTINGS']._serialized_start=1136
+  _globals['_ROLLUPSETTINGS']._serialized_end=1373
+  _globals['_ROLLUPSETTINGS_CRITERIAWEIGHTSENTRY']._serialized_start=1319
+  _globals['_ROLLUPSETTINGS_CRITERIAWEIGHTSENTRY']._serialized_end=1373
+  _globals['_GETEVALUATORREQUEST']._serialized_start=1375
+  _globals['_GETEVALUATORREQUEST']._serialized_end=1469
+  _globals['_LISTEVALUATORSREQUEST']._serialized_start=1472
+  _globals['_LISTEVALUATORSREQUEST']._serialized_end=1667
+  _globals['_LISTEVALUATORSRESPONSE']._serialized_start=1669
+  _globals['_LISTEVALUATORSRESPONSE']._serialized_end=1778
+  _globals['_CREATEEVALUATORREQUEST']._serialized_start=1780
+  _globals['_CREATEEVALUATORREQUEST']._serialized_end=1899
+  _globals['_DELETEEVALUATORREQUEST']._serialized_start=1901
+  _globals['_DELETEEVALUATORREQUEST']._serialized_end=1945
+  _globals['_PREVIEWEVALUATORREQUEST']._serialized_start=1948
+  _globals['_PREVIEWEVALUATORREQUEST']._serialized_end=2094
+  _globals['_PREVIEWEVALUATORSAMPLERESULT']._serialized_start=2097
+  _globals['_PREVIEWEVALUATORSAMPLERESULT']._serialized_end=2340
+  _globals['_PREVIEWEVALUATORSAMPLERESULT_PERMETRICEVALSENTRY']._serialized_start=2262
+  _globals['_PREVIEWEVALUATORSAMPLERESULT_PERMETRICEVALSENTRY']._serialized_end=2340
+  _globals['_PREVIEWEVALUATORRESPONSE']._serialized_start=2343
+  _globals['_PREVIEWEVALUATORRESPONSE']._serialized_end=2506
 # @@protoc_insertion_point(module_scope)

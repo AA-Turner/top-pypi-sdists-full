@@ -5,6 +5,7 @@ from montecarlodata.integrations.onboarding.base import BaseOnboardingService
 from montecarlodata.integrations.onboarding.fields import (
     BQ_CONNECTION_TYPE,
     BQ_WAREHOUSE_TYPE,
+    EXPECTED_ADD_REDSHIFT_CONSUMER_RESPONSE_FIELD,
     EXPECTED_BQ_GQL_RESPONSE_FIELD,
     EXPECTED_GENERIC_DB_GQL_RESPONSE_FIELD,
     EXPECTED_SNOWFLAKE_GQL_RESPONSE_FIELD,
@@ -14,6 +15,7 @@ from montecarlodata.integrations.onboarding.fields import (
     SNOWFLAKE_WAREHOUSE_TYPE,
 )
 from montecarlodata.queries.onboarding import (
+    ADD_REDSHIFT_CONSUMER_MUTATION,
     TEST_BQ_CRED_MUTATION,
     TEST_DATABASE_CRED_MUTATION,
     TEST_SNOWFLAKE_CRED_MUTATION,
@@ -35,6 +37,22 @@ class WarehouseOnboardingService(BaseOnboardingService):
             validation_query=TEST_DATABASE_CRED_MUTATION,
             validation_response=EXPECTED_GENERIC_DB_GQL_RESPONSE_FIELD,
             connection_type=REDSHIFT_CONNECTION_TYPE,
+            **kwargs,
+        )
+
+    @manage_errors
+    def onboard_redshift_consumer(self, **kwargs) -> None:
+        """
+        Onboard a redshift consumer connection by validating and adding a connection.
+        """
+        kwargs["connectionType"] = REDSHIFT_CONNECTION_TYPE
+        self.onboard(
+            validation_query=TEST_DATABASE_CRED_MUTATION,
+            validation_response=EXPECTED_GENERIC_DB_GQL_RESPONSE_FIELD,
+            connection_type=REDSHIFT_CONNECTION_TYPE,
+            connection_query=ADD_REDSHIFT_CONSUMER_MUTATION,
+            connection_response=EXPECTED_ADD_REDSHIFT_CONSUMER_RESPONSE_FIELD,
+            is_consumer_connection=True,
             **kwargs,
         )
 

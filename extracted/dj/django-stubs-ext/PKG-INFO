@@ -1,49 +1,33 @@
 Metadata-Version: 2.4
 Name: django-stubs-ext
-Version: 5.2.0
+Version: 5.2.1
 Summary: Monkey-patching and extensions for django-stubs
-Home-page: https://github.com/typeddjango/django-stubs
-Author: Simula Proxy
-Maintainer: Marti Raudsepp
-Maintainer-email: marti@juffo.org
-License: MIT
+Project-URL: Homepage, https://github.com/typeddjango/django-stubs
 Project-URL: Funding, https://github.com/sponsors/typeddjango
 Project-URL: Release notes, https://github.com/typeddjango/django-stubs/releases
-Classifier: License :: OSI Approved :: MIT License
+Author: Simula Proxy
+Maintainer-email: Marti Raudsepp <marti@juffo.org>, Nikita Sobolev <mail@sobolevn.me>, Petter Friberg <petter_friberg@hotmail.com>, Adam Johnson <me@adamj.eu>
+License-Expression: MIT
+License-File: LICENSE.md
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
-Classifier: Framework :: Django
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
-Classifier: Framework :: Django :: 5.2
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE.md
 Requires-Dist: django
 Requires-Dist: typing-extensions
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Description-Content-Type: text/markdown
 
 # Extensions and monkey-patching for django-stubs
 
 [![Build status](https://github.com/typeddjango/django-stubs/workflows/test/badge.svg?branch=master&event=push)](https://github.com/typeddjango/django-stubs/actions?query=workflow%3Atest)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
-[![Gitter](https://badges.gitter.im/mypy-django/Lobby.svg)](https://gitter.im/mypy-django/Lobby)
 
 
 This package contains extensions and monkey-patching functions for the [django-stubs](https://github.com/typeddjango/django-stubs) package. Certain features of django-stubs (i.e. generic django classes that don't define the `__class_getitem__` method) require runtime monkey-patching, which can't be done with type stubs. These extensions were split into a separate package so library consumers don't need `mypy` as a runtime dependency ([#526](https://github.com/typeddjango/django-stubs/pull/526#pullrequestreview-525798031)).
@@ -80,9 +64,6 @@ def __class_getitem__(cls, *args, **kwargs):
 ## To get help
 
 For help with django-stubs, please view the main repository at <https://github.com/typeddjango/django-stubs>
-
-We have a Gitter chat here: <https://gitter.im/mypy-django/Lobby>
-If you think you have a more generic typing issue, please refer to <https://github.com/python/mypy> and their Gitter.
 
 ## Contributing
 

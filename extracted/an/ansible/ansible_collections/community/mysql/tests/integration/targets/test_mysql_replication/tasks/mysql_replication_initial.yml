@@ -337,5 +337,6 @@
     - name: Assert that stopslave returns expected error message
       assert:
         that:
-          - result.msg == "value of mode must be one of{{ ":" }} getprimary, getreplica, changeprimary, stopreplica, startreplica, resetprimary, resetreplica, resetreplicaall, changereplication, got{{ ":" }} stopslave"
+          -
+            "result.msg == 'value of mode must be one of: getprimary, getreplica, changeprimary, stopreplica, startreplica, resetprimary, resetreplica, resetreplicaall, changereplication, got: stopslave'"
           - result is failed

@@ -783,6 +783,13 @@ def _shardy_shard_map_token_sharding(
   return ns._to_sdy_sharding(0)
 
 
+def _get_spmdaxis_ctx_mesh(mesh):
+  if isinstance(mesh, AbstractMesh):
+    concrete_mesh = get_concrete_mesh()
+    return concrete_mesh if concrete_mesh is not None else mesh
+  return mesh
+
+
 def _shard_map_lowering_shardy(
     ctx, in_nodes, jaxpr, mesh, in_specs, out_specs, manual_axes, check_vma):
   axis_ctx = ctx.module_context.axis_context
@@ -793,7 +800,8 @@ def _shard_map_lowering_shardy(
     shardy_manual_axes = frozenset(mesh.axis_names) - axis_ctx.manual_axes
   else:
     shardy_manual_axes = manual_axes
-  new_axis_context = sharding_impls.SPMDAxisContext(mesh, manual_axes)
+  new_axis_context = sharding_impls.SPMDAxisContext(
+      _get_spmdaxis_ctx_mesh(mesh), manual_axes)
   sub_ctx = ctx.module_context.replace(axis_context=new_axis_context)
 
   tokens = [ctx.tokens_in.get(eff) for eff in ctx.tokens_in.effects()]
@@ -868,7 +876,8 @@ def _shard_map_lowering(ctx, *in_nodes, jaxpr, mesh, in_specs, out_specs,
   out_avals_ = [x.aval for x in jaxpr.outvars]
   in_nodes_ = map(partial(_xla_shard, ctx, mesh, manual_axes), in_specs,
                   ctx.avals_in, in_avals_, in_nodes)
-  new_axis_context = sharding_impls.SPMDAxisContext(mesh, manual_axes)
+  new_axis_context = sharding_impls.SPMDAxisContext(
+      _get_spmdaxis_ctx_mesh(mesh), manual_axes)
   sub_ctx = ctx.module_context.replace(axis_context=new_axis_context)
   with _extend_axis_env(mesh, manual_axes), config._check_vma(check_vma):
     out_nodes_, tokens_out = mlir.call_lowering(
@@ -1054,7 +1063,7 @@ def _maybe_check_special(outs):
           for s in getattr(leaf, 'addressable_shards', [])]
   try:
     dispatch.check_special('shard_map', bufs)
-  except dispatch.InternalFloatingPointError as e:
+  except api_util.InternalFloatingPointError as e:
     raise FloatingPointError(f'Invalid value ({e.ty}) encountered in sharded computation.') from None
 
 class ShardMapTrace(core.Trace):
@@ -1228,6 +1237,15 @@ eager_rules[dispatch.device_put_p] = _device_put_eager_rule
 
 # Batching
 
+def _modify_specs_axis_data(trace, name, mesh, in_specs, in_dims):
+  new_in_specs = [sp if d is batching.not_mapped else pxla.batch_spec(sp, d, name)
+                  for sp, d in zip(in_specs, in_dims)]
+  new_size = trace.axis_data.size // prod(mesh.shape[n] for n in name)
+  new_axis_data = batching.AxisData(
+      trace.axis_data.name, new_size, trace.axis_data.spmd_name,
+      trace.axis_data.explicit_mesh_axis)
+  return new_in_specs, new_axis_data
+
 def _shard_map_batch(
     trace: batching.BatchTrace, prim: core.Primitive, fun: lu.WrappedFun,
     in_tracers: Sequence[batching.BatchTracer], mesh: Mesh,
@@ -1237,15 +1255,20 @@ def _shard_map_batch(
   if any(isinstance(d, batching.RaggedAxis) for d in in_dims):
     raise NotImplementedError
   spmd_axis_name = trace.axis_data.spmd_name
+  explicit_mesh_axis = trace.axis_data.explicit_mesh_axis
   if spmd_axis_name is not None:
     used = {n for spec in in_specs for n in _spec_to_vma(spec)}
     if not config.disable_vmap_shmap_error.value and set(spmd_axis_name) & used:
       raise ValueError("vmap spmd_axis_name cannot appear in shard_map in_specs")
-    new_in_specs = [sp if d is batching.not_mapped else pxla.batch_spec(sp, d, spmd_axis_name)
-                    for sp, d in zip(in_specs, in_dims)]
-    new_size = trace.axis_data.size // prod(mesh.shape[n] for n in spmd_axis_name)
-    new_axis_data = batching.AxisData(trace.axis_data.name, new_size,
-                                      trace.axis_data.spmd_name, None)
+    new_in_specs, new_axis_data = _modify_specs_axis_data(
+        trace, spmd_axis_name, mesh, in_specs, in_dims)
+  elif explicit_mesh_axis is not None:
+    used = {n for spec in in_specs for n in _spec_to_vma(spec)}
+    if set(explicit_mesh_axis) & used:
+      raise ValueError("vmapped away explicit mesh axis cannot appear in "
+                       "shard_map in_specs")
+    new_in_specs, new_axis_data = _modify_specs_axis_data(
+        trace, explicit_mesh_axis, mesh, in_specs, in_dims)
   else:
     new_in_specs = [sp if d is batching.not_mapped else pxla.batch_spec(sp, d, None)
                     for sp, d in zip(in_specs, in_dims)]
@@ -1254,7 +1277,8 @@ def _shard_map_batch(
 
   @as_hashable_function(closure=out_specs_thunk)
   def new_out_specs_thunk():
-    return _batch_out_specs(spmd_axis_name, out_dims(), out_specs_thunk())
+    return _batch_out_specs(spmd_axis_name, explicit_mesh_axis, out_dims(),
+                            out_specs_thunk())
 
   new_params = dict(mesh=mesh, in_specs=new_in_specs,
                     out_specs_thunk=new_out_specs_thunk, check_vma=check_vma,
@@ -1266,12 +1290,20 @@ def _shard_map_batch(
   return map(make_tracer, out_vals, out_dims())
 batching.BatchTrace.process_shard_map = _shard_map_batch
 
-def _batch_out_specs(spmd_name, dims, out_specs):
+def _batch_out_specs(spmd_name, explicit_mesh_axis, dims, out_specs):
   if spmd_name is not None:
     used = {n for spec in out_specs for n in _spec_to_vma(spec)}
     if not config.disable_vmap_shmap_error.value and set(spmd_name) & used:
       raise ValueError("vmap spmd_axis_name cannot appear in shard_map out_specs")
     return [sp if d is batching.not_mapped else pxla.batch_spec(sp, d, spmd_name)
+            for sp, d in zip(out_specs, dims)]
+  elif explicit_mesh_axis is not None:
+    used = {n for spec in out_specs for n in _spec_to_vma(spec)}
+    if set(explicit_mesh_axis) & used:
+      raise ValueError("vmapped away explicit mesh axis cannot appear in "
+                       "shard_map out_specs")
+    return [sp if d is batching.not_mapped else
+            pxla.batch_spec(sp, d, explicit_mesh_axis)
             for sp, d in zip(out_specs, dims)]
   else:
     return [sp if d is batching.not_mapped else pxla.batch_spec(sp, d, None)
@@ -1369,7 +1401,7 @@ def _shard_map_partial_eval(trace: pe.JaxprTrace, shard_map_p,
   out_tracers = [pe.JaxprTracer(trace, pe.PartialVal.unknown(a), None)
                  for a in out_avals]
   effs = core.filter_named_axis_effects(jaxpr.effects, mesh.axis_names)
-  eqn = pe.new_eqn_recipe((*const_tracers, *env_tracers, *unk_arg_tracers),
+  eqn = pe.new_eqn_recipe(trace, (*const_tracers, *env_tracers, *unk_arg_tracers),
                           out_tracers, shard_map_p, unk_params,
                           effs, source_info_util.current())
   for t in out_tracers: t.recipe = eqn
@@ -1562,7 +1594,7 @@ def _shard_map_transpose(out_cts, *args,
     except (FloatingPointError, ZeroDivisionError) as e2:
       raise e2 from None
     else:
-      dispatch._raise_no_nan_in_deoptimized(e)
+      api_util._raise_no_nan_in_deoptimized(e)
   return tree_unflatten(out_tree(), out_flat)
 ad.primitive_transposes[shard_map_p] = _shard_map_transpose
 
@@ -1717,7 +1749,8 @@ def _shard_map_dce(used_outputs: list[bool], eqn: core.JaxprEqn
   mesh = eqn.params["mesh"]
   manual_axes = eqn.params["manual_axes"]
   check_vma = eqn.params["check_vma"]
-  with _extend_axis_env(mesh, manual_axes), config._check_vma(check_vma):
+  with (_extend_axis_env(mesh, manual_axes), config._check_vma(check_vma),
+        use_abstract_mesh(_as_manual_mesh(mesh, manual_axes | set(mesh.manual_axes)))):
     jaxpr, used_inputs = pe.dce_jaxpr(eqn.params['jaxpr'], used_outputs)
   if not any(used_inputs) and not any(used_outputs) and not jaxpr.effects:
     return used_inputs, None
@@ -1755,7 +1788,7 @@ def pmap(f, axis_name=None, *, in_axes=0, out_axes=0,
         p.flat_args, mesh, list(in_specs))
     jitted_f = jax.jit(
         _pmapped,
-        donate_argnums=(i for i, val in enumerate(p.donated_invars) if val))
+        donate_argnums=[i for i, val in enumerate(p.donated_invars) if val])
     return jitted_f, flat_global_args, p.out_tree, mesh, out_specs
 
   def wrapped(*args, **kwargs):

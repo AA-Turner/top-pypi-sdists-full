@@ -23,7 +23,7 @@
 - name: Assert output message changed value
   assert:
     that:
-      - "output.changed | bool == changed | bool"
+      - output.changed | bool == changed | bool
 
 - name: Run mysql command to show variable
   command: "{{ mysql_command }} \"-e show variables like '{{ var_name }}'\""
@@ -33,5 +33,5 @@
   assert:
     that:
       - result is changed
-      - "'{{ var_name }}' in result.stdout"
-      - "'{{ var_value }}' in result.stdout"
+      - var_name | string in result.stdout
+      - var_value | string in result.stdout

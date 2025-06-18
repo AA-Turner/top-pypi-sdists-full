@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: swimlane
-Version: 10.18.3
+Version: 10.19.0
 Summary: Python driver for the Swimlane API
 Home-page: https://github.com/swimlane/swimlane-python
 Author: Swimlane
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cachetools>=4.2.4
 Requires-Dist: certifi==2024.7.4
@@ -28,6 +29,17 @@ Requires-Dist: requests[security]<3,>=2
 Requires-Dist: six>=1.12.0
 Requires-Dist: sortedcontainers==2.4.0
 Requires-Dist: shortid==0.1.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 .. image:: https://raw.githubusercontent.com/swimlane/swimlane-python/master/docs/logo.png
 
@@ -42,15 +54,20 @@ Swimlane Python
     :target: https://travis-ci.org/swimlane/swimlane-python
 .. image:: https://readthedocs.org/projects/swimlane-python-driver/badge/?version=latest
     :target: http://swimlane-python-driver.readthedocs.io/
-.. image:: https://api.codacy.com/project/badge/Grade/215d8281290749bba687a08db1d59d8b
-    :target: https://www.codacy.com/app/Swimlane/swimlane-python?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=swimlane/swimlane-python&amp;utm_campaign=Badge_Grade
-.. image:: https://api.codacy.com/project/badge/Coverage/215d8281290749bba687a08db1d59d8b
-    :target: https://www.codacy.com/app/Swimlane/swimlane-python?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=swimlane/swimlane-python&amp;utm_campaign=Badge_Grade
 
-Python driver for the Swimlane_ API
+
+
+Python driver for the Swimlane_ API.
 
 .. _Swimlane: http://swimlane.com
 
+
+.. note::
+
+    This package is compatible with Swimlane 10.x. It is not compatible with Turbine.
+
+
+------------------------------------------------------------------------------------------
 
 Installation
 ------------

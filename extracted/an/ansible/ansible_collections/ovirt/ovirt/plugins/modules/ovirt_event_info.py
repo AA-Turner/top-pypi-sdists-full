@@ -12,7 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_event_info
 short_description: This module can be used to retrieve information about one or more oVirt/RHV events
 version_added: "1.0.0"
-author: "Chris Keller (@nasx)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV events."
     - This module was called C(ovirt_event_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -44,16 +44,19 @@ options:
             - "For example to search for events of severity alert use the following pattern: severity=alert"
         required: false
         type: str
+        default: ''
     headers:
         description:
             - "Additional HTTP headers."
         required: false
         type: str
+        default: ''
     query:
         description:
             - "Additional URL query parameters."
         required: false
         type: str
+        default: ''
     wait:
         description:
             - "If True wait for the response."
@@ -69,6 +72,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

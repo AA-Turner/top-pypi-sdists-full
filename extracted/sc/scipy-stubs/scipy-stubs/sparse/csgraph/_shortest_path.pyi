@@ -1,24 +1,25 @@
-from typing import Final, Literal, TypeAlias, overload
+from typing import Literal, TypeAlias, overload
 
 import numpy as np
 import optype.numpy as onp
+import optype.numpy.compat as npc
+
 from scipy._typing import Falsy, Truthy
 from scipy.sparse._base import _spbase
-from scipy.sparse._typing import Floating, Integer
 
 _Int1D: TypeAlias = onp.Array1D[np.int32]
 _Int2D: TypeAlias = onp.Array2D[np.int32]
 _Float1D: TypeAlias = onp.Array1D[np.float64]
 _Float2D: TypeAlias = onp.Array2D[np.float64]
 
-_ToGraphArray: TypeAlias = onp.ToFloat2D | _spbase[np.bool_ | Integer | Floating]
+_ToGraphArray: TypeAlias = onp.ToFloat2D | _spbase[np.bool_ | npc.integer | npc.floating]
 
 _ShortestPathMethod: TypeAlias = Literal["auto", "FW", "D", "BF", "J"]
 
 ###
 
-DTYPE: Final[type[np.float64]] = ...
-ITYPE: Final[type[np.int32]] = ...
+def __setstate_cython__(self: object, pyx_state: object, /) -> None: ...  # undocumented
+def __reduce_cython__(self: object) -> None: ...  # undocumented
 
 class NegativeCycleError(Exception):
     def __init__(self, /, message: str = "") -> None: ...
@@ -66,11 +67,7 @@ def floyd_warshall(
 ) -> _Float2D: ...
 @overload
 def floyd_warshall(
-    csgraph: _ToGraphArray,
-    directed: bool,
-    return_predecessors: Truthy,
-    unweighted: bool = False,
-    overwrite: bool = False,
+    csgraph: _ToGraphArray, directed: bool, return_predecessors: Truthy, unweighted: bool = False, overwrite: bool = False
 ) -> tuple[_Float2D, _Int2D]: ...
 @overload
 def floyd_warshall(
@@ -159,11 +156,7 @@ def bellman_ford(
 ) -> _Float2D: ...
 @overload
 def bellman_ford(
-    csgraph: _ToGraphArray,
-    directed: bool,
-    indices: onp.ToIntND | None,
-    return_predecessors: Truthy,
-    unweighted: bool = False,
+    csgraph: _ToGraphArray, directed: bool, indices: onp.ToIntND | None, return_predecessors: Truthy, unweighted: bool = False
 ) -> tuple[_Float2D, _Int2D]: ...
 @overload
 def bellman_ford(
@@ -186,11 +179,7 @@ def johnson(
 ) -> _Float2D: ...
 @overload
 def johnson(
-    csgraph: _ToGraphArray,
-    directed: bool,
-    indices: onp.ToIntND | None,
-    return_predecessors: Truthy,
-    unweighted: bool = False,
+    csgraph: _ToGraphArray, directed: bool, indices: onp.ToIntND | None, return_predecessors: Truthy, unweighted: bool = False
 ) -> tuple[_Float2D, _Int2D]: ...
 @overload
 def johnson(

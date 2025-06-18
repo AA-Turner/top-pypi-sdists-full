@@ -12,9 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_instance_type
 short_description: Module to manage Instance Types in oVirt/RHV
 version_added: "1.0.0"
-author:
-- Martin Necas (@mnecas)
-- Ondra Machacek (@machacekondra)
+author: "oVirt Developers (@oVirt)"
 description:
     - This module manages whole lifecycle of the Instance Type in oVirt/RHV.
 options:
@@ -72,6 +70,7 @@ options:
                 type: str
         type: list
         elements: dict
+        default: []
     memory_max:
         description:
             - Upper bound of instance type memory up to which memory hot-plug can be performed.
@@ -253,8 +252,8 @@ EXAMPLES = '''
 # Enable usb support and serial console
 - ovirt.ovirt.ovirt_instance_type:
     name: myit
-    usb_support: True
-    serial_console: True
+    usb_support: true
+    serial_console: true
 
 # Use graphical console with spice and vnc
 - name: Create a instance type that has the console configured for both Spice and VNC
@@ -291,14 +290,8 @@ from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     convert_to_bytes,
     create_connection,
     equal,
-    get_dict_of_struct,
-    get_entity,
-    get_link_name,
-    get_id_by_name,
     ovirt_full_argument_spec,
-    search_by_attributes,
     search_by_name,
-    wait,
 )
 
 try:

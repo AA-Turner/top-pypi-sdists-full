@@ -1,7 +1,7 @@
 r'''
 # `google_tpu_v2_vm`
 
-Refer to the Terraform Registry for docs: [`google_tpu_v2_vm`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm).
+Refer to the Terraform Registry for docs: [`google_tpu_v2_vm`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleTpuV2Vm(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleTpuV2Vm.GoogleTpuV2Vm",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm google_tpu_v2_vm}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm google_tpu_v2_vm}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class GoogleTpuV2Vm(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm google_tpu_v2_vm} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm google_tpu_v2_vm} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#name GoogleTpuV2Vm#name}
-        :param runtime_version: Runtime version for the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#runtime_version GoogleTpuV2Vm#runtime_version}
-        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#accelerator_config GoogleTpuV2Vm#accelerator_config}
-        :param accelerator_type: TPU accelerator type for the TPU. 'accelerator_type' cannot be used at the same time as 'accelerator_config'. If neither is specified, 'accelerator_type' defaults to 'v2-8'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#accelerator_type GoogleTpuV2Vm#accelerator_type}
-        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#cidr_block GoogleTpuV2Vm#cidr_block}
-        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#data_disks GoogleTpuV2Vm#data_disks}
-        :param description: Text description of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#description GoogleTpuV2Vm#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#id GoogleTpuV2Vm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#labels GoogleTpuV2Vm#labels}
-        :param metadata: Custom metadata to apply to the TPU Node. Can set startup-script and shutdown-script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#metadata GoogleTpuV2Vm#metadata}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network_config GoogleTpuV2Vm#network_config}
-        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network_configs GoogleTpuV2Vm#network_configs}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#project GoogleTpuV2Vm#project}.
-        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#scheduling_config GoogleTpuV2Vm#scheduling_config}
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#service_account GoogleTpuV2Vm#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#shielded_instance_config GoogleTpuV2Vm#shielded_instance_config}
-        :param tags: Tags to apply to the TPU Node. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#tags GoogleTpuV2Vm#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#timeouts GoogleTpuV2Vm#timeouts}
-        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#zone GoogleTpuV2Vm#zone}
+        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#name GoogleTpuV2Vm#name}
+        :param runtime_version: Runtime version for the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#runtime_version GoogleTpuV2Vm#runtime_version}
+        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#accelerator_config GoogleTpuV2Vm#accelerator_config}
+        :param accelerator_type: TPU accelerator type for the TPU. 'accelerator_type' cannot be used at the same time as 'accelerator_config'. If neither is specified, 'accelerator_type' defaults to 'v2-8'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#accelerator_type GoogleTpuV2Vm#accelerator_type}
+        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#cidr_block GoogleTpuV2Vm#cidr_block}
+        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#data_disks GoogleTpuV2Vm#data_disks}
+        :param description: Text description of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#description GoogleTpuV2Vm#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#id GoogleTpuV2Vm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#labels GoogleTpuV2Vm#labels}
+        :param metadata: Custom metadata to apply to the TPU Node. Can set startup-script and shutdown-script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#metadata GoogleTpuV2Vm#metadata}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network_config GoogleTpuV2Vm#network_config}
+        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network_configs GoogleTpuV2Vm#network_configs}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#project GoogleTpuV2Vm#project}.
+        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#scheduling_config GoogleTpuV2Vm#scheduling_config}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#service_account GoogleTpuV2Vm#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#shielded_instance_config GoogleTpuV2Vm#shielded_instance_config}
+        :param tags: Tags to apply to the TPU Node. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#tags GoogleTpuV2Vm#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#timeouts GoogleTpuV2Vm#timeouts}
+        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#zone GoogleTpuV2Vm#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class GoogleTpuV2Vm(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleTpuV2Vm to import.
-        :param import_from_id: The id of the existing GoogleTpuV2Vm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleTpuV2Vm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleTpuV2Vm to import is found.
         '''
         if __debug__:
@@ -176,8 +176,8 @@ class GoogleTpuV2Vm(
         type: builtins.str,
     ) -> None:
         '''
-        :param topology: Topology of TPU in chips. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#topology GoogleTpuV2Vm#topology}
-        :param type: Type of TPU. Please select one of the allowed types: https://cloud.google.com/tpu/docs/reference/rest/v2/AcceleratorConfig#Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#type GoogleTpuV2Vm#type}
+        :param topology: Topology of TPU in chips. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#topology GoogleTpuV2Vm#topology}
+        :param type: Type of TPU. Please select one of the allowed types: https://cloud.google.com/tpu/docs/reference/rest/v2/AcceleratorConfig#Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#type GoogleTpuV2Vm#type}
         '''
         value = GoogleTpuV2VmAcceleratorConfig(topology=topology, type=type)
 
@@ -207,11 +207,11 @@ class GoogleTpuV2Vm(
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param can_ip_forward: Allows the TPU node to send and receive packets with non-matching destination or source IPs. This is required if you plan to use the TPU workers to forward routes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
-        :param enable_external_ips: Indicates that external IP addresses would be associated with the TPU workers. If set to false, the specified subnetwork or network should have Private Google Access enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
-        :param network: The name of the network for the TPU node. It must be a preexisting Google Compute Engine network. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
-        :param queue_count: Specifies networking queue count for TPU VM instance's network interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
-        :param subnetwork: The name of the subnetwork for the TPU node. It must be a preexisting Google Compute Engine subnetwork. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
+        :param can_ip_forward: Allows the TPU node to send and receive packets with non-matching destination or source IPs. This is required if you plan to use the TPU workers to forward routes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
+        :param enable_external_ips: Indicates that external IP addresses would be associated with the TPU workers. If set to false, the specified subnetwork or network should have Private Google Access enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
+        :param network: The name of the network for the TPU node. It must be a preexisting Google Compute Engine network. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
+        :param queue_count: Specifies networking queue count for TPU VM instance's network interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
+        :param subnetwork: The name of the subnetwork for the TPU node. It must be a preexisting Google Compute Engine subnetwork. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
         '''
         value = GoogleTpuV2VmNetworkConfig(
             can_ip_forward=can_ip_forward,
@@ -245,9 +245,9 @@ class GoogleTpuV2Vm(
         spot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param preemptible: Defines whether the node is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#preemptible GoogleTpuV2Vm#preemptible}
-        :param reserved: Whether the node is created under a reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#reserved GoogleTpuV2Vm#reserved}
-        :param spot: Optional. Defines whether the node is Spot VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#spot GoogleTpuV2Vm#spot}
+        :param preemptible: Defines whether the node is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#preemptible GoogleTpuV2Vm#preemptible}
+        :param reserved: Whether the node is created under a reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#reserved GoogleTpuV2Vm#reserved}
+        :param spot: Optional. Defines whether the node is Spot VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#spot GoogleTpuV2Vm#spot}
         '''
         value = GoogleTpuV2VmSchedulingConfig(
             preemptible=preemptible, reserved=reserved, spot=spot
@@ -263,8 +263,8 @@ class GoogleTpuV2Vm(
         scope: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param email: Email address of the service account. If empty, default Compute service account will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#email GoogleTpuV2Vm#email}
-        :param scope: The list of scopes to be made available for this service account. If empty, access to all Cloud APIs will be allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#scope GoogleTpuV2Vm#scope}
+        :param email: Email address of the service account. If empty, default Compute service account will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#email GoogleTpuV2Vm#email}
+        :param scope: The list of scopes to be made available for this service account. If empty, access to all Cloud APIs will be allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#scope GoogleTpuV2Vm#scope}
         '''
         value = GoogleTpuV2VmServiceAccount(email=email, scope=scope)
 
@@ -277,7 +277,7 @@ class GoogleTpuV2Vm(
         enable_secure_boot: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_secure_boot GoogleTpuV2Vm#enable_secure_boot}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_secure_boot GoogleTpuV2Vm#enable_secure_boot}
         '''
         value = GoogleTpuV2VmShieldedInstanceConfig(
             enable_secure_boot=enable_secure_boot
@@ -294,9 +294,9 @@ class GoogleTpuV2Vm(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#create GoogleTpuV2Vm#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#delete GoogleTpuV2Vm#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#update GoogleTpuV2Vm#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#create GoogleTpuV2Vm#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#delete GoogleTpuV2Vm#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#update GoogleTpuV2Vm#update}.
         '''
         value = GoogleTpuV2VmTimeouts(create=create, delete=delete, update=update)
 
@@ -727,8 +727,8 @@ class GoogleTpuV2Vm(
 class GoogleTpuV2VmAcceleratorConfig:
     def __init__(self, *, topology: builtins.str, type: builtins.str) -> None:
         '''
-        :param topology: Topology of TPU in chips. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#topology GoogleTpuV2Vm#topology}
-        :param type: Type of TPU. Please select one of the allowed types: https://cloud.google.com/tpu/docs/reference/rest/v2/AcceleratorConfig#Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#type GoogleTpuV2Vm#type}
+        :param topology: Topology of TPU in chips. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#topology GoogleTpuV2Vm#topology}
+        :param type: Type of TPU. Please select one of the allowed types: https://cloud.google.com/tpu/docs/reference/rest/v2/AcceleratorConfig#Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#type GoogleTpuV2Vm#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24daaf27505656f3f829ff82dd79962536ca6824a3e9921c3796774514183778)
@@ -743,7 +743,7 @@ class GoogleTpuV2VmAcceleratorConfig:
     def topology(self) -> builtins.str:
         '''Topology of TPU in chips.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#topology GoogleTpuV2Vm#topology}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#topology GoogleTpuV2Vm#topology}
         '''
         result = self._values.get("topology")
         assert result is not None, "Required property 'topology' is missing"
@@ -753,7 +753,7 @@ class GoogleTpuV2VmAcceleratorConfig:
     def type(self) -> builtins.str:
         '''Type of TPU. Please select one of the allowed types: https://cloud.google.com/tpu/docs/reference/rest/v2/AcceleratorConfig#Type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#type GoogleTpuV2Vm#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#type GoogleTpuV2Vm#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -912,25 +912,25 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#name GoogleTpuV2Vm#name}
-        :param runtime_version: Runtime version for the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#runtime_version GoogleTpuV2Vm#runtime_version}
-        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#accelerator_config GoogleTpuV2Vm#accelerator_config}
-        :param accelerator_type: TPU accelerator type for the TPU. 'accelerator_type' cannot be used at the same time as 'accelerator_config'. If neither is specified, 'accelerator_type' defaults to 'v2-8'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#accelerator_type GoogleTpuV2Vm#accelerator_type}
-        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#cidr_block GoogleTpuV2Vm#cidr_block}
-        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#data_disks GoogleTpuV2Vm#data_disks}
-        :param description: Text description of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#description GoogleTpuV2Vm#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#id GoogleTpuV2Vm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#labels GoogleTpuV2Vm#labels}
-        :param metadata: Custom metadata to apply to the TPU Node. Can set startup-script and shutdown-script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#metadata GoogleTpuV2Vm#metadata}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network_config GoogleTpuV2Vm#network_config}
-        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network_configs GoogleTpuV2Vm#network_configs}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#project GoogleTpuV2Vm#project}.
-        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#scheduling_config GoogleTpuV2Vm#scheduling_config}
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#service_account GoogleTpuV2Vm#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#shielded_instance_config GoogleTpuV2Vm#shielded_instance_config}
-        :param tags: Tags to apply to the TPU Node. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#tags GoogleTpuV2Vm#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#timeouts GoogleTpuV2Vm#timeouts}
-        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#zone GoogleTpuV2Vm#zone}
+        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#name GoogleTpuV2Vm#name}
+        :param runtime_version: Runtime version for the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#runtime_version GoogleTpuV2Vm#runtime_version}
+        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#accelerator_config GoogleTpuV2Vm#accelerator_config}
+        :param accelerator_type: TPU accelerator type for the TPU. 'accelerator_type' cannot be used at the same time as 'accelerator_config'. If neither is specified, 'accelerator_type' defaults to 'v2-8'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#accelerator_type GoogleTpuV2Vm#accelerator_type}
+        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#cidr_block GoogleTpuV2Vm#cidr_block}
+        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#data_disks GoogleTpuV2Vm#data_disks}
+        :param description: Text description of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#description GoogleTpuV2Vm#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#id GoogleTpuV2Vm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#labels GoogleTpuV2Vm#labels}
+        :param metadata: Custom metadata to apply to the TPU Node. Can set startup-script and shutdown-script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#metadata GoogleTpuV2Vm#metadata}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network_config GoogleTpuV2Vm#network_config}
+        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network_configs GoogleTpuV2Vm#network_configs}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#project GoogleTpuV2Vm#project}.
+        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#scheduling_config GoogleTpuV2Vm#scheduling_config}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#service_account GoogleTpuV2Vm#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#shielded_instance_config GoogleTpuV2Vm#shielded_instance_config}
+        :param tags: Tags to apply to the TPU Node. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#tags GoogleTpuV2Vm#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#timeouts GoogleTpuV2Vm#timeouts}
+        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#zone GoogleTpuV2Vm#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1095,7 +1095,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The immutable name of the TPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#name GoogleTpuV2Vm#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#name GoogleTpuV2Vm#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1105,7 +1105,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_version(self) -> builtins.str:
         '''Runtime version for the TPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#runtime_version GoogleTpuV2Vm#runtime_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#runtime_version GoogleTpuV2Vm#runtime_version}
         '''
         result = self._values.get("runtime_version")
         assert result is not None, "Required property 'runtime_version' is missing"
@@ -1115,7 +1115,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def accelerator_config(self) -> typing.Optional[GoogleTpuV2VmAcceleratorConfig]:
         '''accelerator_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#accelerator_config GoogleTpuV2Vm#accelerator_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#accelerator_config GoogleTpuV2Vm#accelerator_config}
         '''
         result = self._values.get("accelerator_config")
         return typing.cast(typing.Optional[GoogleTpuV2VmAcceleratorConfig], result)
@@ -1127,7 +1127,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         'accelerator_type' cannot be used at the same time as
         'accelerator_config'. If neither is specified, 'accelerator_type' defaults to 'v2-8'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#accelerator_type GoogleTpuV2Vm#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#accelerator_type GoogleTpuV2Vm#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1143,7 +1143,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         with any subnetworks in the user's provided network, or the provided network is peered with
         another network that is using that CIDR block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#cidr_block GoogleTpuV2Vm#cidr_block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#cidr_block GoogleTpuV2Vm#cidr_block}
         '''
         result = self._values.get("cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1154,7 +1154,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleTpuV2VmDataDisks"]]]:
         '''data_disks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#data_disks GoogleTpuV2Vm#data_disks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#data_disks GoogleTpuV2Vm#data_disks}
         '''
         result = self._values.get("data_disks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleTpuV2VmDataDisks"]]], result)
@@ -1163,14 +1163,14 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Text description of the TPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#description GoogleTpuV2Vm#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#description GoogleTpuV2Vm#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#id GoogleTpuV2Vm#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#id GoogleTpuV2Vm#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1185,7 +1185,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#labels GoogleTpuV2Vm#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#labels GoogleTpuV2Vm#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1194,7 +1194,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Custom metadata to apply to the TPU Node. Can set startup-script and shutdown-script.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#metadata GoogleTpuV2Vm#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#metadata GoogleTpuV2Vm#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1203,7 +1203,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_config(self) -> typing.Optional["GoogleTpuV2VmNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network_config GoogleTpuV2Vm#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network_config GoogleTpuV2Vm#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["GoogleTpuV2VmNetworkConfig"], result)
@@ -1214,14 +1214,14 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleTpuV2VmNetworkConfigs"]]]:
         '''network_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network_configs GoogleTpuV2Vm#network_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network_configs GoogleTpuV2Vm#network_configs}
         '''
         result = self._values.get("network_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleTpuV2VmNetworkConfigs"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#project GoogleTpuV2Vm#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#project GoogleTpuV2Vm#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1229,7 +1229,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scheduling_config(self) -> typing.Optional["GoogleTpuV2VmSchedulingConfig"]:
         '''scheduling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#scheduling_config GoogleTpuV2Vm#scheduling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#scheduling_config GoogleTpuV2Vm#scheduling_config}
         '''
         result = self._values.get("scheduling_config")
         return typing.cast(typing.Optional["GoogleTpuV2VmSchedulingConfig"], result)
@@ -1238,7 +1238,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_account(self) -> typing.Optional["GoogleTpuV2VmServiceAccount"]:
         '''service_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#service_account GoogleTpuV2Vm#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#service_account GoogleTpuV2Vm#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional["GoogleTpuV2VmServiceAccount"], result)
@@ -1249,7 +1249,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleTpuV2VmShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#shielded_instance_config GoogleTpuV2Vm#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#shielded_instance_config GoogleTpuV2Vm#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["GoogleTpuV2VmShieldedInstanceConfig"], result)
@@ -1258,7 +1258,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags to apply to the TPU Node. Tags are used to identify valid sources or targets for network firewalls.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#tags GoogleTpuV2Vm#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#tags GoogleTpuV2Vm#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1267,7 +1267,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleTpuV2VmTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#timeouts GoogleTpuV2Vm#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#timeouts GoogleTpuV2Vm#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleTpuV2VmTimeouts"], result)
@@ -1276,7 +1276,7 @@ class GoogleTpuV2VmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''The GCP location for the TPU. If it is not provided, the provider zone is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#zone GoogleTpuV2Vm#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#zone GoogleTpuV2Vm#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1306,8 +1306,8 @@ class GoogleTpuV2VmDataDisks:
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_disk: Specifies the full path to an existing disk. For example: "projects/my-project/zones/us-central1-c/disks/my-disk". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#source_disk GoogleTpuV2Vm#source_disk}
-        :param mode: The mode in which to attach this disk. If not specified, the default is READ_WRITE mode. Only applicable to dataDisks. Default value: "READ_WRITE" Possible values: ["READ_WRITE", "READ_ONLY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#mode GoogleTpuV2Vm#mode}
+        :param source_disk: Specifies the full path to an existing disk. For example: "projects/my-project/zones/us-central1-c/disks/my-disk". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#source_disk GoogleTpuV2Vm#source_disk}
+        :param mode: The mode in which to attach this disk. If not specified, the default is READ_WRITE mode. Only applicable to dataDisks. Default value: "READ_WRITE" Possible values: ["READ_WRITE", "READ_ONLY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#mode GoogleTpuV2Vm#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__350900c91d560f492ed5e5161646e78f473dc351d335a036f273cb5a78f11112)
@@ -1323,7 +1323,7 @@ class GoogleTpuV2VmDataDisks:
     def source_disk(self) -> builtins.str:
         '''Specifies the full path to an existing disk. For example: "projects/my-project/zones/us-central1-c/disks/my-disk".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#source_disk GoogleTpuV2Vm#source_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#source_disk GoogleTpuV2Vm#source_disk}
         '''
         result = self._values.get("source_disk")
         assert result is not None, "Required property 'source_disk' is missing"
@@ -1336,7 +1336,7 @@ class GoogleTpuV2VmDataDisks:
         If not specified, the default is READ_WRITE
         mode. Only applicable to dataDisks. Default value: "READ_WRITE" Possible values: ["READ_WRITE", "READ_ONLY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#mode GoogleTpuV2Vm#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#mode GoogleTpuV2Vm#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1547,11 +1547,11 @@ class GoogleTpuV2VmNetworkConfig:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param can_ip_forward: Allows the TPU node to send and receive packets with non-matching destination or source IPs. This is required if you plan to use the TPU workers to forward routes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
-        :param enable_external_ips: Indicates that external IP addresses would be associated with the TPU workers. If set to false, the specified subnetwork or network should have Private Google Access enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
-        :param network: The name of the network for the TPU node. It must be a preexisting Google Compute Engine network. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
-        :param queue_count: Specifies networking queue count for TPU VM instance's network interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
-        :param subnetwork: The name of the subnetwork for the TPU node. It must be a preexisting Google Compute Engine subnetwork. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
+        :param can_ip_forward: Allows the TPU node to send and receive packets with non-matching destination or source IPs. This is required if you plan to use the TPU workers to forward routes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
+        :param enable_external_ips: Indicates that external IP addresses would be associated with the TPU workers. If set to false, the specified subnetwork or network should have Private Google Access enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
+        :param network: The name of the network for the TPU node. It must be a preexisting Google Compute Engine network. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
+        :param queue_count: Specifies networking queue count for TPU VM instance's network interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
+        :param subnetwork: The name of the subnetwork for the TPU node. It must be a preexisting Google Compute Engine subnetwork. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa66132eff9fb784dec5f3de122559ceb60d1ef901bcfab78c6080f447c80088)
@@ -1580,7 +1580,7 @@ class GoogleTpuV2VmNetworkConfig:
 
         This is required if you plan to use the TPU workers to forward routes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
         '''
         result = self._values.get("can_ip_forward")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1594,7 +1594,7 @@ class GoogleTpuV2VmNetworkConfig:
         If set to
         false, the specified subnetwork or network should have Private Google Access enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
         '''
         result = self._values.get("enable_external_ips")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1606,7 +1606,7 @@ class GoogleTpuV2VmNetworkConfig:
         It must be a preexisting Google Compute Engine
         network. If none is provided, "default" will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1615,7 +1615,7 @@ class GoogleTpuV2VmNetworkConfig:
     def queue_count(self) -> typing.Optional[jsii.Number]:
         '''Specifies networking queue count for TPU VM instance's network interface.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
         '''
         result = self._values.get("queue_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1627,7 +1627,7 @@ class GoogleTpuV2VmNetworkConfig:
         It must be a preexisting Google Compute
         Engine subnetwork. If none is provided, "default" will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1821,11 +1821,11 @@ class GoogleTpuV2VmNetworkConfigs:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param can_ip_forward: Allows the TPU node to send and receive packets with non-matching destination or source IPs. This is required if you plan to use the TPU workers to forward routes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
-        :param enable_external_ips: Indicates that external IP addresses would be associated with the TPU workers. If set to false, the specified subnetwork or network should have Private Google Access enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
-        :param network: The name of the network for the TPU node. It must be a preexisting Google Compute Engine network. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
-        :param queue_count: Specifies networking queue count for TPU VM instance's network interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
-        :param subnetwork: The name of the subnetwork for the TPU node. It must be a preexisting Google Compute Engine subnetwork. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
+        :param can_ip_forward: Allows the TPU node to send and receive packets with non-matching destination or source IPs. This is required if you plan to use the TPU workers to forward routes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
+        :param enable_external_ips: Indicates that external IP addresses would be associated with the TPU workers. If set to false, the specified subnetwork or network should have Private Google Access enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
+        :param network: The name of the network for the TPU node. It must be a preexisting Google Compute Engine network. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
+        :param queue_count: Specifies networking queue count for TPU VM instance's network interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
+        :param subnetwork: The name of the subnetwork for the TPU node. It must be a preexisting Google Compute Engine subnetwork. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__271529f0aac03c521a622b5f424b3eb301cc2b0e7b4837a570a11d85fa67beb9)
@@ -1854,7 +1854,7 @@ class GoogleTpuV2VmNetworkConfigs:
 
         This is required if you plan to use the TPU workers to forward routes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#can_ip_forward GoogleTpuV2Vm#can_ip_forward}
         '''
         result = self._values.get("can_ip_forward")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1868,7 +1868,7 @@ class GoogleTpuV2VmNetworkConfigs:
         If set to
         false, the specified subnetwork or network should have Private Google Access enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_external_ips GoogleTpuV2Vm#enable_external_ips}
         '''
         result = self._values.get("enable_external_ips")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1880,7 +1880,7 @@ class GoogleTpuV2VmNetworkConfigs:
         It must be a preexisting Google Compute Engine
         network. If none is provided, "default" will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#network GoogleTpuV2Vm#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1889,7 +1889,7 @@ class GoogleTpuV2VmNetworkConfigs:
     def queue_count(self) -> typing.Optional[jsii.Number]:
         '''Specifies networking queue count for TPU VM instance's network interface.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#queue_count GoogleTpuV2Vm#queue_count}
         '''
         result = self._values.get("queue_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1901,7 +1901,7 @@ class GoogleTpuV2VmNetworkConfigs:
         It must be a preexisting Google Compute
         Engine subnetwork. If none is provided, "default" will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#subnetwork GoogleTpuV2Vm#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2486,9 +2486,9 @@ class GoogleTpuV2VmSchedulingConfig:
         spot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param preemptible: Defines whether the node is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#preemptible GoogleTpuV2Vm#preemptible}
-        :param reserved: Whether the node is created under a reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#reserved GoogleTpuV2Vm#reserved}
-        :param spot: Optional. Defines whether the node is Spot VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#spot GoogleTpuV2Vm#spot}
+        :param preemptible: Defines whether the node is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#preemptible GoogleTpuV2Vm#preemptible}
+        :param reserved: Whether the node is created under a reservation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#reserved GoogleTpuV2Vm#reserved}
+        :param spot: Optional. Defines whether the node is Spot VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#spot GoogleTpuV2Vm#spot}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84c9e47f2f953e3e50e7f5a16df10d809086cde265879266ce525445968e862a)
@@ -2509,7 +2509,7 @@ class GoogleTpuV2VmSchedulingConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the node is preemptible.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#preemptible GoogleTpuV2Vm#preemptible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#preemptible GoogleTpuV2Vm#preemptible}
         '''
         result = self._values.get("preemptible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2520,7 +2520,7 @@ class GoogleTpuV2VmSchedulingConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the node is created under a reservation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#reserved GoogleTpuV2Vm#reserved}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#reserved GoogleTpuV2Vm#reserved}
         '''
         result = self._values.get("reserved")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2531,7 +2531,7 @@ class GoogleTpuV2VmSchedulingConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Defines whether the node is Spot VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#spot GoogleTpuV2Vm#spot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#spot GoogleTpuV2Vm#spot}
         '''
         result = self._values.get("spot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2675,8 +2675,8 @@ class GoogleTpuV2VmServiceAccount:
         scope: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param email: Email address of the service account. If empty, default Compute service account will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#email GoogleTpuV2Vm#email}
-        :param scope: The list of scopes to be made available for this service account. If empty, access to all Cloud APIs will be allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#scope GoogleTpuV2Vm#scope}
+        :param email: Email address of the service account. If empty, default Compute service account will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#email GoogleTpuV2Vm#email}
+        :param scope: The list of scopes to be made available for this service account. If empty, access to all Cloud APIs will be allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#scope GoogleTpuV2Vm#scope}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4818b1bdb6238363b421c5432175e9502c42c1962c241399c3ff184cba05bfde)
@@ -2692,7 +2692,7 @@ class GoogleTpuV2VmServiceAccount:
     def email(self) -> typing.Optional[builtins.str]:
         '''Email address of the service account. If empty, default Compute service account will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#email GoogleTpuV2Vm#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#email GoogleTpuV2Vm#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2704,7 +2704,7 @@ class GoogleTpuV2VmServiceAccount:
         If empty, access to all
         Cloud APIs will be allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#scope GoogleTpuV2Vm#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#scope GoogleTpuV2Vm#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2811,7 +2811,7 @@ class GoogleTpuV2VmShieldedInstanceConfig:
         enable_secure_boot: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_secure_boot GoogleTpuV2Vm#enable_secure_boot}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_secure_boot GoogleTpuV2Vm#enable_secure_boot}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12384a08e88efe757a4f20ac3df89915b5f305cff19fe025749524a6c4efd763)
@@ -2826,7 +2826,7 @@ class GoogleTpuV2VmShieldedInstanceConfig:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Defines whether the instance has Secure Boot enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#enable_secure_boot GoogleTpuV2Vm#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#enable_secure_boot GoogleTpuV2Vm#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         assert result is not None, "Required property 'enable_secure_boot' is missing"
@@ -3071,9 +3071,9 @@ class GoogleTpuV2VmTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#create GoogleTpuV2Vm#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#delete GoogleTpuV2Vm#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#update GoogleTpuV2Vm#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#create GoogleTpuV2Vm#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#delete GoogleTpuV2Vm#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#update GoogleTpuV2Vm#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__681ffb125b134eafa3662baa84239d5b2ad268187a1c2760eff28d8fe129de3d)
@@ -3090,19 +3090,19 @@ class GoogleTpuV2VmTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#create GoogleTpuV2Vm#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#create GoogleTpuV2Vm#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#delete GoogleTpuV2Vm#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#delete GoogleTpuV2Vm#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_v2_vm#update GoogleTpuV2Vm#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_v2_vm#update GoogleTpuV2Vm#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `google_notebooks_environment`
 
-Refer to the Terraform Registry for docs: [`google_notebooks_environment`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment).
+Refer to the Terraform Registry for docs: [`google_notebooks_environment`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleNotebooksEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleNotebooksEnvironment.GoogleNotebooksEnvironment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment google_notebooks_environment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment google_notebooks_environment}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleNotebooksEnvironment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment google_notebooks_environment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment google_notebooks_environment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#location GoogleNotebooksEnvironment#location}
-        :param name: The name specified for the Environment instance. Format: projects/{project_id}/locations/{location}/environments/{environmentId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#name GoogleNotebooksEnvironment#name}
-        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#container_image GoogleNotebooksEnvironment#container_image}
-        :param description: A brief description of this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#description GoogleNotebooksEnvironment#description}
-        :param display_name: Display name of this environment for the UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#display_name GoogleNotebooksEnvironment#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#id GoogleNotebooksEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path. Example: "gs://path-to-file/file-name" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#post_startup_script GoogleNotebooksEnvironment#post_startup_script}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#timeouts GoogleNotebooksEnvironment#timeouts}
-        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#vm_image GoogleNotebooksEnvironment#vm_image}
+        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#location GoogleNotebooksEnvironment#location}
+        :param name: The name specified for the Environment instance. Format: projects/{project_id}/locations/{location}/environments/{environmentId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#name GoogleNotebooksEnvironment#name}
+        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#container_image GoogleNotebooksEnvironment#container_image}
+        :param description: A brief description of this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#description GoogleNotebooksEnvironment#description}
+        :param display_name: Display name of this environment for the UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#display_name GoogleNotebooksEnvironment#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#id GoogleNotebooksEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path. Example: "gs://path-to-file/file-name" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#post_startup_script GoogleNotebooksEnvironment#post_startup_script}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#timeouts GoogleNotebooksEnvironment#timeouts}
+        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#vm_image GoogleNotebooksEnvironment#vm_image}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleNotebooksEnvironment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleNotebooksEnvironment to import.
-        :param import_from_id: The id of the existing GoogleNotebooksEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleNotebooksEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleNotebooksEnvironment to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class GoogleNotebooksEnvironment(
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#repository GoogleNotebooksEnvironment#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#tag GoogleNotebooksEnvironment#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#repository GoogleNotebooksEnvironment#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#tag GoogleNotebooksEnvironment#tag}
         '''
         value = GoogleNotebooksEnvironmentContainerImage(
             repository=repository, tag=tag
@@ -167,9 +167,9 @@ class GoogleNotebooksEnvironment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#create GoogleNotebooksEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#delete GoogleNotebooksEnvironment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#update GoogleNotebooksEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#create GoogleNotebooksEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#delete GoogleNotebooksEnvironment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#update GoogleNotebooksEnvironment#update}.
         '''
         value = GoogleNotebooksEnvironmentTimeouts(
             create=create, delete=delete, update=update
@@ -186,9 +186,9 @@ class GoogleNotebooksEnvironment(
         image_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}
-        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#image_family GoogleNotebooksEnvironment#image_family}
-        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#image_name GoogleNotebooksEnvironment#image_name}
+        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}
+        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#image_family GoogleNotebooksEnvironment#image_family}
+        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#image_name GoogleNotebooksEnvironment#image_name}
         '''
         value = GoogleNotebooksEnvironmentVmImage(
             project=project, image_family=image_family, image_name=image_name
@@ -455,16 +455,16 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#location GoogleNotebooksEnvironment#location}
-        :param name: The name specified for the Environment instance. Format: projects/{project_id}/locations/{location}/environments/{environmentId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#name GoogleNotebooksEnvironment#name}
-        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#container_image GoogleNotebooksEnvironment#container_image}
-        :param description: A brief description of this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#description GoogleNotebooksEnvironment#description}
-        :param display_name: Display name of this environment for the UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#display_name GoogleNotebooksEnvironment#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#id GoogleNotebooksEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path. Example: "gs://path-to-file/file-name" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#post_startup_script GoogleNotebooksEnvironment#post_startup_script}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#timeouts GoogleNotebooksEnvironment#timeouts}
-        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#vm_image GoogleNotebooksEnvironment#vm_image}
+        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#location GoogleNotebooksEnvironment#location}
+        :param name: The name specified for the Environment instance. Format: projects/{project_id}/locations/{location}/environments/{environmentId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#name GoogleNotebooksEnvironment#name}
+        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#container_image GoogleNotebooksEnvironment#container_image}
+        :param description: A brief description of this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#description GoogleNotebooksEnvironment#description}
+        :param display_name: Display name of this environment for the UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#display_name GoogleNotebooksEnvironment#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#id GoogleNotebooksEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path. Example: "gs://path-to-file/file-name" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#post_startup_script GoogleNotebooksEnvironment#post_startup_script}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#timeouts GoogleNotebooksEnvironment#timeouts}
+        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#vm_image GoogleNotebooksEnvironment#vm_image}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -596,7 +596,7 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''A reference to the zone where the machine resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#location GoogleNotebooksEnvironment#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#location GoogleNotebooksEnvironment#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -606,7 +606,7 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name specified for the Environment instance. Format: projects/{project_id}/locations/{location}/environments/{environmentId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#name GoogleNotebooksEnvironment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#name GoogleNotebooksEnvironment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -618,7 +618,7 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleNotebooksEnvironmentContainerImage"]:
         '''container_image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#container_image GoogleNotebooksEnvironment#container_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#container_image GoogleNotebooksEnvironment#container_image}
         '''
         result = self._values.get("container_image")
         return typing.cast(typing.Optional["GoogleNotebooksEnvironmentContainerImage"], result)
@@ -627,7 +627,7 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A brief description of this environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#description GoogleNotebooksEnvironment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#description GoogleNotebooksEnvironment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -636,14 +636,14 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Display name of this environment for the UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#display_name GoogleNotebooksEnvironment#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#display_name GoogleNotebooksEnvironment#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#id GoogleNotebooksEnvironment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#id GoogleNotebooksEnvironment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -657,14 +657,14 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The path must be a URL or Cloud Storage path. Example: "gs://path-to-file/file-name"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#post_startup_script GoogleNotebooksEnvironment#post_startup_script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#post_startup_script GoogleNotebooksEnvironment#post_startup_script}
         '''
         result = self._values.get("post_startup_script")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -672,7 +672,7 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleNotebooksEnvironmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#timeouts GoogleNotebooksEnvironment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#timeouts GoogleNotebooksEnvironment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleNotebooksEnvironmentTimeouts"], result)
@@ -681,7 +681,7 @@ class GoogleNotebooksEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vm_image(self) -> typing.Optional["GoogleNotebooksEnvironmentVmImage"]:
         '''vm_image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#vm_image GoogleNotebooksEnvironment#vm_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#vm_image GoogleNotebooksEnvironment#vm_image}
         '''
         result = self._values.get("vm_image")
         return typing.cast(typing.Optional["GoogleNotebooksEnvironmentVmImage"], result)
@@ -711,8 +711,8 @@ class GoogleNotebooksEnvironmentContainerImage:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#repository GoogleNotebooksEnvironment#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#tag GoogleNotebooksEnvironment#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#repository GoogleNotebooksEnvironment#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#tag GoogleNotebooksEnvironment#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44f2c5eebaa5a3dbbe2f029f854f5c9cad54afda54b759d8ce660374c4c688db)
@@ -728,7 +728,7 @@ class GoogleNotebooksEnvironmentContainerImage:
     def repository(self) -> builtins.str:
         '''The path to the container image repository. For example: gcr.io/{project_id}/{imageName}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#repository GoogleNotebooksEnvironment#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#repository GoogleNotebooksEnvironment#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -738,7 +738,7 @@ class GoogleNotebooksEnvironmentContainerImage:
     def tag(self) -> typing.Optional[builtins.str]:
         '''The tag of the container image. If not specified, this defaults to the latest tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#tag GoogleNotebooksEnvironment#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#tag GoogleNotebooksEnvironment#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -845,9 +845,9 @@ class GoogleNotebooksEnvironmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#create GoogleNotebooksEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#delete GoogleNotebooksEnvironment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#update GoogleNotebooksEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#create GoogleNotebooksEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#delete GoogleNotebooksEnvironment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#update GoogleNotebooksEnvironment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56cf2271ceec2bf12ff8fe4499b5b7daed9ab0d054d38b7dedc06175862e18db)
@@ -864,19 +864,19 @@ class GoogleNotebooksEnvironmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#create GoogleNotebooksEnvironment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#create GoogleNotebooksEnvironment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#delete GoogleNotebooksEnvironment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#delete GoogleNotebooksEnvironment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#update GoogleNotebooksEnvironment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#update GoogleNotebooksEnvironment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1011,9 +1011,9 @@ class GoogleNotebooksEnvironmentVmImage:
         image_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}
-        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#image_family GoogleNotebooksEnvironment#image_family}
-        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#image_name GoogleNotebooksEnvironment#image_name}
+        :param project: The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}
+        :param image_family: Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#image_family GoogleNotebooksEnvironment#image_family}
+        :param image_name: Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#image_name GoogleNotebooksEnvironment#image_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61435fd66012cdb736d0b245a437e22ce29a66372b6c82ba28e3e7f2954daf94)
@@ -1032,7 +1032,7 @@ class GoogleNotebooksEnvironmentVmImage:
     def project(self) -> builtins.str:
         '''The name of the Google Cloud project that this VM image belongs to. Format: projects/{project_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#project GoogleNotebooksEnvironment#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -1042,7 +1042,7 @@ class GoogleNotebooksEnvironmentVmImage:
     def image_family(self) -> typing.Optional[builtins.str]:
         '''Use this VM image family to find the image; the newest image in this family will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#image_family GoogleNotebooksEnvironment#image_family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#image_family GoogleNotebooksEnvironment#image_family}
         '''
         result = self._values.get("image_family")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1051,7 +1051,7 @@ class GoogleNotebooksEnvironmentVmImage:
     def image_name(self) -> typing.Optional[builtins.str]:
         '''Use VM image name to find the image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_environment#image_name GoogleNotebooksEnvironment#image_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_environment#image_name GoogleNotebooksEnvironment#image_name}
         '''
         result = self._values.get("image_name")
         return typing.cast(typing.Optional[builtins.str], result)

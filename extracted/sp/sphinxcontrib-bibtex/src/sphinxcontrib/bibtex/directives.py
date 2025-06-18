@@ -1,24 +1,25 @@
 """
-    .. autoclass:: BibliographyKey
-        :members:
+.. autoclass:: BibliographyKey
+    :members:
 
-    .. autoclass:: BibliographyValue
-        :members:
+.. autoclass:: BibliographyValue
+    :members:
 
-    .. autoclass:: BibliographyDirective
+.. autoclass:: BibliographyDirective
 
-        .. automethod:: run
+    .. automethod:: run
 """
 
 import ast  # parse(), used for filter
-from typing import TYPE_CHECKING, Dict, List, NamedTuple, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, NamedTuple, Sequence, cast
 
 import docutils.nodes
 import docutils.parsers.rst.directives as directives
 import sphinx.util
 from docutils.parsers.rst import Directive
 
-from .bibfile import _make_ids, normpath_filename
+from .bibfile import _make_ids
 from .nodes import bibliography as bibliography_node
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ class BibliographyValue(NamedTuple):
     """Contains information about a bibliography directive."""
 
     line: int  #: Line number of the directive in the document.
-    bibfiles: List[str]  #: List of bib files for this directive.
+    bibfiles: List[Path]  #: List of bib files for this directive.
     style: str  #: The pybtex style.
     list_: str  #: The list type.
     enumtype: str  #: The sequence type (for enumerated lists).
@@ -54,7 +55,6 @@ class BibliographyValue(NamedTuple):
 
 
 class BibliographyDirective(Directive):
-
     """Class for processing the :rst:dir:`bibliography` directive.
 
     Produces a
@@ -91,7 +91,7 @@ class BibliographyDirective(Directive):
         "keyprefix": directives.unchanged,
     }
 
-    def _get_filter(self):
+    def _get_filter(self) -> ast.AST:
         """Get parsed filter from options."""
         env = cast("BuildEnvironment", self.state.document.settings.env)
         if "filter" in self.options:
@@ -138,7 +138,7 @@ class BibliographyDirective(Directive):
             # the default filter: include only cited entries
             return ast.parse("cited")
 
-    def run(self):
+    def run(self) -> Sequence[docutils.nodes.Node]:
         """Process .bib files, set file dependencies, and create a
         node that is to be transformed to the entries of the
         bibliography.
@@ -147,23 +147,23 @@ class BibliographyDirective(Directive):
         domain = cast("BibtexDomain", env.get_domain("cite"))
         filter_ = self._get_filter()
         if self.arguments:
-            bibfiles = []
-            for bibfile in self.arguments[0].split():
-                normbibfile = normpath_filename(env, bibfile)
-                if normbibfile not in domain.bibdata.bibfiles:
+            bibfiles: list[Path] = []
+            for bibfile_str in self.arguments[0].split():
+                bibfile = Path(env.relfn2path(bibfile_str)[1]).resolve()
+                if bibfile not in domain.bibdata.bibfiles:
                     logger.warning(
                         "{0} not found or not configured"
-                        " in bibtex_bibfiles".format(bibfile),
+                        " in bibtex_bibfiles".format(bibfile_str),
                         location=(env.docname, self.lineno),
                         type="bibtex",
                         subtype="bibfile_error",
                     )
                 else:
-                    bibfiles.append(normbibfile)
+                    bibfiles.append(bibfile)
         else:
             bibfiles = list(domain.bibdata.bibfiles.keys())
         for bibfile in bibfiles:
-            env.note_dependency(bibfile)
+            env.note_dependency(str(bibfile))
         # generate nodes and ids
         keyprefix: str = self.options.get("keyprefix", "")
         list_: str = self.options.get("list", "citation")
@@ -175,13 +175,15 @@ class BibliographyDirective(Directive):
                 subtype="list_type_error",
             )
             list_ = "citation"
+        citation_node_class: type[docutils.nodes.Element]
         if list_ in {"bullet", "enumerated"}:
             citation_node_class = docutils.nodes.list_item
         else:
             citation_node_class = docutils.nodes.citation
-        bibliography_count = env.temp_data["bibtex_bibliography_count"] = (
-            env.temp_data.get("bibtex_bibliography_count", 0) + 1
+        env.temp_data["bibtex_bibliography_count"] = (
+            env.temp_data.get("bibtex_bibliography_count", 0) + 1  # type: ignore
         )
+        bibliography_count: int = env.temp_data["bibtex_bibliography_count"]
         ids = set(self.state.document.ids.keys())
         node = bibliography_node(
             "",

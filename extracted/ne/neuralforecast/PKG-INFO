@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neuralforecast
-Version: 3.0.1
+Version: 3.0.2
 Summary: Time series forecasting suite using deep learning models
 Home-page: https://github.com/Nixtla/neuralforecast/
 Author: Nixtla

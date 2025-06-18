@@ -22,6 +22,7 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from . import batch_inference_job_pb2 as gateway_dot_batch__inference__job__pb2
 from . import job_progress_pb2 as gateway_dot_job__progress__pb2
 from . import options_pb2 as gateway_dot_options__pb2
 from . import status_pb2 as gateway_dot_status__pb2
@@ -34,7 +35,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n+gateway/reinforcement_fine_tuning_job.proto\x12\x07gateway\x1a\x1agateway/job_progress.proto\x1a\x15gateway/options.proto\x1a\x14gateway/status.proto\x1a\x16gateway/training.proto\x1a\x13gateway/wandb.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd6\x06\n\x1aReinforcementFineTuningJob\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x36\n\x0b\x63reate_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x39\n\x0e\x63ompleted_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x15\n\x07\x64\x61taset\x18\x05 \x01(\tB\x04\xe2\x41\x01\x02\x12 \n\x12\x65valuation_dataset\x18\x06 \x01(\tB\x04\xe2\x41\x01\x01\x12 \n\x12\x65val_auto_carveout\x18\x07 \x01(\x08\x42\x04\xe2\x41\x01\x01\x12\'\n\x05state\x18\x08 \x01(\x0e\x32\x11.gateway.JobStateB\x05\xe2\x41\x02\x03\x05\x12&\n\x06status\x18\t \x01(\x0b\x32\x0f.gateway.StatusB\x05\xe2\x41\x02\x03\x05\x12\x19\n\ncreated_by\x18\n \x01(\tB\x05\xe2\x41\x02\x03\x05\x12:\n\x0ftraining_config\x18\x0b \x01(\x0b\x32\x1b.gateway.BaseTrainingConfigB\x04\xe2\x41\x01\x01\x12\x17\n\tevaluator\x18\x0c \x01(\tB\x04\xe2\x41\x01\x02\x12\x14\n\x08\x65pisodes\x18\r \x01(\x05\x42\x02\x18\x01\x12\x30\n\x0cwandb_config\x18\x0e \x01(\x0b\x32\x14.gateway.WandbConfigB\x04\xe2\x41\x01\x01\x12\x1a\n\x0coutput_stats\x18\x0f \x01(\tB\x04\xe2\x41\x01\x05\x12G\n\x0cjob_progress\x18\x10 \x01(\x0b\x32\x14.gateway.JobProgressB\x1b\xe2\x41\x02\x03\x05\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY:\xca\x01\xea\x41\xb7\x01\n+api.fireworks.ai/ReinforcementFineTuningJob\x12Oaccounts/{AccountId}/reinforcementFineTuningJobs/{ReinforcementFineTuningJobId}*\x1breinforcementFineTuningJobs2\x1areinforcementFineTuningJob\x82\xf1\x04\x0b\n\x07\x41\x63\x63ount\x18\x01\"o\n$GetReinforcementFineTuningJobRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xec\x01\n\'CreateReinforcementFineTuningJobRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12P\n\x1dreinforcement_fine_tuning_job\x18\x02 \x01(\x0b\x32#.gateway.ReinforcementFineTuningJobB\x04\xe2\x41\x01\x02\x12)\n\x05\x64\x65\x62ug\x18\x03 \x01(\x08\x42\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12.\n reinforcement_fine_tuning_job_id\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\"\xd4\x01\n&ListReinforcementFineTuningJobsRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xa3\x01\n\'ListReinforcementFineTuningJobsResponse\x12K\n\x1ereinforcement_fine_tuning_jobs\x18\x01 \x03(\x0b\x32#.gateway.ReinforcementFineTuningJob\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"=\n\'DeleteReinforcementFineTuningJobRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n+gateway/reinforcement_fine_tuning_job.proto\x12\x07gateway\x1a!gateway/batch_inference_job.proto\x1a\x1agateway/job_progress.proto\x1a\x15gateway/options.proto\x1a\x14gateway/status.proto\x1a\x16gateway/training.proto\x1a\x13gateway/wandb.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xed\x07\n\x1aReinforcementFineTuningJob\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x36\n\x0b\x63reate_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x39\n\x0e\x63ompleted_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x15\n\x07\x64\x61taset\x18\x05 \x01(\tB\x04\xe2\x41\x01\x02\x12 \n\x12\x65valuation_dataset\x18\x06 \x01(\tB\x04\xe2\x41\x01\x01\x12 \n\x12\x65val_auto_carveout\x18\x07 \x01(\x08\x42\x04\xe2\x41\x01\x01\x12\'\n\x05state\x18\x08 \x01(\x0e\x32\x11.gateway.JobStateB\x05\xe2\x41\x02\x03\x05\x12&\n\x06status\x18\t \x01(\x0b\x32\x0f.gateway.StatusB\x05\xe2\x41\x02\x03\x05\x12\x19\n\ncreated_by\x18\n \x01(\tB\x05\xe2\x41\x02\x03\x05\x12:\n\x0ftraining_config\x18\x0b \x01(\x0b\x32\x1b.gateway.BaseTrainingConfigB\x04\xe2\x41\x01\x01\x12\x17\n\tevaluator\x18\x0c \x01(\tB\x04\xe2\x41\x01\x02\x12\x30\n\x0cwandb_config\x18\x0e \x01(\x0b\x32\x14.gateway.WandbConfigB\x04\xe2\x41\x01\x01\x12\x1a\n\x0coutput_stats\x18\x0f \x01(\tB\x04\xe2\x41\x01\x05\x12G\n\x0cjob_progress\x18\x10 \x01(\x0b\x32\x14.gateway.JobProgressB\x1b\xe2\x41\x02\x03\x05\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12@\n\x14inference_parameters\x18\x11 \x01(\x0b\x32\x1c.gateway.InferenceParametersB\x04\xe2\x41\x01\x01\x12.\n\nchunk_size\x18\x12 \x01(\x05\x42\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x39\n\x15output_stats_internal\x18\x13 \x01(\tB\x1a\xe2\x41\x01\x03\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY:\xca\x01\xea\x41\xb7\x01\n+api.fireworks.ai/ReinforcementFineTuningJob\x12Oaccounts/{AccountId}/reinforcementFineTuningJobs/{ReinforcementFineTuningJobId}*\x1breinforcementFineTuningJobs2\x1areinforcementFineTuningJob\x82\xf1\x04\x0b\n\x07\x41\x63\x63ount\x18\x01\"o\n$GetReinforcementFineTuningJobRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xec\x01\n\'CreateReinforcementFineTuningJobRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12P\n\x1dreinforcement_fine_tuning_job\x18\x02 \x01(\x0b\x32#.gateway.ReinforcementFineTuningJobB\x04\xe2\x41\x01\x02\x12)\n\x05\x64\x65\x62ug\x18\x03 \x01(\x08\x42\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12.\n reinforcement_fine_tuning_job_id\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\"\xd4\x01\n&ListReinforcementFineTuningJobsRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xa3\x01\n\'ListReinforcementFineTuningJobsResponse\x12K\n\x1ereinforcement_fine_tuning_jobs\x18\x01 \x03(\x0b\x32#.gateway.ReinforcementFineTuningJob\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"=\n\'DeleteReinforcementFineTuningJobRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -66,14 +67,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['training_config']._serialized_options = b'\342A\001\001'
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['evaluator']._loaded_options = None
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['evaluator']._serialized_options = b'\342A\001\002'
-  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['episodes']._loaded_options = None
-  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['episodes']._serialized_options = b'\030\001'
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['wandb_config']._loaded_options = None
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['wandb_config']._serialized_options = b'\342A\001\001'
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['output_stats']._loaded_options = None
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['output_stats']._serialized_options = b'\342A\001\005'
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['job_progress']._loaded_options = None
   _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['job_progress']._serialized_options = b'\342A\002\003\005\372\322\344\223\002\020\022\016SUPERUSER_ONLY'
+  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['inference_parameters']._loaded_options = None
+  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['inference_parameters']._serialized_options = b'\342A\001\001'
+  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['chunk_size']._loaded_options = None
+  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['chunk_size']._serialized_options = b'\342A\001\001\372\322\344\223\002\020\022\016SUPERUSER_ONLY'
+  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['output_stats_internal']._loaded_options = None
+  _globals['_REINFORCEMENTFINETUNINGJOB'].fields_by_name['output_stats_internal']._serialized_options = b'\342A\001\003\372\322\344\223\002\020\022\016SUPERUSER_ONLY'
   _globals['_REINFORCEMENTFINETUNINGJOB']._loaded_options = None
   _globals['_REINFORCEMENTFINETUNINGJOB']._serialized_options = b'\352A\267\001\n+api.fireworks.ai/ReinforcementFineTuningJob\022Oaccounts/{AccountId}/reinforcementFineTuningJobs/{ReinforcementFineTuningJobId}*\033reinforcementFineTuningJobs2\032reinforcementFineTuningJob\202\361\004\013\n\007Account\030\001'
   _globals['_GETREINFORCEMENTFINETUNINGJOBREQUEST'].fields_by_name['name']._loaded_options = None
@@ -102,16 +107,16 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_LISTREINFORCEMENTFINETUNINGJOBSREQUEST'].fields_by_name['read_mask']._serialized_options = b'\342A\001\001'
   _globals['_DELETEREINFORCEMENTFINETUNINGJOBREQUEST'].fields_by_name['name']._loaded_options = None
   _globals['_DELETEREINFORCEMENTFINETUNINGJOBREQUEST'].fields_by_name['name']._serialized_options = b'\342A\001\002'
-  _globals['_REINFORCEMENTFINETUNINGJOB']._serialized_start=331
-  _globals['_REINFORCEMENTFINETUNINGJOB']._serialized_end=1185
-  _globals['_GETREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_start=1187
-  _globals['_GETREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_end=1298
-  _globals['_CREATEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_start=1301
-  _globals['_CREATEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_end=1537
-  _globals['_LISTREINFORCEMENTFINETUNINGJOBSREQUEST']._serialized_start=1540
-  _globals['_LISTREINFORCEMENTFINETUNINGJOBSREQUEST']._serialized_end=1752
-  _globals['_LISTREINFORCEMENTFINETUNINGJOBSRESPONSE']._serialized_start=1755
-  _globals['_LISTREINFORCEMENTFINETUNINGJOBSRESPONSE']._serialized_end=1918
-  _globals['_DELETEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_start=1920
-  _globals['_DELETEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_end=1981
+  _globals['_REINFORCEMENTFINETUNINGJOB']._serialized_start=366
+  _globals['_REINFORCEMENTFINETUNINGJOB']._serialized_end=1371
+  _globals['_GETREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_start=1373
+  _globals['_GETREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_end=1484
+  _globals['_CREATEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_start=1487
+  _globals['_CREATEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_end=1723
+  _globals['_LISTREINFORCEMENTFINETUNINGJOBSREQUEST']._serialized_start=1726
+  _globals['_LISTREINFORCEMENTFINETUNINGJOBSREQUEST']._serialized_end=1938
+  _globals['_LISTREINFORCEMENTFINETUNINGJOBSRESPONSE']._serialized_start=1941
+  _globals['_LISTREINFORCEMENTFINETUNINGJOBSRESPONSE']._serialized_end=2104
+  _globals['_DELETEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_start=2106
+  _globals['_DELETEREINFORCEMENTFINETUNINGJOBREQUEST']._serialized_end=2167
 # @@protoc_insertion_point(module_scope)

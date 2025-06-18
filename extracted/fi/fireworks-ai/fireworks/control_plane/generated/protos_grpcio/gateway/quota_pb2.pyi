@@ -50,12 +50,14 @@ class ListQuotasRequest(_message.Message):
     def __init__(self, parent: _Optional[str] = ..., page_size: _Optional[int] = ..., page_token: _Optional[str] = ..., filter: _Optional[str] = ..., order_by: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
 
 class UpdateQuotaRequest(_message.Message):
-    __slots__ = ("quota", "update_mask")
+    __slots__ = ("quota", "update_mask", "allow_missing")
     QUOTA_FIELD_NUMBER: _ClassVar[int]
     UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    ALLOW_MISSING_FIELD_NUMBER: _ClassVar[int]
     quota: Quota
     update_mask: _field_mask_pb2.FieldMask
-    def __init__(self, quota: _Optional[_Union[Quota, _Mapping]] = ..., update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
+    allow_missing: bool
+    def __init__(self, quota: _Optional[_Union[Quota, _Mapping]] = ..., update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ..., allow_missing: bool = ...) -> None: ...
 
 class ListQuotasResponse(_message.Message):
     __slots__ = ("quotas", "next_page_token", "total_size")

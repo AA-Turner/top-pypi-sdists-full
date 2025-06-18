@@ -1,7 +1,7 @@
 r'''
 # `google_compute_node_template`
 
-Refer to the Terraform Registry for docs: [`google_compute_node_template`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template).
+Refer to the Terraform Registry for docs: [`google_compute_node_template`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeNodeTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeNodeTemplate.GoogleComputeNodeTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template google_compute_node_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template google_compute_node_template}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class GoogleComputeNodeTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template google_compute_node_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template google_compute_node_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#accelerators GoogleComputeNodeTemplate#accelerators}
-        :param cpu_overcommit_type: CPU overcommit. Default value: "NONE" Possible values: ["ENABLED", "NONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#cpu_overcommit_type GoogleComputeNodeTemplate#cpu_overcommit_type}
-        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#description GoogleComputeNodeTemplate#description}
-        :param disks: disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disks GoogleComputeNodeTemplate#disks}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#id GoogleComputeNodeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#name GoogleComputeNodeTemplate#name}
-        :param node_affinity_labels: Labels to use for node affinity, which will be used in instance scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_affinity_labels GoogleComputeNodeTemplate#node_affinity_labels}
-        :param node_type: Node type to use for nodes group that are created from this template. Only one of nodeTypeFlexibility and nodeType can be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_type GoogleComputeNodeTemplate#node_type}
-        :param node_type_flexibility: node_type_flexibility block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_type_flexibility GoogleComputeNodeTemplate#node_type_flexibility}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#project GoogleComputeNodeTemplate#project}.
-        :param region: Region where nodes using the node template will be created. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#region GoogleComputeNodeTemplate#region}
-        :param server_binding: server_binding block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#server_binding GoogleComputeNodeTemplate#server_binding}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#timeouts GoogleComputeNodeTemplate#timeouts}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#accelerators GoogleComputeNodeTemplate#accelerators}
+        :param cpu_overcommit_type: CPU overcommit. Default value: "NONE" Possible values: ["ENABLED", "NONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#cpu_overcommit_type GoogleComputeNodeTemplate#cpu_overcommit_type}
+        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#description GoogleComputeNodeTemplate#description}
+        :param disks: disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disks GoogleComputeNodeTemplate#disks}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#id GoogleComputeNodeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#name GoogleComputeNodeTemplate#name}
+        :param node_affinity_labels: Labels to use for node affinity, which will be used in instance scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_affinity_labels GoogleComputeNodeTemplate#node_affinity_labels}
+        :param node_type: Node type to use for nodes group that are created from this template. Only one of nodeTypeFlexibility and nodeType can be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_type GoogleComputeNodeTemplate#node_type}
+        :param node_type_flexibility: node_type_flexibility block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_type_flexibility GoogleComputeNodeTemplate#node_type_flexibility}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#project GoogleComputeNodeTemplate#project}.
+        :param region: Region where nodes using the node template will be created. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#region GoogleComputeNodeTemplate#region}
+        :param server_binding: server_binding block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#server_binding GoogleComputeNodeTemplate#server_binding}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#timeouts GoogleComputeNodeTemplate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class GoogleComputeNodeTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeNodeTemplate to import.
-        :param import_from_id: The id of the existing GoogleComputeNodeTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeNodeTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeNodeTemplate to import is found.
         '''
         if __debug__:
@@ -184,8 +184,8 @@ class GoogleComputeNodeTemplate(
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpus: Number of virtual CPUs to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#cpus GoogleComputeNodeTemplate#cpus}
-        :param memory: Physical memory available to the node, defined in MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#memory GoogleComputeNodeTemplate#memory}
+        :param cpus: Number of virtual CPUs to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#cpus GoogleComputeNodeTemplate#cpus}
+        :param memory: Physical memory available to the node, defined in MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#memory GoogleComputeNodeTemplate#memory}
         '''
         value = GoogleComputeNodeTemplateNodeTypeFlexibility(cpus=cpus, memory=memory)
 
@@ -194,7 +194,7 @@ class GoogleComputeNodeTemplate(
     @jsii.member(jsii_name="putServerBinding")
     def put_server_binding(self, *, type: builtins.str) -> None:
         '''
-        :param type: Type of server binding policy. If 'RESTART_NODE_ON_ANY_SERVER', nodes using this template will restart on any physical server following a maintenance event. If 'RESTART_NODE_ON_MINIMAL_SERVER', nodes using this template will restart on the same physical server following a maintenance event, instead of being live migrated to or restarted on a new physical server. This option may be useful if you are using software licenses tied to the underlying server characteristics such as physical sockets or cores, to avoid the need for additional licenses when maintenance occurs. However, VMs on such nodes will experience outages while maintenance is applied. Possible values: ["RESTART_NODE_ON_ANY_SERVER", "RESTART_NODE_ON_MINIMAL_SERVERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#type GoogleComputeNodeTemplate#type}
+        :param type: Type of server binding policy. If 'RESTART_NODE_ON_ANY_SERVER', nodes using this template will restart on any physical server following a maintenance event. If 'RESTART_NODE_ON_MINIMAL_SERVER', nodes using this template will restart on the same physical server following a maintenance event, instead of being live migrated to or restarted on a new physical server. This option may be useful if you are using software licenses tied to the underlying server characteristics such as physical sockets or cores, to avoid the need for additional licenses when maintenance occurs. However, VMs on such nodes will experience outages while maintenance is applied. Possible values: ["RESTART_NODE_ON_ANY_SERVER", "RESTART_NODE_ON_MINIMAL_SERVERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#type GoogleComputeNodeTemplate#type}
         '''
         value = GoogleComputeNodeTemplateServerBinding(type=type)
 
@@ -208,8 +208,8 @@ class GoogleComputeNodeTemplate(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#create GoogleComputeNodeTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#delete GoogleComputeNodeTemplate#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#create GoogleComputeNodeTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#delete GoogleComputeNodeTemplate#delete}.
         '''
         value = GoogleComputeNodeTemplateTimeouts(create=create, delete=delete)
 
@@ -510,8 +510,8 @@ class GoogleComputeNodeTemplateAccelerators:
         accelerator_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accelerator_count: The number of the guest accelerator cards exposed to this node template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#accelerator_count GoogleComputeNodeTemplate#accelerator_count}
-        :param accelerator_type: Full or partial URL of the accelerator type resource to expose to this node template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#accelerator_type GoogleComputeNodeTemplate#accelerator_type}
+        :param accelerator_count: The number of the guest accelerator cards exposed to this node template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#accelerator_count GoogleComputeNodeTemplate#accelerator_count}
+        :param accelerator_type: Full or partial URL of the accelerator type resource to expose to this node template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#accelerator_type GoogleComputeNodeTemplate#accelerator_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__314563f0d5ef313dd81abd3bf02c8ad159b50b1d2e9172aa6fe483dab5d01233)
@@ -527,7 +527,7 @@ class GoogleComputeNodeTemplateAccelerators:
     def accelerator_count(self) -> typing.Optional[jsii.Number]:
         '''The number of the guest accelerator cards exposed to this node template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#accelerator_count GoogleComputeNodeTemplate#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#accelerator_count GoogleComputeNodeTemplate#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -536,7 +536,7 @@ class GoogleComputeNodeTemplateAccelerators:
     def accelerator_type(self) -> typing.Optional[builtins.str]:
         '''Full or partial URL of the accelerator type resource to expose to this node template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#accelerator_type GoogleComputeNodeTemplate#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#accelerator_type GoogleComputeNodeTemplate#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -791,19 +791,19 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#accelerators GoogleComputeNodeTemplate#accelerators}
-        :param cpu_overcommit_type: CPU overcommit. Default value: "NONE" Possible values: ["ENABLED", "NONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#cpu_overcommit_type GoogleComputeNodeTemplate#cpu_overcommit_type}
-        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#description GoogleComputeNodeTemplate#description}
-        :param disks: disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disks GoogleComputeNodeTemplate#disks}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#id GoogleComputeNodeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#name GoogleComputeNodeTemplate#name}
-        :param node_affinity_labels: Labels to use for node affinity, which will be used in instance scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_affinity_labels GoogleComputeNodeTemplate#node_affinity_labels}
-        :param node_type: Node type to use for nodes group that are created from this template. Only one of nodeTypeFlexibility and nodeType can be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_type GoogleComputeNodeTemplate#node_type}
-        :param node_type_flexibility: node_type_flexibility block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_type_flexibility GoogleComputeNodeTemplate#node_type_flexibility}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#project GoogleComputeNodeTemplate#project}.
-        :param region: Region where nodes using the node template will be created. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#region GoogleComputeNodeTemplate#region}
-        :param server_binding: server_binding block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#server_binding GoogleComputeNodeTemplate#server_binding}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#timeouts GoogleComputeNodeTemplate#timeouts}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#accelerators GoogleComputeNodeTemplate#accelerators}
+        :param cpu_overcommit_type: CPU overcommit. Default value: "NONE" Possible values: ["ENABLED", "NONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#cpu_overcommit_type GoogleComputeNodeTemplate#cpu_overcommit_type}
+        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#description GoogleComputeNodeTemplate#description}
+        :param disks: disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disks GoogleComputeNodeTemplate#disks}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#id GoogleComputeNodeTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#name GoogleComputeNodeTemplate#name}
+        :param node_affinity_labels: Labels to use for node affinity, which will be used in instance scheduling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_affinity_labels GoogleComputeNodeTemplate#node_affinity_labels}
+        :param node_type: Node type to use for nodes group that are created from this template. Only one of nodeTypeFlexibility and nodeType can be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_type GoogleComputeNodeTemplate#node_type}
+        :param node_type_flexibility: node_type_flexibility block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_type_flexibility GoogleComputeNodeTemplate#node_type_flexibility}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#project GoogleComputeNodeTemplate#project}.
+        :param region: Region where nodes using the node template will be created. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#region GoogleComputeNodeTemplate#region}
+        :param server_binding: server_binding block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#server_binding GoogleComputeNodeTemplate#server_binding}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#timeouts GoogleComputeNodeTemplate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -947,7 +947,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleComputeNodeTemplateAccelerators]]]:
         '''accelerators block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#accelerators GoogleComputeNodeTemplate#accelerators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#accelerators GoogleComputeNodeTemplate#accelerators}
         '''
         result = self._values.get("accelerators")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleComputeNodeTemplateAccelerators]]], result)
@@ -956,7 +956,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cpu_overcommit_type(self) -> typing.Optional[builtins.str]:
         '''CPU overcommit. Default value: "NONE" Possible values: ["ENABLED", "NONE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#cpu_overcommit_type GoogleComputeNodeTemplate#cpu_overcommit_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#cpu_overcommit_type GoogleComputeNodeTemplate#cpu_overcommit_type}
         '''
         result = self._values.get("cpu_overcommit_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -965,7 +965,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional textual description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#description GoogleComputeNodeTemplate#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#description GoogleComputeNodeTemplate#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -976,14 +976,14 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeNodeTemplateDisks"]]]:
         '''disks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disks GoogleComputeNodeTemplate#disks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disks GoogleComputeNodeTemplate#disks}
         '''
         result = self._values.get("disks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeNodeTemplateDisks"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#id GoogleComputeNodeTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#id GoogleComputeNodeTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -995,7 +995,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#name GoogleComputeNodeTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#name GoogleComputeNodeTemplate#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1006,7 +1006,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Labels to use for node affinity, which will be used in instance scheduling.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_affinity_labels GoogleComputeNodeTemplate#node_affinity_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_affinity_labels GoogleComputeNodeTemplate#node_affinity_labels}
         '''
         result = self._values.get("node_affinity_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1017,7 +1017,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only one of nodeTypeFlexibility and nodeType can be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_type GoogleComputeNodeTemplate#node_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_type GoogleComputeNodeTemplate#node_type}
         '''
         result = self._values.get("node_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1028,14 +1028,14 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeNodeTemplateNodeTypeFlexibility"]:
         '''node_type_flexibility block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#node_type_flexibility GoogleComputeNodeTemplate#node_type_flexibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#node_type_flexibility GoogleComputeNodeTemplate#node_type_flexibility}
         '''
         result = self._values.get("node_type_flexibility")
         return typing.cast(typing.Optional["GoogleComputeNodeTemplateNodeTypeFlexibility"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#project GoogleComputeNodeTemplate#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#project GoogleComputeNodeTemplate#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1043,7 +1043,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where nodes using the node template will be created. If it is not provided, the provider region is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#region GoogleComputeNodeTemplate#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#region GoogleComputeNodeTemplate#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1054,7 +1054,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeNodeTemplateServerBinding"]:
         '''server_binding block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#server_binding GoogleComputeNodeTemplate#server_binding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#server_binding GoogleComputeNodeTemplate#server_binding}
         '''
         result = self._values.get("server_binding")
         return typing.cast(typing.Optional["GoogleComputeNodeTemplateServerBinding"], result)
@@ -1063,7 +1063,7 @@ class GoogleComputeNodeTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeNodeTemplateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#timeouts GoogleComputeNodeTemplate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#timeouts GoogleComputeNodeTemplate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeNodeTemplateTimeouts"], result)
@@ -1098,9 +1098,9 @@ class GoogleComputeNodeTemplateDisks:
         disk_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_count: Specifies the number of such disks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disk_count GoogleComputeNodeTemplate#disk_count}
-        :param disk_size_gb: Specifies the size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disk_size_gb GoogleComputeNodeTemplate#disk_size_gb}
-        :param disk_type: Specifies the desired disk type on the node. This disk type must be a local storage type (e.g.: local-ssd). Note that for nodeTemplates, this should be the name of the disk type and not its URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disk_type GoogleComputeNodeTemplate#disk_type}
+        :param disk_count: Specifies the number of such disks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disk_count GoogleComputeNodeTemplate#disk_count}
+        :param disk_size_gb: Specifies the size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disk_size_gb GoogleComputeNodeTemplate#disk_size_gb}
+        :param disk_type: Specifies the desired disk type on the node. This disk type must be a local storage type (e.g.: local-ssd). Note that for nodeTemplates, this should be the name of the disk type and not its URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disk_type GoogleComputeNodeTemplate#disk_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e764280add1da37785e2aa8a68bc832e2bb45fd204cb9af8da33ef973bf701eb)
@@ -1119,7 +1119,7 @@ class GoogleComputeNodeTemplateDisks:
     def disk_count(self) -> typing.Optional[jsii.Number]:
         '''Specifies the number of such disks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disk_count GoogleComputeNodeTemplate#disk_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disk_count GoogleComputeNodeTemplate#disk_count}
         '''
         result = self._values.get("disk_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1128,7 +1128,7 @@ class GoogleComputeNodeTemplateDisks:
     def disk_size_gb(self) -> typing.Optional[jsii.Number]:
         '''Specifies the size of the disk in base-2 GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disk_size_gb GoogleComputeNodeTemplate#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disk_size_gb GoogleComputeNodeTemplate#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1139,7 +1139,7 @@ class GoogleComputeNodeTemplateDisks:
 
         This disk type must be a local storage type (e.g.: local-ssd). Note that for nodeTemplates, this should be the name of the disk type and not its URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#disk_type GoogleComputeNodeTemplate#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#disk_type GoogleComputeNodeTemplate#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1369,8 +1369,8 @@ class GoogleComputeNodeTemplateNodeTypeFlexibility:
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpus: Number of virtual CPUs to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#cpus GoogleComputeNodeTemplate#cpus}
-        :param memory: Physical memory available to the node, defined in MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#memory GoogleComputeNodeTemplate#memory}
+        :param cpus: Number of virtual CPUs to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#cpus GoogleComputeNodeTemplate#cpus}
+        :param memory: Physical memory available to the node, defined in MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#memory GoogleComputeNodeTemplate#memory}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58fc575d79576cf6ba54b9617e415f64149f1af45d49e51c2dbfe77853ad185e)
@@ -1386,7 +1386,7 @@ class GoogleComputeNodeTemplateNodeTypeFlexibility:
     def cpus(self) -> typing.Optional[builtins.str]:
         '''Number of virtual CPUs to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#cpus GoogleComputeNodeTemplate#cpus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#cpus GoogleComputeNodeTemplate#cpus}
         '''
         result = self._values.get("cpus")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1395,7 +1395,7 @@ class GoogleComputeNodeTemplateNodeTypeFlexibility:
     def memory(self) -> typing.Optional[builtins.str]:
         '''Physical memory available to the node, defined in MB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#memory GoogleComputeNodeTemplate#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#memory GoogleComputeNodeTemplate#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1505,7 +1505,7 @@ class GoogleComputeNodeTemplateNodeTypeFlexibilityOutputReference(
 class GoogleComputeNodeTemplateServerBinding:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Type of server binding policy. If 'RESTART_NODE_ON_ANY_SERVER', nodes using this template will restart on any physical server following a maintenance event. If 'RESTART_NODE_ON_MINIMAL_SERVER', nodes using this template will restart on the same physical server following a maintenance event, instead of being live migrated to or restarted on a new physical server. This option may be useful if you are using software licenses tied to the underlying server characteristics such as physical sockets or cores, to avoid the need for additional licenses when maintenance occurs. However, VMs on such nodes will experience outages while maintenance is applied. Possible values: ["RESTART_NODE_ON_ANY_SERVER", "RESTART_NODE_ON_MINIMAL_SERVERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#type GoogleComputeNodeTemplate#type}
+        :param type: Type of server binding policy. If 'RESTART_NODE_ON_ANY_SERVER', nodes using this template will restart on any physical server following a maintenance event. If 'RESTART_NODE_ON_MINIMAL_SERVER', nodes using this template will restart on the same physical server following a maintenance event, instead of being live migrated to or restarted on a new physical server. This option may be useful if you are using software licenses tied to the underlying server characteristics such as physical sockets or cores, to avoid the need for additional licenses when maintenance occurs. However, VMs on such nodes will experience outages while maintenance is applied. Possible values: ["RESTART_NODE_ON_ANY_SERVER", "RESTART_NODE_ON_MINIMAL_SERVERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#type GoogleComputeNodeTemplate#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd4fc1a79f5f8bc568ce9a375a925bb883f13c5dd91f9fc661c0cc2f2179cdd4)
@@ -1527,7 +1527,7 @@ class GoogleComputeNodeTemplateServerBinding:
         additional licenses when maintenance occurs. However, VMs on such
         nodes will experience outages while maintenance is applied. Possible values: ["RESTART_NODE_ON_ANY_SERVER", "RESTART_NODE_ON_MINIMAL_SERVERS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#type GoogleComputeNodeTemplate#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#type GoogleComputeNodeTemplate#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1611,8 +1611,8 @@ class GoogleComputeNodeTemplateTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#create GoogleComputeNodeTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#delete GoogleComputeNodeTemplate#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#create GoogleComputeNodeTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#delete GoogleComputeNodeTemplate#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3ad463ad0da0355b2349f9eea1385cbfe07d59c8e83ecbdeb19adcd8ac5b528)
@@ -1626,13 +1626,13 @@ class GoogleComputeNodeTemplateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#create GoogleComputeNodeTemplate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#create GoogleComputeNodeTemplate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_template#delete GoogleComputeNodeTemplate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_template#delete GoogleComputeNodeTemplate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

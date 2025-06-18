@@ -27,9 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_host_network
 short_description: Module to manage host networks in oVirt/RHV
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage host networks in oVirt/RHV."
 options:
@@ -137,7 +135,7 @@ EXAMPLES = '''
 - name: Bonds
   ovirt.ovirt.ovirt_host_network:
     name: myhost
-    save: yes
+    save: true
     bond:
       name: bond0
       mode: 2

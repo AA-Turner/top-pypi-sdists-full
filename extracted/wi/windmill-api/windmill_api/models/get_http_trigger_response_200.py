@@ -39,6 +39,8 @@ class GetHttpTriggerResponse200:
         is_flow (bool):
         static_asset_config (Union[Unset, GetHttpTriggerResponse200StaticAssetConfig]):
         authentication_resource_path (Union[Unset, str]):
+        summary (Union[Unset, str]):
+        description (Union[Unset, str]):
     """
 
     route_path: str
@@ -59,6 +61,8 @@ class GetHttpTriggerResponse200:
     is_flow: bool
     static_asset_config: Union[Unset, "GetHttpTriggerResponse200StaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, str] = UNSET
+    summary: Union[Unset, str] = UNSET
+    description: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -87,6 +91,8 @@ class GetHttpTriggerResponse200:
             static_asset_config = self.static_asset_config.to_dict()
 
         authentication_resource_path = self.authentication_resource_path
+        summary = self.summary
+        description = self.description
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -114,6 +120,10 @@ class GetHttpTriggerResponse200:
             field_dict["static_asset_config"] = static_asset_config
         if authentication_resource_path is not UNSET:
             field_dict["authentication_resource_path"] = authentication_resource_path
+        if summary is not UNSET:
+            field_dict["summary"] = summary
+        if description is not UNSET:
+            field_dict["description"] = description
 
         return field_dict
 
@@ -166,6 +176,10 @@ class GetHttpTriggerResponse200:
 
         authentication_resource_path = d.pop("authentication_resource_path", UNSET)
 
+        summary = d.pop("summary", UNSET)
+
+        description = d.pop("description", UNSET)
+
         get_http_trigger_response_200 = cls(
             route_path=route_path,
             http_method=http_method,
@@ -185,6 +199,8 @@ class GetHttpTriggerResponse200:
             is_flow=is_flow,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,
+            summary=summary,
+            description=description,
         )
 
         get_http_trigger_response_200.additional_properties = d

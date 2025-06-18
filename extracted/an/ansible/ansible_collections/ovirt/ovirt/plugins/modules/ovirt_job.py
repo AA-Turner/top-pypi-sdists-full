@@ -27,7 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_job
 short_description: Module to manage jobs in oVirt/RHV
 version_added: "1.0.0"
-author: "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "This module manage jobs in oVirt/RHV. It can also manage steps of the job."
 options:
@@ -120,8 +120,6 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     check_sdk,
     create_connection,
-    equal,
-    get_id_by_name,
     ovirt_full_argument_spec,
     get_dict_of_struct,
 )

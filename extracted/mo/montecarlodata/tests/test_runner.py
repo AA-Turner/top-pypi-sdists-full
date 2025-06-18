@@ -47,7 +47,7 @@ def test_version(script_runner: ScriptRunner, montecarlo_version: str) -> None:
 
 
 def test_help(script_runner: ScriptRunner) -> None:
-    result = script_runner.run(["montecarlo"])
+    result = script_runner.run(["montecarlo", "--help"])
 
     assert result.returncode == 0
     assert result.stderr == ""

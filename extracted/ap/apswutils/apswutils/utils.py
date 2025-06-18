@@ -13,10 +13,6 @@ import json
 from typing import Dict, cast, BinaryIO, Iterable, Optional, Tuple, Type
 import apsw
 
-# TODO: Replace use of OperationalError with more explicit apsw errors
-#       In order to keep this PR minimal, we use OperationalError  as a shim for apsw.Error
-OperationalError = apsw.Error
-
 SPATIALITE_PATHS = (
     "/usr/lib/x86_64-linux-gnu/mod_spatialite.so",
     "/usr/lib/aarch64-linux-gnu/mod_spatialite.so",
@@ -468,3 +464,8 @@ def flatten(row: dict) -> dict:
 IGNORE = object()
 SET_NULL = object()
 
+
+def cursor_row2dict(cursor, row):
+    """Converts a cursor row into a dict with columns as keys"""
+    columns = [d[0] for d in cursor.get_description()]
+    return dict(zip(columns, row))

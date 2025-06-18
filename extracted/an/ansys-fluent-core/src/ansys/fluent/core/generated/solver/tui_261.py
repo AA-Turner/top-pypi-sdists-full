@@ -31385,6 +31385,7 @@ class main_menu(TUIMenu):
                 def __init__(self, service, version, mode, path):
                     self.boundary_zone = self.__class__.boundary_zone(service, version, mode, path + ["boundary_zone"])
                     self.flat_init = self.__class__.flat_init(service, version, mode, path + ["flat_init"])
+                    self.open_channel_initialization_method = self.__class__.open_channel_initialization_method(service, version, mode, path + ["open_channel_initialization_method"])
                     self.wavy_surface_init = self.__class__.wavy_surface_init(service, version, mode, path + ["wavy_surface_init"])
                     super().__init__(service, version, mode, path)
                 class boundary_zone(TUIMethod):
@@ -31392,6 +31393,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class flat_init(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class open_channel_initialization_method(TUIMethod):
                     """
                     No help available.
                     """
@@ -34398,6 +34403,7 @@ class main_menu(TUIMenu):
                 self.cfl_based_adaptive_time_stepping = self.__class__.cfl_based_adaptive_time_stepping(service, version, mode, path + ["cfl_based_adaptive_time_stepping"])
                 self.data_sampling = self.__class__.data_sampling(service, version, mode, path + ["data_sampling"])
                 self.data_sampling_options = self.__class__.data_sampling_options(service, version, mode, path + ["data_sampling_options"])
+                self.parameters = self.__class__.parameters(service, version, mode, path + ["parameters"])
                 self.pollutants = self.__class__.pollutants(service, version, mode, path + ["pollutants"])
                 self.pseudo_time_settings = self.__class__.pseudo_time_settings(service, version, mode, path + ["pseudo_time_settings"])
                 self.solution_steering = self.__class__.solution_steering(service, version, mode, path + ["solution_steering"])
@@ -34405,10 +34411,7 @@ class main_menu(TUIMenu):
                 self.calculate = self.__class__.calculate(service, version, mode, path + ["calculate"])
                 self.dual_time_iterate = self.__class__.dual_time_iterate(service, version, mode, path + ["dual_time_iterate"])
                 self.interrupt = self.__class__.interrupt(service, version, mode, path + ["interrupt"])
-                self.iter_count = self.__class__.iter_count(service, version, mode, path + ["iter_count"])
                 self.iterate = self.__class__.iterate(service, version, mode, path + ["iterate"])
-                self.profile_update_interval = self.__class__.profile_update_interval(service, version, mode, path + ["profile_update_interval"])
-                self.reporting_interval = self.__class__.reporting_interval(service, version, mode, path + ["reporting_interval"])
                 self.residual_verbosity = self.__class__.residual_verbosity(service, version, mode, path + ["residual_verbosity"])
                 self.time_step_count = self.__class__.time_step_count(service, version, mode, path + ["time_step_count"])
                 super().__init__(service, version, mode, path)
@@ -34424,19 +34427,7 @@ class main_menu(TUIMenu):
                 """
                 No help available.
                 """
-            class iter_count(TUIMethod):
-                """
-                No help available.
-                """
             class iterate(TUIMethod):
-                """
-                No help available.
-                """
-            class profile_update_interval(TUIMethod):
-                """
-                No help available.
-                """
-            class reporting_interval(TUIMethod):
                 """
                 No help available.
                 """
@@ -34695,6 +34686,28 @@ class main_menu(TUIMenu):
                         No help available.
                         """
 
+            class parameters(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.iter_count = self.__class__.iter_count(service, version, mode, path + ["iter_count"])
+                    self.profile_update_interval = self.__class__.profile_update_interval(service, version, mode, path + ["profile_update_interval"])
+                    self.reporting_interval = self.__class__.reporting_interval(service, version, mode, path + ["reporting_interval"])
+                    super().__init__(service, version, mode, path)
+                class iter_count(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class profile_update_interval(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class reporting_interval(TUIMethod):
+                    """
+                    No help available.
+                    """
+
             class pollutants(TUIMenu):
                 """
                 No help available.
@@ -34718,12 +34731,7 @@ class main_menu(TUIMenu):
                 """
                 def __init__(self, service, version, mode, path):
                     self.time_step_method = self.__class__.time_step_method(service, version, mode, path + ["time_step_method"])
-                    self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
                     super().__init__(service, version, mode, path)
-                class verbosity(TUIMethod):
-                    """
-                    No help available.
-                    """
 
                 class time_step_method(TUIMenu):
                     """
@@ -34738,6 +34746,7 @@ class main_menu(TUIMenu):
                         self.time_step_method = self.__class__.time_step_method(service, version, mode, path + ["time_step_method"])
                         self.time_step_size_for_solid_zone = self.__class__.time_step_size_for_solid_zone(service, version, mode, path + ["time_step_size_for_solid_zone"])
                         self.time_step_size_scale_factor = self.__class__.time_step_size_scale_factor(service, version, mode, path + ["time_step_size_scale_factor"])
+                        self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
                         super().__init__(service, version, mode, path)
                     class auto_time_size_calc_solid_zone(TUIMethod):
                         """
@@ -34768,6 +34777,10 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                     class time_step_size_scale_factor(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class verbosity(TUIMethod):
                         """
                         No help available.
                         """
@@ -34810,12 +34823,10 @@ class main_menu(TUIMenu):
                 """
                 def __init__(self, service, version, mode, path):
                     self.cfl_based_time_stepping = self.__class__.cfl_based_time_stepping(service, version, mode, path + ["cfl_based_time_stepping"])
-                    self.cfl_based_time_stepping_advanced_options = self.__class__.cfl_based_time_stepping_advanced_options(service, version, mode, path + ["cfl_based_time_stepping_advanced_options"])
                     self.error_based_time_stepping = self.__class__.error_based_time_stepping(service, version, mode, path + ["error_based_time_stepping"])
                     self.extrapolate_eqn_vars = self.__class__.extrapolate_eqn_vars(service, version, mode, path + ["extrapolate_eqn_vars"])
                     self.fixed_periodic = self.__class__.fixed_periodic(service, version, mode, path + ["fixed_periodic"])
                     self.mp_specific_time_stepping = self.__class__.mp_specific_time_stepping(service, version, mode, path + ["mp_specific_time_stepping"])
-                    self.multiphase_specific_time_constraints = self.__class__.multiphase_specific_time_constraints(service, version, mode, path + ["multiphase_specific_time_constraints"])
                     self.solid_time_step_size = self.__class__.solid_time_step_size(service, version, mode, path + ["solid_time_step_size"])
                     self.duration_specification_method = self.__class__.duration_specification_method(service, version, mode, path + ["duration_specification_method"])
                     self.extrapolate_variables = self.__class__.extrapolate_variables(service, version, mode, path + ["extrapolate_variables"])
@@ -34835,7 +34846,6 @@ class main_menu(TUIMenu):
                     self.total_time_step_count = self.__class__.total_time_step_count(service, version, mode, path + ["total_time_step_count"])
                     self.type = self.__class__.type(service, version, mode, path + ["type"])
                     self.udf_hook = self.__class__.udf_hook(service, version, mode, path + ["udf_hook"])
-                    self.undo_timestep = self.__class__.undo_timestep(service, version, mode, path + ["undo_timestep"])
                     super().__init__(service, version, mode, path)
                 class duration_specification_method(TUIMethod):
                     """
@@ -34909,16 +34919,13 @@ class main_menu(TUIMenu):
                     """
                     No help available.
                     """
-                class undo_timestep(TUIMethod):
-                    """
-                    No help available.
-                    """
 
                 class cfl_based_time_stepping(TUIMenu):
                     """
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.advanced_options = self.__class__.advanced_options(service, version, mode, path + ["advanced_options"])
                         self.courant_number = self.__class__.courant_number(service, version, mode, path + ["courant_number"])
                         self.fixed_time_step_size = self.__class__.fixed_time_step_size(service, version, mode, path + ["fixed_time_step_size"])
                         self.initial_time_step_size = self.__class__.initial_time_step_size(service, version, mode, path + ["initial_time_step_size"])
@@ -34961,27 +34968,27 @@ class main_menu(TUIMenu):
                         No help available.
                         """
 
-                class cfl_based_time_stepping_advanced_options(TUIMenu):
-                    """
-                    No help available.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.cfl_type = self.__class__.cfl_type(service, version, mode, path + ["cfl_type"])
-                        self.control_time_step_size_variation = self.__class__.control_time_step_size_variation(service, version, mode, path + ["control_time_step_size_variation"])
-                        self.use_average_cfl = self.__class__.use_average_cfl(service, version, mode, path + ["use_average_cfl"])
-                        super().__init__(service, version, mode, path)
-                    class cfl_type(TUIMethod):
+                    class advanced_options(TUIMenu):
                         """
                         No help available.
                         """
-                    class control_time_step_size_variation(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class use_average_cfl(TUIMethod):
-                        """
-                        No help available.
-                        """
+                        def __init__(self, service, version, mode, path):
+                            self.cfl_type = self.__class__.cfl_type(service, version, mode, path + ["cfl_type"])
+                            self.control_time_step_size_variation = self.__class__.control_time_step_size_variation(service, version, mode, path + ["control_time_step_size_variation"])
+                            self.use_average_cfl = self.__class__.use_average_cfl(service, version, mode, path + ["use_average_cfl"])
+                            super().__init__(service, version, mode, path)
+                        class cfl_type(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class control_time_step_size_variation(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class use_average_cfl(TUIMethod):
+                            """
+                            No help available.
+                            """
 
                 class error_based_time_stepping(TUIMenu):
                     """
@@ -34995,6 +35002,7 @@ class main_menu(TUIMenu):
                         self.max_time_step_size = self.__class__.max_time_step_size(service, version, mode, path + ["max_time_step_size"])
                         self.min_step_change_factor = self.__class__.min_step_change_factor(service, version, mode, path + ["min_step_change_factor"])
                         self.min_time_step_size = self.__class__.min_time_step_size(service, version, mode, path + ["min_time_step_size"])
+                        self.undo_timestep = self.__class__.undo_timestep(service, version, mode, path + ["undo_timestep"])
                         self.update_interval = self.__class__.update_interval(service, version, mode, path + ["update_interval"])
                         super().__init__(service, version, mode, path)
                     class error_tolerance(TUIMethod):
@@ -35022,6 +35030,10 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                     class min_time_step_size(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class undo_timestep(TUIMethod):
                         """
                         No help available.
                         """
@@ -35124,6 +35136,7 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.time_constraints = self.__class__.time_constraints(service, version, mode, path + ["time_constraints"])
                         self.enabled = self.__class__.enabled(service, version, mode, path + ["enabled"])
                         self.fixed_time_step_size = self.__class__.fixed_time_step_size(service, version, mode, path + ["fixed_time_step_size"])
                         self.global_courant_number = self.__class__.global_courant_number(service, version, mode, path + ["global_courant_number"])
@@ -35171,68 +35184,68 @@ class main_menu(TUIMenu):
                         No help available.
                         """
 
-                class multiphase_specific_time_constraints(TUIMenu):
-                    """
-                    No help available.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.moving_mesh_cfl_constraint = self.__class__.moving_mesh_cfl_constraint(service, version, mode, path + ["moving_mesh_cfl_constraint"])
-                        self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
-                        self.physics_based_constraint = self.__class__.physics_based_constraint(service, version, mode, path + ["physics_based_constraint"])
-                        self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
-                        super().__init__(service, version, mode, path)
-                    class physics_based_constraint(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class verbosity(TUIMethod):
-                        """
-                        No help available.
-                        """
-
-                    class moving_mesh_cfl_constraint(TUIMenu):
+                    class time_constraints(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.mesh_courant_number = self.__class__.mesh_courant_number(service, version, mode, path + ["mesh_courant_number"])
-                            self.moving_mesh_constraint = self.__class__.moving_mesh_constraint(service, version, mode, path + ["moving_mesh_constraint"])
+                            self.moving_mesh_cfl_constraint = self.__class__.moving_mesh_cfl_constraint(service, version, mode, path + ["moving_mesh_cfl_constraint"])
+                            self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
+                            self.physics_based_constraint = self.__class__.physics_based_constraint(service, version, mode, path + ["physics_based_constraint"])
+                            self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
                             super().__init__(service, version, mode, path)
-                        class mesh_courant_number(TUIMethod):
+                        class physics_based_constraint(TUIMethod):
                             """
                             No help available.
                             """
-                        class moving_mesh_constraint(TUIMethod):
+                        class verbosity(TUIMethod):
                             """
                             No help available.
                             """
 
-                    class time_scale_options(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.acoustic_scale = self.__class__.acoustic_scale(service, version, mode, path + ["acoustic_scale"])
-                            self.gravity_scale = self.__class__.gravity_scale(service, version, mode, path + ["gravity_scale"])
-                            self.surface_tension_scale = self.__class__.surface_tension_scale(service, version, mode, path + ["surface_tension_scale"])
-                            self.viscous_scale = self.__class__.viscous_scale(service, version, mode, path + ["viscous_scale"])
-                            super().__init__(service, version, mode, path)
-                        class acoustic_scale(TUIMethod):
+                        class moving_mesh_cfl_constraint(TUIMenu):
                             """
                             No help available.
                             """
-                        class gravity_scale(TUIMethod):
+                            def __init__(self, service, version, mode, path):
+                                self.mesh_courant_number = self.__class__.mesh_courant_number(service, version, mode, path + ["mesh_courant_number"])
+                                self.moving_mesh_constraint = self.__class__.moving_mesh_constraint(service, version, mode, path + ["moving_mesh_constraint"])
+                                super().__init__(service, version, mode, path)
+                            class mesh_courant_number(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class moving_mesh_constraint(TUIMethod):
+                                """
+                                No help available.
+                                """
+
+                        class time_scale_options(TUIMenu):
                             """
                             No help available.
                             """
-                        class surface_tension_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class viscous_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
+                            def __init__(self, service, version, mode, path):
+                                self.acoustic_scale = self.__class__.acoustic_scale(service, version, mode, path + ["acoustic_scale"])
+                                self.gravity_scale = self.__class__.gravity_scale(service, version, mode, path + ["gravity_scale"])
+                                self.surface_tension_scale = self.__class__.surface_tension_scale(service, version, mode, path + ["surface_tension_scale"])
+                                self.viscous_scale = self.__class__.viscous_scale(service, version, mode, path + ["viscous_scale"])
+                                super().__init__(service, version, mode, path)
+                            class acoustic_scale(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class gravity_scale(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class surface_tension_scale(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class viscous_scale(TUIMethod):
+                                """
+                                No help available.
+                                """
 
                 class solid_time_step_size(TUIMenu):
                     """
@@ -36114,7 +36127,7 @@ class main_menu(TUIMenu):
                 """
             class open_channel_auto_init(TUIMethod):
                 """
-                No help available.
+                Open channel initialization method.
                 """
             class reference_frame(TUIMethod):
                 """
@@ -36327,7 +36340,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    No help available.
+                    Enable localized initialization of turbulent flow variables for VOF/Mixture multiphase flow models.
                     """
                 class turb_init_parameters(TUIMethod):
                     """
@@ -39483,9 +39496,9 @@ class main_menu(TUIMenu):
                     Set Multiphase-specific time constraints.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
                         self.moving_mesh_cfl_constraint = self.__class__.moving_mesh_cfl_constraint(service, version, mode, path + ["moving_mesh_cfl_constraint"])
                         self.physics_based_constraint = self.__class__.physics_based_constraint(service, version, mode, path + ["physics_based_constraint"])
+                        self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
                         self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
                         super().__init__(service, version, mode, path)
                     class moving_mesh_cfl_constraint(TUIMethod):
@@ -39496,37 +39509,14 @@ class main_menu(TUIMenu):
                         """
                         No help available.
                         """
+                    class time_scale_options(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class verbosity(TUIMethod):
                         """
                         No help available.
                         """
-
-                    class time_scale_options(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.acoustic_scale = self.__class__.acoustic_scale(service, version, mode, path + ["acoustic_scale"])
-                            self.gravity_scale = self.__class__.gravity_scale(service, version, mode, path + ["gravity_scale"])
-                            self.surface_tension_scale = self.__class__.surface_tension_scale(service, version, mode, path + ["surface_tension_scale"])
-                            self.viscous_scale = self.__class__.viscous_scale(service, version, mode, path + ["viscous_scale"])
-                            super().__init__(service, version, mode, path)
-                        class acoustic_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class gravity_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class surface_tension_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class viscous_scale(TUIMethod):
-                            """
-                            No help available.
-                            """
 
             class warped_face_gradient_correction(TUIMenu):
                 """

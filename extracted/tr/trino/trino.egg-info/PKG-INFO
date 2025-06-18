@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trino
-Version: 0.334.0
+Version: 0.335.0
 Summary: Client for the Trino distributed SQL Engine
 Home-page: https://github.com/trinodb/trino-python-client
 Author: Trino Team

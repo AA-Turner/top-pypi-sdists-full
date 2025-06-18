@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogen
-Version: 0.9.2
+Version: 0.9.3
 Summary: Alias package for ag2
 Home-page: https://github.com/ag2ai/ag2
 Author: Chi Wang & Qingyun Wu
@@ -63,6 +63,8 @@ Provides-Extra: deepseek
 Provides-Extra: commsagent-discord
 Provides-Extra: commsagent-slack
 Provides-Extra: commsagent-telegram
+Provides-Extra: duckduckgo
+Provides-Extra: tavily
 Provides-Extra: test
 Provides-Extra: docs
 Provides-Extra: types
@@ -424,7 +426,7 @@ AG2 supports more advanced concepts to help you build your AI agent workflows. Y
 
 - [Structured Output](https://docs.ag2.ai/latest/docs/user-guide/basic-concepts/structured-outputs)
 - [Ending a conversation](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/ending-a-chat/)
-- [Retrieval Augmented Generation (RAG)](https://docs.ag2.ai/docs/user-guide/advanced-concepts/rag)
+- [Retrieval Augmented Generation (RAG)](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/rag/)
 - [Code Execution](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/code-execution)
 - [Tools with Secrets](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/tools/tools-with-secrets/)
 

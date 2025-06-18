@@ -1,7 +1,7 @@
 r'''
 # `google_data_catalog_taxonomy_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_data_catalog_taxonomy_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy).
+Refer to the Terraform Registry for docs: [`google_data_catalog_taxonomy_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataCatalogTaxonomyIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataCatalogTaxonomyIamPolicy.GoogleDataCatalogTaxonomyIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy google_data_catalog_taxonomy_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy google_data_catalog_taxonomy_iam_policy}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GoogleDataCatalogTaxonomyIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy google_data_catalog_taxonomy_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy google_data_catalog_taxonomy_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#policy_data GoogleDataCatalogTaxonomyIamPolicy#policy_data}.
-        :param taxonomy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#taxonomy GoogleDataCatalogTaxonomyIamPolicy#taxonomy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#id GoogleDataCatalogTaxonomyIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#project GoogleDataCatalogTaxonomyIamPolicy#project}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#region GoogleDataCatalogTaxonomyIamPolicy#region}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#policy_data GoogleDataCatalogTaxonomyIamPolicy#policy_data}.
+        :param taxonomy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#taxonomy GoogleDataCatalogTaxonomyIamPolicy#taxonomy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#id GoogleDataCatalogTaxonomyIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#project GoogleDataCatalogTaxonomyIamPolicy#project}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#region GoogleDataCatalogTaxonomyIamPolicy#region}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GoogleDataCatalogTaxonomyIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataCatalogTaxonomyIamPolicy to import.
-        :param import_from_id: The id of the existing GoogleDataCatalogTaxonomyIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataCatalogTaxonomyIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataCatalogTaxonomyIamPolicy to import is found.
         '''
         if __debug__:
@@ -285,11 +285,11 @@ class GoogleDataCatalogTaxonomyIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgu
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#policy_data GoogleDataCatalogTaxonomyIamPolicy#policy_data}.
-        :param taxonomy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#taxonomy GoogleDataCatalogTaxonomyIamPolicy#taxonomy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#id GoogleDataCatalogTaxonomyIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#project GoogleDataCatalogTaxonomyIamPolicy#project}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#region GoogleDataCatalogTaxonomyIamPolicy#region}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#policy_data GoogleDataCatalogTaxonomyIamPolicy#policy_data}.
+        :param taxonomy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#taxonomy GoogleDataCatalogTaxonomyIamPolicy#taxonomy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#id GoogleDataCatalogTaxonomyIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#project GoogleDataCatalogTaxonomyIamPolicy#project}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#region GoogleDataCatalogTaxonomyIamPolicy#region}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -398,21 +398,21 @@ class GoogleDataCatalogTaxonomyIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#policy_data GoogleDataCatalogTaxonomyIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#policy_data GoogleDataCatalogTaxonomyIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def taxonomy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#taxonomy GoogleDataCatalogTaxonomyIamPolicy#taxonomy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#taxonomy GoogleDataCatalogTaxonomyIamPolicy#taxonomy}.'''
         result = self._values.get("taxonomy")
         assert result is not None, "Required property 'taxonomy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#id GoogleDataCatalogTaxonomyIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#id GoogleDataCatalogTaxonomyIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -422,13 +422,13 @@ class GoogleDataCatalogTaxonomyIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#project GoogleDataCatalogTaxonomyIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#project GoogleDataCatalogTaxonomyIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_data_catalog_taxonomy_iam_policy#region GoogleDataCatalogTaxonomyIamPolicy#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_data_catalog_taxonomy_iam_policy#region GoogleDataCatalogTaxonomyIamPolicy#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 

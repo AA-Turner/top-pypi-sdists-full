@@ -26,6 +26,7 @@ Usage::
         ListRecoveryPointsByBackupVaultPaginator,
         ListRecoveryPointsByLegalHoldPaginator,
         ListRecoveryPointsByResourcePaginator,
+        ListRestoreAccessBackupVaultsPaginator,
         ListRestoreJobsByProtectedResourcePaginator,
         ListRestoreJobsPaginator,
         ListRestoreTestingPlansPaginator,
@@ -49,6 +50,7 @@ Usage::
     list_recovery_points_by_backup_vault_paginator: ListRecoveryPointsByBackupVaultPaginator = client.get_paginator("list_recovery_points_by_backup_vault")
     list_recovery_points_by_legal_hold_paginator: ListRecoveryPointsByLegalHoldPaginator = client.get_paginator("list_recovery_points_by_legal_hold")
     list_recovery_points_by_resource_paginator: ListRecoveryPointsByResourcePaginator = client.get_paginator("list_recovery_points_by_resource")
+    list_restore_access_backup_vaults_paginator: ListRestoreAccessBackupVaultsPaginator = client.get_paginator("list_restore_access_backup_vaults")
     list_restore_jobs_by_protected_resource_paginator: ListRestoreJobsByProtectedResourcePaginator = client.get_paginator("list_restore_jobs_by_protected_resource")
     list_restore_jobs_paginator: ListRestoreJobsPaginator = client.get_paginator("list_restore_jobs")
     list_restore_testing_plans_paginator: ListRestoreTestingPlansPaginator = client.get_paginator("list_restore_testing_plans")
@@ -92,6 +94,8 @@ from .type_defs import (
     ListRecoveryPointsByLegalHoldOutputTypeDef,
     ListRecoveryPointsByResourceInputPaginateTypeDef,
     ListRecoveryPointsByResourceOutputTypeDef,
+    ListRestoreAccessBackupVaultsInputPaginateTypeDef,
+    ListRestoreAccessBackupVaultsOutputTypeDef,
     ListRestoreJobsByProtectedResourceInputPaginateTypeDef,
     ListRestoreJobsByProtectedResourceOutputTypeDef,
     ListRestoreJobsInputPaginateTypeDef,
@@ -122,6 +126,7 @@ __all__ = (
     "ListRecoveryPointsByBackupVaultPaginator",
     "ListRecoveryPointsByLegalHoldPaginator",
     "ListRecoveryPointsByResourcePaginator",
+    "ListRestoreAccessBackupVaultsPaginator",
     "ListRestoreJobsByProtectedResourcePaginator",
     "ListRestoreJobsPaginator",
     "ListRestoreTestingPlansPaginator",
@@ -388,6 +393,26 @@ class ListRecoveryPointsByResourcePaginator(_ListRecoveryPointsByResourcePaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListRecoveryPointsByResource.html#Backup.Paginator.ListRecoveryPointsByResource.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listrecoverypointsbyresourcepaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRestoreAccessBackupVaultsPaginatorBase = Paginator[
+        ListRestoreAccessBackupVaultsOutputTypeDef
+    ]
+else:
+    _ListRestoreAccessBackupVaultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRestoreAccessBackupVaultsPaginator(_ListRestoreAccessBackupVaultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListRestoreAccessBackupVaults.html#Backup.Paginator.ListRestoreAccessBackupVaults)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listrestoreaccessbackupvaultspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRestoreAccessBackupVaultsInputPaginateTypeDef]
+    ) -> PageIterator[ListRestoreAccessBackupVaultsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListRestoreAccessBackupVaults.html#Backup.Paginator.ListRestoreAccessBackupVaults.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listrestoreaccessbackupvaultspaginator)
         """
 
 if TYPE_CHECKING:

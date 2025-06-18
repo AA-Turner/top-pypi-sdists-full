@@ -43,6 +43,7 @@ panic = "abort"
 # at the time of writing this (2024-12-20) the `fat` binary is 12.5mb and
 # the `thin` binary is 12.6mb (who's thin now!?).
 lto = "thin" # or "fat"
+#lto = "fat"
 
 # release fat profile
 [profile.bench]
@@ -54,7 +55,7 @@ lto = "fat"
 resolver = "2"
 
 [workspace.package]
-version = "0.0.46"
+version = "0.0.47"
 authors = [
   "Jesse K. Rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -98,6 +99,7 @@ ryo3-jiter = { path = "./crates/ryo3-jiter" }
 ryo3-regex = { path = "./crates/ryo3-regex" }
 ryo3-reqwest = { path = "./crates/ryo3-reqwest" }
 ryo3-same-file = { path = "./crates/ryo3-same-file" }
+ryo3-serde = { path = "./crates/ryo3-serde" }
 ryo3-shlex = { path = "./crates/ryo3-shlex" }
 ryo3-size = { path = "./crates/ryo3-size" }
 ryo3-sqlformat = { path = "./crates/ryo3-sqlformat" }
@@ -112,8 +114,8 @@ ryo3-xxhash = { path = "./crates/ryo3-xxhash" }
 ryo3-zstd = { path = "./crates/ryo3-zstd" }
 
 # pyo3
-pyo3 = { version = "0.25.0", features = ["macros", "serde"] }
-pyo3-build-config = "0.25.0"
+pyo3 = { version = "0.25.1", features = ["macros", "serde"] }
+pyo3-build-config = "0.25.1"
 #pyo3 async runtimes
 pyo3-async-runtimes = { version = "0.25.0", features = ["tokio-runtime"] }
 #pyo3-async-runtimes = { git = "https://github.com/PyO3/pyo3-async-runtimes", features = ["tokio-runtime"] }
@@ -126,7 +128,7 @@ bytes = "1.10.1"
 bzip2 = "0.5.2"
 dirs = { version = "6.0.0", features = [] }
 fnv = "1.0.7"
-flate2 = "1.1.1"
+flate2 = "1.1.2"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
 glob = "0.3"
@@ -141,7 +143,7 @@ reqwest = { version = "0.12.19", features = ["brotli", "charset", "cookies", "de
 same-file = "1.0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.17"
-serde_json = "1.0.140"
+serde_json = { version = "1.0.140", features = ["std"] }
 shlex = "1.3.0"
 size = "0.5.0"
 sqlformat = "0.3.5"
@@ -150,7 +152,7 @@ tokio = { version = "1.45.1", features = ["bytes", "fs", "macros", "parking_lot"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["serde", "serde_json", "default"] }
 unindent = "0.2.4"
-url = { version = "2.5.4", features = ["serde"] }
+url = { version = "2.5.4" }
 uuid = { version = "1.17.0", features = ["v4", "v8"] }
 ulid = { version = "1.2.1" }
 walkdir = "2.5.0"

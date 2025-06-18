@@ -304,7 +304,7 @@ EXAMPLES = r"""
     path: /path/to/build/dir
     push: true
     auth_file: /etc/containers/auth.json
-    loop:
+  loop:
     - quay.io/acme/nginx
     - docker.io/acme/nginx
 
@@ -317,7 +317,7 @@ EXAMPLES = r"""
     auth_file: /etc/containers/auth.json
     push_args:
       dest: "{{ item.dest }}"
-    loop:
+  loop:
     - name: nginx
       tag: 4
       dest: docker.io/acme
@@ -432,6 +432,7 @@ import shlex  # noqa: E402
 import tempfile  # noqa: E402
 import time  # noqa: E402
 import hashlib  # noqa: E402
+import sys  # noqa: E402
 
 from ansible.module_utils._text import to_native
 from ansible.module_utils.basic import AnsibleModule
@@ -555,10 +556,17 @@ class PodmanImageManager(object):
         """
         if not containerfile_contents:
             return None
-        return hashlib.sha256(
-            containerfile_contents.encode(),
-            usedforsecurity=False
-        ).hexdigest()
+
+        # usedforsecurity keyword arg was introduced in python 3.9
+        if sys.version_info < (3, 9):
+            return hashlib.sha256(
+                containerfile_contents.encode(),
+            ).hexdigest()
+        else:
+            return hashlib.sha256(
+                containerfile_contents.encode(),
+                usedforsecurity=False
+            ).hexdigest()
 
     def _get_args_containerfile_hash(self):
         """

@@ -4,7 +4,7 @@
 #
 # Dell OpenManage Ansible Modules
 # Version 9.3.0
-# Copyright (C) 2023-2024 Dell Inc. or its subsidiaries. All Rights Reserved.
+# Copyright (C) 2023-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 #
@@ -82,6 +82,7 @@ options:
       - C(InMaintenanceWindowOnReset) allows to apply after a manual reset but within the maintenance window as
         specified in I(maintenance_window).
       - This is not applicable for iDRAC8 and value will be ignored and will not have any impact for configuring I(oem_network_attributes).
+      - For iDRAC10, only C(OnReset) is supported.
     choices: [Immediate, OnReset, AtMaintenanceWindowStart, InMaintenanceWindowOnReset]
   maintenance_window:
     type: dict
@@ -118,6 +119,7 @@ requirements:
     - "python >= 3.9.6"
 author:
     - "Abhishek Sinha(@ABHISHEK-SINHA10)"
+    - "Kritika Bhateja (@Kritika-Bhateja-03)"
 notes:
     - Run this module from a system that has direct access to Dell iDRAC.
     - This module supports both IPv4 and IPv6 address.
@@ -323,13 +325,15 @@ from ansible.module_utils.compat.version import LooseVersion
 from ansible.module_utils.urls import ConnectionError, SSLValidationError
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish import iDRACRedfishAPI, IdracAnsibleModule
 from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import (
-    delete_job, get_current_time, get_dynamic_uri, get_idrac_firmware_version,
+    delete_job, get_current_time, get_dynamic_uri,
     get_scheduled_job_resp, remove_key, validate_and_get_first_resource_id_uri,
     idrac_redfish_job_tracking, xml_data_conversion)
+
 
 REGISTRY_URI = '/redfish/v1/Registries'
 SYSTEMS_URI = "/redfish/v1/Systems"
 iDRAC_JOB_URI = "/redfish/v1/Managers/iDRAC.Embedded.1/Jobs/{job_id}"
+iDRAC_JOB_URI_10 = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/{job_id}"
 
 SUCCESS_MSG = "Successfully updated the network attributes."
 SUCCESS_CLEAR_PENDING_ATTR_MSG = "Successfully cleared the pending network attributes."
@@ -350,6 +354,8 @@ JOB_RUNNING_CLEAR_PENDING_ATTR = "{0} Config job is running. Wait for the job to
 ATTRIBUTE_NOT_EXIST_CHECK_IDEMPOTENCY_MODE = 'Attribute is not valid.'
 CLEAR_PENDING_NOT_SUPPORTED_WITHOUT_ATTR_IDRAC8 = "Clear pending is not supported."
 WAIT_TIMEOUT_MSG = "The job is not complete after {0} seconds."
+HARDWARE_8 = "iDRAC 8"
+ODATA_ID = "(.*?)@odata"
 
 
 class IDRACNetworkAttributes:
@@ -359,6 +365,17 @@ class IDRACNetworkAttributes:
         self.idrac = idrac
         self.redfish_uri = None
         self.oem_uri = None
+
+    def validate_idrac10_and_above(self):
+        gen_details = self.idrac.get_server_generation
+        hw_model = gen_details[2]
+        return hw_model == 'iDRAC 10'
+
+    def get_job_uri(self):
+        idrac10_or_above = self.validate_idrac10_and_above()
+        if idrac10_or_above:
+            return iDRAC_JOB_URI_10
+        return iDRAC_JOB_URI
 
     def __perform_validation_for_network_adapter_id(self):
         odata = '@odata.id'
@@ -465,11 +482,13 @@ class IDRACNetworkAttributes:
         oem_network_attributes = self.module.params.get(
             'oem_network_attributes')
         network_attributes = self.module.params.get('network_attributes')
-        firm_ver = get_idrac_firmware_version(self.idrac)
+        gen_details = self.idrac.get_server_generation
+        firm_ver, hw_model = gen_details[1], gen_details[2]
+        idrac_9_flag = LooseVersion(firm_ver) >= '6.0' and hw_model == "iDRAC 9"
         if oem_network_attributes:
-            if LooseVersion(firm_ver) >= '6.0':
+            if idrac_9_flag or hw_model == "iDRAC 10":
                 reg = get_dynamic_uri(self.idrac, self.oem_uri, 'Attributes')
-            elif '3.0' < LooseVersion(firm_ver) < '6.0':
+            elif '3.0' < LooseVersion(firm_ver) < '6.0' and hw_model == "iDRAC 9":
                 reg = self.__get_registry_fw_less_than_6_more_than_3()
             else:
                 reg = self.__get_registry_fw_less_than_3()
@@ -536,15 +555,34 @@ class OEMNetworkAttributes(IDRACNetworkAttributes):
     def __init__(self, idrac, module):
         super().__init__(idrac, module)
 
-    def clear_pending(self):
-        firm_ver = get_idrac_firmware_version(self.idrac)
-        oem_network_attributes = self.module.params.get(
-            'oem_network_attributes')
-        if LooseVersion(firm_ver) < '3.0':
+    def check_idrac8(self, firm_ver, hw_model, oem_network_attributes):
+        if LooseVersion(firm_ver) < '3.0' and hw_model == HARDWARE_8:
             if oem_network_attributes:
                 return None
             self.module.exit_json(
                 msg=CLEAR_PENDING_NOT_SUPPORTED_WITHOUT_ATTR_IDRAC8)
+
+    def clear_pending_job_track(self, job_state, job_id, oem_network_attributes, job_resp):
+        if job_id:
+            if job_state in ["Running"]:
+                job_resp = remove_key(job_resp, regex_pattern=ODATA_ID)
+                self.module.exit_json(
+                    failed=True,
+                    msg=JOB_RUNNING_CLEAR_PENDING_ATTR.format('NICConfiguration'),
+                    job_status=job_resp
+                )
+            elif job_state in ["Starting", "Scheduled", "Scheduling"]:
+                if self.module.check_mode and not oem_network_attributes:
+                    self.module.exit_json(msg=CHANGES_FOUND_MSG, changed=True)
+                if not self.module.check_mode:
+                    delete_job(self.idrac, job_id)
+
+    def clear_pending(self):
+        gen_details = self.idrac.get_server_generation
+        firm_ver, hw_model = gen_details[1], gen_details[2]
+        oem_network_attributes = self.module.params.get(
+            'oem_network_attributes')
+        self.check_idrac8(firm_ver, hw_model, oem_network_attributes)
         resp = get_dynamic_uri(self.idrac, self.oem_uri, '@Redfish.Settings')
         settings_uri = resp.get('SettingsObject').get('@odata.id')
         settings_uri_resp = get_dynamic_uri(self.idrac, settings_uri)
@@ -555,16 +593,7 @@ class OEMNetworkAttributes(IDRACNetworkAttributes):
             self.module.exit_json(msg=NO_CHANGES_FOUND_MSG)
         job_resp = get_scheduled_job_resp(self.idrac, 'NICConfiguration')
         job_id, job_state = job_resp.get('Id'), job_resp.get('JobState')
-        if job_id:
-            if job_state in ["Running"]:
-                job_resp = remove_key(job_resp, regex_pattern='(.*?)@odata')
-                self.module.exit_json(failed=True, msg=JOB_RUNNING_CLEAR_PENDING_ATTR.format('NICConfiguration'),
-                                      job_status=job_resp)
-            elif job_state in ["Starting", "Scheduled", "Scheduling"]:
-                if self.module.check_mode and not oem_network_attributes:
-                    self.module.exit_json(msg=CHANGES_FOUND_MSG, changed=True)
-                if not self.module.check_mode:
-                    delete_job(self.idrac, job_id)
+        self.clear_pending_job_track(job_state, job_id, oem_network_attributes, job_resp)
         if self.module.check_mode and not oem_network_attributes:
             self.module.exit_json(msg=CHANGES_FOUND_MSG, changed=True)
         time.sleep(5)
@@ -585,8 +614,9 @@ class OEMNetworkAttributes(IDRACNetworkAttributes):
         apply_time = self.module.params.get('apply_time')
         job_wait = self.module.params.get('job_wait')
         invalid_attr = {}
-        firm_ver = get_idrac_firmware_version(self.idrac)
-        if LooseVersion(firm_ver) < '3.0':
+        gen_details = self.idrac.get_server_generation
+        firm_ver, hw_model = gen_details[1], gen_details[2]
+        if LooseVersion(firm_ver) < '3.0' and hw_model == HARDWARE_8:
             root = """<SystemConfiguration>{0}</SystemConfiguration>"""
             scp_payload = root.format(xml_data_conversion(
                 oem_network_attributes, network_device_function_id))
@@ -633,6 +663,59 @@ class NetworkAttributes(IDRACNetworkAttributes):
         return resp, invalid_attr, job_wait
 
 
+def check_status_on_idrac8(idrac, module, obj, job_dict, msg):
+    gen_details = idrac.get_server_generation
+    firm_ver, hw_model = gen_details[1], gen_details[2]
+    if LooseVersion(firm_ver) < '3.0' and isinstance(obj, OEMNetworkAttributes) and hw_model == HARDWARE_8:
+        message_id = job_dict.get("MessageId")
+        if message_id == "SYS053":
+            module.exit_json(msg=msg, changed=True, job_status=job_dict)
+        elif message_id == "SYS055":
+            module.exit_json(
+                msg=VALID_AND_INVALID_ATTR_MSG, changed=True, job_status=job_dict)
+        elif message_id == "SYS067":
+            module.fail_json(msg=INVALID_ATTR_MSG,
+                             job_status=job_dict)
+        else:
+            module.fail_json(msg=job_dict.get("Message"))
+
+
+def job_tracking_in_diff(idrac, module, obj, job_resp, invalid_attr, job_wait, job_wait_timeout):
+    job_dict = {}
+    if (job_tracking_uri := job_resp.headers.get("Location")):
+        job_id = job_tracking_uri.split("/")[-1]
+        job_uri = obj.get_job_uri().format(job_id=job_id)
+        if job_wait:
+            job_failed, msg, job_dict, wait_time = idrac_redfish_job_tracking(
+                idrac,
+                job_uri,
+                max_job_wait_sec=job_wait_timeout,
+                sleep_interval_secs=1
+            )
+            job_dict = remove_key(job_dict,
+                                  regex_pattern=ODATA_ID)
+            if int(wait_time) >= int(job_wait_timeout):
+                module.exit_json(msg=WAIT_TIMEOUT_MSG.format(
+                    job_wait_timeout), changed=True, job_status=job_dict)
+            if job_failed:
+                module.fail_json(
+                    msg=job_dict.get("Message"), invalid_attributes=invalid_attr, job_status=job_dict)
+        else:
+            job_resp = idrac.invoke_request(job_uri, 'GET')
+            job_dict = job_resp.json_data
+            job_dict = remove_key(job_dict,
+                                  regex_pattern=ODATA_ID)
+    if job_dict.get('JobState') == "Completed":
+        msg = SUCCESS_MSG if not invalid_attr else VALID_AND_INVALID_ATTR_MSG
+        check_status_on_idrac8(idrac, module, obj, job_dict, msg)
+    else:
+        msg = SCHEDULE_MSG
+    module.exit_json(msg=msg,
+                     invalid_attributes=invalid_attr,
+                     job_status=job_dict,
+                     changed=True)
+
+
 def perform_operation_for_main(idrac, module, obj, diff, _invalid_attr):
     job_wait_timeout = module.params.get('job_wait_timeout')
     if diff:
@@ -641,47 +724,11 @@ def perform_operation_for_main(idrac, module, obj, diff, _invalid_attr):
                              invalid_attributes=_invalid_attr)
         else:
             job_resp, invalid_attr, job_wait = obj.perform_operation()
-            job_dict = {}
-            if (job_tracking_uri := job_resp.headers.get("Location")):
-                job_id = job_tracking_uri.split("/")[-1]
-                job_uri = iDRAC_JOB_URI.format(job_id=job_id)
-                if job_wait:
-                    job_failed, msg, job_dict, wait_time = idrac_redfish_job_tracking(idrac, job_uri,
-                                                                                      max_job_wait_sec=job_wait_timeout,
-                                                                                      sleep_interval_secs=1)
-                    job_dict = remove_key(job_dict,
-                                          regex_pattern='(.*?)@odata')
-                    if int(wait_time) >= int(job_wait_timeout):
-                        module.exit_json(msg=WAIT_TIMEOUT_MSG.format(
-                            job_wait_timeout), changed=True, job_status=job_dict)
-                    if job_failed:
-                        module.fail_json(
-                            msg=job_dict.get("Message"), invalid_attributes=invalid_attr, job_status=job_dict)
-                else:
-                    job_resp = idrac.invoke_request(job_uri, 'GET')
-                    job_dict = job_resp.json_data
-                    job_dict = remove_key(job_dict,
-                                          regex_pattern='(.*?)@odata')
-
-            if job_dict.get('JobState') == "Completed":
-                firm_ver = get_idrac_firmware_version(idrac)
-                msg = SUCCESS_MSG if not invalid_attr else VALID_AND_INVALID_ATTR_MSG
-                if LooseVersion(firm_ver) < '3.0' and isinstance(obj, OEMNetworkAttributes):
-                    message_id = job_dict.get("MessageId")
-                    if message_id == "SYS053":
-                        module.exit_json(msg=msg, changed=True, job_status=job_dict)
-                    elif message_id == "SYS055":
-                        module.exit_json(
-                            msg=VALID_AND_INVALID_ATTR_MSG, changed=True, job_status=job_dict)
-                    elif message_id == "SYS067":
-                        module.fail_json(msg=INVALID_ATTR_MSG,
-                                         job_status=job_dict)
-                    else:
-                        module.fail_json(msg=job_dict.get("Message"))
-            else:
-                msg = SCHEDULE_MSG
-            module.exit_json(msg=msg, invalid_attributes=invalid_attr,
-                             job_status=job_dict, changed=True)
+            job_tracking_in_diff(idrac,
+                                 module,
+                                 obj,
+                                 job_resp, invalid_attr, job_wait,
+                                 job_wait_timeout)
     else:
         if module.check_mode:
             module.exit_json(msg=NO_CHANGES_FOUND_MSG,
@@ -732,7 +779,7 @@ def main():
             perform_operation_for_main(idrac,
                                        module, network_attr_obj, diff, invalid_attr)
     except HTTPError as err:
-        filter_err = remove_key(json.load(err), regex_pattern='(.*?)@odata')
+        filter_err = remove_key(json.load(err), regex_pattern=ODATA_ID)
         module.exit_json(msg=str(err), error_info=filter_err, failed=True)
     except URLError as err:
         module.exit_json(msg=str(err), unreachable=True)

@@ -2248,7 +2248,7 @@ class QuantumCircuit:
 
         Remember that in the little-endian convention the leftmost operation will be at the bottom
         of the circuit. See also
-        `the docs <https://docs.quantum.ibm.com/guides/construct-circuits>`__
+        `the docs <https://quantum.cloud.ibm.com/docs/guides/construct-circuits>`__
         for more information.
 
         .. code-block:: text
@@ -3591,7 +3591,7 @@ class QuantumCircuit:
         parameter_map: dict[Parameter, ParameterValueType] | None = None,
         label: str | None = None,
     ) -> Gate:
-        """Create a :class:`.Gate` out of this circuit.  The circuit must act only qubits and
+        """Create a :class:`.Gate` out of this circuit.  The circuit must act only on qubits and
         contain only unitary operations.
 
         .. seealso::

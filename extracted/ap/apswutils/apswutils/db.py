@@ -1,13 +1,13 @@
 # This file is from sqlite-utils and copyright and license is the same as that project
 __all__ = ['Database', 'Queryable', 'Table', 'View']
 
-from .utils import chunks, hash_record, OperationalError, suggest_column_types, types_for_column_types, column_affinity, find_spatialite
+from .utils import chunks, hash_record, suggest_column_types, types_for_column_types, column_affinity, find_spatialite, cursor_row2dict
 from collections import namedtuple
 from collections.abc import Mapping
 from typing import cast, Any, Callable, Dict, Generator, Iterable, Union, Optional, List, Tuple, Iterator
 from functools import cache
 import contextlib, datetime, decimal, inspect, itertools, json, os, pathlib, re, secrets, textwrap, binascii, uuid, logging
-import apsw.ext, apsw.bestpractice
+import apsw, apsw.ext, apsw.bestpractice
 
 logger = logging.getLogger('apsw')
 logger.setLevel(logging.ERROR)
@@ -397,11 +397,16 @@ class Database:
         ).strip()
         self.execute(attach_sql)
 
-    def fetchone(self, sql:str, where_args: Optional[Union[Iterable, dict]] = None):
+    def item(self, sql:str, where_args: Optional[Union[Iterable, dict]] = None):
         """
-        Execute ``sql`` and return a single row result
+        Execute ``sql`` and return a single field from a single row
         """
-        return self.execute(sql, where_args or []).fetchone()[0]
+        row = self.execute(sql, (where_args or [])).fetchall()
+        if len(row)==0: raise NotFoundError
+        elif len(row) > 1: raise ValueError(f"Not unique: {len(row)} results")
+        res = row[0]
+        if len(res) > 1: raise ValueError(f"Too many fields: {len(res)} fields")
+        return res[0]
 
     def query(
         self, sql: str, params: Optional[Union[Iterable, dict]] = None
@@ -414,10 +419,8 @@ class Database:
           parameters, or a dictionary for ``where id = :id``
         """
         cursor = self.execute(sql, tuple(params or tuple()))
-        try: columns = [c[0] for c in cursor.description]
-        except apsw.ExecutionCompleteError: return []
-        for row in cursor:
-            yield dict(zip(columns, row))
+        cursor.row_trace = cursor_row2dict
+        yield from cursor
 
     def execute(
         self, sql: str, parameters: Optional[Union[Iterable, dict]] = None
@@ -684,7 +687,7 @@ class Database:
             sql += " where [table] in ({})".format(", ".join("?" for table in tables))
         try:
             return {r[0]: r[1] for r in self.execute(sql, tables).fetchall()}
-        except OperationalError:
+        except apsw.Error:
             return {}
 
     def reset_counts(self):
@@ -1295,11 +1298,8 @@ class Queryable:
         if offset is not None:
             sql += f" offset {offset}"
         cursor = self.db.execute(sql, where_args or [])
-        # If no records found, return empty list
-        try: columns = [c[0] for c in cursor.description]
-        except apsw.ExecutionCompleteError: return []
-        for row in cursor:
-            yield dict(zip(columns, row))
+        cursor.row_trace = cursor_row2dict
+        yield from cursor
 
     def pks_and_rows_where(
         self,
@@ -2118,7 +2118,7 @@ class Table(Queryable):
             try:
                 self.db.execute(sql)
                 break
-            except OperationalError as e:
+            except apsw.SQLError as e:
                 # find_unique_name=True - try again if 'index ... already exists'
                 arg = e.args[0]
                 if (
@@ -2670,10 +2670,8 @@ class Table(Queryable):
             ),
             args,
         )
-        try: columns = [c[0] for c in cursor.description]
-        except apsw.ExecutionCompleteError: return []        
-        for row in cursor:
-            yield dict(zip(columns, row))
+        cursor.row_trace = cursor_row2dict
+        yield from cursor
 
     def value_or_default(self, key, value):
         return self._defaults[key] if value is DEFAULT else value
@@ -2764,12 +2762,9 @@ class Table(Queryable):
         self.result = []
         try:
             cursor = self.db.execute(sql, args)
-            try: columns = [c[0] for c in cursor.description]
-            except apsw.ExecutionCompleteError: return self
-
-            for row in cursor:
-                self.result.append(dict(zip(columns, row)))
-        except OperationalError as e:
+            cursor.row_trace = cursor_row2dict
+            self.result = list(cursor)
+        except apsw.SQLError as e:
             if alter and (" column" in e.args[0]):
                 # Attempt to add any missing columns, then try again
                 self.add_missing_columns([updates])
@@ -2930,19 +2925,15 @@ class Table(Queryable):
         for query, params in queries_and_params:
             try:
                 cursor = self.db.execute(query, tuple(params))
-                try: columns = [c[0] for c in cursor.description]
-                except apsw.ExecutionCompleteError: continue
-                for row in cursor:
-                    records.append(dict(zip(columns, row)))
-            except OperationalError as e:
+                cursor.row_trace = cursor_row2dict
+                records += list(cursor)
+            except apsw.SQLError as e:
                 if alter and (" column" in e.args[0]):
                     # Attempt to add any missing columns, then try again
                     self.add_missing_columns(chunk)
                     cursor = self.db.execute(query, params)
-                    try: columns = [c[0] for c in cursor.description]
-                    except apsw.ExecutionCompleteError: continue
-                    for row in cursor:
-                        records.append(dict(zip(columns, row)))
+                    cursor.row_trace = cursor_row2dict
+                    records += list(cursor)
                 elif e.args[0] == "too many SQL variables":
                     first_half = chunk[: len(chunk) // 2]
                     second_half = chunk[len(chunk) // 2 :]

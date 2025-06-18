@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-redis
-Version: 5.4.0
+Version: 6.0.0
 Summary: Full featured redis cache backend for Django.
 Home-page: https://github.com/jazzband/django-redis
 Author: Andrei Antoukh
@@ -9,32 +9,32 @@ License: BSD-3-Clause
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: Django>=3.2
-Requires-Dist: redis!=4.0.0,!=4.0.1,>=3
+Requires-Dist: Django>=4.2
+Requires-Dist: redis>=4.0.2
 Provides-Extra: hiredis
-Requires-Dist: redis[hiredis]!=4.0.0,!=4.0.1,>=3; extra == "hiredis"
+Requires-Dist: redis[hiredis]>=4.0.2; extra == "hiredis"
+Dynamic: license-file
 
 ==============================
 Redis cache backend for Django
@@ -84,9 +84,9 @@ Why use django-redis?
 Requirements
 ~~~~~~~~~~~~
 
-- `Python`_ 3.6+
-- `Django`_ 2.2+
-- `redis-py`_ 3.0+
+- `Python`_ 3.9+
+- `Django`_ 4.2+
+- `redis-py`_ 4.0.2+
 - `Redis server`_ 2.8+
 
 .. _Python: https://www.python.org/downloads/
@@ -325,6 +325,21 @@ Let see an example, of how make it work with *lzma* compression format:
             # ...
             "OPTIONS": {
                 "COMPRESSOR": "django_redis.compressors.zstd.ZStdCompressor",
+            }
+        }
+    }
+
+*Gzip* compression support:
+
+.. code-block:: python
+
+    import gzip
+
+    CACHES = {
+        "default": {
+            # ...
+            "OPTIONS": {
+                "COMPRESSOR": "django_redis.compressors.gzip.GzipCompressor",
             }
         }
     }

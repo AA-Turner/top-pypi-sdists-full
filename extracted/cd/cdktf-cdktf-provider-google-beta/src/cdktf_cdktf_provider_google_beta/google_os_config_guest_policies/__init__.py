@@ -1,7 +1,7 @@
 r'''
 # `google_os_config_guest_policies`
 
-Refer to the Terraform Registry for docs: [`google_os_config_guest_policies`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies).
+Refer to the Terraform Registry for docs: [`google_os_config_guest_policies`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleOsConfigGuestPolicies(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleOsConfigGuestPolicies.GoogleOsConfigGuestPolicies",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies google_os_config_guest_policies}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies google_os_config_guest_policies}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleOsConfigGuestPolicies(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies google_os_config_guest_policies} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies google_os_config_guest_policies} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param assignment: assignment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#assignment GoogleOsConfigGuestPolicies#assignment}
-        :param guest_policy_id: The logical name of the guest policy in the project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#guest_policy_id GoogleOsConfigGuestPolicies#guest_policy_id}
-        :param description: Description of the guest policy. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#description GoogleOsConfigGuestPolicies#description}
-        :param etag: The etag for this guest policy. If this is provided on update, it must match the server's etag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#etag GoogleOsConfigGuestPolicies#etag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param package_repositories: package_repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#package_repositories GoogleOsConfigGuestPolicies#package_repositories}
-        :param packages: packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#packages GoogleOsConfigGuestPolicies#packages}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#project GoogleOsConfigGuestPolicies#project}.
-        :param recipes: recipes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#recipes GoogleOsConfigGuestPolicies#recipes}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#timeouts GoogleOsConfigGuestPolicies#timeouts}
+        :param assignment: assignment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#assignment GoogleOsConfigGuestPolicies#assignment}
+        :param guest_policy_id: The logical name of the guest policy in the project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#guest_policy_id GoogleOsConfigGuestPolicies#guest_policy_id}
+        :param description: Description of the guest policy. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#description GoogleOsConfigGuestPolicies#description}
+        :param etag: The etag for this guest policy. If this is provided on update, it must match the server's etag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#etag GoogleOsConfigGuestPolicies#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param package_repositories: package_repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#package_repositories GoogleOsConfigGuestPolicies#package_repositories}
+        :param packages: packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#packages GoogleOsConfigGuestPolicies#packages}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#project GoogleOsConfigGuestPolicies#project}.
+        :param recipes: recipes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#recipes GoogleOsConfigGuestPolicies#recipes}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#timeouts GoogleOsConfigGuestPolicies#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleOsConfigGuestPolicies(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleOsConfigGuestPolicies to import.
-        :param import_from_id: The id of the existing GoogleOsConfigGuestPolicies that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleOsConfigGuestPolicies that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleOsConfigGuestPolicies to import is found.
         '''
         if __debug__:
@@ -152,11 +152,11 @@ class GoogleOsConfigGuestPolicies(
         zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#group_labels GoogleOsConfigGuestPolicies#group_labels}
-        :param instance_name_prefixes: Targets VM instances whose name starts with one of these prefixes. Like labels, this is another way to group VM instances when targeting configs, for example prefix="prod-". Only supported for project-level policies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#instance_name_prefixes GoogleOsConfigGuestPolicies#instance_name_prefixes}
-        :param instances: Targets any of the instances specified. Instances are specified by their URI in the form zones/[ZONE]/instances/[INSTANCE_NAME]. Instance targeting is uncommon and is supported to facilitate the management of changes by the instance or to target specific VM instances for development and testing. Only supported for project-level policies and must reference instances within this project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#instances GoogleOsConfigGuestPolicies#instances}
-        :param os_types: os_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_types GoogleOsConfigGuestPolicies#os_types}
-        :param zones: Targets instances in any of these zones. Leave empty to target instances in any zone. Zonal targeting is uncommon and is supported to facilitate the management of changes by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#zones GoogleOsConfigGuestPolicies#zones}
+        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#group_labels GoogleOsConfigGuestPolicies#group_labels}
+        :param instance_name_prefixes: Targets VM instances whose name starts with one of these prefixes. Like labels, this is another way to group VM instances when targeting configs, for example prefix="prod-". Only supported for project-level policies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#instance_name_prefixes GoogleOsConfigGuestPolicies#instance_name_prefixes}
+        :param instances: Targets any of the instances specified. Instances are specified by their URI in the form zones/[ZONE]/instances/[INSTANCE_NAME]. Instance targeting is uncommon and is supported to facilitate the management of changes by the instance or to target specific VM instances for development and testing. Only supported for project-level policies and must reference instances within this project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#instances GoogleOsConfigGuestPolicies#instances}
+        :param os_types: os_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_types GoogleOsConfigGuestPolicies#os_types}
+        :param zones: Targets instances in any of these zones. Leave empty to target instances in any zone. Zonal targeting is uncommon and is supported to facilitate the management of changes by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#zones GoogleOsConfigGuestPolicies#zones}
         '''
         value = GoogleOsConfigGuestPoliciesAssignment(
             group_labels=group_labels,
@@ -216,9 +216,9 @@ class GoogleOsConfigGuestPolicies(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#create GoogleOsConfigGuestPolicies#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#delete GoogleOsConfigGuestPolicies#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#update GoogleOsConfigGuestPolicies#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#create GoogleOsConfigGuestPolicies#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#delete GoogleOsConfigGuestPolicies#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#update GoogleOsConfigGuestPolicies#update}.
         '''
         value = GoogleOsConfigGuestPoliciesTimeouts(
             create=create, delete=delete, update=update
@@ -456,11 +456,11 @@ class GoogleOsConfigGuestPoliciesAssignment:
         zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#group_labels GoogleOsConfigGuestPolicies#group_labels}
-        :param instance_name_prefixes: Targets VM instances whose name starts with one of these prefixes. Like labels, this is another way to group VM instances when targeting configs, for example prefix="prod-". Only supported for project-level policies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#instance_name_prefixes GoogleOsConfigGuestPolicies#instance_name_prefixes}
-        :param instances: Targets any of the instances specified. Instances are specified by their URI in the form zones/[ZONE]/instances/[INSTANCE_NAME]. Instance targeting is uncommon and is supported to facilitate the management of changes by the instance or to target specific VM instances for development and testing. Only supported for project-level policies and must reference instances within this project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#instances GoogleOsConfigGuestPolicies#instances}
-        :param os_types: os_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_types GoogleOsConfigGuestPolicies#os_types}
-        :param zones: Targets instances in any of these zones. Leave empty to target instances in any zone. Zonal targeting is uncommon and is supported to facilitate the management of changes by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#zones GoogleOsConfigGuestPolicies#zones}
+        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#group_labels GoogleOsConfigGuestPolicies#group_labels}
+        :param instance_name_prefixes: Targets VM instances whose name starts with one of these prefixes. Like labels, this is another way to group VM instances when targeting configs, for example prefix="prod-". Only supported for project-level policies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#instance_name_prefixes GoogleOsConfigGuestPolicies#instance_name_prefixes}
+        :param instances: Targets any of the instances specified. Instances are specified by their URI in the form zones/[ZONE]/instances/[INSTANCE_NAME]. Instance targeting is uncommon and is supported to facilitate the management of changes by the instance or to target specific VM instances for development and testing. Only supported for project-level policies and must reference instances within this project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#instances GoogleOsConfigGuestPolicies#instances}
+        :param os_types: os_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_types GoogleOsConfigGuestPolicies#os_types}
+        :param zones: Targets instances in any of these zones. Leave empty to target instances in any zone. Zonal targeting is uncommon and is supported to facilitate the management of changes by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#zones GoogleOsConfigGuestPolicies#zones}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e1f1985c3d6b021c0c3c3af8d4708cf37be1adf2d1a9619e02118c27621b3b1)
@@ -487,7 +487,7 @@ class GoogleOsConfigGuestPoliciesAssignment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesAssignmentGroupLabels"]]]:
         '''group_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#group_labels GoogleOsConfigGuestPolicies#group_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#group_labels GoogleOsConfigGuestPolicies#group_labels}
         '''
         result = self._values.get("group_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesAssignmentGroupLabels"]]], result)
@@ -500,7 +500,7 @@ class GoogleOsConfigGuestPoliciesAssignment:
         for example prefix="prod-".
         Only supported for project-level policies.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#instance_name_prefixes GoogleOsConfigGuestPolicies#instance_name_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#instance_name_prefixes GoogleOsConfigGuestPolicies#instance_name_prefixes}
         '''
         result = self._values.get("instance_name_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -515,7 +515,7 @@ class GoogleOsConfigGuestPoliciesAssignment:
         by the instance or to target specific VM instances for development and testing.
         Only supported for project-level policies and must reference instances within this project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#instances GoogleOsConfigGuestPolicies#instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#instances GoogleOsConfigGuestPolicies#instances}
         '''
         result = self._values.get("instances")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -526,7 +526,7 @@ class GoogleOsConfigGuestPoliciesAssignment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesAssignmentOsTypes"]]]:
         '''os_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_types GoogleOsConfigGuestPolicies#os_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_types GoogleOsConfigGuestPolicies#os_types}
         '''
         result = self._values.get("os_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesAssignmentOsTypes"]]], result)
@@ -538,7 +538,7 @@ class GoogleOsConfigGuestPoliciesAssignment:
         Leave empty to target instances in any zone.
         Zonal targeting is uncommon and is supported to facilitate the management of changes by zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#zones GoogleOsConfigGuestPolicies#zones}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#zones GoogleOsConfigGuestPolicies#zones}
         '''
         result = self._values.get("zones")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -563,7 +563,7 @@ class GoogleOsConfigGuestPoliciesAssignment:
 class GoogleOsConfigGuestPoliciesAssignmentGroupLabels:
     def __init__(self, *, labels: typing.Mapping[builtins.str, builtins.str]) -> None:
         '''
-        :param labels: Google Compute Engine instance labels that must be present for an instance to be included in this assignment group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#labels GoogleOsConfigGuestPolicies#labels}
+        :param labels: Google Compute Engine instance labels that must be present for an instance to be included in this assignment group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#labels GoogleOsConfigGuestPolicies#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ce28a2a09ebf824c0ee3e5faf2a12611e2ffa18103853fc104d59c6be060ea6)
@@ -576,7 +576,7 @@ class GoogleOsConfigGuestPoliciesAssignmentGroupLabels:
     def labels(self) -> typing.Mapping[builtins.str, builtins.str]:
         '''Google Compute Engine instance labels that must be present for an instance to be included in this assignment group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#labels GoogleOsConfigGuestPolicies#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#labels GoogleOsConfigGuestPolicies#labels}
         '''
         result = self._values.get("labels")
         assert result is not None, "Required property 'labels' is missing"
@@ -768,9 +768,9 @@ class GoogleOsConfigGuestPoliciesAssignmentOsTypes:
         os_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param os_architecture: Targets VM instances with OS Inventory enabled and having the following OS architecture. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_architecture GoogleOsConfigGuestPolicies#os_architecture}
-        :param os_short_name: Targets VM instances with OS Inventory enabled and having the following OS short name, for example "debian" or "windows". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_short_name GoogleOsConfigGuestPolicies#os_short_name}
-        :param os_version: Targets VM instances with OS Inventory enabled and having the following following OS version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_version GoogleOsConfigGuestPolicies#os_version}
+        :param os_architecture: Targets VM instances with OS Inventory enabled and having the following OS architecture. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_architecture GoogleOsConfigGuestPolicies#os_architecture}
+        :param os_short_name: Targets VM instances with OS Inventory enabled and having the following OS short name, for example "debian" or "windows". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_short_name GoogleOsConfigGuestPolicies#os_short_name}
+        :param os_version: Targets VM instances with OS Inventory enabled and having the following following OS version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_version GoogleOsConfigGuestPolicies#os_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdb9662bc74c188498f24081a32f554e54897c8b226303830b5d930fca991a2e)
@@ -789,7 +789,7 @@ class GoogleOsConfigGuestPoliciesAssignmentOsTypes:
     def os_architecture(self) -> typing.Optional[builtins.str]:
         '''Targets VM instances with OS Inventory enabled and having the following OS architecture.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_architecture GoogleOsConfigGuestPolicies#os_architecture}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_architecture GoogleOsConfigGuestPolicies#os_architecture}
         '''
         result = self._values.get("os_architecture")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -798,7 +798,7 @@ class GoogleOsConfigGuestPoliciesAssignmentOsTypes:
     def os_short_name(self) -> typing.Optional[builtins.str]:
         '''Targets VM instances with OS Inventory enabled and having the following OS short name, for example "debian" or "windows".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_short_name GoogleOsConfigGuestPolicies#os_short_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_short_name GoogleOsConfigGuestPolicies#os_short_name}
         '''
         result = self._values.get("os_short_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -807,7 +807,7 @@ class GoogleOsConfigGuestPoliciesAssignmentOsTypes:
     def os_version(self) -> typing.Optional[builtins.str]:
         '''Targets VM instances with OS Inventory enabled and having the following following OS version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#os_version GoogleOsConfigGuestPolicies#os_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#os_version GoogleOsConfigGuestPolicies#os_version}
         '''
         result = self._values.get("os_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1236,16 +1236,16 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param assignment: assignment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#assignment GoogleOsConfigGuestPolicies#assignment}
-        :param guest_policy_id: The logical name of the guest policy in the project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#guest_policy_id GoogleOsConfigGuestPolicies#guest_policy_id}
-        :param description: Description of the guest policy. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#description GoogleOsConfigGuestPolicies#description}
-        :param etag: The etag for this guest policy. If this is provided on update, it must match the server's etag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#etag GoogleOsConfigGuestPolicies#etag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param package_repositories: package_repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#package_repositories GoogleOsConfigGuestPolicies#package_repositories}
-        :param packages: packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#packages GoogleOsConfigGuestPolicies#packages}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#project GoogleOsConfigGuestPolicies#project}.
-        :param recipes: recipes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#recipes GoogleOsConfigGuestPolicies#recipes}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#timeouts GoogleOsConfigGuestPolicies#timeouts}
+        :param assignment: assignment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#assignment GoogleOsConfigGuestPolicies#assignment}
+        :param guest_policy_id: The logical name of the guest policy in the project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#guest_policy_id GoogleOsConfigGuestPolicies#guest_policy_id}
+        :param description: Description of the guest policy. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#description GoogleOsConfigGuestPolicies#description}
+        :param etag: The etag for this guest policy. If this is provided on update, it must match the server's etag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#etag GoogleOsConfigGuestPolicies#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param package_repositories: package_repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#package_repositories GoogleOsConfigGuestPolicies#package_repositories}
+        :param packages: packages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#packages GoogleOsConfigGuestPolicies#packages}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#project GoogleOsConfigGuestPolicies#project}.
+        :param recipes: recipes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#recipes GoogleOsConfigGuestPolicies#recipes}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#timeouts GoogleOsConfigGuestPolicies#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1375,7 +1375,7 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def assignment(self) -> GoogleOsConfigGuestPoliciesAssignment:
         '''assignment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#assignment GoogleOsConfigGuestPolicies#assignment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#assignment GoogleOsConfigGuestPolicies#assignment}
         '''
         result = self._values.get("assignment")
         assert result is not None, "Required property 'assignment' is missing"
@@ -1390,7 +1390,7 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - Must end with a number or a letter.
         - Must be unique within the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#guest_policy_id GoogleOsConfigGuestPolicies#guest_policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#guest_policy_id GoogleOsConfigGuestPolicies#guest_policy_id}
         '''
         result = self._values.get("guest_policy_id")
         assert result is not None, "Required property 'guest_policy_id' is missing"
@@ -1400,7 +1400,7 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the guest policy. Length of the description is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#description GoogleOsConfigGuestPolicies#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#description GoogleOsConfigGuestPolicies#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1409,14 +1409,14 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def etag(self) -> typing.Optional[builtins.str]:
         '''The etag for this guest policy. If this is provided on update, it must match the server's etag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#etag GoogleOsConfigGuestPolicies#etag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#etag GoogleOsConfigGuestPolicies#etag}
         '''
         result = self._values.get("etag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1430,7 +1430,7 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesPackageRepositories"]]]:
         '''package_repositories block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#package_repositories GoogleOsConfigGuestPolicies#package_repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#package_repositories GoogleOsConfigGuestPolicies#package_repositories}
         '''
         result = self._values.get("package_repositories")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesPackageRepositories"]]], result)
@@ -1441,14 +1441,14 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesPackages"]]]:
         '''packages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#packages GoogleOsConfigGuestPolicies#packages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#packages GoogleOsConfigGuestPolicies#packages}
         '''
         result = self._values.get("packages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesPackages"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#project GoogleOsConfigGuestPolicies#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#project GoogleOsConfigGuestPolicies#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1458,7 +1458,7 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipes"]]]:
         '''recipes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#recipes GoogleOsConfigGuestPolicies#recipes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#recipes GoogleOsConfigGuestPolicies#recipes}
         '''
         result = self._values.get("recipes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipes"]]], result)
@@ -1467,7 +1467,7 @@ class GoogleOsConfigGuestPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleOsConfigGuestPoliciesTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#timeouts GoogleOsConfigGuestPolicies#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#timeouts GoogleOsConfigGuestPolicies#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesTimeouts"], result)
@@ -1499,10 +1499,10 @@ class GoogleOsConfigGuestPoliciesPackageRepositories:
         zypper: typing.Optional[typing.Union["GoogleOsConfigGuestPoliciesPackageRepositoriesZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#apt GoogleOsConfigGuestPolicies#apt}
-        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#goo GoogleOsConfigGuestPolicies#goo}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#yum GoogleOsConfigGuestPolicies#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#zypper GoogleOsConfigGuestPolicies#zypper}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#apt GoogleOsConfigGuestPolicies#apt}
+        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#goo GoogleOsConfigGuestPolicies#goo}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#yum GoogleOsConfigGuestPolicies#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#zypper GoogleOsConfigGuestPolicies#zypper}
         '''
         if isinstance(apt, dict):
             apt = GoogleOsConfigGuestPoliciesPackageRepositoriesApt(**apt)
@@ -1534,7 +1534,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositories:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesApt"]:
         '''apt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#apt GoogleOsConfigGuestPolicies#apt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#apt GoogleOsConfigGuestPolicies#apt}
         '''
         result = self._values.get("apt")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesApt"], result)
@@ -1545,7 +1545,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositories:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesGoo"]:
         '''goo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#goo GoogleOsConfigGuestPolicies#goo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#goo GoogleOsConfigGuestPolicies#goo}
         '''
         result = self._values.get("goo")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesGoo"], result)
@@ -1556,7 +1556,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositories:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesYum"]:
         '''yum block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#yum GoogleOsConfigGuestPolicies#yum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#yum GoogleOsConfigGuestPolicies#yum}
         '''
         result = self._values.get("yum")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesYum"], result)
@@ -1567,7 +1567,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositories:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesZypper"]:
         '''zypper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#zypper GoogleOsConfigGuestPolicies#zypper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#zypper GoogleOsConfigGuestPolicies#zypper}
         '''
         result = self._values.get("zypper")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesPackageRepositoriesZypper"], result)
@@ -1606,11 +1606,11 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesApt:
         gpg_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#components GoogleOsConfigGuestPolicies#components}
-        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#distribution GoogleOsConfigGuestPolicies#distribution}
-        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
-        :param archive_type: Type of archive files in this repository. The default behavior is DEB. Default value: "DEB" Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#archive_type GoogleOsConfigGuestPolicies#archive_type}
-        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at /etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg containing all the keys in any applied guest policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_key GoogleOsConfigGuestPolicies#gpg_key}
+        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#components GoogleOsConfigGuestPolicies#components}
+        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#distribution GoogleOsConfigGuestPolicies#distribution}
+        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
+        :param archive_type: Type of archive files in this repository. The default behavior is DEB. Default value: "DEB" Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#archive_type GoogleOsConfigGuestPolicies#archive_type}
+        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at /etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg containing all the keys in any applied guest policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_key GoogleOsConfigGuestPolicies#gpg_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__531629a71ac016afd4b841f4a2200725d78dbb4c71a5354071710945d91e4ad1)
@@ -1633,7 +1633,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesApt:
     def components(self) -> typing.List[builtins.str]:
         '''List of components for this repository. Must contain at least one item.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#components GoogleOsConfigGuestPolicies#components}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#components GoogleOsConfigGuestPolicies#components}
         '''
         result = self._values.get("components")
         assert result is not None, "Required property 'components' is missing"
@@ -1643,7 +1643,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesApt:
     def distribution(self) -> builtins.str:
         '''Distribution of this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#distribution GoogleOsConfigGuestPolicies#distribution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#distribution GoogleOsConfigGuestPolicies#distribution}
         '''
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
@@ -1653,7 +1653,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesApt:
     def uri(self) -> builtins.str:
         '''URI for this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1663,7 +1663,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesApt:
     def archive_type(self) -> typing.Optional[builtins.str]:
         '''Type of archive files in this repository. The default behavior is DEB. Default value: "DEB" Possible values: ["DEB", "DEB_SRC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#archive_type GoogleOsConfigGuestPolicies#archive_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#archive_type GoogleOsConfigGuestPolicies#archive_type}
         '''
         result = self._values.get("archive_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1675,7 +1675,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesApt:
         The agent maintains a keyring at
         /etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg containing all the keys in any applied guest policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_key GoogleOsConfigGuestPolicies#gpg_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_key GoogleOsConfigGuestPolicies#gpg_key}
         '''
         result = self._values.get("gpg_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1831,8 +1831,8 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesAptOutputReference(
 class GoogleOsConfigGuestPoliciesPackageRepositoriesGoo:
     def __init__(self, *, name: builtins.str, url: builtins.str) -> None:
         '''
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
-        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#url GoogleOsConfigGuestPolicies#url}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
+        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#url GoogleOsConfigGuestPolicies#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3070d00cb5bcf5d8ef357d89c3010ef9c012292e58680a56ca5b44e8cdd5c699)
@@ -1847,7 +1847,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesGoo:
     def name(self) -> builtins.str:
         '''The name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1857,7 +1857,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesGoo:
     def url(self) -> builtins.str:
         '''The url of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#url GoogleOsConfigGuestPolicies#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#url GoogleOsConfigGuestPolicies#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -2077,11 +2077,11 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesOutputReference(
         gpg_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#components GoogleOsConfigGuestPolicies#components}
-        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#distribution GoogleOsConfigGuestPolicies#distribution}
-        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
-        :param archive_type: Type of archive files in this repository. The default behavior is DEB. Default value: "DEB" Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#archive_type GoogleOsConfigGuestPolicies#archive_type}
-        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at /etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg containing all the keys in any applied guest policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_key GoogleOsConfigGuestPolicies#gpg_key}
+        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#components GoogleOsConfigGuestPolicies#components}
+        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#distribution GoogleOsConfigGuestPolicies#distribution}
+        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
+        :param archive_type: Type of archive files in this repository. The default behavior is DEB. Default value: "DEB" Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#archive_type GoogleOsConfigGuestPolicies#archive_type}
+        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at /etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg containing all the keys in any applied guest policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_key GoogleOsConfigGuestPolicies#gpg_key}
         '''
         value = GoogleOsConfigGuestPoliciesPackageRepositoriesApt(
             components=components,
@@ -2096,8 +2096,8 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesOutputReference(
     @jsii.member(jsii_name="putGoo")
     def put_goo(self, *, name: builtins.str, url: builtins.str) -> None:
         '''
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
-        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#url GoogleOsConfigGuestPolicies#url}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
+        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#url GoogleOsConfigGuestPolicies#url}
         '''
         value = GoogleOsConfigGuestPoliciesPackageRepositoriesGoo(name=name, url=url)
 
@@ -2113,10 +2113,10 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesOutputReference(
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
-        :param id: A one word, unique name for this repository. This is the repo id in the Yum config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
+        :param id: A one word, unique name for this repository. This is the repo id in the Yum config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
         '''
         value = GoogleOsConfigGuestPoliciesPackageRepositoriesYum(
             base_url=base_url, id=id, display_name=display_name, gpg_keys=gpg_keys
@@ -2134,10 +2134,10 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesOutputReference(
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
-        :param id: A one word, unique name for this repository. This is the repo id in the zypper config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
+        :param id: A one word, unique name for this repository. This is the repo id in the zypper config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
         '''
         value = GoogleOsConfigGuestPoliciesPackageRepositoriesZypper(
             base_url=base_url, id=id, display_name=display_name, gpg_keys=gpg_keys
@@ -2249,10 +2249,10 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesYum:
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
-        :param id: A one word, unique name for this repository. This is the repo id in the Yum config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
+        :param id: A one word, unique name for this repository. This is the repo id in the Yum config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c8690ef411d08e20c6d06c2312fa68a77a384f2f90f747eea0e1d43c33441a0)
@@ -2273,7 +2273,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesYum:
     def base_url(self) -> builtins.str:
         '''The location of the repository directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
         '''
         result = self._values.get("base_url")
         assert result is not None, "Required property 'base_url' is missing"
@@ -2286,7 +2286,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesYum:
         This is the repo id in the Yum config file and also the displayName
         if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2299,7 +2299,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesYum:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2308,7 +2308,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesYum:
     def gpg_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''URIs of GPG keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
         '''
         result = self._values.get("gpg_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2459,10 +2459,10 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesZypper:
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
-        :param id: A one word, unique name for this repository. This is the repo id in the zypper config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
+        :param id: A one word, unique name for this repository. This is the repo id in the zypper config file and also the displayName if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb6e5d715d2a9fb500e7481e36da1affaa6bd76d1c6e3459f1e81826574a0933)
@@ -2483,7 +2483,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesZypper:
     def base_url(self) -> builtins.str:
         '''The location of the repository directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#base_url GoogleOsConfigGuestPolicies#base_url}
         '''
         result = self._values.get("base_url")
         assert result is not None, "Required property 'base_url' is missing"
@@ -2496,7 +2496,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesZypper:
         This is the repo id in the zypper config file and also the displayName
         if displayName is omitted. This id is also used as the unique identifier when checking for guest policy conflicts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2509,7 +2509,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesZypper:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#display_name GoogleOsConfigGuestPolicies#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2518,7 +2518,7 @@ class GoogleOsConfigGuestPoliciesPackageRepositoriesZypper:
     def gpg_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''URIs of GPG keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gpg_keys GoogleOsConfigGuestPolicies#gpg_keys}
         '''
         result = self._values.get("gpg_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2667,9 +2667,9 @@ class GoogleOsConfigGuestPoliciesPackages:
         manager: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the package. A package is uniquely identified for conflict validation by checking the package name and the manager(s) that the package targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
-        :param desired_state: The desiredState the agent should maintain for this package. The default is to ensure the package is installed. Possible values: ["INSTALLED", "UPDATED", "REMOVED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
-        :param manager: Type of package manager that can be used to install this package. If a system does not have the package manager, the package is not installed or removed no error message is returned. By default, or if you specify ANY, the agent attempts to install and remove this package using the default package manager. This is useful when creating a policy that applies to different types of systems. The default behavior is ANY. Default value: "ANY" Possible values: ["ANY", "APT", "YUM", "ZYPPER", "GOO"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#manager GoogleOsConfigGuestPolicies#manager}
+        :param name: The name of the package. A package is uniquely identified for conflict validation by checking the package name and the manager(s) that the package targets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
+        :param desired_state: The desiredState the agent should maintain for this package. The default is to ensure the package is installed. Possible values: ["INSTALLED", "UPDATED", "REMOVED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
+        :param manager: Type of package manager that can be used to install this package. If a system does not have the package manager, the package is not installed or removed no error message is returned. By default, or if you specify ANY, the agent attempts to install and remove this package using the default package manager. This is useful when creating a policy that applies to different types of systems. The default behavior is ANY. Default value: "ANY" Possible values: ["ANY", "APT", "YUM", "ZYPPER", "GOO"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#manager GoogleOsConfigGuestPolicies#manager}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4c1eabfc420c9e6b8c855e2a08cc88f82f34bbbd34594fb687b1ef79dff7f9a)
@@ -2691,7 +2691,7 @@ class GoogleOsConfigGuestPoliciesPackages:
         A package is uniquely identified for conflict validation
         by checking the package name and the manager(s) that the package targets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2703,7 +2703,7 @@ class GoogleOsConfigGuestPoliciesPackages:
 
         The default is to ensure the package is installed. Possible values: ["INSTALLED", "UPDATED", "REMOVED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
         '''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2718,7 +2718,7 @@ class GoogleOsConfigGuestPoliciesPackages:
         This is useful when creating a policy that applies to different types of systems.
         The default behavior is ANY. Default value: "ANY" Possible values: ["ANY", "APT", "YUM", "ZYPPER", "GOO"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#manager GoogleOsConfigGuestPolicies#manager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#manager GoogleOsConfigGuestPolicies#manager}
         '''
         result = self._values.get("manager")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2955,12 +2955,12 @@ class GoogleOsConfigGuestPoliciesRecipes:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Unique identifier for the recipe. Only one recipe with a given name is installed on an instance. Names are also used to identify resources which helps to determine whether guest policies have conflicts. This means that requests to create multiple recipes with the same name and version are rejected since they could potentially have conflicting assignments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
-        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifacts GoogleOsConfigGuestPolicies#artifacts}
-        :param desired_state: Default is INSTALLED. The desired state the agent should maintain for this recipe. INSTALLED: The software recipe is installed on the instance but won't be updated to new versions. INSTALLED_KEEP_UPDATED: The software recipe is installed on the instance. The recipe is updated to a higher version, if a higher version of the recipe is assigned to this instance. REMOVE: Remove is unsupported for software recipes and attempts to create or update a recipe to the REMOVE state is rejected. Default value: "INSTALLED" Possible values: ["INSTALLED", "UPDATED", "REMOVED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
-        :param install_steps: install_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#install_steps GoogleOsConfigGuestPolicies#install_steps}
-        :param update_steps: update_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#update_steps GoogleOsConfigGuestPolicies#update_steps}
-        :param version: The version of this software recipe. Version can be up to 4 period separated numbers (e.g. 12.34.56.78). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#version GoogleOsConfigGuestPolicies#version}
+        :param name: Unique identifier for the recipe. Only one recipe with a given name is installed on an instance. Names are also used to identify resources which helps to determine whether guest policies have conflicts. This means that requests to create multiple recipes with the same name and version are rejected since they could potentially have conflicting assignments. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
+        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifacts GoogleOsConfigGuestPolicies#artifacts}
+        :param desired_state: Default is INSTALLED. The desired state the agent should maintain for this recipe. INSTALLED: The software recipe is installed on the instance but won't be updated to new versions. INSTALLED_KEEP_UPDATED: The software recipe is installed on the instance. The recipe is updated to a higher version, if a higher version of the recipe is assigned to this instance. REMOVE: Remove is unsupported for software recipes and attempts to create or update a recipe to the REMOVE state is rejected. Default value: "INSTALLED" Possible values: ["INSTALLED", "UPDATED", "REMOVED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
+        :param install_steps: install_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#install_steps GoogleOsConfigGuestPolicies#install_steps}
+        :param update_steps: update_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#update_steps GoogleOsConfigGuestPolicies#update_steps}
+        :param version: The version of this software recipe. Version can be up to 4 period separated numbers (e.g. 12.34.56.78). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#version GoogleOsConfigGuestPolicies#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ebf98f6b27dd77119a0053775a1c1e724fa5b1e073fd94e75d85c0b4e7b9be3)
@@ -2993,7 +2993,7 @@ class GoogleOsConfigGuestPoliciesRecipes:
         This means that requests to create multiple recipes with the same name and version are rejected since they
         could potentially have conflicting assignments.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#name GoogleOsConfigGuestPolicies#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3005,7 +3005,7 @@ class GoogleOsConfigGuestPoliciesRecipes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipesArtifacts"]]]:
         '''artifacts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifacts GoogleOsConfigGuestPolicies#artifacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifacts GoogleOsConfigGuestPolicies#artifacts}
         '''
         result = self._values.get("artifacts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipesArtifacts"]]], result)
@@ -3019,7 +3019,7 @@ class GoogleOsConfigGuestPoliciesRecipes:
         if a higher version of the recipe is assigned to this instance.
         REMOVE: Remove is unsupported for software recipes and attempts to create or update a recipe to the REMOVE state is rejected. Default value: "INSTALLED" Possible values: ["INSTALLED", "UPDATED", "REMOVED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#desired_state GoogleOsConfigGuestPolicies#desired_state}
         '''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3030,7 +3030,7 @@ class GoogleOsConfigGuestPoliciesRecipes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipesInstallSteps"]]]:
         '''install_steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#install_steps GoogleOsConfigGuestPolicies#install_steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#install_steps GoogleOsConfigGuestPolicies#install_steps}
         '''
         result = self._values.get("install_steps")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipesInstallSteps"]]], result)
@@ -3041,7 +3041,7 @@ class GoogleOsConfigGuestPoliciesRecipes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipesUpdateSteps"]]]:
         '''update_steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#update_steps GoogleOsConfigGuestPolicies#update_steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#update_steps GoogleOsConfigGuestPolicies#update_steps}
         '''
         result = self._values.get("update_steps")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleOsConfigGuestPoliciesRecipesUpdateSteps"]]], result)
@@ -3050,7 +3050,7 @@ class GoogleOsConfigGuestPoliciesRecipes:
     def version(self) -> typing.Optional[builtins.str]:
         '''The version of this software recipe. Version can be up to 4 period separated numbers (e.g. 12.34.56.78).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#version GoogleOsConfigGuestPolicies#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#version GoogleOsConfigGuestPolicies#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3087,10 +3087,10 @@ class GoogleOsConfigGuestPoliciesRecipesArtifacts:
         remote: typing.Optional[typing.Union["GoogleOsConfigGuestPoliciesRecipesArtifactsRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: Id of the artifact, which the installation and update steps of this recipe can reference. Artifacts in a recipe cannot have the same id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param allow_insecure: Defaults to false. When false, recipes are subject to validations based on the artifact type: Remote: A checksum must be specified, and only protocols with transport-layer security are permitted. GCS: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allow_insecure GoogleOsConfigGuestPolicies#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gcs GoogleOsConfigGuestPolicies#gcs}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#remote GoogleOsConfigGuestPolicies#remote}
+        :param id: Id of the artifact, which the installation and update steps of this recipe can reference. Artifacts in a recipe cannot have the same id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param allow_insecure: Defaults to false. When false, recipes are subject to validations based on the artifact type: Remote: A checksum must be specified, and only protocols with transport-layer security are permitted. GCS: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allow_insecure GoogleOsConfigGuestPolicies#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gcs GoogleOsConfigGuestPolicies#gcs}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#remote GoogleOsConfigGuestPolicies#remote}
         '''
         if isinstance(gcs, dict):
             gcs = GoogleOsConfigGuestPoliciesRecipesArtifactsGcs(**gcs)
@@ -3118,7 +3118,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifacts:
 
         Artifacts in a recipe cannot have the same id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#id GoogleOsConfigGuestPolicies#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3137,7 +3137,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifacts:
         Remote: A checksum must be specified, and only protocols with transport-layer security are permitted.
         GCS: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allow_insecure GoogleOsConfigGuestPolicies#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allow_insecure GoogleOsConfigGuestPolicies#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3146,7 +3146,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifacts:
     def gcs(self) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesArtifactsGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#gcs GoogleOsConfigGuestPolicies#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#gcs GoogleOsConfigGuestPolicies#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesArtifactsGcs"], result)
@@ -3157,7 +3157,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifacts:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesArtifactsRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#remote GoogleOsConfigGuestPolicies#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#remote GoogleOsConfigGuestPolicies#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesArtifactsRemote"], result)
@@ -3188,9 +3188,9 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsGcs:
         object: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be my-bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#bucket GoogleOsConfigGuestPolicies#bucket}
-        :param generation: Must be provided if allowInsecure is false. Generation number of the Google Cloud Storage object. https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be 1234567. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#generation GoogleOsConfigGuestPolicies#generation}
-        :param object: Name of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be foo/bar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#object GoogleOsConfigGuestPolicies#object}
+        :param bucket: Bucket of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be my-bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#bucket GoogleOsConfigGuestPolicies#bucket}
+        :param generation: Must be provided if allowInsecure is false. Generation number of the Google Cloud Storage object. https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be 1234567. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#generation GoogleOsConfigGuestPolicies#generation}
+        :param object: Name of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be foo/bar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#object GoogleOsConfigGuestPolicies#object}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bed4582fae3dd7d501b6927867166df6d8f4acb738a87d037e2bbcb38063f02a)
@@ -3209,7 +3209,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsGcs:
     def bucket(self) -> typing.Optional[builtins.str]:
         '''Bucket of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be my-bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#bucket GoogleOsConfigGuestPolicies#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#bucket GoogleOsConfigGuestPolicies#bucket}
         '''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3221,7 +3221,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsGcs:
         Generation number of the Google Cloud Storage object.
         https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be 1234567.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#generation GoogleOsConfigGuestPolicies#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#generation GoogleOsConfigGuestPolicies#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3230,7 +3230,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsGcs:
     def object(self) -> typing.Optional[builtins.str]:
         '''Name of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be foo/bar.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#object GoogleOsConfigGuestPolicies#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#object GoogleOsConfigGuestPolicies#object}
         '''
         result = self._values.get("object")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3476,9 +3476,9 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsOutputReference(
         object: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be my-bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#bucket GoogleOsConfigGuestPolicies#bucket}
-        :param generation: Must be provided if allowInsecure is false. Generation number of the Google Cloud Storage object. https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be 1234567. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#generation GoogleOsConfigGuestPolicies#generation}
-        :param object: Name of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be foo/bar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#object GoogleOsConfigGuestPolicies#object}
+        :param bucket: Bucket of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be my-bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#bucket GoogleOsConfigGuestPolicies#bucket}
+        :param generation: Must be provided if allowInsecure is false. Generation number of the Google Cloud Storage object. https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be 1234567. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#generation GoogleOsConfigGuestPolicies#generation}
+        :param object: Name of the Google Cloud Storage object. Given an example URL: https://storage.googleapis.com/my-bucket/foo/bar#1234567 this value would be foo/bar. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#object GoogleOsConfigGuestPolicies#object}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesArtifactsGcs(
             bucket=bucket, generation=generation, object=object
@@ -3494,8 +3494,8 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsOutputReference(
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param check_sum: Must be provided if allowInsecure is false. SHA256 checksum in hex format, to compare to the checksum of the artifact. If the checksum is not empty and it doesn't match the artifact then the recipe installation fails before running any of the steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#check_sum GoogleOsConfigGuestPolicies#check_sum}
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format {protocol}://{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
+        :param check_sum: Must be provided if allowInsecure is false. SHA256 checksum in hex format, to compare to the checksum of the artifact. If the checksum is not empty and it doesn't match the artifact then the recipe installation fails before running any of the steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#check_sum GoogleOsConfigGuestPolicies#check_sum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format {protocol}://{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesArtifactsRemote(
             check_sum=check_sum, uri=uri
@@ -3613,8 +3613,8 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsRemote:
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param check_sum: Must be provided if allowInsecure is false. SHA256 checksum in hex format, to compare to the checksum of the artifact. If the checksum is not empty and it doesn't match the artifact then the recipe installation fails before running any of the steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#check_sum GoogleOsConfigGuestPolicies#check_sum}
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format {protocol}://{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
+        :param check_sum: Must be provided if allowInsecure is false. SHA256 checksum in hex format, to compare to the checksum of the artifact. If the checksum is not empty and it doesn't match the artifact then the recipe installation fails before running any of the steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#check_sum GoogleOsConfigGuestPolicies#check_sum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format {protocol}://{location}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89c44ee9b9e65ef0f07af8d0d392c05b08bd3be49f803d7aaefa8bce3527ca0a)
@@ -3634,7 +3634,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsRemote:
         If the checksum is not empty and it doesn't match the artifact then the recipe installation fails before running any
         of the steps.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#check_sum GoogleOsConfigGuestPolicies#check_sum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#check_sum GoogleOsConfigGuestPolicies#check_sum}
         '''
         result = self._values.get("check_sum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3643,7 +3643,7 @@ class GoogleOsConfigGuestPoliciesRecipesArtifactsRemote:
     def uri(self) -> typing.Optional[builtins.str]:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format {protocol}://{location}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#uri GoogleOsConfigGuestPolicies#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3766,13 +3766,13 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
         script_run: typing.Optional[typing.Union["GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param archive_extraction: archive_extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
-        :param dpkg_installation: dpkg_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
-        :param file_copy: file_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
-        :param file_exec: file_exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
-        :param msi_installation: msi_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
-        :param rpm_installation: rpm_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
-        :param script_run: script_run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
+        :param archive_extraction: archive_extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
+        :param dpkg_installation: dpkg_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
+        :param file_copy: file_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
+        :param file_exec: file_exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
+        :param msi_installation: msi_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
+        :param rpm_installation: rpm_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
+        :param script_run: script_run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
         '''
         if isinstance(archive_extraction, dict):
             archive_extraction = GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction(**archive_extraction)
@@ -3819,7 +3819,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction"]:
         '''archive_extraction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
         '''
         result = self._values.get("archive_extraction")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction"], result)
@@ -3830,7 +3830,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsDpkgInstallation"]:
         '''dpkg_installation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
         '''
         result = self._values.get("dpkg_installation")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsDpkgInstallation"], result)
@@ -3841,7 +3841,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy"]:
         '''file_copy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
         '''
         result = self._values.get("file_copy")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy"], result)
@@ -3852,7 +3852,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec"]:
         '''file_exec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
         '''
         result = self._values.get("file_exec")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec"], result)
@@ -3863,7 +3863,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsMsiInstallation"]:
         '''msi_installation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
         '''
         result = self._values.get("msi_installation")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsMsiInstallation"], result)
@@ -3874,7 +3874,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsRpmInstallation"]:
         '''rpm_installation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
         '''
         result = self._values.get("rpm_installation")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsRpmInstallation"], result)
@@ -3885,7 +3885,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun"]:
         '''script_run block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
         '''
         result = self._values.get("script_run")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun"], result)
@@ -3920,9 +3920,9 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction:
         destination: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
-        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
+        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5ca3cd58b8731976c4d5f2e13907ce8afbf335bc3a1eb6933ff3095a5a32be7)
@@ -3940,7 +3940,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -3950,7 +3950,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction:
     def type(self) -> builtins.str:
         '''The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -3960,7 +3960,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction:
     def destination(self) -> typing.Optional[builtins.str]:
         '''Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4078,7 +4078,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtractionOutputRefer
 class GoogleOsConfigGuestPoliciesRecipesInstallStepsDpkgInstallation:
     def __init__(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8930b3fb3ab2d5481c0ba8afc67e0c823b7e4e62b9ec0916a097a8580343c544)
@@ -4091,7 +4091,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsDpkgInstallation:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -4184,10 +4184,10 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy:
         permissions: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
-        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
-        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
+        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__316217a9fb30acdd86db1a8c16184dc6c1efd212398444798f2773613359c6b2)
@@ -4208,7 +4208,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -4218,7 +4218,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy:
     def destination(self) -> builtins.str:
         '''The absolute path on the instance to put the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -4230,7 +4230,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
         '''
         result = self._values.get("overwrite")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4246,7 +4246,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy:
         Below are some examples of permissions and their associated values:
         read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4402,10 +4402,10 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec:
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
+        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45fee08a7291146b25c9841b2ec1e7d1554e013f69b09fb5f4a151d782e194c2)
@@ -4427,7 +4427,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec:
     def allowed_exit_codes(self) -> typing.Optional[builtins.str]:
         '''A list of possible return values that the program can return to indicate a success. Defaults to [0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
         '''
         result = self._values.get("allowed_exit_codes")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4436,7 +4436,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Arguments to be passed to the provided executable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4445,7 +4445,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec:
     def artifact_id(self) -> typing.Optional[builtins.str]:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4454,7 +4454,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''The absolute path of the file on the local filesystem.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4704,9 +4704,9 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsMsiInstallation:
         flags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25ac16d069e0c7f5e5292dba57b67f2e600060bc5712a98944ad51c3f9d3f43f)
@@ -4725,7 +4725,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsMsiInstallation:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -4735,7 +4735,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsMsiInstallation:
     def allowed_exit_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
         '''
         result = self._values.get("allowed_exit_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -4744,7 +4744,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsMsiInstallation:
     def flags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The flags to use when installing the MSI. Defaults to the install flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
         '''
         result = self._values.get("flags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4893,9 +4893,9 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
         destination: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
-        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
+        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesInstallStepsArchiveExtraction(
             artifact_id=artifact_id, type=type, destination=destination
@@ -4906,7 +4906,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
     @jsii.member(jsii_name="putDpkgInstallation")
     def put_dpkg_installation(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesInstallStepsDpkgInstallation(
             artifact_id=artifact_id
@@ -4924,10 +4924,10 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
         permissions: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
-        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
-        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
+        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesInstallStepsFileCopy(
             artifact_id=artifact_id,
@@ -4948,10 +4948,10 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
+        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesInstallStepsFileExec(
             allowed_exit_codes=allowed_exit_codes,
@@ -4971,9 +4971,9 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
         flags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesInstallStepsMsiInstallation(
             artifact_id=artifact_id, allowed_exit_codes=allowed_exit_codes, flags=flags
@@ -4984,7 +4984,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
     @jsii.member(jsii_name="putRpmInstallation")
     def put_rpm_installation(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesInstallStepsRpmInstallation(
             artifact_id=artifact_id
@@ -5001,9 +5001,9 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
         interpreter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
+        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun(
             script=script,
@@ -5165,7 +5165,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsOutputReference(
 class GoogleOsConfigGuestPoliciesRecipesInstallStepsRpmInstallation:
     def __init__(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e56938619bd8dfe48d15a232f9cfed71e7db767c5a50ed05fbe9ac4a34bd26fd)
@@ -5178,7 +5178,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsRpmInstallation:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -5269,9 +5269,9 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun:
         interpreter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
+        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a702921d59ee78169e401e97fec34d150d7f0c2012956bc8f7a115101a4c835f)
@@ -5290,7 +5290,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun:
     def script(self) -> builtins.str:
         '''The shell script to be executed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -5300,7 +5300,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun:
     def allowed_exit_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
         '''
         result = self._values.get("allowed_exit_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -5312,7 +5312,7 @@ class GoogleOsConfigGuestPoliciesRecipesInstallStepsScriptRun:
         If no interpreter is specified the script is executed directly,
         which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
         '''
         result = self._values.get("interpreter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5735,13 +5735,13 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
         script_run: typing.Optional[typing.Union["GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param archive_extraction: archive_extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
-        :param dpkg_installation: dpkg_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
-        :param file_copy: file_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
-        :param file_exec: file_exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
-        :param msi_installation: msi_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
-        :param rpm_installation: rpm_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
-        :param script_run: script_run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
+        :param archive_extraction: archive_extraction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
+        :param dpkg_installation: dpkg_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
+        :param file_copy: file_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
+        :param file_exec: file_exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
+        :param msi_installation: msi_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
+        :param rpm_installation: rpm_installation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
+        :param script_run: script_run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
         '''
         if isinstance(archive_extraction, dict):
             archive_extraction = GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction(**archive_extraction)
@@ -5788,7 +5788,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction"]:
         '''archive_extraction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#archive_extraction GoogleOsConfigGuestPolicies#archive_extraction}
         '''
         result = self._values.get("archive_extraction")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction"], result)
@@ -5799,7 +5799,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsDpkgInstallation"]:
         '''dpkg_installation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#dpkg_installation GoogleOsConfigGuestPolicies#dpkg_installation}
         '''
         result = self._values.get("dpkg_installation")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsDpkgInstallation"], result)
@@ -5810,7 +5810,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy"]:
         '''file_copy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_copy GoogleOsConfigGuestPolicies#file_copy}
         '''
         result = self._values.get("file_copy")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy"], result)
@@ -5821,7 +5821,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec"]:
         '''file_exec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#file_exec GoogleOsConfigGuestPolicies#file_exec}
         '''
         result = self._values.get("file_exec")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec"], result)
@@ -5832,7 +5832,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsMsiInstallation"]:
         '''msi_installation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#msi_installation GoogleOsConfigGuestPolicies#msi_installation}
         '''
         result = self._values.get("msi_installation")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsMsiInstallation"], result)
@@ -5843,7 +5843,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsRpmInstallation"]:
         '''rpm_installation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#rpm_installation GoogleOsConfigGuestPolicies#rpm_installation}
         '''
         result = self._values.get("rpm_installation")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsRpmInstallation"], result)
@@ -5854,7 +5854,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateSteps:
     ) -> typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun"]:
         '''script_run block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script_run GoogleOsConfigGuestPolicies#script_run}
         '''
         result = self._values.get("script_run")
         return typing.cast(typing.Optional["GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun"], result)
@@ -5889,9 +5889,9 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction:
         destination: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
-        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
+        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11170ff88e4945521d1431a1cf4bb2e23468cb6cabb00e9c8388032d3630a4b4)
@@ -5909,7 +5909,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -5919,7 +5919,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction:
     def type(self) -> builtins.str:
         '''The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -5929,7 +5929,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction:
     def destination(self) -> typing.Optional[builtins.str]:
         '''Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6047,7 +6047,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtractionOutputRefere
 class GoogleOsConfigGuestPoliciesRecipesUpdateStepsDpkgInstallation:
     def __init__(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84f62c5cf8da5ed10a27f2198c3e8e8fb613edcb329ffe3f27c4e68531bdf2ef)
@@ -6060,7 +6060,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsDpkgInstallation:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -6153,10 +6153,10 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy:
         permissions: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
-        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
-        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
+        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e41080f970bb0586136d39018036a212139c2fb6f755fbe1b1a64dbb60a14749)
@@ -6177,7 +6177,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -6187,7 +6187,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy:
     def destination(self) -> builtins.str:
         '''The absolute path on the instance to put the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -6199,7 +6199,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
         '''
         result = self._values.get("overwrite")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6215,7 +6215,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy:
         Below are some examples of permissions and their associated values:
         read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6371,10 +6371,10 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec:
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
+        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb00599a8cf774220ad1ceedd94bf53097349c407508c22b933f470a124913b3)
@@ -6396,7 +6396,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec:
     def allowed_exit_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''A list of possible return values that the program can return to indicate a success. Defaults to [0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
         '''
         result = self._values.get("allowed_exit_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -6405,7 +6405,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Arguments to be passed to the provided executable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6414,7 +6414,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec:
     def artifact_id(self) -> typing.Optional[builtins.str]:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6423,7 +6423,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''The absolute path of the file on the local filesystem.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6673,9 +6673,9 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsMsiInstallation:
         flags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb6404aa47814caef1830b9b61f76210ad5d26cd68c452b711451537acd7ced9)
@@ -6694,7 +6694,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsMsiInstallation:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -6704,7 +6704,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsMsiInstallation:
     def allowed_exit_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
         '''
         result = self._values.get("allowed_exit_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -6713,7 +6713,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsMsiInstallation:
     def flags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The flags to use when installing the MSI. Defaults to the install flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
         '''
         result = self._values.get("flags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6862,9 +6862,9 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
         destination: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
-        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param type: The type of the archive to extract. Possible values: ["TAR", "TAR_GZIP", "TAR_BZIP", "TAR_LZMA", "TAR_XZ", "ZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#type GoogleOsConfigGuestPolicies#type}
+        :param destination: Directory to extract archive to. Defaults to / on Linux or C:\\ on Windows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesUpdateStepsArchiveExtraction(
             artifact_id=artifact_id, type=type, destination=destination
@@ -6875,7 +6875,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
     @jsii.member(jsii_name="putDpkgInstallation")
     def put_dpkg_installation(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesUpdateStepsDpkgInstallation(
             artifact_id=artifact_id
@@ -6893,10 +6893,10 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
         permissions: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
-        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
-        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param destination: The absolute path on the instance to put the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#destination GoogleOsConfigGuestPolicies#destination}
+        :param overwrite: Whether to allow this step to overwrite existing files.If this is false and the file already exists the file is not overwritten and the step is considered a success. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#overwrite GoogleOsConfigGuestPolicies#overwrite}
+        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#permissions GoogleOsConfigGuestPolicies#permissions}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileCopy(
             artifact_id=artifact_id,
@@ -6917,10 +6917,10 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
+        :param allowed_exit_codes: A list of possible return values that the program can return to indicate a success. Defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param args: Arguments to be passed to the provided executable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#args GoogleOsConfigGuestPolicies#args}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param local_path: The absolute path of the file on the local filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#local_path GoogleOsConfigGuestPolicies#local_path}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesUpdateStepsFileExec(
             allowed_exit_codes=allowed_exit_codes,
@@ -6940,9 +6940,9 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
         flags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param flags: The flags to use when installing the MSI. Defaults to the install flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#flags GoogleOsConfigGuestPolicies#flags}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesUpdateStepsMsiInstallation(
             artifact_id=artifact_id, allowed_exit_codes=allowed_exit_codes, flags=flags
@@ -6953,7 +6953,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
     @jsii.member(jsii_name="putRpmInstallation")
     def put_rpm_installation(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesUpdateStepsRpmInstallation(
             artifact_id=artifact_id
@@ -6970,9 +6970,9 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
         interpreter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
+        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
         '''
         value = GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun(
             script=script,
@@ -7134,7 +7134,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsOutputReference(
 class GoogleOsConfigGuestPoliciesRecipesUpdateStepsRpmInstallation:
     def __init__(self, *, artifact_id: builtins.str) -> None:
         '''
-        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        :param artifact_id: The id of the relevant artifact in the recipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc08a3fce2d4bf4f009102a1dd39210ae263a3b26298a6cb3a1c7f62ec668fea)
@@ -7147,7 +7147,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsRpmInstallation:
     def artifact_id(self) -> builtins.str:
         '''The id of the relevant artifact in the recipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#artifact_id GoogleOsConfigGuestPolicies#artifact_id}
         '''
         result = self._values.get("artifact_id")
         assert result is not None, "Required property 'artifact_id' is missing"
@@ -7238,9 +7238,9 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun:
         interpreter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
-        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
+        :param script: The shell script to be executed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
+        :param allowed_exit_codes: Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script is executed directly, which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d9871f623430f667bb61b9c9a7f42711cf2a40d3c4eed2f3323b11579d001a4)
@@ -7259,7 +7259,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun:
     def script(self) -> builtins.str:
         '''The shell script to be executed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#script GoogleOsConfigGuestPolicies#script}
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -7269,7 +7269,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun:
     def allowed_exit_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Return codes that indicate that the software installed or updated successfully. Behaviour defaults to [0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#allowed_exit_codes GoogleOsConfigGuestPolicies#allowed_exit_codes}
         '''
         result = self._values.get("allowed_exit_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -7281,7 +7281,7 @@ class GoogleOsConfigGuestPoliciesRecipesUpdateStepsScriptRun:
         If no interpreter is specified the script is executed directly,
         which likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#interpreter GoogleOsConfigGuestPolicies#interpreter}
         '''
         result = self._values.get("interpreter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7409,9 +7409,9 @@ class GoogleOsConfigGuestPoliciesTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#create GoogleOsConfigGuestPolicies#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#delete GoogleOsConfigGuestPolicies#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#update GoogleOsConfigGuestPolicies#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#create GoogleOsConfigGuestPolicies#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#delete GoogleOsConfigGuestPolicies#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#update GoogleOsConfigGuestPolicies#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad9c8acac02b16ff4f3caa09591c4bc27f7175cf5311afc63307eb12501fbc06)
@@ -7428,19 +7428,19 @@ class GoogleOsConfigGuestPoliciesTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#create GoogleOsConfigGuestPolicies#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#create GoogleOsConfigGuestPolicies#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#delete GoogleOsConfigGuestPolicies#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#delete GoogleOsConfigGuestPolicies#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_os_config_guest_policies#update GoogleOsConfigGuestPolicies#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_os_config_guest_policies#update GoogleOsConfigGuestPolicies#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

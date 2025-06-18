@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-datadog",
-    "version": "12.0.0",
+    "version": "12.1.0",
     "description": "Prebuilt datadog Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-datadog.git",
@@ -36,7 +36,10 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_datadog.cloud_configuration_rule",
         "cdktf_cdktf_provider_datadog.cloud_workload_security_agent_rule",
         "cdktf_cdktf_provider_datadog.compliance_custom_framework",
+        "cdktf_cdktf_provider_datadog.compliance_resource_evaluation_filter",
+        "cdktf_cdktf_provider_datadog.cost_budget",
         "cdktf_cdktf_provider_datadog.csm_threats_agent_rule",
+        "cdktf_cdktf_provider_datadog.csm_threats_policy",
         "cdktf_cdktf_provider_datadog.dashboard",
         "cdktf_cdktf_provider_datadog.dashboard_json",
         "cdktf_cdktf_provider_datadog.dashboard_list",
@@ -46,7 +49,9 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_datadog.data_datadog_app_builder_app",
         "cdktf_cdktf_provider_datadog.data_datadog_application_key",
         "cdktf_cdktf_provider_datadog.data_datadog_cloud_workload_security_agent_rules",
+        "cdktf_cdktf_provider_datadog.data_datadog_cost_budget",
         "cdktf_cdktf_provider_datadog.data_datadog_csm_threats_agent_rules",
+        "cdktf_cdktf_provider_datadog.data_datadog_csm_threats_policies",
         "cdktf_cdktf_provider_datadog.data_datadog_dashboard",
         "cdktf_cdktf_provider_datadog.data_datadog_dashboard_list",
         "cdktf_cdktf_provider_datadog.data_datadog_hosts",
@@ -175,7 +180,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_datadog._jsii": [
-            "provider-datadog@12.0.0.jsii.tgz"
+            "provider-datadog@12.1.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_datadog": [
             "py.typed"
@@ -185,7 +190,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.111.0, <2.0.0",
+        "jsii>=1.112.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

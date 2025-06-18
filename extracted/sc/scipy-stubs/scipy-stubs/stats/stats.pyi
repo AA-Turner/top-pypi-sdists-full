@@ -88,23 +88,11 @@ def multiscale_graphcorr(
 # _stats
 @deprecated("will be removed in SciPy v2.0.0")
 def gmean(
-    a: object,
-    axis: object = ...,
-    dtype: object = ...,
-    weights: object = ...,
-    *,
-    nan_policy: object = ...,
-    keepdims: object = ...,
+    a: object, axis: object = ..., dtype: object = ..., weights: object = ..., *, nan_policy: object = ..., keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def hmean(
-    a: object,
-    axis: object = ...,
-    dtype: object = ...,
-    *,
-    weights: object = ...,
-    nan_policy: object = ...,
-    keepdims: object = ...,
+    a: object, axis: object = ..., dtype: object = ..., *, weights: object = ..., nan_policy: object = ..., keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def pmean(
@@ -184,45 +172,23 @@ def tsem(
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def moment(
-    a: object,
-    order: object = ...,
-    axis: object = ...,
-    nan_policy: object = ...,
-    *,
-    center: object = ...,
-    keepdims: object = ...,
+    a: object, order: object = ..., axis: object = ..., nan_policy: object = ..., *, center: object = ..., keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def skew(a: object, axis: object = ..., bias: object = ..., nan_policy: object = ..., *, keepdims: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def kurtosis(
-    a: object,
-    axis: object = ...,
-    fisher: object = ...,
-    bias: object = ...,
-    nan_policy: object = ...,
-    *,
-    keepdims: object = ...,
+    a: object, axis: object = ..., fisher: object = ..., bias: object = ..., nan_policy: object = ..., *, keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def describe(a: object, axis: object = ..., ddof: object = ..., bias: object = ..., nan_policy: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def skewtest(
-    a: object,
-    axis: object = ...,
-    nan_policy: object = ...,
-    alternative: object = ...,
-    *,
-    keepdims: object = ...,
+    a: object, axis: object = ..., nan_policy: object = ..., alternative: object = ..., *, keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def kurtosistest(
-    a: object,
-    axis: object = ...,
-    nan_policy: object = ...,
-    alternative: object = ...,
-    *,
-    keepdims: object = ...,
+    a: object, axis: object = ..., nan_policy: object = ..., alternative: object = ..., *, keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def normaltest(a: object, axis: object = ..., nan_policy: object = ..., *, keepdims: object = ...) -> object: ...
@@ -230,11 +196,7 @@ def normaltest(a: object, axis: object = ..., nan_policy: object = ..., *, keepd
 def jarque_bera(x: object, *, axis: object = ..., nan_policy: object = ..., keepdims: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def scoreatpercentile(
-    a: object,
-    per: object,
-    limit: object = ...,
-    interpolation_method: object = ...,
-    axis: object = ...,
+    a: object, per: object, limit: object = ..., interpolation_method: object = ..., axis: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def percentileofscore(a: object, score: object, kind: object = ..., nan_policy: object = ...) -> object: ...
@@ -253,7 +215,7 @@ def gzscore(a: object, *, axis: object = ..., ddof: object = ..., nan_policy: ob
 @deprecated("will be removed in SciPy v2.0.0")
 def zmap(scores: object, compare: object, axis: object = ..., ddof: object = ..., nan_policy: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
-def gstd(a: object, axis: object = ..., ddof: object = ...) -> object: ...
+def gstd(a: object, axis: object = ..., ddof: object = ..., *, keepdims: object = ..., nan_policy: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def iqr(
     x: object,
@@ -266,11 +228,7 @@ def iqr(
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def median_abs_deviation(
-    x: object,
-    axis: object = ...,
-    center: object = ...,
-    scale: object = ...,
-    nan_policy: object = ...,
+    x: object, axis: object = ..., center: object = ..., scale: object = ..., nan_policy: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def sigmaclip(a: object, low: object = ..., high: object = ...) -> object: ...
@@ -281,7 +239,9 @@ def trim1(a: object, proportiontocut: object, tail: object = ..., axis: object =
 @deprecated("will be removed in SciPy v2.0.0")
 def trim_mean(a: object, proportiontocut: object, axis: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
-def f_oneway(*samples: object, axis: object = ..., nan_policy: object = ..., keepdims: object = ...) -> object: ...
+def f_oneway(
+    *samples: object, axis: object = ..., equal_var: object = ..., nan_policy: object = ..., keepdims: object = ...
+) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def alexandergovern(*samples: object, nan_policy: object = ..., axis: object = ..., keepdims: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
@@ -289,36 +249,36 @@ def pearsonr(x: object, y: object, *, alternative: object = ..., method: object 
 @deprecated("will be removed in SciPy v2.0.0")
 def fisher_exact(table: object, alternative: object = ..., *, method: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
-def spearmanr(
-    a: object,
-    b: object = ...,
-    axis: object = ...,
-    nan_policy: object = ...,
-    alternative: object = ...,
-) -> object: ...
+def spearmanr(a: object, b: object = ..., axis: object = ..., nan_policy: object = ..., alternative: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
-def pointbiserialr(x: object, y: object) -> object: ...
+def pointbiserialr(x: object, y: object, *, axis: object = ..., nan_policy: object = ..., keepdims: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def kendalltau(
     x: object,
     y: object,
     *,
-    nan_policy: object = ...,
     method: object = ...,
     variant: object = ...,
     alternative: object = ...,
-) -> object: ...
-@deprecated("will be removed in SciPy v2.0.0")
-def weightedtau(x: object, y: object, rank: object = ..., weigher: object = ..., additive: object = ...) -> object: ...
-@deprecated("will be removed in SciPy v2.0.0")
-def ttest_1samp(
-    a: object,
-    popmean: object,
     axis: object = ...,
     nan_policy: object = ...,
-    alternative: object = ...,
-    *,
     keepdims: object = ...,
+) -> object: ...
+@deprecated("will be removed in SciPy v2.0.0")
+def weightedtau(
+    x: object,
+    y: object,
+    rank: object = ...,
+    weigher: object = ...,
+    additive: object = ...,
+    *,
+    axis: object = ...,
+    nan_policy: object = ...,
+    keepdims: object = ...,
+) -> object: ...
+@deprecated("will be removed in SciPy v2.0.0")
+def ttest_1samp(
+    a: object, popmean: object, axis: object = ..., nan_policy: object = ..., alternative: object = ..., *, keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def ttest_ind_from_stats(
@@ -348,13 +308,7 @@ def ttest_ind(
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def ttest_rel(
-    a: object,
-    b: object,
-    axis: object = ...,
-    nan_policy: object = ...,
-    alternative: object = ...,
-    *,
-    keepdims: object = ...,
+    a: object, b: object, axis: object = ..., nan_policy: object = ..., alternative: object = ..., *, keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def power_divergence(
@@ -363,9 +317,21 @@ def power_divergence(
     ddof: object = ...,
     axis: object = ...,
     lambda_: object = ...,
+    *,
+    keepdims: object = ...,
+    nan_policy: object = ...,
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
-def chisquare(f_obs: object, f_exp: object = ..., ddof: object = ..., axis: object = ..., *, sum_check: bool = ...) -> object: ...
+def chisquare(
+    f_obs: object,
+    f_exp: object = ...,
+    ddof: object = ...,
+    axis: object = ...,
+    *,
+    sum_check: bool = ...,
+    keepdims: object = ...,
+    nan_policy: object = ...,
+) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def ks_1samp(
     x: object,
@@ -406,13 +372,7 @@ def kstest(
 def tiecorrect(rankvals: object) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def ranksums(
-    x: object,
-    y: object,
-    alternative: object = ...,
-    *,
-    axis: object = ...,
-    nan_policy: object = ...,
-    keepdims: object = ...,
+    x: object, y: object, alternative: object = ..., *, axis: object = ..., nan_policy: object = ..., keepdims: object = ...
 ) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def kruskal(*samples: object, nan_policy: object = ..., axis: object = ..., keepdims: object = ...) -> object: ...
@@ -448,10 +408,23 @@ def find_repeats(arr: object) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def rankdata(a: object, method: object = ..., *, axis: object = ..., nan_policy: object = ...) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
-def linregress(x: object, y: object = ..., alternative: object = ...) -> object: ...
+def linregress(
+    x: object, y: object, alternative: object = ..., *, axis: object = ..., nan_policy: object = ..., keepdims: object = ...
+) -> object: ...
 
 # mstats_basic
 @deprecated("will be removed in SciPy v2.0.0")
-def theilslopes(y: object, x: object = ..., alpha: object = ..., method: object = ...) -> object: ...
+def theilslopes(
+    y: object,
+    x: object = ...,
+    alpha: object = ...,
+    method: object = ...,
+    *,
+    axis: object = ...,
+    nan_policy: object = ...,
+    keepdims: object = ...,
+) -> object: ...
 @deprecated("will be removed in SciPy v2.0.0")
-def siegelslopes(y: object, x: object = ..., method: object = ...) -> object: ...
+def siegelslopes(
+    y: object, x: object = ..., method: object = ..., *, axis: object = ..., nan_policy: object = ..., keepdims: object = ...
+) -> object: ...

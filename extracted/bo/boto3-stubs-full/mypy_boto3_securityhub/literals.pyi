@@ -24,28 +24,40 @@ else:
 __all__ = (
     "ActorSessionMfaStatusType",
     "AdminStatusType",
+    "AllowedOperatorsType",
     "AssociationStatusType",
     "AssociationTypeType",
     "AutoEnableStandardsType",
     "AutomationRulesActionTypeType",
+    "AutomationRulesActionTypeV2Type",
     "AwsIamAccessKeyStatusType",
     "AwsS3BucketNotificationConfigurationS3KeyFilterRuleNameType",
+    "BatchUpdateFindingsV2UnprocessedFindingErrorCodeType",
     "ComplianceStatusType",
     "ConfigurationPolicyAssociationStatusType",
     "ConnectionDirectionType",
+    "ConnectorAuthStatusType",
+    "ConnectorProviderNameType",
+    "ConnectorStatusType",
     "ControlFindingGeneratorType",
     "ControlStatusType",
     "DateRangeUnitType",
     "DescribeActionTargetsPaginatorName",
     "DescribeProductsPaginatorName",
+    "DescribeProductsV2PaginatorName",
     "DescribeStandardsControlsPaginatorName",
     "DescribeStandardsPaginatorName",
     "FindingHistoryUpdateSourceTypeType",
     "GetEnabledStandardsPaginatorName",
     "GetFindingHistoryPaginatorName",
     "GetFindingsPaginatorName",
+    "GetFindingsV2PaginatorName",
     "GetInsightsPaginatorName",
+    "GetResourcesV2PaginatorName",
+    "GroupByFieldType",
     "IntegrationTypeType",
+    "IntegrationV2TypeType",
+    "ListAggregatorsV2PaginatorName",
     "ListConfigurationPoliciesPaginatorName",
     "ListConfigurationPolicyAssociationsPaginatorName",
     "ListEnabledProductsForImportPaginatorName",
@@ -59,6 +71,11 @@ __all__ = (
     "MalwareTypeType",
     "MapFilterComparisonType",
     "NetworkDirectionType",
+    "OcsfBooleanFieldType",
+    "OcsfDateFieldType",
+    "OcsfMapFieldType",
+    "OcsfNumberFieldType",
+    "OcsfStringFieldType",
     "OrganizationConfigurationConfigurationTypeType",
     "OrganizationConfigurationStatusType",
     "PaginatorName",
@@ -67,9 +84,17 @@ __all__ = (
     "RecordStateType",
     "RegionAvailabilityStatusType",
     "RegionName",
+    "ResourceCategoryType",
+    "ResourceGroupByFieldType",
     "ResourceServiceName",
+    "ResourcesDateFieldType",
+    "ResourcesMapFieldType",
+    "ResourcesNumberFieldType",
+    "ResourcesStringFieldType",
     "RuleStatusType",
+    "RuleStatusV2Type",
     "SecurityControlPropertyType",
+    "SecurityHubFeatureType",
     "SecurityHubServiceName",
     "ServiceName",
     "SeverityLabelType",
@@ -93,32 +118,73 @@ __all__ = (
 
 ActorSessionMfaStatusType = Literal["DISABLED", "ENABLED"]
 AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
+AllowedOperatorsType = Literal["AND", "OR"]
 AssociationStatusType = Literal["DISABLED", "ENABLED"]
 AssociationTypeType = Literal["APPLIED", "INHERITED"]
 AutoEnableStandardsType = Literal["DEFAULT", "NONE"]
 AutomationRulesActionTypeType = Literal["FINDING_FIELDS_UPDATE"]
+AutomationRulesActionTypeV2Type = Literal["EXTERNAL_INTEGRATION", "FINDING_FIELDS_UPDATE"]
 AwsIamAccessKeyStatusType = Literal["Active", "Inactive"]
 AwsS3BucketNotificationConfigurationS3KeyFilterRuleNameType = Literal["Prefix", "Suffix"]
+BatchUpdateFindingsV2UnprocessedFindingErrorCodeType = Literal[
+    "ConflictException",
+    "InternalServerException",
+    "ResourceNotFoundException",
+    "ValidationException",
+]
 ComplianceStatusType = Literal["FAILED", "NOT_AVAILABLE", "PASSED", "WARNING"]
 ConfigurationPolicyAssociationStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
 ConnectionDirectionType = Literal["INBOUND", "OUTBOUND"]
+ConnectorAuthStatusType = Literal["ACTIVE", "FAILED"]
+ConnectorProviderNameType = Literal["JIRA_CLOUD", "SERVICENOW"]
+ConnectorStatusType = Literal[
+    "CONNECTED", "FAILED_TO_CONNECT", "PENDING_AUTHORIZATION", "PENDING_CONFIGURATION"
+]
 ControlFindingGeneratorType = Literal["SECURITY_CONTROL", "STANDARD_CONTROL"]
 ControlStatusType = Literal["DISABLED", "ENABLED"]
 DateRangeUnitType = Literal["DAYS"]
 DescribeActionTargetsPaginatorName = Literal["describe_action_targets"]
 DescribeProductsPaginatorName = Literal["describe_products"]
+DescribeProductsV2PaginatorName = Literal["describe_products_v2"]
 DescribeStandardsControlsPaginatorName = Literal["describe_standards_controls"]
 DescribeStandardsPaginatorName = Literal["describe_standards"]
 FindingHistoryUpdateSourceTypeType = Literal["BATCH_IMPORT_FINDINGS", "BATCH_UPDATE_FINDINGS"]
 GetEnabledStandardsPaginatorName = Literal["get_enabled_standards"]
 GetFindingHistoryPaginatorName = Literal["get_finding_history"]
 GetFindingsPaginatorName = Literal["get_findings"]
+GetFindingsV2PaginatorName = Literal["get_findings_v2"]
 GetInsightsPaginatorName = Literal["get_insights"]
+GetResourcesV2PaginatorName = Literal["get_resources_v2"]
+GroupByFieldType = Literal[
+    "activity_name",
+    "class_name",
+    "cloud.account.uid",
+    "cloud.provider",
+    "cloud.region",
+    "compliance.assessments.name",
+    "compliance.control",
+    "compliance.status",
+    "finding_info.title",
+    "finding_info.types",
+    "metadata.product.name",
+    "metadata.product.uid",
+    "resources.type",
+    "resources.uid",
+    "severity",
+    "status",
+    "vulnerabilities.fix_coverage",
+]
 IntegrationTypeType = Literal[
     "RECEIVE_FINDINGS_FROM_SECURITY_HUB",
     "SEND_FINDINGS_TO_SECURITY_HUB",
     "UPDATE_FINDINGS_IN_SECURITY_HUB",
 ]
+IntegrationV2TypeType = Literal[
+    "RECEIVE_FINDINGS_FROM_SECURITY_HUB",
+    "SEND_FINDINGS_TO_SECURITY_HUB",
+    "UPDATE_FINDINGS_IN_SECURITY_HUB",
+]
+ListAggregatorsV2PaginatorName = Literal["list_aggregators_v2"]
 ListConfigurationPoliciesPaginatorName = Literal["list_configuration_policies"]
 ListConfigurationPolicyAssociationsPaginatorName = Literal["list_configuration_policy_associations"]
 ListEnabledProductsForImportPaginatorName = Literal["list_enabled_products_for_import"]
@@ -148,14 +214,105 @@ MalwareTypeType = Literal[
 ]
 MapFilterComparisonType = Literal["CONTAINS", "EQUALS", "NOT_CONTAINS", "NOT_EQUALS"]
 NetworkDirectionType = Literal["IN", "OUT"]
+OcsfBooleanFieldType = Literal[
+    "compliance.assessments.meets_criteria",
+    "vulnerabilities.is_exploit_available",
+    "vulnerabilities.is_fix_available",
+]
+OcsfDateFieldType = Literal[
+    "finding_info.created_time_dt",
+    "finding_info.first_seen_time_dt",
+    "finding_info.last_seen_time_dt",
+    "finding_info.modified_time_dt",
+]
+OcsfMapFieldType = Literal["resources.tags"]
+OcsfNumberFieldType = Literal[
+    "activity_id",
+    "compliance.status_id",
+    "confidence_score",
+    "finding_info.related_events_count",
+    "severity_id",
+    "status_id",
+]
+OcsfStringFieldType = Literal[
+    "activity_name",
+    "class_name",
+    "cloud.account.uid",
+    "cloud.provider",
+    "cloud.region",
+    "comment",
+    "compliance.assessments.category",
+    "compliance.assessments.name",
+    "compliance.control",
+    "compliance.standards",
+    "compliance.status",
+    "finding_info.desc",
+    "finding_info.related_events.product.uid",
+    "finding_info.related_events.title",
+    "finding_info.related_events.uid",
+    "finding_info.src_url",
+    "finding_info.title",
+    "finding_info.types",
+    "finding_info.uid",
+    "metadata.product.name",
+    "metadata.product.uid",
+    "metadata.product.vendor_name",
+    "metadata.uid",
+    "remediation.desc",
+    "remediation.references",
+    "resources.cloud_partition",
+    "resources.region",
+    "resources.type",
+    "resources.uid",
+    "severity",
+    "status",
+    "vulnerabilities.fix_coverage",
+]
 OrganizationConfigurationConfigurationTypeType = Literal["CENTRAL", "LOCAL"]
 OrganizationConfigurationStatusType = Literal["ENABLED", "FAILED", "PENDING"]
 ParameterValueTypeType = Literal["CUSTOM", "DEFAULT"]
 PartitionType = Literal["aws", "aws-cn", "aws-us-gov"]
 RecordStateType = Literal["ACTIVE", "ARCHIVED"]
 RegionAvailabilityStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
+ResourceCategoryType = Literal[
+    "AI/ML", "Code", "Compute", "Database", "Identity", "Network", "Other", "Storage"
+]
+ResourceGroupByFieldType = Literal[
+    "account_id",
+    "findings_summary.finding_type",
+    "region",
+    "resource_category",
+    "resource_name",
+    "resource_type",
+]
+ResourcesDateFieldType = Literal["resource_creation_time_dt", "resource_detail_capture_time_dt"]
+ResourcesMapFieldType = Literal["tags"]
+ResourcesNumberFieldType = Literal[
+    "findings_summary.severities.critical",
+    "findings_summary.severities.fatal",
+    "findings_summary.severities.high",
+    "findings_summary.severities.informational",
+    "findings_summary.severities.low",
+    "findings_summary.severities.medium",
+    "findings_summary.severities.other",
+    "findings_summary.severities.unknown",
+    "findings_summary.total_findings",
+]
+ResourcesStringFieldType = Literal[
+    "account_id",
+    "findings_summary.finding_type",
+    "findings_summary.product_name",
+    "region",
+    "resource_arn",
+    "resource_category",
+    "resource_id",
+    "resource_name",
+    "resource_type",
+]
 RuleStatusType = Literal["DISABLED", "ENABLED"]
+RuleStatusV2Type = Literal["DISABLED", "ENABLED"]
 SecurityControlPropertyType = Literal["Parameters"]
+SecurityHubFeatureType = Literal["SecurityHub", "SecurityHubV2"]
 SeverityLabelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM"]
 SeverityRatingType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
 SortOrderType = Literal["asc", "desc"]
@@ -167,7 +324,13 @@ StatusReasonCodeType = Literal[
     "NO_AVAILABLE_CONFIGURATION_RECORDER",
 ]
 StringFilterComparisonType = Literal[
-    "CONTAINS", "EQUALS", "NOT_CONTAINS", "NOT_EQUALS", "PREFIX", "PREFIX_NOT_EQUALS"
+    "CONTAINS",
+    "CONTAINS_WORD",
+    "EQUALS",
+    "NOT_CONTAINS",
+    "NOT_EQUALS",
+    "PREFIX",
+    "PREFIX_NOT_EQUALS",
 ]
 TargetTypeType = Literal["ACCOUNT", "ORGANIZATIONAL_UNIT", "ROOT"]
 ThreatIntelIndicatorCategoryType = Literal[
@@ -452,6 +615,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -615,12 +779,16 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "describe_action_targets",
     "describe_products",
+    "describe_products_v2",
     "describe_standards",
     "describe_standards_controls",
     "get_enabled_standards",
     "get_finding_history",
     "get_findings",
+    "get_findings_v2",
     "get_insights",
+    "get_resources_v2",
+    "list_aggregators_v2",
     "list_configuration_policies",
     "list_configuration_policy_associations",
     "list_enabled_products_for_import",

@@ -923,7 +923,7 @@ def do_full_setup(
                 coiled_account = cloud.default_workspace
 
             endpoint = f"/api/v2/cloud-credentials/account/{coiled_account}/start-role-assumption-setup"
-            role_info = cloud._sync_request(endpoint, method="POST", json_result=True)
+            role_info = cloud._sync_request(endpoint, method="POST", handle_confirm=True, json_result=True)
         role_assumption_principal: str = role_info["allowed_principal"]
         role_assumption_external_id: str = role_info["external_id"]
 
@@ -1120,7 +1120,7 @@ def check_role_assumption_ready(coiled_account, role_assumption_external_id, rol
             "external_id": role_assumption_external_id,
             "role_arn": role_assumption_arn,
         }
-        return cloud._sync_request(endpoint, method="POST", json=setup_data)
+        return cloud._sync_request(endpoint, method="POST", handle_confirm=True, json=setup_data)
 
 
 def finish_role_assumption_setup(coiled_account, role_assumption_external_id, role_assumption_arn, region):
@@ -1132,7 +1132,7 @@ def finish_role_assumption_setup(coiled_account, role_assumption_external_id, ro
             "creds_source": "cli-role-assumption",
             "default_region": region,
         }
-        cloud._sync_request(endpoint, method="POST", json=setup_data)
+        cloud._sync_request(endpoint, method="POST", handle_confirm=True, json=setup_data)
     region_ui_url = (
         f"{dask.config.get('coiled.server', coiled.utils.COILED_SERVER)}/"
         f"settings/setup/infrastructure?account={coiled_account}"

@@ -10,11 +10,13 @@ if not (
     truststore.inject_into_ssl()  # noqa: F401
 
 import asyncio
+import contextlib
 import http.server
 import json
 import logging.config
 import os
 import pathlib
+import signal
 
 import structlog
 import uvloop
@@ -60,25 +62,39 @@ async def entrypoint():
 
     lg_logging.set_logging_context({"entrypoint": "python-queue"})
     tasks: set[asyncio.Task] = set()
-    # start simple http server for health checks
     tasks.add(asyncio.create_task(healthcheck_server()))
-    # start queue and associated tasks
     async with lifespan(None, with_cron_scheduler=False, taskset=tasks):
-        # run forever, error if any tasks fail
-        try:
-            await asyncio.gather(*tasks)
-        except asyncio.CancelledError:
-            await logger.awarning("Queue entrypoint cancelled", exc_info=True)
+        await asyncio.gather(*tasks)
+
+
+async def main():
+    """Run the queue entrypoint and shut down gracefully on SIGTERM/SIGINT."""
+    loop = asyncio.get_running_loop()
+    stop_event = asyncio.Event()
+
+    def _handle_signal() -> None:
+        logger.warning("Received termination signal, initiating graceful shutdown")
+        stop_event.set()
+
+    try:
+        loop.add_signal_handler(signal.SIGTERM, _handle_signal)
+    except (NotImplementedError, RuntimeError):
+        signal.signal(signal.SIGTERM, lambda *_: _handle_signal())
+
+    entry_task = asyncio.create_task(entrypoint())
+    await stop_event.wait()
+
+    logger.warning("Cancelling queue entrypoint task")
+    entry_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await entry_task
 
 
 if __name__ == "__main__":
-    # set up logging
     with open(pathlib.Path(__file__).parent.parent / "logging.json") as file:
         loaded_config = json.load(file)
         logging.config.dictConfig(loaded_config)
 
-    # set up uvloop
     uvloop.install()
 
-    # run the entrypoint
-    asyncio.run(entrypoint())
+    asyncio.run(main())

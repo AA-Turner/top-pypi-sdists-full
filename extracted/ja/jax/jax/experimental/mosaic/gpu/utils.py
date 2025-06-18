@@ -144,7 +144,11 @@ def _debug_scalar_ty_format(arg):
     return "%f", arg
   raise NotImplementedError(f"Can't print the type {arg.type}")
 
-def debug_print(fmt, *args, uniform=True):
+def debug_print(fmt, *args, uniform=True, scope=None):
+  if not uniform and scope is not None:
+    raise ValueError("Cannot specify scope to a non-uniform debug_print.")
+  if scope is None:
+    scope = ThreadSubset.WARPGROUP
   type_formats = []
   new_args = []
   for arg in args:
@@ -168,7 +172,7 @@ def debug_print(fmt, *args, uniform=True):
       raise NotImplementedError(arg.type)
     type_formats.append(ty_format)
   ctx = (
-      functools.partial(single_thread, scope=ThreadSubset.WARPGROUP)
+      functools.partial(single_thread, scope=scope)
       if uniform
       else contextlib.nullcontext
   )
@@ -226,15 +230,19 @@ def when(cond):
     scf.yield_([])
 
 
-def thread_idx():
+def _3d_to_1d_idx(dim_idx_fn, dim_size_fn):
   i32 = ir.IntegerType.get_signless(32)
   as_i32 = lambda x: arith.index_cast(i32, x)
-  tidx = as_i32(gpu.thread_id(gpu.Dimension.x))
-  stride = as_i32(gpu.block_dim(gpu.Dimension.x))
+  idx = as_i32(dim_idx_fn(gpu.Dimension.x))
+  stride = as_i32(dim_size_fn(gpu.Dimension.x))
   for dim in (gpu.Dimension.y, gpu.Dimension.z):
-    tidx = arith.addi(tidx, arith.muli(as_i32(gpu.thread_id(dim)), stride))
-    stride = arith.muli(stride, as_i32(gpu.block_dim(dim)))
-  return tidx
+    idx = arith.addi(idx, arith.muli(as_i32(dim_idx_fn(dim)), stride))
+    stride = arith.muli(stride, as_i32(dim_size_fn(dim)))
+  return idx
+
+
+thread_idx = functools.partial(_3d_to_1d_idx, gpu.thread_id, gpu.block_dim)
+block_idx = functools.partial(_3d_to_1d_idx, gpu.block_id, gpu.grid_dim)
 
 
 def _warp_bcast(val, lane_idx=0):
@@ -267,7 +275,7 @@ class ThreadSubset(enum.IntEnum):
   BLOCK = enum.auto()
 
 
-# True withon `once()` contexts.
+# True within `once()` contexts.
 _ONCE_PER: ThreadSubset | None = None
 
 
@@ -460,7 +468,7 @@ def _reshape(ref: ir.Value, sh0: list[int], sh1: list[int]):
         # TODO(cperivol): Implement dependent fold-unfolds for subsections
         # of the shape eg (..., 4,5,5, ...) -> (..., 10,10, ...) could be
         # supported without touching any other dimensions.
-        raise NotImplementedError(f"Can't reshape {sh0} to {sh1} bu composing independent folds/unfolds.")
+        raise NotImplementedError(f"Can't reshape {sh0} to {sh1} by composing independent folds/unfolds.")
 
     raise AssertionError(f"Unreachable: number of elements don't match in each shape ({sh0} ans {sh1})")
 
@@ -589,7 +597,8 @@ def memref_unfold(ref: ir.Value, dim, factors) -> ir.Value:
   )
   new_shape[dim : dim + 1] = factors
   identity = ir.AffineMapAttr.get(ir.AffineMap.get_identity(ref_ty.rank))
-  if ref_ty.layout == identity:
+  contig_strided_1d = ir.Attribute.parse("strided<[1]>")
+  if ref_ty.layout == identity or ref_ty.layout == contig_strided_1d:
     new_layout = ir.AffineMapAttr.get(
         ir.AffineMap.get_identity(ref_ty.rank + len(factors) - 1)
     )
@@ -735,6 +744,9 @@ def warpgroup_barrier():
       has_side_effects=True,
   )
 
+def warp_barrier():
+  nvvm.bar_warp_sync(c(0xffffffff, ir.IntegerType.get_signless(32)))
+
 
 @dataclasses.dataclass(frozen=True)
 class BarrierRef:
@@ -744,12 +756,17 @@ class BarrierRef:
   num_barriers: int
 
   @staticmethod
-  def initialize(address: ir.Value, num_barriers: int, arrival_count: int = 1) -> "BarrierRef":
+  def initialize(barrier_memref: ir.Value, arrival_count: int = 1) -> "BarrierRef":
+    barrier_ty = ir.MemRefType(barrier_memref.type)
+    [num_barriers] = barrier_ty.shape
     if num_barriers > 32:
       raise NotImplementedError("Only up to 32 barriers per group supported")
     i32 = ir.IntegerType.get_signless(32)
     i64 = ir.IntegerType.get_signless(64)
     ptr = ir.Type.parse(f"!llvm.ptr<{WORKGROUP_NVPTX_ADDRESS_SPACE}>")
+    address = memref_ptr(
+        barrier_memref, memory_space=WORKGROUP_NVPTX_ADDRESS_SPACE
+    )
     phases = memref.alloca(ir.MemRefType.get((), i32), [], [])
     memref.store(c(0, i32), phases, [])
     with single_thread(scope=ThreadSubset.BLOCK):
@@ -808,9 +825,27 @@ class BarrierRef:
     )
     return parity, arith.xori(parities, bitmask)
 
-  def arrive(self):
+  def arrive(
+      self,
+      arrival_count: int = 1,
+      can_complete: bool = True,
+      for_tensor_core: bool = False,
+  ):
     i64 = ir.IntegerType.get_signless(64)
-    nvvm.mbarrier_arrive_shared(i64, self.get_ptr())
+    if for_tensor_core:
+      llvm.inline_asm(
+          ir.Type.parse("!llvm.void"),
+          [], "tcgen05.fence::before_thread_sync;", "",
+          has_side_effects=True,
+      )
+    if can_complete:
+      if arrival_count > 1:
+        count = c(arrival_count - 1, ir.IntegerType.get_signless(32))
+        nvvm.mbarrier_arrive_nocomplete_shared(i64, self.get_ptr(), count)
+      nvvm.mbarrier_arrive_shared(i64, self.get_ptr())
+    else:
+      count = c(arrival_count, ir.IntegerType.get_signless(32))
+      nvvm.mbarrier_arrive_nocomplete_shared(i64, self.get_ptr(), count)
 
   def arrive_expect_tx(
       self, bytes: int | ir.Value, predicate: ir.Value | None = None
@@ -837,15 +872,16 @@ class DialectBarrierRef:
 
   @staticmethod
   def initialize(
-      address: ir.Value,
-      num_barriers: int,
+      barrier_memref: ir.Value,
       arrival_count: int = 1,
   ) -> "DialectBarrierRef":
+    barrier_ty = ir.MemRefType(barrier_memref.type)
+    [num_barriers] = barrier_ty.shape
     if num_barriers > 32:
       raise NotImplementedError("Only up to 32 barriers per group supported")
 
-    barrier_ty = ir.MemRefType.get(
-        (num_barriers,), ir.Type.parse("!mosaic_gpu.barrier")
+    address = memref_ptr(
+        barrier_memref, memory_space=WORKGROUP_NVPTX_ADDRESS_SPACE
     )
     dialect.InitializeBarrierOp(
         barrier_ty, base_pointer=address, arrival_count=arrival_count
@@ -927,8 +963,7 @@ class CollectiveBarrierRef:
 
   @staticmethod
   def initialize(
-      address: ir.Value,
-      num_barriers: int,
+      barrier_memref: ir.Value,
       dims: Sequence[gpu.Dimension | Sequence[gpu.Dimension]],
       cluster_shape: tuple[int, int, int],
   ) -> "CollectiveBarrierRef":
@@ -956,7 +991,7 @@ class CollectiveBarrierRef:
         cluster_mask = arith.ori(
             cluster_mask, cluster_collective_mask(cluster_shape, d)
         )
-    barrier = BarrierRef.initialize(address, num_barriers, arrival_count=arrival_count)
+    barrier = BarrierRef.initialize(barrier_memref, arrival_count=arrival_count)
     return CollectiveBarrierRef(barrier, cluster_mask)
 
   def __iter__(self):
@@ -966,11 +1001,17 @@ class CollectiveBarrierRef:
   def __getitem__(self, offset):
     return CollectiveBarrierRef(self.barrier[offset], self.cluster_mask)
 
-  def arrive(self):
+  def arrive(self, for_tensor_core: bool = False):
     """Arrives on a barrier in all blocks that share at least one of the coordinates along the collective dimensions.
 
     Note that unlike in arrive, each warpgroup arrives once.
     """
+    if for_tensor_core:
+      llvm.inline_asm(
+          ir.Type.parse("!llvm.void"),
+          [], "tcgen05.fence::before_thread_sync;", "",
+          has_side_effects=True,
+      )
     if self.barrier.num_barriers != 1:
       raise ValueError("Can only arrive on a single barrier")
     if self.cluster_mask is None:
@@ -1011,6 +1052,67 @@ class CollectiveBarrierRef:
 
   def wait_parity(self, *args, **kwargs):
     self.barrier.wait_parity(*args, **kwargs)
+
+
+@dataclasses.dataclass(frozen=True)
+class SemaphoreRef:
+  ptr: ir.Value
+
+  def signal(self, value: ir.Value | int, predicate: ir.Value | None = None):
+    i32 = ir.IntegerType.get_signless(32)
+    if not isinstance(value, ir.Value):
+      value = c(value, i32)
+    elif value.type != i32:
+      raise ValueError(f"Expected a i32 value, got {value.type}")
+    if predicate is None:
+      predicate = single_thread_predicate(ThreadSubset.WARPGROUP)
+    llvm.inline_asm(
+      i32,
+      [self.ptr, value, predicate],
+      "@$3 atom.add.release.sys.global.u32 $0, [$1], $2;",
+      "=r,l,r,b",
+      has_side_effects=True,
+    )
+
+  def wait(
+      self,
+      value: ir.Value | int = 1,
+      scope: ThreadSubset = ThreadSubset.WARPGROUP,
+  ):
+    i32 = ir.IntegerType.get_signless(32)
+    if not isinstance(value, ir.Value):
+      value = c(value, i32)
+    elif value.type != i32:
+      raise ValueError(f"Expected a i32 value, got {value.type}")
+
+    ne_pred = arith.CmpIPredicate.ne
+
+    with single_thread(scope=scope):
+      # Create the while loop for busy waiting
+      while_op = scf.WhileOp([i32], [value])
+      before_block = while_op.before.blocks.append(i32)
+      with ir.InsertionPoint.at_block_begin(before_block):
+        [expected_in_memory] = before_block.arguments
+        new_val = arith.subi(expected_in_memory, value)
+        in_memory = llvm.inline_asm(
+          i32,
+          [self.ptr, expected_in_memory, new_val],
+          "atom.acquire.sys.global.cas.b32 $0, [$1], $2, $3;",
+          "=r,l,r,r",
+          has_side_effects=True,
+        )
+        comparison = arith.cmpi(ne_pred, in_memory, expected_in_memory)
+        new_expected_in_memory = arith.maxui(in_memory, value)
+        scf.condition(comparison, [new_expected_in_memory])
+      after_block = while_op.after.blocks.append(i32)
+      with ir.InsertionPoint.at_block_begin(after_block):
+        scf.yield_(after_block.arguments)
+    if scope == ThreadSubset.WARPGROUP:
+      warpgroup_barrier()
+    elif scope == ThreadSubset.WARP:
+      warp_barrier()
+    else:
+      raise ValueError(f"Unsupported scope: {scope}")
 
 
 class Partition:
@@ -1301,7 +1403,7 @@ def shfl_bfly(x: ir.Value, distance: int | ir.Value):
   )
   if (x_bitwidth := bitwidth(result_type)) < 32:
     bits_ty = ir.IntegerType.get_signless(x_bitwidth)
-    y_vec = bitcast(y, ir.VectorType.get((32 // x_bitwidth,), x.type))
+    y_vec = bitcast(y, ir.VectorType.get((32 // x_bitwidth,), bits_ty))
     y = vector.extractelement(y_vec, position=c(0, index))
   return bitcast(y, result_type)
 
@@ -1396,3 +1498,43 @@ def vector_concat(vectors: Sequence[ir.Value]) -> ir.Value:
       result = vector.insertelement(elem, result, position=c(offset + i, index))
     offset += vty.shape[0]
   return result
+
+
+def is_known_divisible(value, divisor, max_depth=10) -> bool:
+  """Returns True if the value is statically known to be divisible by the divisor."""
+  if divisor == 1:
+    return True
+  if max_depth < 0 or not isinstance(value.owner, ir.Operation):
+    return False
+
+  new_depth = max_depth - 1
+  def_op = value.owner.opview
+
+  match def_op:
+    case arith.IndexCastOp():
+      return is_known_divisible(value.owner.operands[0], divisor, max_depth - 1)
+    case arith.ConstantOp():
+      return ir.IntegerAttr(def_op.value).value % divisor == 0
+    case arith.MulIOp():
+      # Only cover the case where one operand is divisible. It's still possible
+      # that the final product is divisible, but we don't check that here.
+      return (is_known_divisible(value.owner.operands[0], divisor, new_depth) or
+              is_known_divisible(value.owner.operands[1], divisor, new_depth))
+    case arith.SelectOp():
+      return (is_known_divisible(value.owner.operands[1], divisor, new_depth) and
+              is_known_divisible(value.owner.operands[2], divisor, new_depth))
+    case arith.MaxSIOp() | arith.MinSIOp() | arith.MaxUIOp() | arith.MinUIOp():
+      return (is_known_divisible(value.owner.operands[0], divisor, new_depth) and
+              is_known_divisible(value.owner.operands[1], divisor, new_depth))
+    case arith.AddIOp() | arith.SubIOp():
+      # Only cover the common case where both operads are divisible.
+      return (is_known_divisible(value.owner.operands[0], divisor, new_depth) and
+              is_known_divisible(value.owner.operands[1], divisor, new_depth))
+    case arith.AndIOp():
+      # Only cover the specific case where the divisor is a power of two.
+      return divisor.bit_count() == 1 and (
+          is_known_divisible(value.owner.operands[0], divisor, new_depth)
+          or is_known_divisible(value.owner.operands[1], divisor, new_depth)
+      )
+
+  return False

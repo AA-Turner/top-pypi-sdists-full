@@ -50,6 +50,7 @@ notes:
 - Compatible with MariaDB or MySQL.
 - Calculating the size of a database might be slow, depending on the number and size of tables in it.
   To avoid this, use I(exclude_fields=db_size).
+- filters C(users_info) doesn't support MariaDB roles.
 
 attributes:
   check_mode:
@@ -151,6 +152,7 @@ EXAMPLES = r'''
       tls_requires: "{{ item.tls_requires | default(omit) }}"
       priv: "{{ item.priv | default(omit) }}"
       resource_limits: "{{ item.resource_limits | default(omit) }}"
+      locked: "{{ item.locked | default(omit) }}"
       column_case_sensitive: true
       state: present
     loop: "{{ result.users_info }}"
@@ -160,6 +162,7 @@ EXAMPLES = r'''
       - item.name != 'root'  # In case you don't want to import admin accounts
       - item.name != 'mariadb.sys'
       - item.name != 'mysql'
+      - item.name != 'PUBLIC'  # MariaDB roles are not supported
 '''
 
 RETURN = r'''
@@ -246,6 +249,7 @@ users_info:
       If the output is fed to M(community.mysql.mysql_user), the
       ``plugin_auth_string`` will most likely be unreadable due to non-binary
       characters.
+    - The "locked" field was aded in ``community.mysql`` 3.13.
   returned: if not excluded by filter
   type: dict
   sample:
@@ -255,7 +259,8 @@ users_info:
       "plugin": "mysql_native_password",
       "priv": "db1.*:SELECT/db2.*:SELECT",
       "resource_limits": { "MAX_USER_CONNECTIONS": 100 },
-      "tls_requires": { "SSL": null } }
+      "tls_requires": { "SSL": null },
+      "locked": false }
   version_added: '3.8.0'
 engines:
   description: Information about the server's storage engines.
@@ -603,7 +608,9 @@ class MySQL_Info(object):
             user = line['User']
             host = line['Host']
 
-            user_priv = privileges_get(self.cursor, user, host)
+            # MariaDB roles have no host
+            is_role = self.server_implementation == 'mariadb' and not host
+            user_priv = privileges_get(self.cursor, user, host, maria_role=is_role)
 
             if not user_priv:
                 self.module.warn("No privileges found for %s on host %s" % (user, host))

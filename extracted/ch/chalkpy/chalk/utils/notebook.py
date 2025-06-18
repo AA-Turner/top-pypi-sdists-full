@@ -1,9 +1,24 @@
 import enum
 import functools
 import inspect
-from typing import Any, Optional
+import sys
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any, Optional
 
 from chalk.utils.environment_parsing import env_var_bool
+
+if TYPE_CHECKING:
+    from chalk.sql._internal.sql_file_resolver import SQLStringResult
+
+
+def print_user_error(message: str, exception: Optional[Exception] = None, suggested_action: Optional[str] = None):
+    print(f"\033[91mERROR: {message}\033[0m", file=sys.stderr)
+
+    if exception is not None:
+        print(f"\033[93mDetails: {str(exception)}\033[0m", file=sys.stderr)
+
+    if suggested_action is not None:
+        print(f"\033[94mSuggested action: {suggested_action}.\033[0m", file=sys.stderr)
 
 
 class IPythonEvents(enum.Enum):
@@ -57,6 +72,9 @@ def is_notebook() -> bool:
     return _is_notebook()
 
 
+notebook_features_loaded: ContextVar[bool] = ContextVar("notebook_features_loaded", default=False)
+
+
 def check_in_notebook(msg: Optional[str] = None):
     if not is_notebook():
         if msg is None:
@@ -81,3 +99,33 @@ def is_defined_in_cell_magic(obj: Any) -> bool:
     if isinstance(obj, Resolver):
         return obj.is_cell_magic
     return False
+
+
+def register_resolver_from_cell_magic(sql_string_result: "SQLStringResult"):
+    """Registers a resolver from the %%sql_resolver cell magic.
+    Parameters
+    ----------
+    sql_string_result
+    """
+    from chalk.sql._internal.sql_file_resolver import NOTEBOOK_DEFINED_SQL_RESOLVERS, get_sql_file_resolver
+    from chalk.sql._internal.sql_source import BaseSQLSource
+
+    if sql_string_result.path == "":
+        print_user_error(
+            "Resolver name is required, but none found. Please add a name to the first line of the cell, like %%resolver my_resolver.",
+        )
+        return
+
+    resolver_result = get_sql_file_resolver(
+        sources=BaseSQLSource.registry, sql_string_result=sql_string_result, has_import_errors=False
+    )
+    if resolver_result.errors:
+        errs = [e.display for e in resolver_result.errors]
+        err_message = "\n".join(errs)
+
+        print_user_error(
+            f"Failed to parse notebook-defined SQL resolver '{sql_string_result.path}'. Found the following errors:\n{err_message}",
+        )
+        return
+
+    NOTEBOOK_DEFINED_SQL_RESOLVERS[sql_string_result.path] = resolver_result

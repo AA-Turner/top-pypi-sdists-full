@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvex
-Version: 9.2.160
+Version: 9.2.161
 Summary: A Python interface to libVEX and VEX IR
 License: BSD-2-Clause
 Project-URL: Homepage, https://api.angr.io/projects/pyvex/en/latest/

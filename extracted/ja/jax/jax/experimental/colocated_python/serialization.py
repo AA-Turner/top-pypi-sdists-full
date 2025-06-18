@@ -99,6 +99,20 @@ def _reduce_mesh(
   return make_mesh, (mesh_device_ids, mesh.axis_names)
 
 
+def _reduce_named_sharding(
+    sharding: jax.sharding.NamedSharding,
+) -> tuple[Callable[..., jax.sharding.NamedSharding], Any]:
+  # TODO(hyeontaek): Use `legacy_memory_space_behavior=false` for the
+  # CPU backend's `xla::CpuClientOptions`, and preserve the memory
+  # kind across serialization.
+  # Colocated Python implicitly relies on the default memory kind
+  # being reset to the default memory space when deserializing.
+  def _make_named_sharding(mesh, spec):
+    return jax.sharding.NamedSharding(mesh, spec)
+
+  return _make_named_sharding, (sharding.mesh, sharding.spec)
+
+
 def _reduce_device_list(
     device_list: DeviceList,
 ) -> tuple[Callable[..., DeviceList], Any]:
@@ -149,6 +163,7 @@ def _serialize(obj: Any) -> bytes:
   class _CustomPickler(cloudpickle.Pickler):
     dispatch_table = collections.ChainMap(
         {jax.sharding.Mesh: _reduce_mesh},
+        {jax.sharding.NamedSharding: _reduce_named_sharding},
         {DeviceList: _reduce_device_list},
         {jax.sharding.SingleDeviceSharding: _reduce_single_device_sharding},
         cloudpickle.CloudPickler.dispatch_table,  # pylint: disable=attribute-error
@@ -201,7 +216,7 @@ def _serialize_specs(
   if not hasattr(np.dtypes, "StringDType"):
     raise TypeError(
         "Serializing Colocated Python requires StringDType. Please use"
-        " numpy to 2.0.0 or later, or explicityly provide an output spec"
+        " numpy to 2.0.0 or later, or explicitly provide an output spec"
         " function."
     )
 

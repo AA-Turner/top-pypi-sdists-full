@@ -1,7 +1,7 @@
 r'''
 # `google_api_gateway_api_config`
 
-Refer to the Terraform Registry for docs: [`google_api_gateway_api_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config).
+Refer to the Terraform Registry for docs: [`google_api_gateway_api_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApiGatewayApiConfigA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApiGatewayApiConfig.GoogleApiGatewayApiConfigA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config google_api_gateway_api_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config google_api_gateway_api_config}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GoogleApiGatewayApiConfigA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config google_api_gateway_api_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config google_api_gateway_api_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api: The API to attach the config to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api GoogleApiGatewayApiConfigA#api}
-        :param api_config_id: Identifier to assign to the API Config. Must be unique within scope of the parent resource(api). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api_config_id GoogleApiGatewayApiConfigA#api_config_id}
-        :param api_config_id_prefix: Creates a unique name beginning with the specified prefix. If this and api_config_id are unspecified, a random value is chosen for the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api_config_id_prefix GoogleApiGatewayApiConfigA#api_config_id_prefix}
-        :param display_name: A user-visible name for the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#display_name GoogleApiGatewayApiConfigA#display_name}
-        :param gateway_config: gateway_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#gateway_config GoogleApiGatewayApiConfigA#gateway_config}
-        :param grpc_services: grpc_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#grpc_services GoogleApiGatewayApiConfigA#grpc_services}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#id GoogleApiGatewayApiConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#labels GoogleApiGatewayApiConfigA#labels}
-        :param managed_service_configs: managed_service_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#managed_service_configs GoogleApiGatewayApiConfigA#managed_service_configs}
-        :param openapi_documents: openapi_documents block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#openapi_documents GoogleApiGatewayApiConfigA#openapi_documents}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#project GoogleApiGatewayApiConfigA#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#timeouts GoogleApiGatewayApiConfigA#timeouts}
+        :param api: The API to attach the config to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api GoogleApiGatewayApiConfigA#api}
+        :param api_config_id: Identifier to assign to the API Config. Must be unique within scope of the parent resource(api). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api_config_id GoogleApiGatewayApiConfigA#api_config_id}
+        :param api_config_id_prefix: Creates a unique name beginning with the specified prefix. If this and api_config_id are unspecified, a random value is chosen for the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api_config_id_prefix GoogleApiGatewayApiConfigA#api_config_id_prefix}
+        :param display_name: A user-visible name for the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#display_name GoogleApiGatewayApiConfigA#display_name}
+        :param gateway_config: gateway_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#gateway_config GoogleApiGatewayApiConfigA#gateway_config}
+        :param grpc_services: grpc_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#grpc_services GoogleApiGatewayApiConfigA#grpc_services}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#id GoogleApiGatewayApiConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#labels GoogleApiGatewayApiConfigA#labels}
+        :param managed_service_configs: managed_service_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#managed_service_configs GoogleApiGatewayApiConfigA#managed_service_configs}
+        :param openapi_documents: openapi_documents block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#openapi_documents GoogleApiGatewayApiConfigA#openapi_documents}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#project GoogleApiGatewayApiConfigA#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#timeouts GoogleApiGatewayApiConfigA#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GoogleApiGatewayApiConfigA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApiGatewayApiConfigA to import.
-        :param import_from_id: The id of the existing GoogleApiGatewayApiConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApiGatewayApiConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApiGatewayApiConfigA to import is found.
         '''
         if __debug__:
@@ -154,7 +154,7 @@ class GoogleApiGatewayApiConfigA(
         backend_config: typing.Union["GoogleApiGatewayApiConfigGatewayConfigBackendConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param backend_config: backend_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#backend_config GoogleApiGatewayApiConfigA#backend_config}
+        :param backend_config: backend_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#backend_config GoogleApiGatewayApiConfigA#backend_config}
         '''
         value = GoogleApiGatewayApiConfigGatewayConfig(backend_config=backend_config)
 
@@ -208,9 +208,9 @@ class GoogleApiGatewayApiConfigA(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#create GoogleApiGatewayApiConfigA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#delete GoogleApiGatewayApiConfigA#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#update GoogleApiGatewayApiConfigA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#create GoogleApiGatewayApiConfigA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#delete GoogleApiGatewayApiConfigA#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#update GoogleApiGatewayApiConfigA#update}.
         '''
         value = GoogleApiGatewayApiConfigTimeouts(
             create=create, delete=delete, update=update
@@ -536,18 +536,18 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api: The API to attach the config to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api GoogleApiGatewayApiConfigA#api}
-        :param api_config_id: Identifier to assign to the API Config. Must be unique within scope of the parent resource(api). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api_config_id GoogleApiGatewayApiConfigA#api_config_id}
-        :param api_config_id_prefix: Creates a unique name beginning with the specified prefix. If this and api_config_id are unspecified, a random value is chosen for the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api_config_id_prefix GoogleApiGatewayApiConfigA#api_config_id_prefix}
-        :param display_name: A user-visible name for the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#display_name GoogleApiGatewayApiConfigA#display_name}
-        :param gateway_config: gateway_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#gateway_config GoogleApiGatewayApiConfigA#gateway_config}
-        :param grpc_services: grpc_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#grpc_services GoogleApiGatewayApiConfigA#grpc_services}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#id GoogleApiGatewayApiConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#labels GoogleApiGatewayApiConfigA#labels}
-        :param managed_service_configs: managed_service_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#managed_service_configs GoogleApiGatewayApiConfigA#managed_service_configs}
-        :param openapi_documents: openapi_documents block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#openapi_documents GoogleApiGatewayApiConfigA#openapi_documents}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#project GoogleApiGatewayApiConfigA#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#timeouts GoogleApiGatewayApiConfigA#timeouts}
+        :param api: The API to attach the config to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api GoogleApiGatewayApiConfigA#api}
+        :param api_config_id: Identifier to assign to the API Config. Must be unique within scope of the parent resource(api). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api_config_id GoogleApiGatewayApiConfigA#api_config_id}
+        :param api_config_id_prefix: Creates a unique name beginning with the specified prefix. If this and api_config_id are unspecified, a random value is chosen for the name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api_config_id_prefix GoogleApiGatewayApiConfigA#api_config_id_prefix}
+        :param display_name: A user-visible name for the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#display_name GoogleApiGatewayApiConfigA#display_name}
+        :param gateway_config: gateway_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#gateway_config GoogleApiGatewayApiConfigA#gateway_config}
+        :param grpc_services: grpc_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#grpc_services GoogleApiGatewayApiConfigA#grpc_services}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#id GoogleApiGatewayApiConfigA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#labels GoogleApiGatewayApiConfigA#labels}
+        :param managed_service_configs: managed_service_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#managed_service_configs GoogleApiGatewayApiConfigA#managed_service_configs}
+        :param openapi_documents: openapi_documents block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#openapi_documents GoogleApiGatewayApiConfigA#openapi_documents}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#project GoogleApiGatewayApiConfigA#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#timeouts GoogleApiGatewayApiConfigA#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -684,7 +684,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api(self) -> builtins.str:
         '''The API to attach the config to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api GoogleApiGatewayApiConfigA#api}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api GoogleApiGatewayApiConfigA#api}
         '''
         result = self._values.get("api")
         assert result is not None, "Required property 'api' is missing"
@@ -694,7 +694,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_config_id(self) -> typing.Optional[builtins.str]:
         '''Identifier to assign to the API Config. Must be unique within scope of the parent resource(api).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api_config_id GoogleApiGatewayApiConfigA#api_config_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api_config_id GoogleApiGatewayApiConfigA#api_config_id}
         '''
         result = self._values.get("api_config_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -705,7 +705,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If this and api_config_id are unspecified, a random value is chosen for the name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#api_config_id_prefix GoogleApiGatewayApiConfigA#api_config_id_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#api_config_id_prefix GoogleApiGatewayApiConfigA#api_config_id_prefix}
         '''
         result = self._values.get("api_config_id_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -714,7 +714,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A user-visible name for the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#display_name GoogleApiGatewayApiConfigA#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#display_name GoogleApiGatewayApiConfigA#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -725,7 +725,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleApiGatewayApiConfigGatewayConfig"]:
         '''gateway_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#gateway_config GoogleApiGatewayApiConfigA#gateway_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#gateway_config GoogleApiGatewayApiConfigA#gateway_config}
         '''
         result = self._values.get("gateway_config")
         return typing.cast(typing.Optional["GoogleApiGatewayApiConfigGatewayConfig"], result)
@@ -736,14 +736,14 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigGrpcServices"]]]:
         '''grpc_services block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#grpc_services GoogleApiGatewayApiConfigA#grpc_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#grpc_services GoogleApiGatewayApiConfigA#grpc_services}
         '''
         result = self._values.get("grpc_services")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigGrpcServices"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#id GoogleApiGatewayApiConfigA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#id GoogleApiGatewayApiConfigA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -758,7 +758,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#labels GoogleApiGatewayApiConfigA#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#labels GoogleApiGatewayApiConfigA#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -769,7 +769,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigManagedServiceConfigs"]]]:
         '''managed_service_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#managed_service_configs GoogleApiGatewayApiConfigA#managed_service_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#managed_service_configs GoogleApiGatewayApiConfigA#managed_service_configs}
         '''
         result = self._values.get("managed_service_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigManagedServiceConfigs"]]], result)
@@ -780,14 +780,14 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigOpenapiDocuments"]]]:
         '''openapi_documents block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#openapi_documents GoogleApiGatewayApiConfigA#openapi_documents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#openapi_documents GoogleApiGatewayApiConfigA#openapi_documents}
         '''
         result = self._values.get("openapi_documents")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigOpenapiDocuments"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#project GoogleApiGatewayApiConfigA#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#project GoogleApiGatewayApiConfigA#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -795,7 +795,7 @@ class GoogleApiGatewayApiConfigAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleApiGatewayApiConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#timeouts GoogleApiGatewayApiConfigA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#timeouts GoogleApiGatewayApiConfigA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApiGatewayApiConfigTimeouts"], result)
@@ -824,7 +824,7 @@ class GoogleApiGatewayApiConfigGatewayConfig:
         backend_config: typing.Union["GoogleApiGatewayApiConfigGatewayConfigBackendConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param backend_config: backend_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#backend_config GoogleApiGatewayApiConfigA#backend_config}
+        :param backend_config: backend_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#backend_config GoogleApiGatewayApiConfigA#backend_config}
         '''
         if isinstance(backend_config, dict):
             backend_config = GoogleApiGatewayApiConfigGatewayConfigBackendConfig(**backend_config)
@@ -839,7 +839,7 @@ class GoogleApiGatewayApiConfigGatewayConfig:
     def backend_config(self) -> "GoogleApiGatewayApiConfigGatewayConfigBackendConfig":
         '''backend_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#backend_config GoogleApiGatewayApiConfigA#backend_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#backend_config GoogleApiGatewayApiConfigA#backend_config}
         '''
         result = self._values.get("backend_config")
         assert result is not None, "Required property 'backend_config' is missing"
@@ -865,7 +865,7 @@ class GoogleApiGatewayApiConfigGatewayConfig:
 class GoogleApiGatewayApiConfigGatewayConfigBackendConfig:
     def __init__(self, *, google_service_account: builtins.str) -> None:
         '''
-        :param google_service_account: Google Cloud IAM service account used to sign OIDC tokens for backends that have authentication configured (https://cloud.google.com/service-infrastructure/docs/service-management/reference/rest/v1/services.configs#backend). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#google_service_account GoogleApiGatewayApiConfigA#google_service_account}
+        :param google_service_account: Google Cloud IAM service account used to sign OIDC tokens for backends that have authentication configured (https://cloud.google.com/service-infrastructure/docs/service-management/reference/rest/v1/services.configs#backend). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#google_service_account GoogleApiGatewayApiConfigA#google_service_account}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18098f35687191bd5855aca437f3a0cce79724f1154ad0aeeb11c74ae4437378)
@@ -878,7 +878,7 @@ class GoogleApiGatewayApiConfigGatewayConfigBackendConfig:
     def google_service_account(self) -> builtins.str:
         '''Google Cloud IAM service account used to sign OIDC tokens for backends that have authentication configured (https://cloud.google.com/service-infrastructure/docs/service-management/reference/rest/v1/services.configs#backend).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#google_service_account GoogleApiGatewayApiConfigA#google_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#google_service_account GoogleApiGatewayApiConfigA#google_service_account}
         '''
         result = self._values.get("google_service_account")
         assert result is not None, "Required property 'google_service_account' is missing"
@@ -974,7 +974,7 @@ class GoogleApiGatewayApiConfigGatewayConfigOutputReference(
     @jsii.member(jsii_name="putBackendConfig")
     def put_backend_config(self, *, google_service_account: builtins.str) -> None:
         '''
-        :param google_service_account: Google Cloud IAM service account used to sign OIDC tokens for backends that have authentication configured (https://cloud.google.com/service-infrastructure/docs/service-management/reference/rest/v1/services.configs#backend). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#google_service_account GoogleApiGatewayApiConfigA#google_service_account}
+        :param google_service_account: Google Cloud IAM service account used to sign OIDC tokens for backends that have authentication configured (https://cloud.google.com/service-infrastructure/docs/service-management/reference/rest/v1/services.configs#backend). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#google_service_account GoogleApiGatewayApiConfigA#google_service_account}
         '''
         value = GoogleApiGatewayApiConfigGatewayConfigBackendConfig(
             google_service_account=google_service_account
@@ -1025,8 +1025,8 @@ class GoogleApiGatewayApiConfigGrpcServices:
         source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleApiGatewayApiConfigGrpcServicesSource", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param file_descriptor_set: file_descriptor_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#file_descriptor_set GoogleApiGatewayApiConfigA#file_descriptor_set}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#source GoogleApiGatewayApiConfigA#source}
+        :param file_descriptor_set: file_descriptor_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#file_descriptor_set GoogleApiGatewayApiConfigA#file_descriptor_set}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#source GoogleApiGatewayApiConfigA#source}
         '''
         if isinstance(file_descriptor_set, dict):
             file_descriptor_set = GoogleApiGatewayApiConfigGrpcServicesFileDescriptorSet(**file_descriptor_set)
@@ -1046,7 +1046,7 @@ class GoogleApiGatewayApiConfigGrpcServices:
     ) -> "GoogleApiGatewayApiConfigGrpcServicesFileDescriptorSet":
         '''file_descriptor_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#file_descriptor_set GoogleApiGatewayApiConfigA#file_descriptor_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#file_descriptor_set GoogleApiGatewayApiConfigA#file_descriptor_set}
         '''
         result = self._values.get("file_descriptor_set")
         assert result is not None, "Required property 'file_descriptor_set' is missing"
@@ -1058,7 +1058,7 @@ class GoogleApiGatewayApiConfigGrpcServices:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigGrpcServicesSource"]]]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#source GoogleApiGatewayApiConfigA#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#source GoogleApiGatewayApiConfigA#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApiGatewayApiConfigGrpcServicesSource"]]], result)
@@ -1083,8 +1083,8 @@ class GoogleApiGatewayApiConfigGrpcServices:
 class GoogleApiGatewayApiConfigGrpcServicesFileDescriptorSet:
     def __init__(self, *, contents: builtins.str, path: builtins.str) -> None:
         '''
-        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
-        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8ae88cb9e486ba5c888dc70cad0e209421ea5a183b187b0c6765bde43a4f9e9)
@@ -1099,7 +1099,7 @@ class GoogleApiGatewayApiConfigGrpcServicesFileDescriptorSet:
     def contents(self) -> builtins.str:
         '''Base64 encoded content of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
         '''
         result = self._values.get("contents")
         assert result is not None, "Required property 'contents' is missing"
@@ -1109,7 +1109,7 @@ class GoogleApiGatewayApiConfigGrpcServicesFileDescriptorSet:
     def path(self) -> builtins.str:
         '''The file path (full or relative path). This is typically the path of the file when it is uploaded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -1326,8 +1326,8 @@ class GoogleApiGatewayApiConfigGrpcServicesOutputReference(
         path: builtins.str,
     ) -> None:
         '''
-        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
-        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         value = GoogleApiGatewayApiConfigGrpcServicesFileDescriptorSet(
             contents=contents, path=path
@@ -1404,8 +1404,8 @@ class GoogleApiGatewayApiConfigGrpcServicesOutputReference(
 class GoogleApiGatewayApiConfigGrpcServicesSource:
     def __init__(self, *, contents: builtins.str, path: builtins.str) -> None:
         '''
-        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
-        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94c16aef09cc95077f27808e8cc0c6ca014f5d2b6a0620d0dabb2d1d6c486557)
@@ -1420,7 +1420,7 @@ class GoogleApiGatewayApiConfigGrpcServicesSource:
     def contents(self) -> builtins.str:
         '''Base64 encoded content of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
         '''
         result = self._values.get("contents")
         assert result is not None, "Required property 'contents' is missing"
@@ -1430,7 +1430,7 @@ class GoogleApiGatewayApiConfigGrpcServicesSource:
     def path(self) -> builtins.str:
         '''The file path (full or relative path). This is typically the path of the file when it is uploaded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -1627,8 +1627,8 @@ class GoogleApiGatewayApiConfigGrpcServicesSourceOutputReference(
 class GoogleApiGatewayApiConfigManagedServiceConfigs:
     def __init__(self, *, contents: builtins.str, path: builtins.str) -> None:
         '''
-        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
-        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e56ae100f531e0f7510712d5f43c0bcdc94e43c91658fb0fbfb966efb8d687e)
@@ -1643,7 +1643,7 @@ class GoogleApiGatewayApiConfigManagedServiceConfigs:
     def contents(self) -> builtins.str:
         '''Base64 encoded content of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
         '''
         result = self._values.get("contents")
         assert result is not None, "Required property 'contents' is missing"
@@ -1653,7 +1653,7 @@ class GoogleApiGatewayApiConfigManagedServiceConfigs:
     def path(self) -> builtins.str:
         '''The file path (full or relative path). This is typically the path of the file when it is uploaded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -1854,7 +1854,7 @@ class GoogleApiGatewayApiConfigOpenapiDocuments:
         document: typing.Union["GoogleApiGatewayApiConfigOpenapiDocumentsDocument", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param document: document block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#document GoogleApiGatewayApiConfigA#document}
+        :param document: document block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#document GoogleApiGatewayApiConfigA#document}
         '''
         if isinstance(document, dict):
             document = GoogleApiGatewayApiConfigOpenapiDocumentsDocument(**document)
@@ -1869,7 +1869,7 @@ class GoogleApiGatewayApiConfigOpenapiDocuments:
     def document(self) -> "GoogleApiGatewayApiConfigOpenapiDocumentsDocument":
         '''document block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#document GoogleApiGatewayApiConfigA#document}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#document GoogleApiGatewayApiConfigA#document}
         '''
         result = self._values.get("document")
         assert result is not None, "Required property 'document' is missing"
@@ -1895,8 +1895,8 @@ class GoogleApiGatewayApiConfigOpenapiDocuments:
 class GoogleApiGatewayApiConfigOpenapiDocumentsDocument:
     def __init__(self, *, contents: builtins.str, path: builtins.str) -> None:
         '''
-        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
-        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9086b2aaf878a119d3f9100c0753b351bbf21c886224aaf5cfb69cd63e4fd6b4)
@@ -1911,7 +1911,7 @@ class GoogleApiGatewayApiConfigOpenapiDocumentsDocument:
     def contents(self) -> builtins.str:
         '''Base64 encoded content of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
         '''
         result = self._values.get("contents")
         assert result is not None, "Required property 'contents' is missing"
@@ -1921,7 +1921,7 @@ class GoogleApiGatewayApiConfigOpenapiDocumentsDocument:
     def path(self) -> builtins.str:
         '''The file path (full or relative path). This is typically the path of the file when it is uploaded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -2133,8 +2133,8 @@ class GoogleApiGatewayApiConfigOpenapiDocumentsOutputReference(
     @jsii.member(jsii_name="putDocument")
     def put_document(self, *, contents: builtins.str, path: builtins.str) -> None:
         '''
-        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
-        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
+        :param contents: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#contents GoogleApiGatewayApiConfigA#contents}
+        :param path: The file path (full or relative path). This is typically the path of the file when it is uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#path GoogleApiGatewayApiConfigA#path}
         '''
         value = GoogleApiGatewayApiConfigOpenapiDocumentsDocument(
             contents=contents, path=path
@@ -2188,9 +2188,9 @@ class GoogleApiGatewayApiConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#create GoogleApiGatewayApiConfigA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#delete GoogleApiGatewayApiConfigA#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#update GoogleApiGatewayApiConfigA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#create GoogleApiGatewayApiConfigA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#delete GoogleApiGatewayApiConfigA#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#update GoogleApiGatewayApiConfigA#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b030316fc72b4519e16b8aebc33cc712c32743235f8d82bad5b3b0c5418c8023)
@@ -2207,19 +2207,19 @@ class GoogleApiGatewayApiConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#create GoogleApiGatewayApiConfigA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#create GoogleApiGatewayApiConfigA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#delete GoogleApiGatewayApiConfigA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#delete GoogleApiGatewayApiConfigA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_api_gateway_api_config#update GoogleApiGatewayApiConfigA#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_api_gateway_api_config#update GoogleApiGatewayApiConfigA#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

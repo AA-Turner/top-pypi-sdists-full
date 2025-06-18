@@ -1,10 +1,13 @@
 import logging
 
+from django.contrib.messages import get_messages
 from django_fsm import FSMField, Transition, TransitionNotAllowed
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
+
+from wbcore.messages import InMemoryMessageStorage
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +103,7 @@ class FSMViewSetMixin(metaclass=FSMViewSetMixinMetaclass):
             errors = can_action_method()
 
         if errors is None or len(errors.keys()) == 0:
-            obj.fsm_context = {"current_user": request.user}
+            obj.fsm_context = {"current_user": request.user, "request": request}
             if getattr(obj, fsm_field_name) != transition.target:
                 if (action_method := getattr(obj, action, None)) and callable(action_method):
                     action_method(by=request.user)
@@ -109,6 +112,10 @@ class FSMViewSetMixin(metaclass=FSMViewSetMixinMetaclass):
                         post_action_method(by=request.user)
 
             serializer = serializer_class(instance=obj, context=serializer_context)
-            return Response({"instance": serializer.data})
+            storage = get_messages(request._request)
+            data = {"instance": serializer.data}
+            if isinstance(storage, InMemoryMessageStorage):
+                data["messages"] = list(storage.serialize_messages())
+            return Response(data)
 
         return Response(errors, status=status.HTTP_412_PRECONDITION_FAILED)

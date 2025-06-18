@@ -73,8 +73,9 @@ from ._multivariate import (
     vonmises_fisher,
     wishart,
 )
-from ._new_distributions import Normal, Uniform
+from ._new_distributions import Binomial, Normal, Uniform
 from ._page_trend_test import page_trend_test
+from ._quantile import quantile
 from ._resampling import (
     BootstrapMethod,
     MonteCarloMethod,
@@ -278,7 +279,6 @@ from .distributions import (
     studentized_range,
     t,
     trapezoid,
-    trapz,
     triang,
     truncexpon,
     truncnorm,
@@ -298,6 +298,7 @@ from .distributions import (
 )
 
 __all__ = [
+    "Binomial",
     "BootstrapMethod",
     "CensoredData",
     "ConstantInputWarning",
@@ -525,6 +526,7 @@ __all__ = [
     "ppcc_plot",
     "probplot",
     "qmc",
+    "quantile",
     "quantile_test",
     "randint",
     "random_correlation",
@@ -565,7 +567,6 @@ __all__ = [
     "tmean",
     "tmin",
     "trapezoid",
-    "trapz",
     "triang",
     "trim1",
     "trim_mean",

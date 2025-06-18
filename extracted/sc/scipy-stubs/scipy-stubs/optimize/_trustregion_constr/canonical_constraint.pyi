@@ -1,10 +1,10 @@
 from collections.abc import Callable, Iterable
-from typing import TypeAlias, TypeVar
-from typing_extensions import Self
+from typing import Self, TypeAlias, TypeVar
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
+
 from scipy.optimize._constraints import PreparedConstraint
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import LinearOperator
@@ -31,14 +31,7 @@ class CanonicalConstraint:
     keep_feasible: onp.Array1D[np.bool_]
 
     def __init__(
-        self,
-        /,
-        n_eq: int,
-        n_ineq: int,
-        fun: _FunConstr,
-        jac: _FunJac,
-        hess: _FunHess,
-        keep_feasible: onp.Array1D[np.bool_],
+        self, /, n_eq: int, n_ineq: int, fun: _FunConstr, jac: _FunJac, hess: _FunHess, keep_feasible: onp.Array1D[np.bool_]
     ) -> None: ...
     @classmethod
     def from_PreparedConstraint(cls, constraint: PreparedConstraint) -> Self: ...
@@ -48,9 +41,7 @@ class CanonicalConstraint:
     def concatenate(cls, canonical_constraints: _PreparedConstraints, sparse_jacobian: bool | np.bool_) -> Self: ...
 
 def initial_constraints_as_canonical(
-    n: op.CanIndex,
-    prepared_constraints: _PreparedConstraints,
-    sparse_jacobian: bool | np.bool_,
+    n: op.CanIndex, prepared_constraints: _PreparedConstraints, sparse_jacobian: bool | np.bool_
 ) -> tuple[
     onp.Array[onp.AtMost2D, np.float64],
     onp.Array[onp.AtMost2D, np.float64],

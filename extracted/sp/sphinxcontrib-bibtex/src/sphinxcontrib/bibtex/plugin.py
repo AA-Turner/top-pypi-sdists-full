@@ -21,7 +21,6 @@ def find_plugin(group: str, name: str) -> Type[Any]:
     """Load a sphinxcontrib-bibtex plugin, either from the runtime store,
     or from the entry points.
     """
-    global _runtime_plugins
     if group not in _runtime_plugins:
         raise ImportError(f"plugin group {group} not found")
     try:
@@ -36,7 +35,6 @@ def register_plugin(
     group: str, name: str, klass: Type[Any], force: bool = False
 ) -> bool:
     """Register a sphinxcontrib-bibtex plugin into the runtime store."""
-    global _runtime_plugins
     if group not in _runtime_plugins:
         raise ImportError(f"plugin group {group} not found")
     eps: List[Any]

@@ -12,7 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_event
 short_description: Create or delete an event in oVirt/RHV
 version_added: "1.0.0"
-author: "Chris Keller (@nasx)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "This module can be used to create or delete an event in oVirt/RHV."
 options:
@@ -138,10 +138,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     BaseModule,
     check_sdk,
-    check_params,
     create_connection,
-    equal,
-    get_dict_of_struct,
     ovirt_full_argument_spec,
 )
 

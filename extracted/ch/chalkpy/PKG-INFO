@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.81.36
+Version: 2.81.37
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -186,7 +186,7 @@ Requires-Dist: s3fs; extra == "sqlite"
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "sqlite"
 Requires-Dist: sqlglot<22,>=19.0.0; extra == "sqlite"
 Provides-Extra: redshift
-Requires-Dist: sqlalchemy-redshift<0.9,>=0.8.11; extra == "redshift"
+Requires-Dist: chalk-sqlalchemy-redshift<0.9,>=0.8.11; extra == "redshift"
 Requires-Dist: redshift_connector<2.2,>=2.0.909; extra == "redshift"
 Requires-Dist: boto3; extra == "redshift"
 Requires-Dist: duckdb<1.2.0,>=0.6; extra == "redshift"
@@ -258,6 +258,7 @@ Requires-Dist: PyAthena>=3.0.0; extra == "all"
 Requires-Dist: aiomysql<0.3,>=0.1.1; extra == "all"
 Requires-Dist: aiosqlite<0.21,>=0.19.0; extra == "all"
 Requires-Dist: boto3; extra == "all"
+Requires-Dist: chalk-sqlalchemy-redshift<0.9,>=0.8.11; extra == "all"
 Requires-Dist: clickhouse-driver; extra == "all"
 Requires-Dist: clickhouse-sqlalchemy; extra == "all"
 Requires-Dist: cohere==5.11.4; extra == "all"
@@ -286,7 +287,6 @@ Requires-Dist: s3fs; extra == "all"
 Requires-Dist: snowflake-connector-python<4,>=3.12.4; extra == "all"
 Requires-Dist: snowflake-sqlalchemy<1.7,>=1.5.0; extra == "all"
 Requires-Dist: sqlalchemy-bigquery<1.12,>=1.5.0; extra == "all"
-Requires-Dist: sqlalchemy-redshift<0.9,>=0.8.11; extra == "all"
 Requires-Dist: sqlalchemy-spanner<1.12.0; extra == "all"
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "all"
 Requires-Dist: sqlglot<22,>=19.0.0; extra == "all"

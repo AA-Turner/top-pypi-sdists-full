@@ -1717,7 +1717,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         """
         ...
 
-    def configure_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, aggregate: bool, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], fill_forward_resolution: typing.Optional[QuantConnect.Resolution]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def configure_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, aggregate: bool, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], fill_forward_resolution: typing.Optional[QuantConnect.Resolution], last_point_tracker: QuantConnect.Lean.Engine.DataFeeds.Enumerators.LastPointTracker, is_warm_up_enumerator: bool = False) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Configure the enumerator with aggregation/fill-forward/filter behaviors. Returns new instance if re-configured
         
@@ -1725,7 +1725,15 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         """
         ...
 
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, fill_forward_resolution: typing.Optional[QuantConnect.Resolution] = None) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def configure_last_point_tracker(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], last_point_tracker: QuantConnect.Lean.Engine.DataFeeds.Enumerators.LastPointTracker, is_warm_up_enumerator: bool) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Configures the enumerator to track the last data point, if requested, and if this is a warmup enumerator
+        
+        This method is protected.
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, fill_forward_resolution: typing.Optional[QuantConnect.Resolution] = None, last_point_tracker: QuantConnect.Lean.Engine.DataFeeds.Enumerators.LastPointTracker = None, is_warm_up: bool = False) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Creates a file based data enumerator for the given subscription request
         
@@ -1742,7 +1750,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         """
         ...
 
-    def create_universe_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, create_underlying_enumerator: typing.Callable[[QuantConnect.Data.UniverseSelection.SubscriptionRequest, typing.Optional[QuantConnect.Resolution]], System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]], fill_forward_resolution: typing.Optional[QuantConnect.Resolution] = None) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def create_universe_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Creates a universe enumerator from the Subscription request, the underlying enumerator func and the fill forward resolution (in some cases)
         
@@ -1766,17 +1774,9 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
         """
         ...
 
-    def try_add_fill_forward_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], fill_forward: bool, fill_forward_resolution: typing.Optional[QuantConnect.Resolution]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def try_add_fill_forward_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], fill_forward: bool, fill_forward_resolution: typing.Optional[QuantConnect.Resolution], last_point_tracker: QuantConnect.Lean.Engine.DataFeeds.Enumerators.LastPointTracker = None) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Will add a fill forward enumerator if requested
-        
-        This method is protected.
-        """
-        ...
-
-    def try_append_underlying_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, parent: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], create_enumerator: typing.Callable[[QuantConnect.Data.UniverseSelection.SubscriptionRequest, typing.Optional[QuantConnect.Resolution]], System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]], fill_forward_resolution: typing.Optional[QuantConnect.Resolution]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        If required will add a new enumerator for the underlying symbol
         
         This method is protected.
         """

@@ -27,7 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_scheduling_policy_info
 short_description: Retrieve information about one or more oVirt scheduling policies
 version_added: "1.0.0"
-author: "Ondra Machacek (@machacekondra)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt scheduling policies."
     - This module was called C(ovirt_scheduling_policy_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -55,6 +55,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

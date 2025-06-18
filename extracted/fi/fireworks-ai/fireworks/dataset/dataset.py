@@ -1,12 +1,17 @@
+from datetime import datetime
 import io
 import json
 import logging
 import os
 from functools import cache as sync_cache
-from fireworks._util import make_valid_resource_name
+from fireworks._util import (
+    make_valid_resource_name,
+)
+from fireworks.evaluation_job.evaluation_job import EvaluationJob
+from fireworks.evaluator.evaluator import Evaluator
 import httpx
 import atexit
-from typing import Optional, Union, BinaryIO
+from typing import Literal, Optional, Union, BinaryIO, Callable, overload
 from fireworks.control_plane.generated.protos.gateway import (
     CreateDatasetRequest,
     ListDatasetsRequest,
@@ -17,8 +22,13 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.dataset_pb2 import 
     ListDatasetsRequest as SyncListDatasetsRequest,
     CreateDatasetRequest as SyncCreateDatasetRequest,
 )
-import mmh3
+from fireworks.control_plane.generated.protos_grpcio.gateway.evaluation_job_pb2 import (
+    CreateEvaluationJobRequest as SyncCreateEvaluationJobRequest,
+    GetEvaluationJobRequest as SyncGetEvaluationJobRequest,
+    EvaluationJob as SyncEvaluationJob,
+)
 
+import mmh3
 
 from fireworks.gateway import Gateway
 
@@ -39,6 +49,7 @@ class Dataset:
         api_key: Optional[str] = None,
         path: Optional[str] = None,
         data: Optional[Union[str, list]] = None,
+        id: Optional[str] = None,
         _internal=False,
     ):
         """
@@ -53,11 +64,13 @@ class Dataset:
         - `from_dict(data: list)`
         - `from_file(path: str)`
         - `from_string(data: str)`
+        - `from_id(id: str)`
 
         Args:
             path: Path to the local directory containing the dataset.
             data: Data to be uploaded to the dataset. Can be a string in JSONL format with OpenAI chat completion
                   message compatible JSON, or a list of OpenAI chat completion message compatible objects.
+            id: The ID of an existing dataset on Fireworks.
         TODO: support various remote paths to cloud storage.
         """
         if not _internal:
@@ -66,14 +79,18 @@ class Dataset:
             )
         self._data: Optional[str] = None
         self._path: Optional[str] = None
+        self._id: Optional[str] = id
         self._gateway = Gateway(api_key=api_key)
         self._file_stream: Optional[BinaryIO] = None
         atexit.register(self._gateway._channel.close)
 
-        if path and data:
-            raise ValueError("Cannot provide both path and data")
-        if not path and not data:
-            raise ValueError("Must provide either path or data")
+        # Ensure exactly one of path, data, or id is provided
+        provided_params = [path is not None, data is not None, id is not None]
+        if sum(provided_params) == 0:
+            raise ValueError("Must provide exactly one of: path, data, or id")
+        if sum(provided_params) > 1:
+            raise ValueError("Must provide exactly one of: path, data, or id (cannot provide multiple)")
+
         if path and not path.endswith(".jsonl"):
             raise ValueError("File must be a JSONL file")
 
@@ -84,6 +101,8 @@ class Dataset:
             self._data = "\n".join(json.dumps(item) for item in data)
         elif isinstance(data, str):
             self._data = data
+        elif id:
+            self._id = id
 
     @classmethod
     def from_string(cls, data: str):
@@ -94,12 +113,16 @@ class Dataset:
         return cls(data=data, _internal=True)
 
     @classmethod
+    def from_id(cls, id: str):
+        return cls(id=id, _internal=True)
+
+    @classmethod
     def from_file(cls, path: str):
         if not path.endswith(".jsonl"):
             raise ValueError("File must be a JSONL file")
         return cls(path=path, _internal=True)
 
-    def get(self):
+    def get(self) -> Optional[SyncDataset]:
         """
         Get this dataset from Fireworks by hash
         - If filename of dataset changes, it still matches the hash
@@ -107,11 +130,15 @@ class Dataset:
         request = SyncListDatasetsRequest(page_size=1000)
         datasets = self._gateway.list_datasets_sync(request)
         for dataset in datasets:
-            if dataset.name.endswith(self.name):
+            if dataset.name.endswith(self.id):
                 logger.debug(f"Found dataset with matching hash: {dataset.name}")
                 return dataset
         logger.debug(f"No dataset found with matching hash: {hash(self)}")
         return None
+
+    @property
+    def url(self) -> str:
+        return f"https://app.fireworks.ai/dashboard/datasets/{self.id}"
 
     def sync(self):
         """
@@ -128,17 +155,17 @@ class Dataset:
             example_count=min(self._line_count(), 50_000_000),
         )
         # upload dataset since it doesn't exist
-        logger.debug(f"Creating dataset: {self.name}")
-        request = SyncCreateDatasetRequest(dataset=dataset, dataset_id=self.name)
+        logger.debug(f"Creating dataset: {self.id}")
+        request = SyncCreateDatasetRequest(dataset=dataset, dataset_id=self.id)
         dataset = self._gateway.create_dataset_sync(request)
         logger.debug(f"Dataset created: {dataset.name}")
-        logger.debug(f"Uploading dataset: {self.name}")
+        logger.debug(f"Uploading dataset: {self.id}")
         filename_to_size = {self.filename(): self.file_size()}
-        signed_urls = self._gateway.get_dataset_upload_endpoint_sync(self.name, filename_to_size)
+        signed_urls = self._gateway.get_dataset_upload_endpoint_sync(self.id, filename_to_size)
         self._upload_file_using_signed_url(signed_urls[self.filename()])
-        logger.debug(f"Dataset uploaded: {self.name}")
-        self._gateway.validate_dataset_sync(self.name)
-        logger.debug(f"Dataset validated: {self.name}")
+        logger.debug(f"Dataset uploaded: {self.id}")
+        self._gateway.validate_dataset_sync(self.id)
+        logger.debug(f"Dataset validated: {self.id}")
 
     def _upload_file_using_signed_url(self, signed_url: str) -> None:
         """
@@ -182,21 +209,25 @@ class Dataset:
         return "inmemory.jsonl"
 
     @property
-    def name(self):
+    def id(self):
         """
-        Generates a name for this dataset in the form of "dataset-{hash(self)}-{filename}"
+        Generates an id for this dataset in the form of "dataset-{hash(self)}-{filename}"
+        For datasets created from an existing ID, extracts the name from the ID.
         """
+        if self._id:
+            return self._id
         return f"dataset-{hash(self)}-{make_valid_resource_name(self.filename())}"
 
+    @property
     @sync_cache
-    def id(self):
-        return self.construct_id(self._gateway.account_id(), self.name)
+    def name(self):
+        return self.construct_name(self._gateway.account_id(), self.id)
 
     @classmethod
-    def construct_id(cls, account_id: str, name: str):
-        if name.startswith("accounts/"):
-            return name
-        return f"accounts/{account_id}/datasets/{name}"
+    def construct_name(cls, account_id: str, id: str):
+        if id.startswith("accounts/"):
+            raise ValueError(f"ID cannot start with 'accounts/': {id}")
+        return f"accounts/{account_id}/datasets/{id}"
 
     @property
     def stream(self) -> BinaryIO:
@@ -268,6 +299,15 @@ class Dataset:
             return io.BytesIO(self._data.encode("utf-8"))
         elif self._path:
             return open(self._path, "rb")
+        elif self._id:
+            response = self._gateway.get_dataset_download_endpoint_sync(self._id)
+            if not response:
+                raise ValueError(f'Dataset with id "{self._id}" does not exist')
+            signed_url = next(iter(response.filename_to_signed_urls.values()))
+            # download file to in-memory bytesio
+            with httpx.Client() as client:
+                response = client.get(signed_url)
+                return io.BytesIO(response.content)
         else:
             raise ValueError("No data or path provided")
 
@@ -323,9 +363,9 @@ class Dataset:
         # if dataset doesn't exist, don't delete
         dataset = self.get()
         if not dataset:
-            logger.debug(f"Dataset does not exist: {self.name}, no need to delete")
+            logger.debug(f"Dataset does not exist: {self.id}, no need to delete")
             return
-        self._gateway.delete_dataset_sync(self.name)
+        self._gateway.delete_dataset_sync(self.id)
 
     def read(self, size: Optional[int] = None) -> bytes:
         """
@@ -342,3 +382,143 @@ class Dataset:
             if size is not None:
                 return stream.read(size)
             return stream.read()
+
+    def preview_evaluator(self, reward_function: Callable, samples: Optional[int] = None):
+        """
+        Preview the evaluator for the dataset
+        """
+        if samples:
+            new_dataset = self.head(samples, as_dataset=True)
+            return new_dataset.preview_evaluator(reward_function)
+
+        evaluator = Evaluator(gateway=self._gateway, reward_function=reward_function)
+        evaluator.sync()
+        return evaluator.preview(self)
+
+    def create_evaluation_job(self, reward_function: Callable, samples: Optional[int] = None) -> EvaluationJob:
+        """
+        Create an evaluation job using a reward function for this dataset
+
+        Args:
+            reward_function: A callable decorated with @reward_function
+            samples: Optional number of samples to evaluate (creates a subset dataset)
+
+        Returns:
+            EvaluationJob: The created evaluation job
+        """
+        # if samples is provided, create a new dataset with only those samples
+        # and create an evaluation job on that dataset
+        if samples:
+            new_dataset = self.head(samples, as_dataset=True)
+            return new_dataset.create_evaluation_job(reward_function)
+
+        self.sync()
+
+        # Create and sync the evaluator
+        evaluator = Evaluator(gateway=self._gateway, reward_function=reward_function)
+        evaluator.sync()
+
+        # Create the evaluation job
+        output_dataset_id = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
+        evaluation_job_proto = SyncEvaluationJob(
+            evaluator=evaluator.name,
+            input_dataset=self.name,
+            output_dataset=self.construct_name(self._gateway.account_id(), output_dataset_id),
+            display_name=output_dataset_id,
+        )
+
+        # create evaluation job with evaluator
+        evaluation_job = EvaluationJob(
+            gateway=self._gateway,
+            evaluation_job=evaluation_job_proto,
+        )
+        evaluation_job.sync()
+        return evaluation_job
+
+    @overload
+    def head(self, n: int = 5, as_dataset: Literal[False] = False) -> list: ...
+
+    @overload
+    def head(self, n: int = 5, as_dataset: Literal[True] = True) -> "Dataset": ...
+
+    def head(self, n: int = 5, as_dataset: bool = False) -> Union[list, "Dataset"]:
+        """
+        Return the first n rows of the dataset.
+
+        Args:
+            n: Number of rows to return (default: 5)
+            as_dataset: If True, return a Dataset object; if False, return a list (default: False)
+
+        Returns:
+            list or Dataset: List of dictionaries if as_dataset=False, Dataset object if as_dataset=True
+
+        Example:
+            dataset = Dataset.from_file("data.jsonl")
+            first_5_rows = dataset.head(5)  # Returns list
+            first_5_dataset = dataset.head(5, as_dataset=True)  # Returns Dataset
+        """
+        rows = []
+        for i, row in enumerate(self):
+            if i >= n:
+                break
+            rows.append(row)
+
+        if as_dataset:
+            return Dataset.from_list(rows)
+        return rows
+
+    def __getitem__(self, key):
+        """
+        Support slice notation and indexing for the dataset.
+
+        Args:
+            key: Either a slice object (e.g., [:5], [2:10], [::2]) or an integer index
+
+        Returns:
+            list: For slices, returns a list of dictionaries representing the sliced rows
+            dict: For single index, returns a single dictionary representing that row
+
+        Examples:
+            dataset[:5]    # Returns first 5 rows (calls head(5))
+            dataset[2:7]   # Returns rows 2-6
+            dataset[10]    # Returns the 10th row (0-indexed)
+        """
+        if isinstance(key, slice):
+            start = key.start or 0
+            stop = key.stop
+            step = key.step or 1
+
+            if start == 0 and step == 1 and stop is not None:
+                # Simple case: [:n] - can use head method for efficiency
+                return self.head(stop)
+            else:
+                # More complex slicing - need to iterate through dataset
+                rows = []
+                for i, row in enumerate(self):
+                    if stop is not None and i >= stop:
+                        break
+                    if i >= start and (step == 1 or (i - start) % step == 0):
+                        rows.append(row)
+                return rows
+        else:
+            # Handle single index access
+            if key < 0:
+                raise IndexError("Negative indexing not supported for Dataset")
+            for i, row in enumerate(self):
+                if i == key:
+                    return row
+            raise IndexError(f"Index {key} out of range")
+
+    def __eq__(self, other):
+        """
+        Check if two datasets are equal.
+
+        Args:
+            other: The other dataset to compare with.
+
+        Returns:
+            bool: True if the datasets are equal, False otherwise
+        """
+        if not isinstance(other, Dataset):
+            return False
+        return self.id == other.id and self.file_size() == other.file_size()

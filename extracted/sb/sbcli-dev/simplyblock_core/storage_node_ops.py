@@ -888,6 +888,8 @@ def add_node(cluster_id, node_addr, iface_name, data_nics_list,
         results = None
         l_cores = node_config.get("l-cores")
         spdk_cpu_mask = node_config.get("cpu_mask")
+        for ssd in ssd_pcie:
+            snode_api.bind_device_to_spdk(ssd)
         try:
             results, err = snode_api.spdk_process_start(
                 l_cores, minimum_hp_memory, spdk_image, spdk_debug, cluster_ip, fdb_connection,
@@ -2045,6 +2047,12 @@ def shutdown_storage_node(node_id, force=False):
     except SNodeClientException:
         logger.error('Failed to kill SPDK')
         return False
+    pci_address = []
+    for dev in snode.nvme_devices:
+        if dev.pcie_address not in pci_address:
+            ret = SNodeClient(snode.api_endpoint, timeout=30, retry=1).bind_device_to_nvme(dev.pcie_address)
+            logger.debug(ret)
+            pci_address.append(dev.pcie_address)
 
     logger.info("Setting node status to offline")
     set_node_status(node_id, StorageNode.STATUS_OFFLINE)

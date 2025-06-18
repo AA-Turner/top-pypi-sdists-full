@@ -1448,13 +1448,15 @@ def _ragged_all_to_all_batched_collective(axis_data, vals_in, dims_in,
   sliced_results = []
   for i in range(operand.shape[operand_dim]):
     sliced_operand = slicing.slice_in_dim(operand, start_index=i, limit_index=i+1, axis=operand_dim).flatten()
-    sliced_output = slicing.slice_in_dim(output, start_index=i, limit_index=i+1, axis=output_dim).flatten()
+    sliced_output = slicing.slice_in_dim(output, start_index=i, limit_index=i+1, axis=output_dim)
+    sliced_output_shape = sliced_output.shape
+    sliced_output = sliced_output.flatten()
     sliced_input_offsets = slicing.slice_in_dim(input_offsets, start_index=i, limit_index=i+1, axis=input_offsets_dim).flatten()
     sliced_send_sizes = slicing.slice_in_dim(send_sizes, start_index=i, limit_index=i+1, axis=send_sizes_dim).flatten()
     sliced_output_offsets = slicing.slice_in_dim(output_offsets, start_index=i, limit_index=i+1, axis=output_offsets_dim).flatten()
     sliced_recv_sizes = slicing.slice_in_dim(recv_sizes, start_index=i, limit_index=i+1, axis=recv_sizes_dim).flatten()
     sliced_result = ragged_all_to_all(sliced_operand, sliced_output, sliced_input_offsets, sliced_send_sizes, sliced_output_offsets, sliced_recv_sizes, axis_name=axis_name, axis_index_groups=axis_index_groups)
-    sliced_result = lax.expand_dims(sliced_result, dimensions=(output_dim,))
+    sliced_result = lax.expand_dims(sliced_result.reshape(sliced_output_shape), dimensions=(output_dim,))
     sliced_results.append(sliced_result)
 
   concat_result = lax.concatenate(sliced_results, dimension=output_dim)
@@ -1628,37 +1630,41 @@ def _all_gather_effectful_abstract_eval(
   return (x_aval.update(shape=new_shape, vma=out_vma),
           {*map(core.NamedAxisEffect, axis_name)})
 
-def _all_gather_transpose_rule(cts, x, *, all_gather_dimension, axis_name, axis_index_groups, axis_size, tiled):
+def _all_gather_transpose_rule(cts, x, *, all_gather_dimension, axis_name,
+                               axis_index_groups, axis_size, tiled):
   return (psum_scatter(cts, axis_name=axis_name,
                        scatter_dimension=all_gather_dimension,
                        axis_index_groups=axis_index_groups,
                        tiled=tiled),)
-  # TODO(sharadmv,apaszke): re-enable this when we can properly detect replication.
-  # return (lax.dynamic_index_in_dim(cts, idx, axis=all_gather_dimension, keepdims=False) * axis_size,)
 
-def _all_gather_batcher(vals_in, dims_in, *, all_gather_dimension, axis_name, axis_index_groups, axis_size, tiled):
+def _all_gather_batcher(prim, vals_in, dims_in, *, all_gather_dimension, axis_name,
+                        axis_index_groups, axis_size, tiled):
   (x,), (d,) = vals_in, dims_in
   if d is not batching.not_mapped:
     if d <= all_gather_dimension:
       all_gather_dimension += 1
     elif not tiled:  # Tiled all-gather doesn't modify the set of dimensions
       d += 1
-  result = all_gather_p.bind(
-      x,
-      all_gather_dimension=all_gather_dimension,
-      axis_name=axis_name,
-      axis_index_groups=axis_index_groups,
-      axis_size=axis_size,
-      tiled=tiled)
-  return result, d
+  if prim is all_gather_p:
+    result = all_gather_p.bind(
+        x, all_gather_dimension=all_gather_dimension, axis_name=axis_name,
+        axis_index_groups=axis_index_groups, axis_size=axis_size,
+        tiled=tiled)
+    return result, d
+  else:
+    assert prim is all_gather_invariant_p
+    result = all_gather_invariant_p.bind(
+        x, all_gather_dimension=all_gather_dimension, axis_name=axis_name,
+        axis_size=axis_size, tiled=tiled)
+    return result, d
 
-def _all_gather_batched_collective(axis_data, vals_in, dims_in,
+def _all_gather_batched_collective(prim, axis_data, vals_in, dims_in,
                                    all_gather_dimension, axis_name,
                                    axis_index_groups, axis_size, tiled):
   frame_size, frame_name = axis_data.size, axis_data.name
   if frame_name not in axis_name:
     return _all_gather_batcher(
-        vals_in, dims_in, all_gather_dimension=all_gather_dimension,
+        prim, vals_in, dims_in, all_gather_dimension=all_gather_dimension,
         axis_name=axis_name, axis_index_groups=axis_index_groups,
         axis_size=axis_size, tiled=tiled)
   if axis_index_groups is not None:
@@ -1690,8 +1696,98 @@ for p in ("cuda", "rocm", "tpu"):
                          partial(_all_gather_lowering, platform=p),
                          platform=p)
 ad.deflinear2(all_gather_p, _all_gather_transpose_rule)
-batching.fancy_primitive_batchers[all_gather_p] = _all_gather_batched_collective
+batching.fancy_primitive_batchers[all_gather_p] = partial(
+    _all_gather_batched_collective, all_gather_p)
 batching.skippable_batchers[all_gather_p] = partial(_names_in_param, 'axis_name')
+
+
+def all_gather_invariant(x, axis_name, *, axis: int = 0, tiled: bool = False):
+  """Gather values of x across all replicas.
+
+  If ``x`` is a pytree then the result is equivalent to mapping this function to
+  each leaf in the tree.
+
+  all_gather_invariant differs from all_gather in the following ways:
+
+  * all_gather_invariant is Varying -> Invariant.
+    For example: `out: f32[8] = all_gather_invariant(inp: f32[4]{V: x}, 'x')`
+    where the size of mesh axis `x` is 2.
+    While all_gather is Varying -> Varying.
+
+  * all_gather_invariant transposes to dynamic_slice which is
+    Invariant -> Varying. While all_gather transposes to reduce_scatter
+    which is Varying -> Varying.
+  """
+  if not isinstance(axis_name, tuple):
+    axis_name = axis_name,
+  axis_size = _axis_size(axis_name, None)
+  axes_ = frozenset(axis_name)
+  def bind(leaf):
+    in_vma = core.typeof(leaf).vma
+    if vary_names := axes_ - in_vma:
+      leaf = pvary(leaf, tuple(vary_names))
+    return all_gather_invariant_p.bind(
+        leaf,
+        all_gather_dimension=canonicalize_axis(axis, np.ndim(leaf) if tiled else
+                                               np.ndim(leaf) + 1),
+        axis_name=axis_name, axis_size=axis_size, tiled=tiled)
+  return tree_util.tree_map(bind, x)
+
+all_gather_invariant_p = core.Primitive('all_gather_invariant')
+
+def _all_gather_invariant_effectful_abstract_eval(
+    x_aval, *, all_gather_dimension, axis_name, axis_size, tiled
+):
+  _check_axis_names(axis_name)
+  new_shape = list(x_aval.shape)
+  if tiled:
+    new_shape[all_gather_dimension] *= axis_size
+  else:
+    new_shape.insert(all_gather_dimension, axis_size)
+  out_vma = frozenset(v for v in x_aval.vma if v not in axis_name)
+  return (x_aval.update(shape=new_shape, vma=out_vma),
+          {*map(core.NamedAxisEffect, axis_name)})
+
+all_gather_invariant_p.def_effectful_abstract_eval(
+    _all_gather_invariant_effectful_abstract_eval)
+
+def _all_gather_invariant_impl(x, *, all_gather_dimension, axis_name, axis_size,
+                               tiled):
+  raise NotImplementedError
+all_gather_invariant_p.def_impl(_all_gather_invariant_impl)
+
+
+def _all_gather_invariant_lowering(
+    ctx, x, *, all_gather_dimension, axis_name, axis_size, tiled, platform=None):
+  return _all_gather_lowering(
+      ctx, x, all_gather_dimension=all_gather_dimension, axis_name=axis_name,
+      axis_index_groups=None, axis_size=axis_size, tiled=tiled,
+      platform=platform)
+
+mlir.register_lowering(all_gather_invariant_p, _all_gather_invariant_lowering)
+for p in ("cuda", "rocm", "tpu"):
+  mlir.register_lowering(all_gather_invariant_p,
+                         partial(_all_gather_invariant_lowering, platform=p),
+                         platform=p)
+
+def _all_gather_invariant_transpose_rule(
+    cts, x, *, all_gather_dimension, axis_name, axis_size, tiled):
+  slice_size, rem = divmod(cts.shape[all_gather_dimension], axis_size)
+  assert not rem
+  idx = axis_index(axis_name) * slice_size
+  out = slicing.dynamic_slice_in_dim(
+      cts, idx, slice_size=slice_size, axis=all_gather_dimension)
+  return (out,) if tiled else (lax.squeeze(out, [all_gather_dimension]),)
+ad.deflinear2(all_gather_invariant_p, _all_gather_invariant_transpose_rule)
+
+def _all_gather_invariant_batched_collective(
+    axis_data, vals_in, dims_in, all_gather_dimension, axis_name, axis_size,
+    tiled):
+  return _all_gather_batched_collective(
+      all_gather_invariant_p, axis_data, vals_in, dims_in, all_gather_dimension,
+      axis_name, None, axis_size, tiled)
+batching.fancy_primitive_batchers[all_gather_invariant_p] = _all_gather_invariant_batched_collective
+batching.skippable_batchers[all_gather_invariant_p] = partial(_names_in_param, 'axis_name')
 
 
 def _reduce_scatter_lowering(
@@ -2056,6 +2152,25 @@ batching.fancy_primitive_batchers[psum_invariant_p] = partial(
 batching.skippable_batchers[psum_invariant_p] = partial(_names_in_param, 'axes')
 
 def _psum_invariant_transpose_rule(cts, *args, axes, axis_index_groups):
-  del args
-  return core.pvary_p.bind(*cts, axes=axes, axis_index_groups=axis_index_groups)
+  def f(ct, arg):
+    assert ad.is_undefined_primal(arg)
+    return ad.Zero(arg.aval) if type(ct) is ad.Zero else ct
+  cts = map(f, cts, args)
+  nonzero_out_cts, treedef = tree_util.tree_flatten(cts)
+  nonzero_in_cts = core.pvary_p.bind(*nonzero_out_cts, axes=axes,
+                                     axis_index_groups=axis_index_groups)
+  return tree_util.tree_unflatten(treedef, nonzero_in_cts)
 ad.deflinear2(psum_invariant_p, _psum_invariant_transpose_rule)
+
+########################### pvary ##################################
+
+def _pvary_transpose_rule(cts, *args, axes, axis_index_groups):
+  def f(ct, arg):
+    assert ad.is_undefined_primal(arg)
+    return ad.Zero(arg.aval) if type(ct) is ad.Zero else ct
+  cts = map(f, cts, args)
+  nonzero_out_cts, treedef = tree_util.tree_flatten(cts)
+  nonzero_in_cts = psum_invariant_p.bind(*nonzero_out_cts, axes=axes,
+                                         axis_index_groups=axis_index_groups)
+  return tree_util.tree_unflatten(treedef, nonzero_in_cts)
+ad.deflinear2(core.pvary_p, _pvary_transpose_rule)

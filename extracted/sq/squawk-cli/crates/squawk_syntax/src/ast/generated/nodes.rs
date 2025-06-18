@@ -6203,6 +6203,25 @@ impl NotOf {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NotSimilarTo {
+    pub(crate) syntax: SyntaxNode,
+}
+impl NotSimilarTo {
+    #[inline]
+    pub fn not_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NOT_KW)
+    }
+    #[inline]
+    pub fn similar_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SIMILAR_KW)
+    }
+    #[inline]
+    pub fn to_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NotValid {
     pub(crate) syntax: SyntaxNode,
 }
@@ -6425,6 +6444,10 @@ impl Op {
     }
     #[inline]
     pub fn not_like(&self) -> Option<NotLike> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn not_similar_to(&self) -> Option<NotSimilarTo> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -8795,6 +8818,90 @@ impl WithoutTimezone {
     #[inline]
     pub fn zone_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ZONE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlColumnOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlColumnOption {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+    #[inline]
+    pub fn ident_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+    #[inline]
+    pub fn not_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NOT_KW)
+    }
+    #[inline]
+    pub fn null_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NULL_KW)
+    }
+    #[inline]
+    pub fn path_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::PATH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlColumnOptionList {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlColumnOptionList {
+    #[inline]
+    pub fn xml_column_option(&self) -> Option<XmlColumnOption> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn xml_column_options(&self) -> AstChildren<XmlColumnOption> {
+        support::children(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlTableColumn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlTableColumn {
+    #[inline]
+    pub fn name(&self) -> Option<Name> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn ty(&self) -> Option<Type> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn xml_column_option_list(&self) -> Option<XmlColumnOptionList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ORDINALITY_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlTableColumnList {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlTableColumnList {
+    #[inline]
+    pub fn xml_table_columns(&self) -> AstChildren<XmlTableColumn> {
+        support::children(&self.syntax)
     }
 }
 
@@ -14596,6 +14703,24 @@ impl AstNode for NotOf {
         &self.syntax
     }
 }
+impl AstNode for NotSimilarTo {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::NOT_SIMILAR_TO
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for NotValid {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -17030,6 +17155,78 @@ impl AstNode for WithoutTimezone {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::WITHOUT_TIMEZONE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlColumnOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_COLUMN_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlColumnOptionList {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_COLUMN_OPTION_LIST
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlTableColumn {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_TABLE_COLUMN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlTableColumnList {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_TABLE_COLUMN_LIST
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {

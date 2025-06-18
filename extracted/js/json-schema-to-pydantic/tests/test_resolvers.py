@@ -147,7 +147,7 @@ def test_type_resolver_complex_types():
 def test_type_resolver_format_handling():
     """Test handling of format specifications."""
     resolver = TypeResolver()
-    from datetime import datetime
+    from datetime import datetime, date, time
     from uuid import UUID
 
     from pydantic import AnyUrl
@@ -155,6 +155,8 @@ def test_type_resolver_format_handling():
     assert (
         resolver.resolve_type({"type": "string", "format": "date-time"}, {}) == datetime
     )
+    assert resolver.resolve_type({"type": "string", "format": "date"}, {}) == date
+    assert resolver.resolve_type({"type": "string", "format": "time"}, {}) == time
     assert resolver.resolve_type({"type": "string", "format": "email"}, {}) is str
     assert resolver.resolve_type({"type": "string", "format": "uri"}, {}) == AnyUrl
     assert resolver.resolve_type({"type": "string", "format": "uuid"}, {}) == UUID
@@ -173,7 +175,7 @@ def test_type_resolver_enum():
 def test_type_resolver_const():
     """Test handling of const values."""
     resolver = TypeResolver()
-    from typing import Any, Literal, Optional
+    from typing import Literal
 
     schema = {"const": 42}
     result = resolver.resolve_type(schema, {})
@@ -182,17 +184,17 @@ def test_type_resolver_const():
     # Test null const
     schema = {"const": None}
     result = resolver.resolve_type(schema, {})
-    assert result == Optional[Any]
+    assert result is type(None)
 
 
 def test_type_resolver_null():
     """Test handling of null type."""
     resolver = TypeResolver()
-    from typing import Any, Optional
+    from typing import Optional
 
     schema = {"type": "null"}
     result = resolver.resolve_type(schema, {})
-    assert result == Optional[Any]
+    assert result is type(None)
 
     # Test nullable string
     schema = {"type": ["string", "null"]}

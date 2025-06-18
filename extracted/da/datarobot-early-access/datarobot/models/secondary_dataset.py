@@ -272,12 +272,15 @@ class SecondaryDatasetConfigurations(APIObject):
             conf_list.append(dataset_configuration)
 
         secondary_datasets_list = []
-        for d in secondary_datasets:
+
+        for d in secondary_datasets or []:
             dataset = SecondaryDataset(**d)
             secondary_datasets_list.append(dataset)
+
         return SecondaryDatasetConfigurations(
-            id=id,
-            project_id=project_id,
+            # TODO: eliminate the type ignores below by handling the None case
+            id=id,  # type: ignore[arg-type]
+            project_id=project_id,  # type: ignore[arg-type]
             config=conf_list,
             secondary_datasets=secondary_datasets_list,
             name=name,

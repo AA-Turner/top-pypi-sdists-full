@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AdminStatusType",
     "AutoEnableMembersType",
+    "ClusterStatusType",
     "CoverageFilterCriterionKeyType",
     "CoverageSortKeyType",
     "CoverageStatisticsTypeType",
@@ -51,6 +52,7 @@ __all__ = (
     "IndicatorTypeType",
     "IpSetFormatType",
     "IpSetStatusType",
+    "KubernetesResourcesTypesType",
     "ListCoveragePaginatorName",
     "ListDetectorsPaginatorName",
     "ListFiltersPaginatorName",
@@ -94,6 +96,7 @@ __all__ = (
 
 AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
 AutoEnableMembersType = Literal["ALL", "NEW", "NONE"]
+ClusterStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING", "UPDATING"]
 CoverageFilterCriterionKeyType = Literal[
     "ACCOUNT_ID",
     "ADDON_VERSION",
@@ -166,7 +169,14 @@ FeedbackType = Literal["NOT_USEFUL", "USEFUL"]
 FilterActionType = Literal["ARCHIVE", "NOOP"]
 FindingPublishingFrequencyType = Literal["FIFTEEN_MINUTES", "ONE_HOUR", "SIX_HOURS"]
 FindingResourceTypeType = Literal[
-    "ACCESS_KEY", "EC2_INSTANCE", "EC2_NETWORK_INTERFACE", "S3_BUCKET", "S3_OBJECT"
+    "ACCESS_KEY",
+    "CONTAINER",
+    "EC2_INSTANCE",
+    "EC2_NETWORK_INTERFACE",
+    "EKS_CLUSTER",
+    "KUBERNETES_WORKLOAD",
+    "S3_BUCKET",
+    "S3_OBJECT",
 ]
 FindingStatisticTypeType = Literal["COUNT_BY_SEVERITY"]
 FreeTrialFeatureResultType = Literal[
@@ -186,9 +196,15 @@ GroupByTypeType = Literal["ACCOUNT", "DATE", "FINDING_TYPE", "RESOURCE", "SEVERI
 IndicatorTypeType = Literal[
     "ATTACK_TACTIC",
     "ATTACK_TECHNIQUE",
+    "CRYPTOMINING_DOMAIN",
+    "CRYPTOMINING_IP",
+    "CRYPTOMINING_PROCESS",
     "HIGH_RISK_API",
+    "MALICIOUS_DOMAIN",
     "MALICIOUS_IP",
+    "MALICIOUS_PROCESS",
     "SUSPICIOUS_NETWORK",
+    "SUSPICIOUS_PROCESS",
     "SUSPICIOUS_USER_AGENT",
     "TOR_IP",
     "UNUSUAL_API_FOR_ACCOUNT",
@@ -198,6 +214,16 @@ IndicatorTypeType = Literal[
 IpSetFormatType = Literal["ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"]
 IpSetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "DEACTIVATING", "DELETED", "DELETE_PENDING", "ERROR", "INACTIVE"
+]
+KubernetesResourcesTypesType = Literal[
+    "CRONJOBS",
+    "DAEMONSETS",
+    "DEPLOYMENTS",
+    "JOBS",
+    "PODS",
+    "REPLICASETS",
+    "REPLICATIONCONTROLLERS",
+    "STATEFULSETS",
 ]
 ListCoveragePaginatorName = Literal["list_coverage"]
 ListDetectorsPaginatorName = Literal["list_detectors"]
@@ -240,7 +266,15 @@ ScanCriterionKeyType = Literal["EC2_INSTANCE_TAG"]
 ScanResultType = Literal["CLEAN", "INFECTED"]
 ScanStatusType = Literal["COMPLETED", "FAILED", "RUNNING", "SKIPPED"]
 ScanTypeType = Literal["GUARDDUTY_INITIATED", "ON_DEMAND"]
-SignalTypeType = Literal["CLOUD_TRAIL", "FINDING", "S3_DATA_EVENTS"]
+SignalTypeType = Literal[
+    "CLOUD_TRAIL",
+    "DNS_LOGS",
+    "EKS_AUDIT_LOGS",
+    "FINDING",
+    "FLOW_LOGS",
+    "RUNTIME_MONITORING",
+    "S3_DATA_EVENTS",
+]
 ThreatIntelSetFormatType = Literal[
     "ALIEN_VAULT", "FIRE_EYE", "OTX_CSV", "PROOF_POINT", "STIX", "TXT"
 ]
@@ -416,6 +450,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -528,6 +563,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -568,7 +604,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",

@@ -196,7 +196,7 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
             metrics[metric] = from_api(value, keep_null_keys=True)
 
         data = from_api(data, keep_null_keys=True)
-        data["metrics"] = metrics
+        data["metrics"] = metrics  # type: ignore[call-overload]
         return cls.from_data(data)
 
     @property

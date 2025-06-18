@@ -3839,8 +3839,7 @@ class AbstractHowsoClient(ABC):
         num_robust_accuracy_contributions_samples : int, optional
             Total sample size of model to use (using sampling with replacement)
             when computing robust accuracy contributions. Defaults to the
-            lesser value of either 10,000 or the number of cases multiplied by
-            2^(number of features) when unspecified.
+            smaller of 150000 or (6321 * number of context features).
         num_robust_influence_samples : int, optional
             Total sample size of model to use (using sampling with replacement)
             when computing robust accuracy contributions and robust prediction
@@ -4280,7 +4279,7 @@ class AbstractHowsoClient(ABC):
         num_feature_probability_samples : int, optional
             Number of samples to use to compute feature probabilities, only
             applies to targetless flow. Defaults to the number of features
-            multiplied by :math:`1000 \\cdot \\left(1 - \\frac{1}{e}\\right)`.
+            multiplied by :math:`10000 \\cdot \\left(1 - \\frac{1}{e}\\right)`.
         p_values : Collection of float, optional
             The p value hyperparameters to analyze with.
         rebalance_features : Collection[str], optional
@@ -4516,7 +4515,7 @@ class AbstractHowsoClient(ABC):
         num_feature_probability_samples : int, optional
             Number of samples to use to compute feature probabilities, only
             applies to targetless flow. Defaults to the number of features
-            multiplied by :math:`1000 \\cdot \\left(1 - \\frac{1}{e}\\right)`.
+            multiplied by :math:`10000 \\cdot \\left(1 - \\frac{1}{e}\\right)`.
         analysis_sub_model_size : int, optional
             Number of samples to use for analysis. The rest will be
             randomly held-out and not included in calculations.

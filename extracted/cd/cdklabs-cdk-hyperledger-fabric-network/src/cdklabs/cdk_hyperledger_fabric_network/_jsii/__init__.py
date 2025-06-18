@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdklabs/cdk-hyperledger-fabric-network",
-    "0.8.899",
+    "0.8.900",
     __name__[0:-6],
-    "cdk-hyperledger-fabric-network@0.8.899.jsii.tgz",
+    "cdk-hyperledger-fabric-network@0.8.900.jsii.tgz",
 )
 
 __all__ = [

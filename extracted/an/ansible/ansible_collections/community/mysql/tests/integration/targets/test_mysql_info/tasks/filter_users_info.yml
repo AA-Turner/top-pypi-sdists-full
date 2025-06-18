@@ -31,6 +31,19 @@
             CREATE TABLE IF NOT EXISTS users_info_db.T_UPPER
             (id int, name1 varchar(9), NAME2 varchar(9), Name3 varchar(9))
 
+    # No need for a specific test later. When the module will retrieve the
+    # users privileges, it will fail with an error "1141 - There is no such
+    # grant defined for user 'PUBLIC' on host'%'" if the PUBLIC role is not
+    # handled properly by our module.
+    - name: Mysql_info users_info | Grant to PUBLIC for MariaDB 10.11+
+      community.mysql.mysql_query:
+        query:
+          - >-
+            GRANT SELECT,INSERT,UPDATE,DELETE on users_info_db.* TO PUBLIC
+      when:
+        - db_engine == 'mariadb'
+        - db_version is version('10.11.1', '>=')
+
     # I failed to create a procedure using community.mysql.mysql_query.
     # Maybe it's because we must changed the delimiter.
     - name: Mysql_info users_info | Create procedure SQL file
@@ -277,7 +290,7 @@
         - item.name != 'mysql.sys'
         - item.name != 'mysql.infoschema'
         - item.name != 'mysql.session'
-
+        - item.name != 'PUBLIC'  # MariaDB roles are not supported
 
     # ================================== Cleanup ============================
 

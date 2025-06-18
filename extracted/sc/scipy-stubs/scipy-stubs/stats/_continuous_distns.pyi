@@ -1,11 +1,13 @@
 from collections.abc import Sequence
-from typing import Any, ClassVar, Final, TypeAlias, final
-from typing_extensions import LiteralString, deprecated, override
+from typing import ClassVar, Final, LiteralString
+from typing_extensions import override
 
 import numpy as np
 import optype.numpy as onp
-from scipy._typing import ToRNG
+import optype.numpy.compat as npc
+
 from ._distn_infrastructure import _rv_continuous_0, rv_continuous
+from scipy._typing import ToRNG
 
 __all__ = [
     "alpha",
@@ -200,8 +202,6 @@ __all__ = [
     "t_gen",
     "trapezoid",
     "trapezoid_gen",
-    "trapz",
-    "trapz_gen",
     "triang",
     "triang_gen",
     "truncexpon",
@@ -229,8 +229,7 @@ __all__ = [
     "wrapcauchy_gen",
 ]
 
-_Scalar_f8_in: TypeAlias = np.float64 | np.float32 | np.float16 | np.integer[Any] | np.bool_
-_AnyArray_f8_in: TypeAlias = float | onp.CanArrayND[_Scalar_f8_in] | Sequence[_AnyArray_f8_in]
+pairs: Final[Sequence[tuple[str, rv_continuous]]] = ...  # undocumented
 
 # without shape params
 class anglit_gen(_rv_continuous_0): ...
@@ -259,10 +258,11 @@ class norm_gen(_rv_continuous_0):
     def fit(  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         /,
-        data: _AnyArray_f8_in,
-        floc: _Scalar_f8_in | None = None,
-        fscale: _Scalar_f8_in | None = None,
-        **kwds: _Scalar_f8_in,
+        data: onp.ToFloat64_ND,
+        *,
+        floc: onp.ToFloat64 | None = None,
+        fscale: onp.ToFloat64 | None = None,
+        **kwds: onp.ToFloat64,
     ) -> tuple[np.float64, np.float64]: ...
 
 class rayleigh_gen(_rv_continuous_0): ...
@@ -343,11 +343,6 @@ class recipinvgauss_gen(rv_continuous): ...
 class skewcauchy_gen(rv_continuous): ...
 class skewnorm_gen(rv_continuous): ...
 class trapezoid_gen(rv_continuous): ...
-
-@final
-@deprecated("`trapz` is deprecated in favour of `trapezoid` and will be removed in SciPy 1.16.0.")
-class trapz_gen(trapezoid_gen): ...
-
 class triang_gen(rv_continuous): ...
 class truncexpon_gen(rv_continuous): ...
 class truncnorm_gen(rv_continuous): ...
@@ -364,10 +359,10 @@ class rv_histogram(rv_continuous):
     def __init__(
         self,
         /,
-        histogram: tuple[onp.ArrayND[np.floating[Any]], onp.ArrayND[np.inexact[Any]]],
-        *args: float | LiteralString | ToRNG,
+        histogram: tuple[onp.ArrayND[npc.floating | npc.integer], onp.ArrayND[npc.number]],
+        *args: float | str | ToRNG,
         density: bool | None = None,
-        **kwargs: float | LiteralString | ToRNG,
+        **kwargs: float | str | ToRNG,
     ) -> None: ...
 
 class studentized_range_gen(rv_continuous): ...
@@ -466,7 +461,6 @@ semicircular: Final[semicircular_gen] = ...
 skewcauchy: Final[skewcauchy_gen] = ...
 skewnorm: Final[skewnorm_gen] = ...
 trapezoid: Final[trapezoid_gen] = ...
-trapz: Final[trapz_gen] = ...  # pyright: ignore[reportDeprecated]
 triang: Final[triang_gen] = ...
 truncexpon: Final[truncexpon_gen] = ...
 truncnorm: Final[truncnorm_gen] = ...

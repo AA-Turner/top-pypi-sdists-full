@@ -1,0 +1,66 @@
+---
+name: Build
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  # schedule# Run CI once per day (at 06:00 UTC)
+  # This ensures that even if there haven't been commits that we are still
+  # testing against latest version of ansible-test for each ansible-core
+  # version:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: "Run ansible-lint"
+    steps:
+      - name: Check out collection
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run nox
+        uses: ansible-community/antsibull-nox@main
+  sanity:
+    uses: ansible-community/antsibull-nox/.github/workflows/reusable-nox-matrix.yml@main
+    with:
+      upload-codecov: false
+
+  build:
+    name: Build for ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    needs:
+      - sanity
+      - lint
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: centos-stream-9
+            pip-command: pip3
+            container-name: el9stream
+    container:
+      image: quay.io/ovirt/buildcontainer:${{ matrix.container-name }}
+    steps:
+      - name: Install python3 modules
+        run: ${{ matrix.pip-command }} install pycodestyle pylint voluptuous yamllint rstcheck antsibull-changelog rich ansible-lint cryptography
+
+      - name: Install ansible.posix
+        run: ansible-galaxy collection install -c ansible.posix
+
+      - name: Checkout
+        uses: ovirt/checkout-action@main
+
+      - name: Run build.sh
+        run: .automation/build.sh
+
+      - name: Upload artifacts
+        uses: ovirt/upload-rpms-action@main
+        with:
+          directory: exported-artifacts

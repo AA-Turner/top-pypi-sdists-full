@@ -1,7 +1,7 @@
 """
-    .. autoclass:: FootBibliographyDirective
+.. autoclass:: FootBibliographyDirective
 
-        .. automethod:: run
+    .. automethod:: run
 """
 
 from typing import TYPE_CHECKING, cast
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 
 class FootBibliographyDirective(Directive):
-
     """Class for processing the :rst:dir:`footbibliography` directive."""
 
     required_arguments = 0
@@ -27,7 +26,7 @@ class FootBibliographyDirective(Directive):
 
     def run(self):
         """Set file dependencies, and insert the footnotes that were created
-        earlier by :meth:`.foot_roles.FootCiteRole.result_nodes`.
+        earlier by :meth:`.foot_roles.FootCiteRole.run`.
         """
         env = cast("BuildEnvironment", self.state.document.settings.env)
         foot_old_refs = env.temp_data.setdefault("bibtex_foot_old_refs", set())

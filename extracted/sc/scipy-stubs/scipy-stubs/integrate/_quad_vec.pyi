@@ -1,11 +1,12 @@
 import collections
 from collections.abc import Callable
-from typing import Any, Concatenate, Final, Generic, Literal, NoReturn, Protocol, TypeAlias, overload, type_check_only
-from typing_extensions import Never, TypeVar, override
+from typing import Any, Concatenate, Final, Generic, Literal, Never, NoReturn, Protocol, TypeAlias, overload, type_check_only
+from typing_extensions import TypeVar, override
 
 import numpy as np
 import optype as op
 import optype.numpy as onp
+
 from scipy._typing import Falsy, Truthy
 
 _S = TypeVar("_S")
@@ -24,12 +25,7 @@ _Quadrature: TypeAlias = Literal["gk21", "gk15", "trapezoid"]
 
 @type_check_only
 class _DoesMap(Protocol):
-    def __call__(
-        self,
-        func: Callable[[_S], _T],
-        iterable: op.CanIter[op.CanNext[_S]],
-        /,
-    ) -> op.CanIter[op.CanIterSelf[_T]]: ...
+    def __call__(self, func: Callable[[_S], _T], iterable: op.CanIter[op.CanNext[_S]], /) -> op.CanIter[op.CanIterSelf[_T]]: ...
 
 @type_check_only
 class _InfiniteFunc(Protocol[_NDT_co]):
@@ -41,7 +37,7 @@ class _InfiniteFunc(Protocol[_NDT_co]):
 class LRUDict(collections.OrderedDict[tuple[float, float], _VT], Generic[_VT]):
     def __init__(self, /, max_size: int) -> None: ...
     @override
-    def update(self, other: Never, /) -> NoReturn: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(self, other: Never) -> NoReturn: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
 
 class SemiInfiniteFunc(_InfiniteFunc[_NDT_co], Generic[_NDT_co]):
     def __init__(self, /, func: Callable[[float], _NDT_co], start: float, infty: bool) -> None: ...

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: latexcodec
-Version: 3.0.0
+Version: 3.0.1
 Summary: A lexer and codec to work with LaTeX code in Python.
 Home-page: https://github.com/mcmtroffaes/latexcodec
 Download-URL: http://pypi.python.org/pypi/latexcodec
@@ -15,17 +15,27 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Text Processing :: Markup :: LaTeX
 Classifier: Topic :: Text Processing :: Filters
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 License-File: LICENSE.rst
 License-File: AUTHORS.rst
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
 
 * **Instead of using latexcodec, I encourage you to consider pylatexenc instead, which is far superior:** https://github.com/phfaist/pylatexenc
 

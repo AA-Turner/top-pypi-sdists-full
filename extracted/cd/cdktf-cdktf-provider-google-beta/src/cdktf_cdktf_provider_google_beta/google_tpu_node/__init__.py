@@ -1,7 +1,7 @@
 r'''
 # `google_tpu_node`
 
-Refer to the Terraform Registry for docs: [`google_tpu_node`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node).
+Refer to the Terraform Registry for docs: [`google_tpu_node`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleTpuNode(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleTpuNode.GoogleTpuNode",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node google_tpu_node}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node google_tpu_node}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class GoogleTpuNode(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node google_tpu_node} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node google_tpu_node} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param accelerator_type: The type of hardware accelerators associated with this node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#accelerator_type GoogleTpuNode#accelerator_type}
-        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#name GoogleTpuNode#name}
-        :param tensorflow_version: The version of Tensorflow running in the Node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#tensorflow_version GoogleTpuNode#tensorflow_version}
-        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#cidr_block GoogleTpuNode#cidr_block}
-        :param description: The user-supplied description of the TPU. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#description GoogleTpuNode#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#id GoogleTpuNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#labels GoogleTpuNode#labels}
-        :param network: The name of a network to peer the TPU node to. It must be a preexisting Compute Engine network inside of the project on which this API has been activated. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#network GoogleTpuNode#network}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#project GoogleTpuNode#project}.
-        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#scheduling_config GoogleTpuNode#scheduling_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#timeouts GoogleTpuNode#timeouts}
-        :param use_service_networking: Whether the VPC peering for the node is set up through Service Networking API. The VPC Peering should be set up before provisioning the node. If this field is set, cidr_block field should not be specified. If the network that you want to peer the TPU Node to is a Shared VPC network, the node must be created with this this field enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#use_service_networking GoogleTpuNode#use_service_networking}
-        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#zone GoogleTpuNode#zone}
+        :param accelerator_type: The type of hardware accelerators associated with this node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#accelerator_type GoogleTpuNode#accelerator_type}
+        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#name GoogleTpuNode#name}
+        :param tensorflow_version: The version of Tensorflow running in the Node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#tensorflow_version GoogleTpuNode#tensorflow_version}
+        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#cidr_block GoogleTpuNode#cidr_block}
+        :param description: The user-supplied description of the TPU. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#description GoogleTpuNode#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#id GoogleTpuNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#labels GoogleTpuNode#labels}
+        :param network: The name of a network to peer the TPU node to. It must be a preexisting Compute Engine network inside of the project on which this API has been activated. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#network GoogleTpuNode#network}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#project GoogleTpuNode#project}.
+        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#scheduling_config GoogleTpuNode#scheduling_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#timeouts GoogleTpuNode#timeouts}
+        :param use_service_networking: Whether the VPC peering for the node is set up through Service Networking API. The VPC Peering should be set up before provisioning the node. If this field is set, cidr_block field should not be specified. If the network that you want to peer the TPU Node to is a Shared VPC network, the node must be created with this this field enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#use_service_networking GoogleTpuNode#use_service_networking}
+        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#zone GoogleTpuNode#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class GoogleTpuNode(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleTpuNode to import.
-        :param import_from_id: The id of the existing GoogleTpuNode that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleTpuNode that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleTpuNode to import is found.
         '''
         if __debug__:
@@ -157,7 +157,7 @@ class GoogleTpuNode(
         preemptible: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param preemptible: Defines whether the TPU instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#preemptible GoogleTpuNode#preemptible}
+        :param preemptible: Defines whether the TPU instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#preemptible GoogleTpuNode#preemptible}
         '''
         value = GoogleTpuNodeSchedulingConfig(preemptible=preemptible)
 
@@ -172,9 +172,9 @@ class GoogleTpuNode(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#create GoogleTpuNode#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#delete GoogleTpuNode#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#update GoogleTpuNode#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#create GoogleTpuNode#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#delete GoogleTpuNode#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#update GoogleTpuNode#update}.
         '''
         value = GoogleTpuNodeTimeouts(create=create, delete=delete, update=update)
 
@@ -533,19 +533,19 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param accelerator_type: The type of hardware accelerators associated with this node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#accelerator_type GoogleTpuNode#accelerator_type}
-        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#name GoogleTpuNode#name}
-        :param tensorflow_version: The version of Tensorflow running in the Node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#tensorflow_version GoogleTpuNode#tensorflow_version}
-        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#cidr_block GoogleTpuNode#cidr_block}
-        :param description: The user-supplied description of the TPU. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#description GoogleTpuNode#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#id GoogleTpuNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#labels GoogleTpuNode#labels}
-        :param network: The name of a network to peer the TPU node to. It must be a preexisting Compute Engine network inside of the project on which this API has been activated. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#network GoogleTpuNode#network}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#project GoogleTpuNode#project}.
-        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#scheduling_config GoogleTpuNode#scheduling_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#timeouts GoogleTpuNode#timeouts}
-        :param use_service_networking: Whether the VPC peering for the node is set up through Service Networking API. The VPC Peering should be set up before provisioning the node. If this field is set, cidr_block field should not be specified. If the network that you want to peer the TPU Node to is a Shared VPC network, the node must be created with this this field enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#use_service_networking GoogleTpuNode#use_service_networking}
-        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#zone GoogleTpuNode#zone}
+        :param accelerator_type: The type of hardware accelerators associated with this node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#accelerator_type GoogleTpuNode#accelerator_type}
+        :param name: The immutable name of the TPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#name GoogleTpuNode#name}
+        :param tensorflow_version: The version of Tensorflow running in the Node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#tensorflow_version GoogleTpuNode#tensorflow_version}
+        :param cidr_block: The CIDR block that the TPU node will use when selecting an IP address. This CIDR block must be a /29 block; the Compute Engine networks API forbids a smaller block, and using a larger block would be wasteful (a node can only consume one IP address). Errors will occur if the CIDR block has already been used for a currently existing TPU node, the CIDR block conflicts with any subnetworks in the user's provided network, or the provided network is peered with another network that is using that CIDR block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#cidr_block GoogleTpuNode#cidr_block}
+        :param description: The user-supplied description of the TPU. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#description GoogleTpuNode#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#id GoogleTpuNode#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#labels GoogleTpuNode#labels}
+        :param network: The name of a network to peer the TPU node to. It must be a preexisting Compute Engine network inside of the project on which this API has been activated. If none is provided, "default" will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#network GoogleTpuNode#network}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#project GoogleTpuNode#project}.
+        :param scheduling_config: scheduling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#scheduling_config GoogleTpuNode#scheduling_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#timeouts GoogleTpuNode#timeouts}
+        :param use_service_networking: Whether the VPC peering for the node is set up through Service Networking API. The VPC Peering should be set up before provisioning the node. If this field is set, cidr_block field should not be specified. If the network that you want to peer the TPU Node to is a Shared VPC network, the node must be created with this this field enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#use_service_networking GoogleTpuNode#use_service_networking}
+        :param zone: The GCP location for the TPU. If it is not provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#zone GoogleTpuNode#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -683,7 +683,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def accelerator_type(self) -> builtins.str:
         '''The type of hardware accelerators associated with this node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#accelerator_type GoogleTpuNode#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#accelerator_type GoogleTpuNode#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         assert result is not None, "Required property 'accelerator_type' is missing"
@@ -693,7 +693,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The immutable name of the TPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#name GoogleTpuNode#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#name GoogleTpuNode#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -703,7 +703,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tensorflow_version(self) -> builtins.str:
         '''The version of Tensorflow running in the Node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#tensorflow_version GoogleTpuNode#tensorflow_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#tensorflow_version GoogleTpuNode#tensorflow_version}
         '''
         result = self._values.get("tensorflow_version")
         assert result is not None, "Required property 'tensorflow_version' is missing"
@@ -722,7 +722,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         subnetworks in the user's provided network, or the provided network
         is peered with another network that is using that CIDR block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#cidr_block GoogleTpuNode#cidr_block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#cidr_block GoogleTpuNode#cidr_block}
         '''
         result = self._values.get("cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -731,14 +731,14 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The user-supplied description of the TPU. Maximum of 512 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#description GoogleTpuNode#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#description GoogleTpuNode#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#id GoogleTpuNode#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#id GoogleTpuNode#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -753,7 +753,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#labels GoogleTpuNode#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#labels GoogleTpuNode#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -767,14 +767,14 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         this API has been activated. If none is provided, "default" will be
         used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#network GoogleTpuNode#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#network GoogleTpuNode#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#project GoogleTpuNode#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#project GoogleTpuNode#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -782,7 +782,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scheduling_config(self) -> typing.Optional["GoogleTpuNodeSchedulingConfig"]:
         '''scheduling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#scheduling_config GoogleTpuNode#scheduling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#scheduling_config GoogleTpuNode#scheduling_config}
         '''
         result = self._values.get("scheduling_config")
         return typing.cast(typing.Optional["GoogleTpuNodeSchedulingConfig"], result)
@@ -791,7 +791,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleTpuNodeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#timeouts GoogleTpuNode#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#timeouts GoogleTpuNode#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleTpuNodeTimeouts"], result)
@@ -806,7 +806,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         cidr_block field should not be specified. If the network that you want to peer the
         TPU Node to is a Shared VPC network, the node must be created with this this field enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#use_service_networking GoogleTpuNode#use_service_networking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#use_service_networking GoogleTpuNode#use_service_networking}
         '''
         result = self._values.get("use_service_networking")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -815,7 +815,7 @@ class GoogleTpuNodeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''The GCP location for the TPU. If it is not provided, the provider zone is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#zone GoogleTpuNode#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#zone GoogleTpuNode#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -990,7 +990,7 @@ class GoogleTpuNodeSchedulingConfig:
         preemptible: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param preemptible: Defines whether the TPU instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#preemptible GoogleTpuNode#preemptible}
+        :param preemptible: Defines whether the TPU instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#preemptible GoogleTpuNode#preemptible}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5dcbec131d3f98deef4d7de8fa528a8b21dd6ef05530191b8bc33c9b34276908)
@@ -1003,7 +1003,7 @@ class GoogleTpuNodeSchedulingConfig:
     def preemptible(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Defines whether the TPU instance is preemptible.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#preemptible GoogleTpuNode#preemptible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#preemptible GoogleTpuNode#preemptible}
         '''
         result = self._values.get("preemptible")
         assert result is not None, "Required property 'preemptible' is missing"
@@ -1093,9 +1093,9 @@ class GoogleTpuNodeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#create GoogleTpuNode#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#delete GoogleTpuNode#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#update GoogleTpuNode#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#create GoogleTpuNode#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#delete GoogleTpuNode#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#update GoogleTpuNode#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a77a42004a650f80a3ae0ff1745fa7b21da5a704d5b39fc585c42254db27f533)
@@ -1112,19 +1112,19 @@ class GoogleTpuNodeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#create GoogleTpuNode#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#create GoogleTpuNode#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#delete GoogleTpuNode#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#delete GoogleTpuNode#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_tpu_node#update GoogleTpuNode#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_tpu_node#update GoogleTpuNode#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

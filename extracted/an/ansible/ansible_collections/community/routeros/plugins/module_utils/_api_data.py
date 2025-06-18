@@ -281,6 +281,7 @@ PATHS = {
             versioned_fields=[
                 ([('7.0', '<')], 'ingress-filtering', KeyInfo(default=False)),
                 ([('7.0', '>=')], 'ingress-filtering', KeyInfo(default=True)),
+                ([('7.13', '>=')], 'port-cost-mode', KeyInfo(default='long')),
                 ([('7.16', '>=')], 'forward-reserved-addresses', KeyInfo(default=False)),
                 ([('7.16', '>=')], 'max-learned-entries', KeyInfo(default='auto')),
             ],
@@ -651,13 +652,22 @@ PATHS = {
     ),
     ('ip', 'ipsec', 'mode-config'): APIData(
         unversioned=VersionedAPIData(
-            unknown_mechanism=True,
-            # primary_keys=('default', ),
+            fully_understood=True,
+            primary_keys=('name', ),
+            versioned_fields=[
+                ([('6.43', '>=')], 'responder', KeyInfo(default=False)),
+                ([('6.44', '>=')], 'address', KeyInfo(can_disable=True, remove_value='0.0.0.0')),
+            ],
             fields={
-                'default': KeyInfo(),
+                'address-pool': KeyInfo(can_disable=True, remove_value='none'),
+                'address-prefix-length': KeyInfo(),
+                'comment': KeyInfo(can_disable=True, remove_value=''),
                 'name': KeyInfo(),
-                'responder': KeyInfo(),
-                'use-responder-dns': KeyInfo(),
+                'split-dns': KeyInfo(can_disable=True, remove_value=''),
+                'split-include': KeyInfo(can_disable=True, remove_value=''),
+                'src-address-list': KeyInfo(can_disable=True, remove_value=''),
+                'static-dns': KeyInfo(can_disable=True, remove_value=''),
+                'system-dns': KeyInfo(default=False),
             },
         ),
     ),
@@ -4177,6 +4187,28 @@ PATHS = {
             },
         ),
     ),
+    ('routing', 'bfd', 'configuration'): APIData(
+        versioned=[
+            ('7.11', '>=', VersionedAPIData(
+                fully_understood=True,
+                fields={
+                    'address-list': KeyInfo(),
+                    'addresses': KeyInfo(),
+                    'comment': KeyInfo(can_disable=True, remove_value=''),
+                    'copy-from': KeyInfo(),
+                    'disabled': KeyInfo(default=False),
+                    'forbid-bfd': KeyInfo(),
+                    'interfaces': KeyInfo(),
+                    'min-echo-rx': KeyInfo(),
+                    'min-rx': KeyInfo(),
+                    'min-tx': KeyInfo(),
+                    'multiplier': KeyInfo(),
+                    'place-before': KeyInfo(),
+                    'vrf': KeyInfo(),
+                },
+            ))
+        ],
+    ),
     ('routing', 'bfd', 'interface'): APIData(
         unversioned=VersionedAPIData(
             unknown_mechanism=True,
@@ -4892,6 +4924,18 @@ PATHS = {
                 'vlan-mode': KeyInfo(default='disabled'),
             },
         ),
+    ),
+    ('interface', 'ethernet', 'switch', 'port-isolation'): APIData(
+        versioned=[
+            ('6.43', '>=', VersionedAPIData(
+                primary_keys=('name', ),
+                fully_understood=True,
+                fields={
+                    'forwarding-override': KeyInfo(),
+                    'name': KeyInfo(),
+                },
+            )),
+        ],
     ),
     ('ip', 'dhcp-client', 'option'): APIData(
         unversioned=VersionedAPIData(

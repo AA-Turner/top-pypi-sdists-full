@@ -12,7 +12,7 @@ from ..Provider import __map__
 from ..Provider import Cloudflare, Gemini, Grok, DeepSeekAPI, PerplexityLabs, LambdaChat, PollinationsAI, PuterJS
 from ..Provider import Microsoft_Phi_4_Multimodal, DeepInfraChat, Blackbox, OIVSCodeSer2, OIVSCodeSer0501, TeachAnything
 from ..Provider import Together, WeWordle, Yqcloud, Chatai, Free2GPT, ARTA, ImageLabs, LegacyLMArena, LMArenaBeta
-from ..Provider import EdgeTTS, gTTS, MarkItDown, OpenAIFM
+from ..Provider import EdgeTTS, gTTS, MarkItDown, OpenAIFM, Video
 from ..Provider import HarProvider, HuggingFace, HuggingFaceMedia
 from .base_provider import AsyncGeneratorProvider, ProviderModelMixin
 from .. import Provider
@@ -271,6 +271,9 @@ class AnyProvider(AsyncGeneratorProvider, ProviderModelMixin):
                 if count > cls.models_count.get(model, 0):
                     cls.models_count.update({model: count})
 
+            cls.video_models.append("video")
+            all_models.append("video")
+
             # Deduplicate and store
             cls.models_storage[ignored_key] = list(dict.fromkeys([model if model else cls.default_model for model in all_models]))
 
@@ -331,7 +334,7 @@ class AnyProvider(AsyncGeneratorProvider, ProviderModelMixin):
                     if api_key.get(provider):
                         if provider in __map__ and __map__[provider] not in PROVIERS_LIST_1:
                             extra_providers.append(__map__[provider])
-            print(f"Using extra providers: {[p.__name__ for p in extra_providers]}")
+            debug.log(f"Using extra providers: {[p.__name__ for p in extra_providers]}")
             for provider in PROVIERS_LIST_1 + extra_providers:
                 if provider.working:
                     provider_api_key = api_key
@@ -342,6 +345,8 @@ class AnyProvider(AsyncGeneratorProvider, ProviderModelMixin):
                     except Exception as e:
                         debug.error(f"Error getting models for provider {provider.__name__}:", e)
                         continue
+                    if model == "video":
+                        providers.append(Video)
                     if model and provider == PuterJS:
                        providers.append(provider)
                     elif not model or model in provider_models or provider.model_aliases and model in provider.model_aliases or model in provider.model_aliases.values():

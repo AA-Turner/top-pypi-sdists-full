@@ -23,6 +23,7 @@ from typing import Union
 from .literals import (
     AdminStatusType,
     AutoEnableMembersType,
+    ClusterStatusType,
     CoverageFilterCriterionKeyType,
     CoverageSortKeyType,
     CoverageStatisticsTypeType,
@@ -45,6 +46,7 @@ from .literals import (
     IndicatorTypeType,
     IpSetFormatType,
     IpSetStatusType,
+    KubernetesResourcesTypesType,
     MalwareProtectionPlanStatusType,
     MalwareProtectionPlanTaggingActionStatusType,
     ManagementTypeType,
@@ -94,6 +96,7 @@ __all__ = (
     "AccountStatisticsTypeDef",
     "AccountTypeDef",
     "ActionTypeDef",
+    "ActorProcessTypeDef",
     "ActorTypeDef",
     "AddonDetailsTypeDef",
     "AdminAccountTypeDef",
@@ -112,6 +115,7 @@ __all__ = (
     "CloudTrailConfigurationResultTypeDef",
     "ConditionOutputTypeDef",
     "ConditionTypeDef",
+    "ContainerFindingResourceTypeDef",
     "ContainerInstanceDetailsTypeDef",
     "ContainerTypeDef",
     "CountryTypeDef",
@@ -193,6 +197,7 @@ __all__ = (
     "EcsClusterDetailsTypeDef",
     "EcsTaskDetailsTypeDef",
     "EksClusterDetailsTypeDef",
+    "EksClusterTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EnableOrganizationAdminAccountRequestTypeDef",
     "EvidenceTypeDef",
@@ -263,6 +268,7 @@ __all__ = (
     "KubernetesRoleDetailsTypeDef",
     "KubernetesUserDetailsTypeDef",
     "KubernetesWorkloadDetailsTypeDef",
+    "KubernetesWorkloadTypeDef",
     "LambdaDetailsTypeDef",
     "LineageObjectTypeDef",
     "ListCoverageRequestPaginateTypeDef",
@@ -537,6 +543,12 @@ class KubernetesRoleDetailsTypeDef(TypedDict):
     Uid: NotRequired[str]
 
 
+class ActorProcessTypeDef(TypedDict):
+    Name: str
+    Path: str
+    Sha256: NotRequired[str]
+
+
 class SessionTypeDef(TypedDict):
     Uid: NotRequired[str]
     MfaStatus: NotRequired[MfaStatusType]
@@ -633,6 +645,11 @@ class ConditionTypeDef(TypedDict):
     GreaterThanOrEqual: NotRequired[int]
     LessThan: NotRequired[int]
     LessThanOrEqual: NotRequired[int]
+
+
+class ContainerFindingResourceTypeDef(TypedDict):
+    Image: str
+    ImageUid: NotRequired[str]
 
 
 class ContainerInstanceDetailsTypeDef(TypedDict):
@@ -897,6 +914,14 @@ class TagTypeDef(TypedDict):
     Value: NotRequired[str]
 
 
+class EksClusterTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    Status: NotRequired[ClusterStatusType]
+    VpcId: NotRequired[str]
+    Ec2InstanceUids: NotRequired[List[str]]
+
+
 class EnableOrganizationAdminAccountRequestTypeDef(TypedDict):
     AdminAccountId: str
 
@@ -1064,6 +1089,12 @@ class KubernetesAuditLogsConfigurationResultTypeDef(TypedDict):
 
 class KubernetesAuditLogsConfigurationTypeDef(TypedDict):
     Enable: bool
+
+
+class KubernetesWorkloadTypeDef(TypedDict):
+    ContainerUids: NotRequired[List[str]]
+    Namespace: NotRequired[str]
+    KubernetesResourcesTypes: NotRequired[KubernetesResourcesTypesType]
 
 
 class LineageObjectTypeDef(TypedDict):
@@ -2056,6 +2087,7 @@ class ActorTypeDef(TypedDict):
     Id: str
     User: NotRequired[UserTypeDef]
     Session: NotRequired[SessionTypeDef]
+    Process: NotRequired[ActorProcessTypeDef]
 
 
 class AnomalyUnusualTypeDef(TypedDict):
@@ -2305,12 +2337,19 @@ class RdsLoginAttemptActionTypeDef(TypedDict):
     LoginAttributes: NotRequired[List[LoginAttributeTypeDef]]
 
 
-class ResourceDataTypeDef(TypedDict):
-    S3Bucket: NotRequired[S3BucketTypeDef]
-    Ec2Instance: NotRequired[Ec2InstanceTypeDef]
-    AccessKey: NotRequired[AccessKeyTypeDef]
-    Ec2NetworkInterface: NotRequired[Ec2NetworkInterfaceTypeDef]
-    S3Object: NotRequired[S3ObjectTypeDef]
+ResourceDataTypeDef = TypedDict(
+    "ResourceDataTypeDef",
+    {
+        "S3Bucket": NotRequired[S3BucketTypeDef],
+        "Ec2Instance": NotRequired[Ec2InstanceTypeDef],
+        "AccessKey": NotRequired[AccessKeyTypeDef],
+        "Ec2NetworkInterface": NotRequired[Ec2NetworkInterfaceTypeDef],
+        "S3Object": NotRequired[S3ObjectTypeDef],
+        "EksCluster": NotRequired[EksClusterTypeDef],
+        "KubernetesWorkload": NotRequired[KubernetesWorkloadTypeDef],
+        "Container": NotRequired[ContainerFindingResourceTypeDef],
+    },
+)
 
 
 class ScanResourceCriteriaOutputTypeDef(TypedDict):
@@ -2677,6 +2716,7 @@ class SequenceTypeDef(TypedDict):
     Resources: NotRequired[List[ResourceV2TypeDef]]
     Endpoints: NotRequired[List[NetworkEndpointTypeDef]]
     SequenceIndicators: NotRequired[List[IndicatorTypeDef]]
+    AdditionalSequenceTypes: NotRequired[List[str]]
 
 
 class UpdateMalwareScanSettingsRequestTypeDef(TypedDict):

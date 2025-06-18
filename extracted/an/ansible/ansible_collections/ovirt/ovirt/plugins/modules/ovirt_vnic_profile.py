@@ -12,9 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_vnic_profile
 short_description: Module to manage vNIC profile of network in oVirt/RHV
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: oVirt Developers (@ovirt)
 description:
     - "Module to manage vNIC profile of network in oVirt/RHV"
 options:
@@ -121,7 +119,7 @@ EXAMPLES = '''
     name: myvnic
     network: mynetwork
     data_center: datacenter
-    migratable: False
+    migratable: false
     pass_through: enabled
 
 - name: Remove vNIC
@@ -158,9 +156,7 @@ from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     check_sdk,
     create_connection,
     equal,
-    get_link_name,
     ovirt_full_argument_spec,
-    search_by_name,
     get_id_by_name
 )
 

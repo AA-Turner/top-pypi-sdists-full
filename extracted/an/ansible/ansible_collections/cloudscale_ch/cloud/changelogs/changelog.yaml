@@ -161,3 +161,24 @@ releases:
     fragments:
     - 107-validate-api-token.yml
     release_date: '2025-01-16'
+  2.5.0:
+    changes:
+      bugfixes:
+      - floating_ip - Fix sanity tests.
+      minor_changes:
+      - volume - Add revert parameter.
+    fragments:
+    - 108-volume-revert.yml
+    - 109-floating-ip-bugfix.yml
+    modules:
+    - description: Manage volume snapshots on the cloudscale.ch IaaS service
+      name: volume_snapshot
+      namespace: ''
+    release_date: '2025-05-21'
+  2.5.1:
+    changes:
+      minor_changes:
+      - Add ansible-core 2.19+ compatibility
+    fragments:
+    - ansible-2-19-compatibility.yml
+    release_date: '2025-05-27'

@@ -6,6 +6,7 @@ import warnings
 
 import Microsoft.Win32.SafeHandles
 import System
+import System.Collections
 import System.Globalization
 import System.Numerics
 import System.Reflection
@@ -1930,6 +1931,15 @@ class BStrWrapper(System.Object):
 
 class CollectionsMarshal(System.Object):
     """An unsafe class that provides a set of methods to access the underlying data representations of collections."""
+
+    @staticmethod
+    def as_bytes(array: System.Collections.BitArray) -> System.Span[int]:
+        """
+        Get a Span{Byte} view over a BitArray's data.
+        
+        :param array: The BitArray whose backing storage should be viewed.
+        """
+        ...
 
 
 class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):

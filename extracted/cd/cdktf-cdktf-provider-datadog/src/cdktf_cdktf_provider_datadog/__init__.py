@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.65.0
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.66.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.65.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.66.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform datadog provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.65.0)
+* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.66.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -139,7 +139,10 @@ __all__ = [
     "cloud_configuration_rule",
     "cloud_workload_security_agent_rule",
     "compliance_custom_framework",
+    "compliance_resource_evaluation_filter",
+    "cost_budget",
     "csm_threats_agent_rule",
+    "csm_threats_policy",
     "dashboard",
     "dashboard_json",
     "dashboard_list",
@@ -149,7 +152,9 @@ __all__ = [
     "data_datadog_app_builder_app",
     "data_datadog_application_key",
     "data_datadog_cloud_workload_security_agent_rules",
+    "data_datadog_cost_budget",
     "data_datadog_csm_threats_agent_rules",
+    "data_datadog_csm_threats_policies",
     "data_datadog_dashboard",
     "data_datadog_dashboard_list",
     "data_datadog_hosts",
@@ -293,7 +298,10 @@ from . import child_organization
 from . import cloud_configuration_rule
 from . import cloud_workload_security_agent_rule
 from . import compliance_custom_framework
+from . import compliance_resource_evaluation_filter
+from . import cost_budget
 from . import csm_threats_agent_rule
+from . import csm_threats_policy
 from . import dashboard
 from . import dashboard_json
 from . import dashboard_list
@@ -303,7 +311,9 @@ from . import data_datadog_apm_retention_filters_order
 from . import data_datadog_app_builder_app
 from . import data_datadog_application_key
 from . import data_datadog_cloud_workload_security_agent_rules
+from . import data_datadog_cost_budget
 from . import data_datadog_csm_threats_agent_rules
+from . import data_datadog_csm_threats_policies
 from . import data_datadog_dashboard
 from . import data_datadog_dashboard_list
 from . import data_datadog_hosts

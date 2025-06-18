@@ -1,14 +1,14 @@
 from . import (
-    bsplines,
-    filter_design,
-    fir_filter_design,
-    lti_conversion,
-    ltisys,
-    signaltools,
-    spectral,
-    spline,
-    waveforms,
-    wavelets,
+    bsplines as bsplines,
+    filter_design as filter_design,
+    fir_filter_design as fir_filter_design,
+    lti_conversion as lti_conversion,
+    ltisys as ltisys,
+    signaltools as signaltools,
+    spectral as spectral,
+    spline as spline,
+    waveforms as waveforms,
+    wavelets as wavelets,
     windows,
 )
 from ._czt import CZT, ZoomFFT, czt, czt_points, zoom_fft
@@ -61,7 +61,7 @@ from ._filter_design import (
     zpk2sos,
     zpk2tf,
 )
-from ._fir_filter_design import firls, firwin, firwin2, kaiser_atten, kaiser_beta, kaiserord, minimum_phase, remez
+from ._fir_filter_design import firls, firwin, firwin2, firwin_2d, kaiser_atten, kaiser_beta, kaiserord, minimum_phase, remez
 from ._lti_conversion import abcd_normalize, cont2discrete, ss2tf, ss2zpk, tf2ss, zpk2ss
 from ._ltisys import (
     StateSpace,
@@ -84,7 +84,7 @@ from ._ltisys import (
 from ._max_len_seq import max_len_seq
 from ._peak_finding import argrelextrema, argrelmax, argrelmin, find_peaks, find_peaks_cwt, peak_prominences, peak_widths
 from ._savitzky_golay import savgol_coeffs, savgol_filter
-from ._short_time_fft import ShortTimeFFT
+from ._short_time_fft import ShortTimeFFT, closest_STFT_dual_window
 from ._signaltools import (
     choose_conv_method,
     convolve,
@@ -156,7 +156,6 @@ __all__ = [
     "bilinear",
     "bilinear_zpk",
     "bode",
-    "bsplines",
     "buttap",
     "butter",
     "buttord",
@@ -170,6 +169,7 @@ __all__ = [
     "check_NOLA",
     "chirp",
     "choose_conv_method",
+    "closest_STFT_dual_window",
     "coherence",
     "cont2discrete",
     "convolve",
@@ -197,15 +197,14 @@ __all__ = [
     "ellipord",
     "envelope",
     "fftconvolve",
-    "filter_design",
     "filtfilt",
     "find_peaks",
     "find_peaks_cwt",
     "findfreqs",
-    "fir_filter_design",
     "firls",
     "firwin",
     "firwin2",
+    "firwin_2d",
     "freqresp",
     "freqs",
     "freqs_zpk",
@@ -245,8 +244,6 @@ __all__ = [
     "lp2lp_zpk",
     "lsim",
     "lti",
-    "lti_conversion",
-    "ltisys",
     "max_len_seq",
     "medfilt",
     "medfilt2d",
@@ -270,16 +267,13 @@ __all__ = [
     "savgol_filter",
     "sawtooth",
     "sepfir2d",
-    "signaltools",
     "sos2tf",
     "sos2zpk",
     "sosfilt",
     "sosfilt_zi",
     "sosfiltfilt",
     "sosfreqz",
-    "spectral",
     "spectrogram",
-    "spline",
     "spline_filter",
     "square",
     "ss2tf",
@@ -296,8 +290,6 @@ __all__ = [
     "unit_impulse",
     "upfirdn",
     "vectorstrength",
-    "waveforms",
-    "wavelets",
     "welch",
     "wiener",
     "windows",

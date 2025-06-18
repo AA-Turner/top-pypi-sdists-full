@@ -12,6 +12,7 @@ from errno import EINTR
 from multiprocessing import Queue
 from shutil import rmtree
 from tempfile import mkdtemp
+import subprocess
 
 import tftpy
 
@@ -191,10 +192,11 @@ class TestTftpyState(unittest.TestCase):
         output="/tmp/out",
         cretries=tftpy.DEF_TIMEOUT_RETRIES,
         sretries=tftpy.DEF_TIMEOUT_RETRIES,
+        flock=True
     ):
         """Fire up a client and a server and do a download."""
         root = os.path.dirname(os.path.abspath(__file__))
-        server = tftpy.TftpServer(root)
+        server = tftpy.TftpServer(root, flock=flock)
         client = tftpy.TftpClient("localhost", 20001, options)
         # Fork a server and run the client in this process.
         child_pid = os.fork()
@@ -226,6 +228,9 @@ class TestTftpyState(unittest.TestCase):
     def testClientServerNoOptions(self):
         self.clientServerDownloadOptions({})
 
+    def testClientServerNoOptionsNoFlock(self):
+        self.clientServerDownloadOptions({}, flock=False)
+
     def testClientServerNoOptionsRetries(self):
         self.clientServerDownloadOptions({}, cretries=5, sretries=5)
 
@@ -244,7 +249,7 @@ class TestTftpyState(unittest.TestCase):
         self.clientServerUploadOptions({})
 
     def testClientServerUploadFileObj(self):
-        fileobj = open("t/640KBFILE", "rb")
+        fileobj = open("tests/640KBFILE", "rb")
         self.clientServerUploadOptions({}, input=fileobj)
 
     def testClientServerUploadWithSubdirs(self):
@@ -637,6 +642,20 @@ class TestTftpyMisc(unittest.TestCase):
 
         else:
             server.listen("localhost", 20001)
+
+    def testStdin(self):
+        cdir = os.path.dirname(os.path.abspath(__file__))
+        script = os.path.join(cdir, "stdin.py")
+        command = f"cat tests/640KBFILE | {script}"
+        rv = subprocess.call(command, shell=True)
+        self.assertTrue( rv == 0 )
+
+    def testStdout(self):
+        cdir = os.path.dirname(os.path.abspath(__file__))
+        script = os.path.join(cdir, "stdout.py")
+        command = f"{script} > /tmp/out"
+        rv = subprocess.call(command, shell=True)
+        self.assertTrue( rv == 0 )
 
 if __name__ == "__main__":
     unittest.main()

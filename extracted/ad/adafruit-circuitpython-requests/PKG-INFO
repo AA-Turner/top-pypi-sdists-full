@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adafruit-circuitpython-requests
-Version: 4.1.12
+Version: 4.1.13
 Summary: A requests-like library for web interfacing
 Author-email: Adafruit Industries <circuitpython@adafruit.com>
 License: MIT

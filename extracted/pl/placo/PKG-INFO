@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: placo
-Version: 0.9.6
+Version: 0.9.7
 Summary: PlaCo: Rhoban Planning and Control
 Requires-Python: >= 3.9
 License-Expression: MIT
@@ -16,7 +16,7 @@ Requires-Dist: meshcat
 Requires-Dist: ischedule
 Provides-Extra: build
 Requires-Dist: pin[build] ==  3.7.0 ; extra == "build"
-Requires-Dist: doxystub >= 0.0.13 ; extra == "build"
+Requires-Dist: doxystub >= 0.1.7 ; extra == "build"
 Requires-Dist: cmake<4 ; extra == "build"
 Description-Content-Type: text/markdown
 

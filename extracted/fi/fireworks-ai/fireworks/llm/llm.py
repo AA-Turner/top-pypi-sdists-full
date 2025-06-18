@@ -1,48 +1,30 @@
-from collections import defaultdict, deque
 from datetime import timedelta
 import inspect
-import re
 import os
-import json
-import sys
 import time
-import uuid
 
 from fireworks._const import FIREWORKS_API_BASE_URL
-from fireworks.client.api import ChatCompletionMessageToolCall
-import grpc
-from pydantic import ValidationError
-from openai import NotGiven, NOT_GIVEN
-from ._list_fireworks_models_response_cached import models
-from fireworks.client.error import InvalidRequestError, RateLimitError
+from fireworks.evaluator.evaluator import Evaluator
+from fireworks.reinforcement_fine_tuning_job.reinforcement_fine_tuning_job import ReinforcementFineTuningJob
 from fireworks.client.api_client import FireworksClient
-from fireworks.client.chat import Chat as FireworksChat
-from fireworks.client.chat_completion import ChatCompletionV2 as FireworksChatCompletion
-from asyncstdlib.functools import cache
 from functools import cache as sync_cache
 from google.protobuf.field_mask_pb2 import FieldMask as SyncFieldMask
 from typing import (
-    AsyncGenerator,
-    Generator,
-    Iterable,
+    Callable,
     List,
-    Literal,
     Optional,
     Union,
-    overload,
     TYPE_CHECKING,
 )
-from fireworks.client.error import BadGatewayError, ServiceUnavailableError
 from fireworks.dataset import Dataset
 from fireworks.gateway import Gateway
 from google.protobuf.duration_pb2 import Duration
 from fireworks.control_plane.generated.protos_grpcio.gateway.deployment_pb2 import (
-    ListDeploymentsRequest as SyncListDeploymentsRequest,
-    UpdateDeploymentRequest as SyncUpdateDeploymentRequest,
     Deployment as SyncDeployment,
     AutoscalingPolicy as SyncAutoscalingPolicy,
     AcceleratorType as SyncAcceleratorType,
     Region as SyncRegion,
+    MultiRegion as SyncMultiRegion,
     DirectRouteType as SyncDirectRouteType,
     AutoTune as SyncAutoTune,
 )
@@ -52,49 +34,53 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.model_pb2 import (
 from fireworks.control_plane.generated.protos_grpcio.gateway.deployed_model_pb2 import (
     CreateDeployedModelRequest as SyncCreateDeployedModelRequest,
     DeployedModel as SyncDeployedModel,
-    GetDeployedModelRequest as SyncGetDeployedModelRequest,
     ListDeployedModelsRequest as SyncListDeployedModelsRequest,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.training_pb2 import (
+    BaseTrainingConfig as SyncBaseTrainingConfig,
 )
 from fireworks.control_plane.generated.protos.gateway import (
     AcceleratorType as AcceleratorTypeEnum,
     AutoTune,
     AutoscalingPolicy,
-    CreateSupervisedFineTuningJobRequest,
-    DeployedModelState,
+    BaseTrainingConfig,
     Deployment,
-    DeploymentPrecision,
     DeploymentState,
-    DirectRouteType,
-    JobState,
-    ListSupervisedFineTuningJobsRequest,
-    Model,
-    Region,
-    SupervisedFineTuningJobWeightPrecision,
+    InferenceParameters,
     WandbConfig,
 )
-from fireworks.supervised_fine_tuning_job.supervised_fine_tuning_job import (
-    SupervisedFineTuningJobWeightPrecisionLiteral,
-)
-import asyncio
-import logging
-import atexit
-from openai.types.chat.chat_completion import ChatCompletion as OpenAIChatCompletion
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from openai.types.chat.completion_create_params import ResponseFormat
-from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
-from fireworks._util import is_valid_resource_name
+from fireworks._util import generate_model_resource_name, is_valid_resource_name
 import sysconfig
 from fireworks._literals import (
     DeploymentStrategyLiteral,
     DeploymentTypeLiteral,
     DirectRouteTypeLiteral,
+    MultiRegionLiteral,
     PrecisionLiteral,
     RegionLiteral,
     AcceleratorTypeLiteral,
-    ReasoningEffort,
+    WeightPrecisionLiteral,
 )
 from fireworks._logger import log_execution_time, logger
+from fireworks.control_plane.generated.protos_grpcio.gateway.supervised_fine_tuning_job_pb2 import (
+    SupervisedFineTuningJob as SyncSupervisedFineTuningJob,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.reinforcement_fine_tuning_job_pb2 import (
+    ReinforcementFineTuningJob as SyncReinforcementFineTuningJob,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.training_pb2 import (
+    BaseTrainingConfig as SyncBaseTrainingConfig,
+    WeightPrecision,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.wandb_pb2 import (
+    WandbConfig as SyncWandbConfig,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.batch_inference_job_pb2 import (
+    InferenceParameters as SyncInferenceParameters,
+)
+from fireworks.llm.chat_completion import ChatCompletion, Chat
+from fireworks.llm.completion import Completion
+from fireworks.llm.metrics import Metrics
 
 # Type checking imports to avoid circular imports
 if TYPE_CHECKING:
@@ -102,332 +88,6 @@ if TYPE_CHECKING:
 
 DEFAULT_MAX_RETRIES = 10
 DEFAULT_DELAY = 0.5
-
-
-class ChatCompletion:
-    def __init__(self, llm: "LLM"):
-        self._client = FireworksChatCompletion(llm._client)
-        self._llm = llm
-
-    def _create_setup(self):
-        """
-        Setup for .create() and .acreate()
-        """
-        self._llm._ensure_deployment_ready()
-        model_id = self._llm.model_id()
-        return model_id
-
-    @overload
-    def create(
-        self,
-        messages: Iterable[ChatCompletionMessageParam],
-        stream: Literal[False] = False,
-        response_format: Optional[ResponseFormat] = None,
-        reasoning_effort: Optional[ReasoningEffort] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
-        extra_headers=None,
-        **kwargs,
-    ) -> OpenAIChatCompletion:
-        pass
-
-    @overload
-    def create(
-        self,
-        messages: Iterable[ChatCompletionMessageParam],
-        stream: Literal[True] = True,
-        response_format: Optional[ResponseFormat] = None,
-        reasoning_effort: Optional[ReasoningEffort] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
-        extra_headers=None,
-        **kwargs,
-    ) -> Generator[ChatCompletionChunk, None, None]:
-        pass
-
-    def _build_request_params(
-        self,
-        model_id: str,
-        messages: Iterable[ChatCompletionMessageParam],
-        stream: bool = False,
-        response_format: Optional[ResponseFormat] = None,
-        reasoning_effort: Optional[ReasoningEffort] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
-        extra_headers=None,
-        **kwargs,
-    ) -> dict:
-        """Build common request parameters for both sync and async calls."""
-        params = {
-            "model": model_id,
-            "prompt_or_messages": messages,
-            "stream": stream,
-            "extra_headers": extra_headers,
-            "response_format": response_format,
-            "reasoning_effort": reasoning_effort,
-            "max_tokens": max_tokens,
-            "temperature": temperature if temperature is not None else self._llm.temperature,
-            **kwargs,
-        }
-
-        # Only include tools if it's not NotGiven
-        if not isinstance(tools, NotGiven):
-            params["tools"] = tools
-
-        return params
-
-    def _should_retry_error(self, e: Exception) -> bool:
-        """Check if an error should trigger a retry."""
-        if isinstance(e, InvalidRequestError):
-            error_msg = str(e).lower()
-            return any(
-                msg in error_msg
-                for msg in ["model not found, inaccessible, and/or not deployed", "model does not exist"]
-            )
-        return isinstance(e, (BadGatewayError, ServiceUnavailableError, RateLimitError))
-
-    def create(
-        self,
-        messages: Iterable[ChatCompletionMessageParam],
-        stream: bool = False,
-        response_format: Optional[ResponseFormat] = None,
-        reasoning_effort: Optional[ReasoningEffort] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
-        extra_headers=None,
-        **kwargs,
-    ) -> Union[OpenAIChatCompletion, Generator[ChatCompletionChunk, None, None]]:
-        model_id = self._create_setup()
-        params = self._build_request_params(
-            model_id,
-            messages,
-            stream,
-            response_format,
-            reasoning_effort,
-            max_tokens,
-            temperature,
-            tools,
-            extra_headers,
-            **kwargs,
-        )
-
-        retries = 0
-        delay = DEFAULT_DELAY
-        while retries < self._llm.max_retries:
-            try:
-                if self._llm.enable_metrics and not stream:
-                    start_time = time.time()
-
-                result = self._client.create(**params)  # type: ignore
-
-                if self._llm.enable_metrics and not stream:
-                    end_time = time.time()
-                    self._llm._metrics.add_metric("time_to_last_token", end_time - start_time)
-
-                return result
-            except Exception as e:
-                if not self._should_retry_error(e):
-                    raise e
-                logger.debug(f"{type(e).__name__}: {e}. model_id: {model_id}")
-                time.sleep(delay)
-                retries += 1
-                delay *= 2
-        raise Exception(f"Failed to create chat completion after {self._llm.max_retries} retries")
-
-    @overload
-    async def acreate(
-        self,
-        messages: Iterable[ChatCompletionMessageParam],
-        stream: Literal[False] = False,
-        response_format: Optional[ResponseFormat] = None,
-        reasoning_effort: Optional[ReasoningEffort] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
-        extra_headers=None,
-        **kwargs,
-    ) -> OpenAIChatCompletion: ...
-
-    @overload
-    async def acreate(
-        self,
-        messages: Iterable[ChatCompletionMessageParam],
-        stream: Literal[True] = True,
-        response_format: Optional[ResponseFormat] = None,
-        reasoning_effort: Optional[ReasoningEffort] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
-        extra_headers=None,
-        **kwargs,
-    ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        pass
-
-    async def acreate(
-        self,
-        messages: Iterable[ChatCompletionMessageParam],
-        stream: bool = False,
-        response_format: Optional[ResponseFormat] = None,
-        reasoning_effort: Optional[ReasoningEffort] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
-        extra_headers=None,
-        **kwargs,
-    ) -> Union[OpenAIChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        model_id = self._create_setup()
-        params = self._build_request_params(
-            model_id,
-            messages,
-            stream,
-            response_format,
-            reasoning_effort,
-            max_tokens,
-            temperature,
-            tools,
-            extra_headers,
-            **kwargs,
-        )
-
-        retries = 0
-        delay = DEFAULT_DELAY
-        while retries < self._llm.max_retries:
-            try:
-                resp_or_generator = self._client.acreate(**params)  # type: ignore
-                if stream:
-                    return resp_or_generator  # type: ignore
-                else:
-                    if self._llm.enable_metrics:
-                        start_time = time.time()
-                    resp = await resp_or_generator  # type: ignore
-                    if self._llm.enable_metrics:
-                        end_time = time.time()
-                        self._llm._metrics.add_metric("time_to_last_token", end_time - start_time)
-                    return resp
-            except Exception as e:
-                if not self._should_retry_error(e):
-                    raise e
-                logger.debug(f"{type(e).__name__}: {e}. model_id: {model_id}")
-                await asyncio.sleep(delay)
-                retries += 1
-                delay *= 2
-        raise Exception(f"Failed to create chat completion after {self._llm.max_retries} retries")
-
-
-class Chat:
-    def __init__(self, llm: "LLM", model):
-        self.completions = ChatCompletion(llm)
-
-
-class Metrics:
-    """
-    A class for tracking and analyzing performance metrics for LLM operations.
-
-    This class maintains a rolling window of metrics such as response times,
-    token generation speeds, and other performance indicators. It provides
-    statistical methods to analyze these metrics (mean, median, min, max).
-
-    Each metric is stored as a list of values with a maximum size to prevent
-    unbounded memory growth. When the maximum size is reached, the oldest
-    values are removed in a FIFO manner.
-    """
-
-    def __init__(self, max_metrics: int = 1000):
-        """
-        Initialize the metrics tracker.
-
-        Args:
-            max_metrics: Maximum number of values to store for each metric.
-                         Defaults to 1000. When exceeded, oldest values are removed.
-        """
-        self._metrics = defaultdict(deque)
-        self._max_metrics = max_metrics
-
-    def add_metric(self, metric_name: str, metric_value: float):
-        """
-        Add a new metric value to the specified metric.
-
-        Args:
-            metric_name: Name of the metric to track
-            metric_value: Value to add to the metric
-        """
-        self._metrics[metric_name].append(metric_value)
-        if len(self._metrics[metric_name]) > self._max_metrics:
-            self._metrics[metric_name].popleft()
-
-    def get_metric(self, metric_name: str):
-        """
-        Get all recorded values for a specific metric.
-
-        Args:
-            metric_name: Name of the metric to retrieve
-
-        Returns:
-            List of metric values or None if the metric doesn't exist
-        """
-        if metric_name not in self._metrics:
-            return None
-        return self._metrics[metric_name]
-
-    def get_metric_mean(self, metric_name: str) -> Optional[float]:
-        """
-        Calculate the arithmetic mean of a metric's values.
-
-        Args:
-            metric_name: Name of the metric
-
-        Returns:
-            Mean value or None if the metric doesn't exist
-        """
-        if metric_name not in self._metrics:
-            return None
-        return sum(self._metrics[metric_name]) / len(self._metrics[metric_name])
-
-    def get_metric_median(self, metric_name: str):
-        """
-        Calculate the median value of a metric.
-
-        Args:
-            metric_name: Name of the metric
-
-        Returns:
-            Median value or None if the metric doesn't exist
-        """
-        if metric_name not in self._metrics:
-            return None
-        return sorted(self._metrics[metric_name])[len(self._metrics[metric_name]) // 2]
-
-    def get_metric_min(self, metric_name: str):
-        """
-        Get the minimum value recorded for a metric.
-
-        Args:
-            metric_name: Name of the metric
-
-        Returns:
-            Minimum value or None if the metric doesn't exist
-        """
-        if metric_name not in self._metrics:
-            return None
-        return min(self._metrics[metric_name])
-
-    def get_metric_max(self, metric_name: str):
-        """
-        Get the maximum value recorded for a metric.
-
-        Args:
-            metric_name: Name of the metric
-
-        Returns:
-            Maximum value or None if the metric doesn't exist
-        """
-        if metric_name not in self._metrics:
-            return None
-        return max(self._metrics[metric_name])
 
 
 class LLM:
@@ -447,6 +107,7 @@ class LLM:
         enable_metrics: bool = False,
         accelerator_type: Optional[AcceleratorTypeLiteral] = None,
         region: Optional[RegionLiteral] = None,
+        multi_region: Optional[MultiRegionLiteral] = None,
         description: Optional[str] = None,
         annotations: Optional[dict[str, str]] = None,
         min_replica_count: Optional[int] = None,
@@ -520,8 +181,6 @@ class LLM:
         self._client = FireworksClient(api_key=api_key, base_url=base_url)
         if deployment_display_name is not None and deployment_display_name == "":
             raise ValueError("name must be non-empty")
-        if deployment_display_name and not is_valid_resource_name(deployment_display_name):
-            raise ValueError("LLM name must only contain lowercase a-z, 0-9, and hyphen (-)")
         self._deployment_name = deployment_name
         self._gateway = Gateway(api_key=api_key)
         self._deployment_display_name = deployment_display_name
@@ -532,6 +191,7 @@ class LLM:
         self._base_deployment_name = base_deployment_name
         self._model = model
         self.chat = Chat(self, self.model)
+        self.completions = Completion(self)
         self.deployment_type: DeploymentTypeLiteral = deployment_type
         self.deployment_strategy = self._compute_deployment_strategy()
         self.max_retries = max_retries
@@ -563,6 +223,7 @@ class LLM:
             scale_to_zero_window=Duration(seconds=int(scale_to_zero_window.total_seconds())),
         )
         self._region: Optional[RegionLiteral] = region
+        self._multi_region: Optional[MultiRegionLiteral] = multi_region
         self._description = description
         self._annotations = annotations
         self._min_replica_count = min_replica_count
@@ -686,7 +347,10 @@ class LLM:
         Not sure if we should really be using deployment name for querying
         existing deployments but this way we don't have to worry about name
         collisions since display name is not a unique identifier for
-        deployments.
+        deployments. Name collisions are important to avoid because you might
+        want to have multiple deployments with different parameters in the same
+        file/notebook/namespace. So display name is really treated like a
+        namespace.
         """
         return self._get_deployment_display_name()
 
@@ -697,6 +361,9 @@ class LLM:
         Otherwise, the deployment name will be generated from the filename of the caller where this LLM was instantiated.
 
         In Jupyter notebooks, we'll use the actual notebook filename rather than the temporary execution file.
+
+        For serverless models, deployment display name is not required since no deployment is created,
+        so we return a default name if caller context cannot be determined.
         """
         if self._deployment_display_name is not None:
             return self._deployment_display_name
@@ -733,7 +400,25 @@ class LLM:
             ):
                 logger.debug(f"Found caller outside of library code to generate name: {filename}")
                 return os.path.basename(filename)
-        raise ValueError("No caller found outside of library code")
+
+                # If no caller found and this is a serverless model, return a default name
+        # since serverless models don't require deployments
+        if self.deployment_strategy == "serverless":
+            logger.debug("No caller found but model is serverless, using default name for REPL usage")
+            return "repl-session"
+
+        # Provide a helpful error message for non-serverless models in REPL
+        raise ValueError(
+            f"Could not automatically determine deployment name for model '{self._model}' in interactive environment. "
+            f"Please provide a deployment_display_name when creating the LLM instance:\n\n"
+            f"Example:\n"
+            f"    llm = LLM(\n"
+            f"        model='{self._model}',\n"
+            f"        deployment_type='{self.deployment_type}',\n"
+            f"        deployment_display_name='my-deployment-name'\n"
+            f"    )\n\n"
+            f"The deployment_display_name helps identify your deployment and can be any descriptive name."
+        )
 
     def apply(self, wait: bool = True):
         """
@@ -842,15 +527,26 @@ class LLM:
             logger.debug("No deployment found to delete")
             return
         if self.is_peft_addon():
-            logger.debug(f"Deleting deployed model {deployment.name}")
-            self._gateway.delete_deployed_model_sync(deployment.name)
+            if not isinstance(deployment, SyncDeployedModel):
+                raise ValueError(f"Deployment {deployment.name} is not a deployed model")
+            if deployment.state == SyncDeployedModel.State.UNDEPLOYING:
+                logger.debug(f"LoRA model {self.model} is already unloading, skipping unloading request")
+            else:
+                if deployment.state == SyncDeployedModel.State.DEPLOYING:
+                    logger.debug(
+                        f"LoRA model {self.model} is already deploying, waiting for it to be deployed to delete it"
+                    )
+                    # we need to wait until the deployment is ready to delete it by waiting for it to be deployed
+                    self.apply()
+                logger.debug(f"Unloading LoRA model {self.model}, deployment={deployment.name}")
+                self._gateway.delete_deployed_model_sync(deployment.name)
             if not wait:
                 logger.debug(
-                    f"wait=False, not polling for serverless LoRA model unloading completion of {deployment.name}"
+                    f"wait=False, not polling for LoRA model unloading completion of deployment {deployment.name}"
                 )
                 return
 
-            logger.debug(f"Deleting serverless LoRA model {self.model}...")
+            logger.debug(f"Unloading LoRA model {self.model}...")
             start_time = time.time()
             last_log_time = 0
 
@@ -955,41 +651,52 @@ class LLM:
             )
             return "on-demand"
 
-    @classmethod
-    def is_model_on_fireworks_account(cls, model: str) -> Optional[Model]:
+    def is_model_on_fireworks_account(self, model: str) -> Optional[SyncModel]:
         """
         Check if the model is on the fireworks account.
         If it is, return the model object.
         If it is not, return None.
         """
-        models = cls.list_fireworks_models()
+        models = self.list_fireworks_models()
         model_obj = next((m for m in models if m.name == model), None)
         return model_obj
 
-    @classmethod
     @sync_cache
-    def is_model_available_on_serverless(cls, model: str) -> bool:
+    def is_model_available_on_serverless(self, model: str) -> bool:
         logger.debug(f"Checking if {model} is available on serverless")
-        model_obj = cls.is_model_on_fireworks_account(model)
+        model_obj = self.is_model_on_fireworks_account(model)
         if model_obj is None:
             return False
         logger.debug(f"Found model {model} on under fireworks account")
-        is_serverless = cls.is_model_deployed_on_serverless_account(model_obj)
+        is_serverless = self.is_model_deployed_on_serverless_account(model_obj)
         logger.debug(f"Model {model} is {'serverless' if is_serverless else 'not serverless'}")
         return is_serverless
 
-    @classmethod
-    def list_fireworks_models(cls) -> List[Model]:
+    @sync_cache
+    def list_fireworks_models(self) -> List[SyncModel]:
         """
         Find all models on the fireworks account. Does not change often, so we
         embed the Gateway response as a variable in another file and return that
         instead. See the comment on what query is used to get the models.
         """
-        # models = await self._gateway.list_models(parent="accounts/fireworks", include_deployed_model_refs=True)
-        return models
+        result = []
+        page_token = None
+        while True:
+            response = self._gateway.list_models_sync(
+                parent=f"accounts/fireworks",
+                page_size=200,
+                page_token=page_token if page_token else "",
+                include_deployed_model_refs=True,
+            )
+            result.extend(response.models)
 
-    @classmethod
-    def is_model_deployed_on_serverless_account(cls, model: Model) -> bool:
+            if not response.next_page_token:
+                break
+            page_token = response.next_page_token
+
+        return result
+
+    def is_model_deployed_on_serverless_account(self, model: SyncModel) -> bool:
         """
         Check if the model is deployed on a serverless-enabled account.
 
@@ -1003,7 +710,7 @@ class LLM:
             for ref in model.deployed_model_refs:
                 if (
                     hasattr(ref, "state")
-                    and (ref.state == DeployedModelState.DEPLOYED or ref.state == "DEPLOYED")
+                    and (ref.state == SyncDeployedModel.State.DEPLOYED or ref.state == "DEPLOYED")
                     and hasattr(ref, "deployment")
                     and ref.deployment
                 ):
@@ -1172,17 +879,19 @@ class LLM:
                     return
 
                 # Clean up failed deployments
-                if (
-                    deployment.state == SyncDeployment.State.STATE_UNSPECIFIED
-                    or deployment.state == SyncDeployment.State.FAILED
-                    or deployment.state == SyncDeployment.State.DELETING
-                ):
+                if deployment.state == SyncDeployedModel.State.UNDEPLOYING:
                     logger.debug(
                         f"Deployment {deployment.name} is in {SyncDeployment.State.Name(deployment.state)} state, deleting it"
                     )
+
+                    # NOTE: does not respect `wait` argument since we need to
+                    # actually wait until the deployed model is unloaded to
+                    # trigger a create deployment call
                     self.delete_deployment()
+
                     logger.debug(f"Successfully deleted failed deployment {deployment.name}")
-                    deployment = None
+                    deployment = self.get_deployment()
+                    assert deployment is None
 
             # Deploy the base model first with addons enabled
             base_model_llm = LLM(
@@ -1207,12 +916,16 @@ class LLM:
             if base_model_deployment is None:
                 raise ValueError(f"Base model {self.peft_base_model} is not deployed")
 
-            # Create and deploy the LoRA model on top of the base model
-            request = SyncCreateDeployedModelRequest()
-            request.deployed_model.display_name = self.deployment_display_name
-            request.deployed_model.model = self.model
-            request.deployed_model.deployment = base_model_deployment.name
-            deployed_model = self._gateway.create_deployed_model_sync(request)
+            if deployment is not None and deployment.state == SyncDeployedModel.State.DEPLOYING:
+                logger.debug(f"LoRA model {self.model} is already deploying, skipping deployment")
+                deployed_model = deployment
+            else:
+                # Create and deploy the LoRA model on top of the base model
+                request = SyncCreateDeployedModelRequest()
+                request.deployed_model.display_name = self.deployment_display_name
+                request.deployed_model.model = self.model
+                request.deployed_model.deployment = base_model_deployment.name
+                deployed_model = self._gateway.create_deployed_model_sync(request)
 
             # Monitor the LoRA model deployment progress
             logger.debug(f"Loading LoRA model {self.model} onto base model deployment {base_model_deployment.name}")
@@ -1285,7 +998,9 @@ class LLM:
                 if self._generator_count is not None:
                     deployment_proto.generator_count = self._generator_count
                 if self._region is not None:
-                    deployment_proto.region = getattr(SyncRegion, self._region)
+                    deployment_proto.placement.region = getattr(SyncRegion, self._region)
+                if self._multi_region is not None:
+                    deployment_proto.placement.multi_region = getattr(SyncMultiRegion, self._multi_region)
                 if self._description is not None:
                     deployment_proto.description = self._description
                 if self._annotations is not None:
@@ -1350,6 +1065,10 @@ class LLM:
                     created_deployment = self._gateway.get_deployment_sync(created_deployment.name)
                     if created_deployment.state == DeploymentState.FAILED:
                         raise ValueError(f"Deployment {created_deployment.name} failed to be created")
+                    if created_deployment.state == SyncDeployment.State.DELETED:
+                        raise ValueError(f"Deployment {created_deployment.name} was deleted while being created")
+                    if created_deployment.state == SyncDeployment.State.DELETING:
+                        raise ValueError(f"Deployment {created_deployment.name} is being deleted while being created")
                     if current_time - last_log_time >= 10:
                         elapsed_so_far = current_time - start_time
                         logger.debug(
@@ -1442,6 +1161,10 @@ class LLM:
                     logger.debug(f"Deployment {deployment.name} is not ready, scaling to 1 replica")
                     start_time = time.time()
                     self._gateway.scale_deployment_sync(deployment.name, 1)
+                    # also send an inference request to wake up the deployment
+                    _ = self.chat.completions.acreate(
+                        messages=[{"role": "user", "content": 'Say "OK".'}], skip_setup=True
+                    )
 
                     if not wait:
                         logger.debug(
@@ -1457,12 +1180,20 @@ class LLM:
                         deployment = self._gateway.get_deployment_sync(deployment.name)
                         if deployment.state == SyncDeployment.State.FAILED:
                             raise ValueError(f"Deployment {deployment.name} failed to scale up")
+                        if deployment.state == SyncDeployment.State.DELETED:
+                            raise ValueError(f"Deployment {deployment.name} was deleted while scaling up")
+                        if deployment.state == SyncDeployment.State.DELETING:
+                            raise ValueError(f"Deployment {deployment.name} is being deleted while scaling up")
                         if current_time - last_log_time >= 10:
                             elapsed_so_far = current_time - start_time
                             logger.debug(
                                 f"Waiting for deployment {deployment.name} to scale up, current replicas: {deployment.replica_count}, elapsed time: {elapsed_so_far:.2f}s"
                             )
                             last_log_time = current_time
+                            try:
+                                self._gateway.scale_deployment_sync(deployment.name, 1)
+                            except Exception as e:
+                                logger.debug(f"Failed to scale deployment {deployment.name}: {e}")
 
                     total_scale_time = time.time() - start_time
                     logger.debug(f"Deployment {deployment.name} scaled up in {total_scale_time:.2f} seconds")
@@ -1530,14 +1261,11 @@ class LLM:
             return None
         return model.peft_details.base_model
 
-    @classmethod
-    def list_models(cls, api_key: Optional[str] = None) -> List[SyncModel]:
-        gateway = Gateway(api_key=api_key)
-
+    def list_models(self) -> List[SyncModel]:
         result = []
         page_token = None
         while True:
-            response = gateway.list_models_sync(
+            response = self._gateway.list_models_sync(
                 page_size=200, page_token=page_token if page_token else "", include_deployed_model_refs=True
             )
             result.extend(response.models)
@@ -1547,6 +1275,20 @@ class LLM:
             page_token = response.next_page_token
 
         return result
+
+    @property
+    def deployment_url(self) -> Optional[str]:
+        """
+        Returns the URL to the deployment.
+        """
+        deployment = self.get_deployment()
+        if deployment is None:
+            return None
+        # get end of "/" split
+        id = deployment.name.split("/")[-1]
+        if isinstance(deployment, SyncDeployment):
+            return f"https://app.fireworks.ai/dashboard/deployments/{id}"
+        return f"https://app.fireworks.ai/dashboard/deployedModels/{id}"
 
     def model_id(self):
         """
@@ -1576,6 +1318,8 @@ class LLM:
 
     def __repr__(self):
         attrs = [f"model={self.model}"]
+        if self.deployment_url is not None:
+            attrs.append(f"deployment_url={self.deployment_url}")
         if self._deployment_display_name is not None:
             attrs.append(f"deployment_display_name={self._deployment_display_name}")
         if self.deployment_type is not None:
@@ -1624,70 +1368,110 @@ class LLM:
             attrs.append(f"live_merge={self._live_merge}")
         return f"LLM({', '.join(attrs)})"
 
-    def _create_fine_tuning_job(
+    def create_reinforcement_fine_tuning_job(
         self,
-        name: str,
+        id: str,
         dataset_or_id: Union[Dataset, str],
-        epochs: Optional[int] = None,
-        learning_rate: Optional[float] = None,
-        lora_rank: Optional[int] = None,
+        reward_function: Callable,
+        # BaseTrainingConfig fields
+        output_model: Optional[str] = None,
+        warm_start_from: Optional[str] = None,
         jinja_template: Optional[str] = None,
-        early_stop: Optional[bool] = None,
-        max_context_length: Optional[int] = None,
-        base_model_weight_precision: Optional[SupervisedFineTuningJobWeightPrecisionLiteral] = None,
-        wandb_config: Optional[WandbConfig] = None,
-        evaluation_dataset: Optional[str] = None,
+        learning_rate: Optional[float] = 0.0001,
+        max_context_length: Optional[int] = 8192,
+        lora_rank: Optional[int] = 8,
+        base_model_weight_precision: Optional[WeightPrecisionLiteral] = None,
         accelerator_type: Optional[AcceleratorTypeLiteral] = None,
         accelerator_count: Optional[int] = None,
-        is_turbo: Optional[bool] = None,
-        eval_auto_carveout: Optional[bool] = None,
         region: Optional[RegionLiteral] = None,
-        nodes: Optional[int] = None,
-        batch_size: Optional[int] = None,
-        output_model: Optional[str] = None,
-    ) -> "SupervisedFineTuningJob":
-        """
-        Common logic for creating and syncing a fine-tuning job.
+        epochs: Optional[int] = 5,
+        batch_size: Optional[int] = 32768,
+        is_intermediate: Optional[bool] = None,
+        # WandbConfig fields
+        wandb_enabled: Optional[bool] = None,
+        wandb_api_key: Optional[str] = None,
+        wandb_project: Optional[str] = None,
+        wandb_entity: Optional[str] = None,
+        wandb_run_id: Optional[str] = None,
+        wandb_url: Optional[str] = None,
+        # InferenceParameters fields with defaults from command
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = 1.0,
+        top_p: Optional[float] = 1.0,
+        n: Optional[int] = 8,
+        extra_body: Optional[str] = None,
+        top_k: Optional[int] = None,
+    ):
+        if not is_valid_resource_name(id):
+            raise ValueError("id must only contain lowercase a-z, 0-9, and hyphen (-)")
 
-        Returns the synced job ready for polling.
-        """
-        # Import here to avoid circular import
-        from fireworks.supervised_fine_tuning_job import SupervisedFineTuningJob
+        dataset = dataset_or_id if isinstance(dataset_or_id, Dataset) else Dataset.from_id(dataset_or_id)
+        dataset.sync()
 
-        if name is None:
-            raise ValueError("name is required")
-        if not is_valid_resource_name(name):
-            raise ValueError("job name must only contain lowercase a-z, 0-9, and hyphen (-)")
-
-        job = SupervisedFineTuningJob(
-            name=name,
-            dataset_or_id=dataset_or_id,
-            llm=self,
-            epochs=epochs,
-            learning_rate=learning_rate,
-            lora_rank=lora_rank,
+        evaluator = Evaluator(
+            gateway=self._gateway,
+            reward_function=reward_function,
+        )
+        evaluator.sync()
+        training_config = SyncBaseTrainingConfig(
+            base_model=self.model,
+            output_model=(
+                output_model
+                if output_model is not None
+                else generate_model_resource_name(self._gateway.account_id(), id)
+            ),
+            warm_start_from=warm_start_from,
             jinja_template=jinja_template,
-            output_model=output_model,
-            early_stop=early_stop,
+            learning_rate=learning_rate,
             max_context_length=max_context_length,
+            lora_rank=lora_rank,
             base_model_weight_precision=base_model_weight_precision,
-            wandb_config=wandb_config,
-            evaluation_dataset=evaluation_dataset,
             accelerator_type=accelerator_type,
             accelerator_count=accelerator_count,
-            is_turbo=is_turbo,
-            eval_auto_carveout=eval_auto_carveout,
             region=region,
-            nodes=nodes,
+            epochs=epochs,
             batch_size=batch_size,
+            is_intermediate=is_intermediate if is_intermediate is not None else False,
+        )
+        wandb_config = SyncWandbConfig(
+            enabled=wandb_enabled if wandb_enabled is not None else False,
+            api_key=wandb_api_key,
+            project=wandb_project,
+            entity=wandb_entity,
+            run_id=wandb_run_id,
+            url=wandb_url,
+        )
+        inference_parameters = SyncInferenceParameters(
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            n=n,
+            extra_body=extra_body,
+            top_k=top_k,
+        )
+        proto = SyncReinforcementFineTuningJob(
+            display_name=id,
+            dataset=dataset.name,
+            evaluator=evaluator.name,
+            training_config=training_config,
+            wandb_config=wandb_config,
+            inference_parameters=inference_parameters,
+        )
+
+        job = ReinforcementFineTuningJob(
+            llm=self,
+            proto=proto,
+            dataset_or_id=dataset_or_id,
+            api_key=self._gateway._api_key,
+            id=id,
         )
         job = job.sync()
-        logger.debug(f"See the fine-tuning job at {job.url()}")
+        logger.debug(f"See the reinforcement fine-tuning job at {job.url}")
         return job
 
     def create_supervised_fine_tuning_job(
         self,
-        name: str,
+        display_name: str,
         dataset_or_id: Union[Dataset, str],
         epochs: Optional[int] = None,
         learning_rate: Optional[float] = None,
@@ -1695,7 +1479,7 @@ class LLM:
         jinja_template: Optional[str] = None,
         early_stop: Optional[bool] = None,
         max_context_length: Optional[int] = None,
-        base_model_weight_precision: Optional[SupervisedFineTuningJobWeightPrecisionLiteral] = None,
+        base_model_weight_precision: Optional[WeightPrecisionLiteral] = None,
         wandb_config: Optional[WandbConfig] = None,
         evaluation_dataset: Optional[str] = None,
         accelerator_type: Optional[AcceleratorTypeLiteral] = None,
@@ -1711,7 +1495,8 @@ class LLM:
         Creates a fine-tuning job for this dataset. If the fine-tuning job already exists, it will block until the job is ready.
 
         Args:
-            name: The name of the fine-tuning job. Must only contain lowercase a-z, 0-9, and hyphen (-).
+            display_name: The display name of the fine-tuning job. Must only contain lowercase a-z, 0-9, and hyphen (-).
+                The display name is also used to identify the fine-tuning job when listing fine-tuning jobs.
             dataset_or_id: The dataset instance to fine-tune on or the dataset id to fine-tune on.
             epochs: The number of epochs to fine-tune for.
             learning_rate: The learning rate to use for fine-tuning.
@@ -1734,25 +1519,47 @@ class LLM:
         Returns:
             Fine-tuned LLM
         """
-        job = self._create_fine_tuning_job(
-            name=name,
-            dataset_or_id=dataset_or_id,
+        # Import here to avoid circular import
+        from fireworks.supervised_fine_tuning_job import SupervisedFineTuningJob
+
+        if display_name is None:
+            raise ValueError("display_name is required")
+        if not is_valid_resource_name(display_name):
+            raise ValueError("job name must only contain lowercase a-z, 0-9, and hyphen (-)")
+
+        proto = SyncSupervisedFineTuningJob(
+            display_name=display_name,
             epochs=epochs,
             learning_rate=learning_rate,
             lora_rank=lora_rank,
             jinja_template=jinja_template,
-            early_stop=early_stop,
             max_context_length=max_context_length,
             base_model_weight_precision=base_model_weight_precision,
-            wandb_config=wandb_config,
             evaluation_dataset=evaluation_dataset,
             accelerator_type=accelerator_type,
             accelerator_count=accelerator_count,
-            is_turbo=is_turbo,
-            eval_auto_carveout=eval_auto_carveout,
             region=region,
             nodes=nodes,
             batch_size=batch_size,
-            output_model=output_model if output_model is not None else name,
+            output_model=output_model,
         )
+        if early_stop is not None:
+            proto.early_stop = early_stop
+        if wandb_config is not None:
+            proto.wandb_config = SyncWandbConfig(
+                **wandb_config.to_dict(),
+            )
+        if is_turbo is not None:
+            proto.is_turbo = is_turbo
+        if eval_auto_carveout is not None:
+            proto.eval_auto_carveout = eval_auto_carveout
+
+        job = SupervisedFineTuningJob(
+            llm=self,
+            proto=proto,
+            dataset_or_id=dataset_or_id,
+            api_key=self._gateway._api_key,
+        )
+        job = job.sync()
+        logger.debug(f"See the fine-tuning job at {job.url}")
         return job

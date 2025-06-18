@@ -27,6 +27,7 @@ from worker_automate_hub.tasks.jobs.entrada_de_notas_39 import entrada_de_notas_
 from worker_automate_hub.tasks.jobs.entrada_de_notas_207 import entrada_de_notas_207
 from worker_automate_hub.tasks.jobs.entrada_de_notas_500 import entrada_de_notas_500
 from worker_automate_hub.tasks.jobs.entrada_de_notas_9 import entrada_de_notas_9
+from worker_automate_hub.tasks.jobs.entrada_de_notas_9000 import entrada_de_notas_9000
 from worker_automate_hub.tasks.jobs.entrada_de_notas_7139 import entrada_de_notas_7139
 from worker_automate_hub.tasks.jobs.entrada_de_notas_36 import entrada_de_notas_36
 from worker_automate_hub.tasks.jobs.entrada_de_notas_503 import entrada_de_notas_503
@@ -118,8 +119,8 @@ task_definitions = {
     "e1051c43-3495-4ca7-91d5-527fea2b5f79": entrada_de_notas_500,
     "f061c8f8-f862-410e-9de6-8bbc47b0ec74": entrada_de_notas_503,
     "d168e770-0c33-4e20-a7f9-977bf15542f3": entrada_de_notas_505,
-    "8e61a6c6-aeb4-456d-9aa5-b83ab8be297d": entrada_de_notas_9,
-    "d4d1f7e1-3803-4859-9dc8-6316de6dc7d0": entrada_de_notas_9,
+    "8e61a6c6-aeb4-456d-9aa5-b83ab8be297d": entrada_de_notas_9000,
+    "d4d1f7e1-3803-4859-9dc8-6316de6dc7d0": entrada_de_notas_9000,
     "1a53d689-3cfb-4ec0-a02c-b249224b12ac": entrada_de_notas_15,
     "811e8934-8227-4686-a030-df057c054f75": entrada_de_notas_16,
     "e19d48a4-850b-413e-81c3-808158711ea0": entrada_de_notas_7139,

@@ -220,7 +220,7 @@
     - name: Privs | Assert that 'GRANT' permission is present
       assert:
         that:
-          - mysql_info_about_users.users.localhost.{{ user_name_2 }}.Grant_priv == 'Y'
+          - mysql_info_about_users.users.localhost.db_user2.Grant_priv == 'Y'
 
     - name: Privs | Test idempotency (expect ok)
       mysql_user:
@@ -246,7 +246,7 @@
     - name: Privs | Assert that 'GRANT' permission is present (by host)
       assert:
         that:
-          - mysql_info_about_users.users.localhost.{{ user_name_2 }}.Grant_priv == 'Y'
+          - mysql_info_about_users.users.localhost.db_user2.Grant_priv == 'Y'
 
     # ============================================================
     - name: Privs | Update user with invalid privileges

@@ -280,7 +280,7 @@ async def extracao_fechamento_emsys(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
             console.print("Verificar se existem dados")
             
             try:
-                nao_existe_dados = fr"{ASSETS_BASE_PATH}\nao_existem_dados.png"
+                nao_existe_dados = fr"{ASSETS_BASE_PATH}\extracao_fechamento_emsys\nao_existem_dados.png"
 
                 for tentativa in range(3):
                     console.print(f"Tentativa {tentativa + 1}: Clicar em 'Gerar Relatório'")
@@ -336,7 +336,7 @@ async def extracao_fechamento_emsys(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                 console.print(f"Salvar arquivo: {nome_arquivo}")
 
                 # Inserir nome do arquivo
-                console.print(f"Inserir caminho do arquivo: {caminho_arquivo}")
+                console.print(f"Inserir caminho do arquivo: {nome_arquivo}")
                 input_nome = main_window.child_window(class_name="Edit", found_index=0)
                 type_text_into_field(
                     nome_arquivo, input_nome, empty_before=False, chars_to_empty="0"

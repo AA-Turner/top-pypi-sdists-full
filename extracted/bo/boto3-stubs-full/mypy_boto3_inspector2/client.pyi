@@ -46,6 +46,10 @@ from .paginator import (
 from .type_defs import (
     AssociateMemberRequestTypeDef,
     AssociateMemberResponseTypeDef,
+    BatchAssociateCodeSecurityScanConfigurationRequestTypeDef,
+    BatchAssociateCodeSecurityScanConfigurationResponseTypeDef,
+    BatchDisassociateCodeSecurityScanConfigurationRequestTypeDef,
+    BatchDisassociateCodeSecurityScanConfigurationResponseTypeDef,
     BatchGetAccountStatusRequestTypeDef,
     BatchGetAccountStatusResponseTypeDef,
     BatchGetCodeSnippetRequestTypeDef,
@@ -64,6 +68,10 @@ from .type_defs import (
     CancelSbomExportResponseTypeDef,
     CreateCisScanConfigurationRequestTypeDef,
     CreateCisScanConfigurationResponseTypeDef,
+    CreateCodeSecurityIntegrationRequestTypeDef,
+    CreateCodeSecurityIntegrationResponseTypeDef,
+    CreateCodeSecurityScanConfigurationRequestTypeDef,
+    CreateCodeSecurityScanConfigurationResponseTypeDef,
     CreateFilterRequestTypeDef,
     CreateFilterResponseTypeDef,
     CreateFindingsReportRequestTypeDef,
@@ -72,6 +80,10 @@ from .type_defs import (
     CreateSbomExportResponseTypeDef,
     DeleteCisScanConfigurationRequestTypeDef,
     DeleteCisScanConfigurationResponseTypeDef,
+    DeleteCodeSecurityIntegrationRequestTypeDef,
+    DeleteCodeSecurityIntegrationResponseTypeDef,
+    DeleteCodeSecurityScanConfigurationRequestTypeDef,
+    DeleteCodeSecurityScanConfigurationResponseTypeDef,
     DeleteFilterRequestTypeDef,
     DeleteFilterResponseTypeDef,
     DescribeOrganizationConfigurationResponseTypeDef,
@@ -91,6 +103,12 @@ from .type_defs import (
     GetCisScanResultDetailsResponseTypeDef,
     GetClustersForImageRequestTypeDef,
     GetClustersForImageResponseTypeDef,
+    GetCodeSecurityIntegrationRequestTypeDef,
+    GetCodeSecurityIntegrationResponseTypeDef,
+    GetCodeSecurityScanConfigurationRequestTypeDef,
+    GetCodeSecurityScanConfigurationResponseTypeDef,
+    GetCodeSecurityScanRequestTypeDef,
+    GetCodeSecurityScanResponseTypeDef,
     GetConfigurationResponseTypeDef,
     GetDelegatedAdminAccountResponseTypeDef,
     GetEc2DeepInspectionConfigurationResponseTypeDef,
@@ -112,6 +130,12 @@ from .type_defs import (
     ListCisScanResultsAggregatedByTargetResourceResponseTypeDef,
     ListCisScansRequestTypeDef,
     ListCisScansResponseTypeDef,
+    ListCodeSecurityIntegrationsRequestTypeDef,
+    ListCodeSecurityIntegrationsResponseTypeDef,
+    ListCodeSecurityScanConfigurationAssociationsRequestTypeDef,
+    ListCodeSecurityScanConfigurationAssociationsResponseTypeDef,
+    ListCodeSecurityScanConfigurationsRequestTypeDef,
+    ListCodeSecurityScanConfigurationsResponseTypeDef,
     ListCoverageRequestTypeDef,
     ListCoverageResponseTypeDef,
     ListCoverageStatisticsRequestTypeDef,
@@ -136,11 +160,17 @@ from .type_defs import (
     SendCisSessionHealthRequestTypeDef,
     SendCisSessionTelemetryRequestTypeDef,
     StartCisSessionRequestTypeDef,
+    StartCodeSecurityScanRequestTypeDef,
+    StartCodeSecurityScanResponseTypeDef,
     StopCisSessionRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateCisScanConfigurationRequestTypeDef,
     UpdateCisScanConfigurationResponseTypeDef,
+    UpdateCodeSecurityIntegrationRequestTypeDef,
+    UpdateCodeSecurityIntegrationResponseTypeDef,
+    UpdateCodeSecurityScanConfigurationRequestTypeDef,
+    UpdateCodeSecurityScanConfigurationResponseTypeDef,
     UpdateConfigurationRequestTypeDef,
     UpdateEc2DeepInspectionConfigurationRequestTypeDef,
     UpdateEc2DeepInspectionConfigurationResponseTypeDef,
@@ -220,6 +250,28 @@ class Inspector2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/associate_member.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#associate_member)
+        """
+
+    def batch_associate_code_security_scan_configuration(
+        self, **kwargs: Unpack[BatchAssociateCodeSecurityScanConfigurationRequestTypeDef]
+    ) -> BatchAssociateCodeSecurityScanConfigurationResponseTypeDef:
+        """
+        Associates multiple code repositories with an Amazon Inspector code security
+        scan configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/batch_associate_code_security_scan_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#batch_associate_code_security_scan_configuration)
+        """
+
+    def batch_disassociate_code_security_scan_configuration(
+        self, **kwargs: Unpack[BatchDisassociateCodeSecurityScanConfigurationRequestTypeDef]
+    ) -> BatchDisassociateCodeSecurityScanConfigurationResponseTypeDef:
+        """
+        Disassociates multiple code repositories from an Amazon Inspector code security
+        scan configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/batch_disassociate_code_security_scan_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#batch_disassociate_code_security_scan_configuration)
         """
 
     def batch_get_account_status(
@@ -316,6 +368,26 @@ class Inspector2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#create_cis_scan_configuration)
         """
 
+    def create_code_security_integration(
+        self, **kwargs: Unpack[CreateCodeSecurityIntegrationRequestTypeDef]
+    ) -> CreateCodeSecurityIntegrationResponseTypeDef:
+        """
+        Creates a code security integration with a source code repository provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/create_code_security_integration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#create_code_security_integration)
+        """
+
+    def create_code_security_scan_configuration(
+        self, **kwargs: Unpack[CreateCodeSecurityScanConfigurationRequestTypeDef]
+    ) -> CreateCodeSecurityScanConfigurationResponseTypeDef:
+        """
+        Creates a scan configuration for code security scanning.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/create_code_security_scan_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#create_code_security_scan_configuration)
+        """
+
     def create_filter(
         self, **kwargs: Unpack[CreateFilterRequestTypeDef]
     ) -> CreateFilterResponseTypeDef:
@@ -354,6 +426,26 @@ class Inspector2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/delete_cis_scan_configuration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#delete_cis_scan_configuration)
+        """
+
+    def delete_code_security_integration(
+        self, **kwargs: Unpack[DeleteCodeSecurityIntegrationRequestTypeDef]
+    ) -> DeleteCodeSecurityIntegrationResponseTypeDef:
+        """
+        Deletes a code security integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/delete_code_security_integration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#delete_code_security_integration)
+        """
+
+    def delete_code_security_scan_configuration(
+        self, **kwargs: Unpack[DeleteCodeSecurityScanConfigurationRequestTypeDef]
+    ) -> DeleteCodeSecurityScanConfigurationResponseTypeDef:
+        """
+        Deletes a code security scan configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/delete_code_security_scan_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#delete_code_security_scan_configuration)
         """
 
     def delete_filter(
@@ -452,6 +544,36 @@ class Inspector2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_clusters_for_image.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#get_clusters_for_image)
+        """
+
+    def get_code_security_integration(
+        self, **kwargs: Unpack[GetCodeSecurityIntegrationRequestTypeDef]
+    ) -> GetCodeSecurityIntegrationResponseTypeDef:
+        """
+        Retrieves information about a code security integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_code_security_integration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#get_code_security_integration)
+        """
+
+    def get_code_security_scan(
+        self, **kwargs: Unpack[GetCodeSecurityScanRequestTypeDef]
+    ) -> GetCodeSecurityScanResponseTypeDef:
+        """
+        Retrieves information about a specific code security scan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_code_security_scan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#get_code_security_scan)
+        """
+
+    def get_code_security_scan_configuration(
+        self, **kwargs: Unpack[GetCodeSecurityScanConfigurationRequestTypeDef]
+    ) -> GetCodeSecurityScanConfigurationResponseTypeDef:
+        """
+        Retrieves information about a code security scan configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_code_security_scan_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#get_code_security_scan_configuration)
         """
 
     def get_configuration(self) -> GetConfigurationResponseTypeDef:
@@ -568,6 +690,37 @@ class Inspector2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_cis_scans.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#list_cis_scans)
+        """
+
+    def list_code_security_integrations(
+        self, **kwargs: Unpack[ListCodeSecurityIntegrationsRequestTypeDef]
+    ) -> ListCodeSecurityIntegrationsResponseTypeDef:
+        """
+        Lists all code security integrations in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_code_security_integrations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#list_code_security_integrations)
+        """
+
+    def list_code_security_scan_configuration_associations(
+        self, **kwargs: Unpack[ListCodeSecurityScanConfigurationAssociationsRequestTypeDef]
+    ) -> ListCodeSecurityScanConfigurationAssociationsResponseTypeDef:
+        """
+        Lists the associations between code repositories and Amazon Inspector code
+        security scan configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_code_security_scan_configuration_associations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#list_code_security_scan_configuration_associations)
+        """
+
+    def list_code_security_scan_configurations(
+        self, **kwargs: Unpack[ListCodeSecurityScanConfigurationsRequestTypeDef]
+    ) -> ListCodeSecurityScanConfigurationsResponseTypeDef:
+        """
+        Lists all code security scan configurations in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_code_security_scan_configurations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#list_code_security_scan_configurations)
         """
 
     def list_coverage(
@@ -710,6 +863,16 @@ class Inspector2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#start_cis_session)
         """
 
+    def start_code_security_scan(
+        self, **kwargs: Unpack[StartCodeSecurityScanRequestTypeDef]
+    ) -> StartCodeSecurityScanResponseTypeDef:
+        """
+        Initiates a code security scan on a specified repository.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/start_code_security_scan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#start_code_security_scan)
+        """
+
     def stop_cis_session(self, **kwargs: Unpack[StopCisSessionRequestTypeDef]) -> Dict[str, Any]:
         """
         Stops a CIS session.
@@ -742,6 +905,26 @@ class Inspector2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/update_cis_scan_configuration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#update_cis_scan_configuration)
+        """
+
+    def update_code_security_integration(
+        self, **kwargs: Unpack[UpdateCodeSecurityIntegrationRequestTypeDef]
+    ) -> UpdateCodeSecurityIntegrationResponseTypeDef:
+        """
+        Updates an existing code security integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/update_code_security_integration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#update_code_security_integration)
+        """
+
+    def update_code_security_scan_configuration(
+        self, **kwargs: Unpack[UpdateCodeSecurityScanConfigurationRequestTypeDef]
+    ) -> UpdateCodeSecurityScanConfigurationResponseTypeDef:
+        """
+        Updates an existing code security scan configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/update_code_security_scan_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#update_code_security_scan_configuration)
         """
 
     def update_configuration(

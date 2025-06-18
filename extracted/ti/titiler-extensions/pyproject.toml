@@ -30,9 +30,9 @@ classifiers = [
 ]
 dynamic = []
 dependencies = [
-    "titiler.core==0.22.2",
+    "titiler.core==0.22.3",
 ]
-version = "0.22.2"
+version = "0.22.3"
 
 [project.license]
 text = "MIT"

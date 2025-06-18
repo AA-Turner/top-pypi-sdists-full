@@ -17,7 +17,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class EagleTrainingJob(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "expire_time", "created_by", "state", "status", "input_draft_model", "training_dataset", "base_model", "output_draft_model", "epochs_count", "learning_rate", "wandb_config", "early_stop_config", "accelerator_type", "accelerator_count", "update_time", "region")
+    __slots__ = ("name", "display_name", "create_time", "expire_time", "created_by", "state", "status", "input_draft_model", "training_dataset", "base_model", "output_draft_model", "epochs_count", "learning_rate", "wandb_config", "early_stop_config", "accelerator_type", "accelerator_count", "update_time", "region", "is_turbo")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -37,6 +37,7 @@ class EagleTrainingJob(_message.Message):
     ACCELERATOR_COUNT_FIELD_NUMBER: _ClassVar[int]
     UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
+    IS_TURBO_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -56,7 +57,8 @@ class EagleTrainingJob(_message.Message):
     accelerator_count: int
     update_time: _timestamp_pb2.Timestamp
     region: _deployment_pb2.Region
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., input_draft_model: _Optional[str] = ..., training_dataset: _Optional[str] = ..., base_model: _Optional[str] = ..., output_draft_model: _Optional[str] = ..., epochs_count: _Optional[float] = ..., learning_rate: _Optional[float] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., early_stop_config: _Optional[_Union[_training_pb2.EarlyStopConfig, _Mapping]] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., accelerator_count: _Optional[int] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ...) -> None: ...
+    is_turbo: bool
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., input_draft_model: _Optional[str] = ..., training_dataset: _Optional[str] = ..., base_model: _Optional[str] = ..., output_draft_model: _Optional[str] = ..., epochs_count: _Optional[float] = ..., learning_rate: _Optional[float] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., early_stop_config: _Optional[_Union[_training_pb2.EarlyStopConfig, _Mapping]] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., accelerator_count: _Optional[int] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., is_turbo: bool = ...) -> None: ...
 
 class GetEagleTrainingJobRequest(_message.Message):
     __slots__ = ("name", "read_mask")

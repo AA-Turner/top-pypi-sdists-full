@@ -1,6 +1,7 @@
 use std::hash::BuildHasherDefault;
 use std::sync::{LazyLock, Mutex};
 
+use super::TypeVarVariance;
 use super::{
     IntersectionBuilder, MemberLookupPolicy, Mro, MroError, MroIterator, SpecialFormType,
     SubclassOfType, Truthiness, Type, TypeQualifiers, class_base::ClassBase, infer_expression_type,
@@ -12,7 +13,7 @@ use crate::types::function::{DataclassTransformerParams, KnownFunction};
 use crate::types::generics::{GenericContext, Specialization};
 use crate::types::signatures::{CallableSignature, Parameter, Parameters, Signature};
 use crate::types::{
-    CallableType, DataclassParams, KnownInstanceType, TypeMapping, TypeVarInstance,
+    CallableType, DataclassParams, KnownInstanceType, TypeMapping, TypeRelation, TypeVarInstance,
 };
 use crate::{
     Db, FxOrderSet, KnownModule, Program,
@@ -29,8 +30,8 @@ use crate::{
         place_table, semantic_index, use_def_map,
     },
     types::{
-        CallArgumentTypes, CallError, CallErrorKind, DynamicType, MetaclassCandidate, TupleType,
-        UnionBuilder, UnionType, definition_expression_type,
+        CallArgumentTypes, CallError, CallErrorKind, MetaclassCandidate, TupleType, UnionBuilder,
+        UnionType, definition_expression_type,
     },
 };
 use indexmap::IndexSet;
@@ -173,6 +174,14 @@ impl<'db> GenericAlias<'db> {
         Self::new(db, self.origin(db), self.specialization(db).normalized(db))
     }
 
+    pub(super) fn materialize(self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {
+        Self::new(
+            db,
+            self.origin(db),
+            self.specialization(db).materialize(db, variance),
+        )
+    }
+
     pub(crate) fn definition(self, db: &'db dyn Db) -> Definition<'db> {
         self.origin(db).definition(db)
     }
@@ -220,6 +229,13 @@ impl<'db> ClassType<'db> {
         match self {
             Self::NonGeneric(_) => self,
             Self::Generic(generic) => Self::Generic(generic.normalized(db)),
+        }
+    }
+
+    pub(super) fn materialize(self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {
+        match self {
+            Self::NonGeneric(_) => self,
+            Self::Generic(generic) => Self::Generic(generic.materialize(db, variance)),
         }
     }
 
@@ -340,23 +356,22 @@ impl<'db> ClassType<'db> {
         class_literal.is_final(db)
     }
 
-    /// Is this class a subclass of `Any` or `Unknown`?
-    pub(crate) fn is_subclass_of_any_or_unknown(self, db: &'db dyn Db) -> bool {
-        self.iter_mro(db).any(|base| {
-            matches!(
-                base,
-                ClassBase::Dynamic(DynamicType::Any | DynamicType::Unknown)
-            )
-        })
-    }
-
     /// Return `true` if `other` is present in this class's MRO.
     pub(super) fn is_subclass_of(self, db: &'db dyn Db, other: ClassType<'db>) -> bool {
+        self.has_relation_to(db, other, TypeRelation::Subtyping)
+    }
+
+    pub(super) fn has_relation_to(
+        self,
+        db: &'db dyn Db,
+        other: Self,
+        relation: TypeRelation,
+    ) -> bool {
         self.iter_mro(db).any(|base| {
             match base {
-                // `is_subclass_of` is checking the subtype relation, in which gradual types do not
-                // participate.
-                ClassBase::Dynamic(_) => false,
+                ClassBase::Dynamic(_) => {
+                    relation.applies_to_non_fully_static_types() && !other.is_final(db)
+                }
 
                 // Protocol and Generic are not represented by a ClassType.
                 ClassBase::Protocol | ClassBase::Generic => false,
@@ -365,9 +380,11 @@ impl<'db> ClassType<'db> {
                     (ClassType::NonGeneric(base), ClassType::NonGeneric(other)) => base == other,
                     (ClassType::Generic(base), ClassType::Generic(other)) => {
                         base.origin(db) == other.origin(db)
-                            && base
-                                .specialization(db)
-                                .is_subtype_of(db, other.specialization(db))
+                            && base.specialization(db).has_relation_to(
+                                db,
+                                other.specialization(db),
+                                relation,
+                            )
                     }
                     (ClassType::Generic(_), ClassType::NonGeneric(_))
                     | (ClassType::NonGeneric(_), ClassType::Generic(_)) => false,
@@ -388,30 +405,6 @@ impl<'db> ClassType<'db> {
                         .is_equivalent_to(db, other.specialization(db))
             }
         }
-    }
-
-    pub(super) fn is_assignable_to(self, db: &'db dyn Db, other: ClassType<'db>) -> bool {
-        self.iter_mro(db).any(|base| {
-            match base {
-                ClassBase::Dynamic(DynamicType::Any | DynamicType::Unknown) => !other.is_final(db),
-                ClassBase::Dynamic(_) => false,
-
-                // Protocol and Generic are not represented by a ClassType.
-                ClassBase::Protocol | ClassBase::Generic => false,
-
-                ClassBase::Class(base) => match (base, other) {
-                    (ClassType::NonGeneric(base), ClassType::NonGeneric(other)) => base == other,
-                    (ClassType::Generic(base), ClassType::Generic(other)) => {
-                        base.origin(db) == other.origin(db)
-                            && base
-                                .specialization(db)
-                                .is_assignable_to(db, other.specialization(db))
-                    }
-                    (ClassType::Generic(_), ClassType::NonGeneric(_))
-                    | (ClassType::NonGeneric(_), ClassType::Generic(_)) => false,
-                },
-            }
-        })
     }
 
     pub(super) fn is_gradual_equivalent_to(self, db: &'db dyn Db, other: ClassType<'db>) -> bool {
@@ -1320,9 +1313,21 @@ impl<'db> ClassLiteral<'db> {
         let field_policy = CodeGeneratorKind::from_class(db, self)?;
 
         let signature_from_fields = |mut parameters: Vec<_>| {
+            let mut kw_only_field_seen = false;
             for (name, (mut attr_ty, mut default_ty)) in
                 self.fields(db, specialization, field_policy)
             {
+                if attr_ty
+                    .into_nominal_instance()
+                    .is_some_and(|instance| instance.class.is_known(db, KnownClass::KwOnly))
+                {
+                    // Attributes annotated with `dataclass.KW_ONLY` are not present in the synthesized
+                    // `__init__` method, ; they only used to indicate that the parameters after this are
+                    // keyword-only.
+                    kw_only_field_seen = true;
+                    continue;
+                }
+
                 // The descriptor handling below is guarded by this fully-static check, because dynamic
                 // types like `Any` are valid (data) descriptors: since they have all possible attributes,
                 // they also have a (callable) `__set__` method. The problem is that we can't determine
@@ -1367,8 +1372,12 @@ impl<'db> ClassLiteral<'db> {
                     }
                 }
 
-                let mut parameter =
-                    Parameter::positional_or_keyword(name).with_annotated_type(attr_ty);
+                let mut parameter = if kw_only_field_seen {
+                    Parameter::keyword_only(name)
+                } else {
+                    Parameter::positional_or_keyword(name)
+                }
+                .with_annotated_type(attr_ty);
 
                 if let Some(default_ty) = default_ty {
                     parameter = parameter.with_default_type(default_ty);
@@ -1628,8 +1637,8 @@ impl<'db> ClassLiteral<'db> {
             let method_scope = method_scope_id.to_scope_id(db, file);
             let method_map = use_def_map(db, method_scope);
 
-            // The attribute assignment inherits the visibility of the method which contains it
-            let is_method_visible =
+            // The attribute assignment inherits the reachability of the method which contains it
+            let is_method_reachable =
                 if let Some(method_def) = method_scope.node(db).as_function(&module) {
                     let method = index.expect_single_definition(method_def);
                     let method_place = class_table.place_id_by_name(&method_def.name).unwrap();
@@ -1637,35 +1646,37 @@ impl<'db> ClassLiteral<'db> {
                         .public_bindings(method_place)
                         .find_map(|bind| {
                             (bind.binding.is_defined_and(|def| def == method))
-                                .then(|| class_map.is_binding_visible(db, &bind))
+                                .then(|| class_map.is_binding_reachable(db, &bind))
                         })
                         .unwrap_or(Truthiness::AlwaysFalse)
                 } else {
                     Truthiness::AlwaysFalse
                 };
-            if is_method_visible.is_always_false() {
+            if is_method_reachable.is_always_false() {
                 continue;
             }
 
-            let mut attribute_assignments = attribute_assignments.peekable();
-            let unbound_visibility = attribute_assignments
-                .peek()
-                .map(|attribute_assignment| {
-                    if attribute_assignment.binding.is_undefined() {
-                        method_map.is_binding_visible(db, attribute_assignment)
-                    } else {
-                        Truthiness::AlwaysFalse
-                    }
-                })
-                .unwrap_or(Truthiness::AlwaysFalse);
+            // Storage for the implicit `DefinitionState::Undefined` binding. If present, it
+            // will be the first binding in the `attribute_assignments` iterator.
+            let mut unbound_binding = None;
 
             for attribute_assignment in attribute_assignments {
+                if let DefinitionState::Undefined = attribute_assignment.binding {
+                    // Store the implicit unbound binding here so that we can delay the
+                    // computation of `unbound_reachability` to the point when we actually
+                    // need it. This is an optimization for the common case where the
+                    // `unbound` binding is the only binding of the `name` attribute,
+                    // i.e. if there is no `self.name = …` assignment in this method.
+                    unbound_binding = Some(attribute_assignment);
+                    continue;
+                }
+
                 let DefinitionState::Defined(binding) = attribute_assignment.binding else {
                     continue;
                 };
                 match method_map
-                    .is_binding_visible(db, &attribute_assignment)
-                    .and(is_method_visible)
+                    .is_binding_reachable(db, &attribute_assignment)
+                    .and(is_method_reachable)
                 {
                     Truthiness::AlwaysTrue => {
                         is_attribute_bound = Truthiness::AlwaysTrue;
@@ -1680,12 +1691,17 @@ impl<'db> ClassLiteral<'db> {
                     }
                 }
 
-                // There is at least one attribute assignment that may be visible,
-                // so if `unbound_visibility` is always false then this attribute is considered bound.
-                // TODO: this is incomplete logic since the attributes bound after termination are considered visible.
-                if unbound_visibility
+                // There is at least one attribute assignment that may be reachable, so if `unbound_reachability` is
+                // always false then this attribute is considered bound.
+                // TODO: this is incomplete logic since the attributes bound after termination are considered reachable.
+                let unbound_reachability = unbound_binding
+                    .as_ref()
+                    .map(|binding| method_map.is_binding_reachable(db, binding))
+                    .unwrap_or(Truthiness::AlwaysFalse);
+
+                if unbound_reachability
                     .negate()
-                    .and(is_method_visible)
+                    .and(is_method_reachable)
                     .is_always_true()
                 {
                     is_attribute_bound = Truthiness::AlwaysTrue;
@@ -2021,8 +2037,8 @@ impl<'db> ClassLiteral<'db> {
     /// Returns a [`Span`] with the range of the class's header.
     ///
     /// See [`Self::header_range`] for more details.
-    pub(super) fn header_span(self, db: &'db dyn Db, module: &ParsedModuleRef) -> Span {
-        Span::from(self.file(db)).with_range(self.header_range(db, module))
+    pub(super) fn header_span(self, db: &'db dyn Db) -> Span {
+        Span::from(self.file(db)).with_range(self.header_range(db))
     }
 
     /// Returns the range of the class's "header": the class name
@@ -2032,9 +2048,10 @@ impl<'db> ClassLiteral<'db> {
     /// class Foo(Bar, metaclass=Baz): ...
     ///       ^^^^^^^^^^^^^^^^^^^^^^^
     /// ```
-    pub(super) fn header_range(self, db: &'db dyn Db, module: &ParsedModuleRef) -> TextRange {
+    pub(super) fn header_range(self, db: &'db dyn Db) -> TextRange {
         let class_scope = self.body_scope(db);
-        let class_node = class_scope.node(db).expect_class(module);
+        let module = parsed_module(db.upcast(), class_scope.file(db)).load(db.upcast());
+        let class_node = class_scope.node(db).expect_class(&module);
         let class_name = &class_node.name;
         TextRange::new(
             class_name.start(),
@@ -2148,6 +2165,7 @@ pub enum KnownClass {
     NotImplementedType,
     // dataclasses
     Field,
+    KwOnly,
     // _typeshed._type_checker_internals
     NamedTupleFallback,
 }
@@ -2233,6 +2251,7 @@ impl<'db> KnownClass {
             | Self::NotImplementedType
             | Self::Classmethod
             | Self::Field
+            | Self::KwOnly
             | Self::NamedTupleFallback => Truthiness::Ambiguous,
         }
     }
@@ -2308,6 +2327,7 @@ impl<'db> KnownClass {
             | Self::NotImplementedType
             | Self::UnionType
             | Self::Field
+            | Self::KwOnly
             | Self::NamedTupleFallback => false,
         }
     }
@@ -2384,6 +2404,7 @@ impl<'db> KnownClass {
             }
             Self::NotImplementedType => "_NotImplementedType",
             Self::Field => "Field",
+            Self::KwOnly => "KW_ONLY",
             Self::NamedTupleFallback => "NamedTupleFallback",
         }
     }
@@ -2614,6 +2635,7 @@ impl<'db> KnownClass {
             | Self::Deque
             | Self::OrderedDict => KnownModule::Collections,
             Self::Field => KnownModule::Dataclasses,
+            Self::KwOnly => KnownModule::Dataclasses,
             Self::NamedTupleFallback => KnownModule::TypeCheckerInternals,
         }
     }
@@ -2678,6 +2700,7 @@ impl<'db> KnownClass {
             | Self::NamedTuple
             | Self::NewType
             | Self::Field
+            | Self::KwOnly
             | Self::NamedTupleFallback => false,
         }
     }
@@ -2744,6 +2767,7 @@ impl<'db> KnownClass {
             | Self::NamedTuple
             | Self::NewType
             | Self::Field
+            | Self::KwOnly
             | Self::NamedTupleFallback => false,
         }
     }
@@ -2817,6 +2841,7 @@ impl<'db> KnownClass {
             }
             "_NotImplementedType" => Self::NotImplementedType,
             "Field" => Self::Field,
+            "KW_ONLY" => Self::KwOnly,
             "NamedTupleFallback" => Self::NamedTupleFallback,
             _ => return None,
         };
@@ -2873,6 +2898,7 @@ impl<'db> KnownClass {
             | Self::AsyncGeneratorType
             | Self::WrapperDescriptorType
             | Self::Field
+            | Self::KwOnly
             | Self::NamedTupleFallback => module == self.canonical_module(db),
             Self::NoneType => matches!(module, KnownModule::Typeshed | KnownModule::Types),
             Self::SpecialForm
@@ -3078,6 +3104,7 @@ mod tests {
                 KnownClass::UnionType => PythonVersion::PY310,
                 KnownClass::BaseExceptionGroup | KnownClass::ExceptionGroup => PythonVersion::PY311,
                 KnownClass::GenericAlias => PythonVersion::PY39,
+                KnownClass::KwOnly => PythonVersion::PY310,
                 _ => PythonVersion::PY37,
             };
 

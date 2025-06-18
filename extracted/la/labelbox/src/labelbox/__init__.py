@@ -1,6 +1,6 @@
 name = "labelbox"
 
-__version__ = "6.10.0"
+__version__ = "7.0.0"
 
 from labelbox.client import Client
 from labelbox.schema.annotation_import import (
@@ -101,3 +101,4 @@ from lbox.exceptions import *
 from labelbox.schema.taskstatus import TaskStatus
 from labelbox.schema.api_key import ApiKey
 from labelbox.schema.timeunit import TimeUnit
+from labelbox.schema.workflow import ProjectWorkflow

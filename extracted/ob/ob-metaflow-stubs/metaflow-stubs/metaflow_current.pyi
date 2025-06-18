@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.17.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-16T20:11:03.039759                                                            #
+# Generated on 2025-06-17T23:27:53.376984                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import metaflow.events
     import metaflow.metaflow_current
-    import metaflow.plugins.cards.component_serializer
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
     import typing
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.events
+    import metaflow
 
 
 TYPE_CHECKING: bool
@@ -228,6 +228,122 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
+        """
+        (only in the presence of the @parallel decorator)
+        
+        Returns a namedtuple with relevant information about the parallel task.
+        
+        Returns
+        -------
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
+        """
+        ...
+    @property
+    def is_parallel(self) -> bool:
+        """
+        (only in the presence of the @parallel decorator)
+        
+        True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
+        """
+        ...
+    @property
+    def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
+        """
+        (only in the presence of the @huggingface_hub decorator)
+        
+        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar
+        over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s
+        [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
+        The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the
+        `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
+        
+        
+        Usage:
+        ------
+        
+        **Usage: creating references of models from huggingface that may be loaded in downstream steps**
+        ```python
+            @huggingface_hub
+            @step
+            def pull_model_from_huggingface(self):
+                # `current.huggingface_hub.snapshot_download` downloads the model from the Hugging Face Hub
+                # and saves it in the backend storage based on the model's `repo_id`. If there exists a model
+                # with the same `repo_id` in the backend storage, it will not download the model again. The return
+                # value of the function is a reference to the model in the backend storage.
+                # This reference can be used to load the model in the subsequent steps via `@model(load=["llama_model"])`
+        
+                self.model_id = "mistralai/Mistral-7B-Instruct-v0.1"
+                self.llama_model = current.huggingface_hub.snapshot_download(
+                    repo_id=self.model_id,
+                    allow_patterns=["*.safetensors", "*.json", "tokenizer.*"],
+                )
+                self.next(self.train)
+        ```
+        
+        **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
+        ```python
+            @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
+            @step
+            def pull_model_from_huggingface(self):
+                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+        ```
+        
+        ```python
+            @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
+            @step
+            def finetune_model(self):
+                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+                # path_to_model will be /my-directory
+        ```
+        
+        ```python
+            # Takes all the arguments passed to `snapshot_download`
+            # except for `local_dir`
+            @huggingface_hub(load=[
+                {
+                    "repo_id": "mistralai/Mistral-7B-Instruct-v0.1",
+                },
+                {
+                    "repo_id": "myorg/mistral-lora",
+                    "repo_type": "model",
+                },
+            ])
+            @step
+            def finetune_model(self):
+                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+                # path_to_model will be /my-directory
+        ```
+        """
+        ...
+    @property
     def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
         """
         (only in the presence of the @model decorator)
@@ -347,122 +463,6 @@ class Current(object, metaclass=type):
         -------
         CurrentCheckpointer
             The object for handling checkpointing within a step.
-        """
-        ...
-    @property
-    def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
-        """
-        (only in the presence of the @huggingface_hub decorator)
-        
-        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar
-        over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s
-        [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
-        The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the
-        `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
-        
-        
-        Usage:
-        ------
-        
-        **Usage: creating references of models from huggingface that may be loaded in downstream steps**
-        ```python
-            @huggingface_hub
-            @step
-            def pull_model_from_huggingface(self):
-                # `current.huggingface_hub.snapshot_download` downloads the model from the Hugging Face Hub
-                # and saves it in the backend storage based on the model's `repo_id`. If there exists a model
-                # with the same `repo_id` in the backend storage, it will not download the model again. The return
-                # value of the function is a reference to the model in the backend storage.
-                # This reference can be used to load the model in the subsequent steps via `@model(load=["llama_model"])`
-        
-                self.model_id = "mistralai/Mistral-7B-Instruct-v0.1"
-                self.llama_model = current.huggingface_hub.snapshot_download(
-                    repo_id=self.model_id,
-                    allow_patterns=["*.safetensors", "*.json", "tokenizer.*"],
-                )
-                self.next(self.train)
-        ```
-        
-        **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
-        ```python
-            @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
-            @step
-            def pull_model_from_huggingface(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-        ```
-        
-        ```python
-            @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
-        
-        ```python
-            # Takes all the arguments passed to `snapshot_download`
-            # except for `local_dir`
-            @huggingface_hub(load=[
-                {
-                    "repo_id": "mistralai/Mistral-7B-Instruct-v0.1",
-                },
-                {
-                    "repo_id": "myorg/mistral-lora",
-                    "repo_type": "model",
-                },
-            ])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
-        """
-        ...
-    @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
-        """
-        (only in the presence of the @parallel decorator)
-        
-        Returns a namedtuple with relevant information about the parallel task.
-        
-        Returns
-        -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
-        """
-        ...
-    @property
-    def is_parallel(self) -> bool:
-        """
-        (only in the presence of the @parallel decorator)
-        
-        True if the current step is a @parallel step.
-        """
-        ...
-    @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
-        """
-        (only in the presence of the @card decorator)
-        
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
-        
-        Returns
-        -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
         """
         ...
     @property

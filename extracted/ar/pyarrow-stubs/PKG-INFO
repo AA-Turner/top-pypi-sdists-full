@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyarrow-stubs
-Version: 19.4
+Version: 20.0.0.20250618
 Summary: Type annotations for pyarrow
 Project-URL: homepage, https://github.com/zen-xu/pyarrow-stubs
 Project-URL: repository, https://github.com/zen-xu/pyarrow-stubs.git
@@ -18,4 +18,4 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4,>=3.9
-Requires-Dist: pyarrow>=19
+Requires-Dist: pyarrow>=20

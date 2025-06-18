@@ -2,6 +2,7 @@ import click
 
 from ..utils import CONTEXT_SETTINGS
 from .list import batch_list_cli
+from .logs import batch_logs_cli
 from .run import batch_run_cli
 from .status import batch_status_cli
 from .wait import batch_wait_cli
@@ -19,4 +20,5 @@ def batch_group():
 batch_group.add_command(batch_run_cli, "run")
 batch_group.add_command(batch_status_cli, "status")
 batch_group.add_command(batch_list_cli, "list")
+batch_group.add_command(batch_logs_cli, "logs")
 batch_group.add_command(batch_wait_cli, "wait")

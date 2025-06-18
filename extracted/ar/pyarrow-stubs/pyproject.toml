@@ -2,7 +2,7 @@
 
 [project]
 name = "pyarrow-stubs"
-version = "19.4"
+version = "20.0.0.20250618"
 description = "Type annotations for pyarrow"
 authors = [{ name = "ZhengYu, Xu", email = "zen-xu@outlook.com" }]
 license = "BSD-2-Clause"
@@ -18,7 +18,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 requires-python = ">=3.9,<4"
-dependencies = ["pyarrow >=19"]
+dependencies = ["pyarrow >=20"]
 
 [project.urls]
 homepage   = "https://github.com/zen-xu/pyarrow-stubs"
@@ -73,6 +73,7 @@ extend-select = [
 ]
 ignore = [
   "PYI011", # typed-argument-default-in-stub
+  "PYI021", # docstring-in-stub
   "PYI015", # assignment-default-in-stub
   "PYI063", # pep484-style-positional-only-parameter
   "N818",   # error-suffix-on-exception-name
@@ -95,3 +96,4 @@ reportMissingParameterType = false
 reportMissingTypeStubs     = false
 reportUnknownVariableType  = false
 reportUnknownArgumentType  = false
+reportUnknownMemberType    = false

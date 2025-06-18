@@ -12,9 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_disk
 short_description: "Module to manage Virtual Machine and floating disks in oVirt/RHV"
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage Virtual Machine and floating disks in oVirt/RHV."
     - "WARNING: If you are installing the collection from ansible galaxy you need to install 'qemu-img' package."
@@ -157,7 +155,7 @@ options:
             target:
                 description:
                     - iSCSI target.
-            lun_id:
+            id:
                 description:
                     - LUN id.
             username:
@@ -346,8 +344,8 @@ EXAMPLES = '''
     name: fcp_disk
     host: my_host
     logical_unit:
-        id: 3600a09803830447a4f244c4657597777
-        storage_type: fcp
+      id: 3600a09803830447a4f244c4657597777
+      storage_type: fcp
 '''
 
 
@@ -378,7 +376,7 @@ import time
 import traceback
 import inspect
 
-from ansible.module_utils.six.moves.http_client import HTTPSConnection, IncompleteRead
+from ansible.module_utils.six.moves.http_client import HTTPSConnection
 from ansible.module_utils.six.moves.urllib.parse import urlparse
 try:
     import ovirtsdk4 as sdk
@@ -397,7 +395,6 @@ from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     follow_link,
     get_id_by_name,
     ovirt_full_argument_spec,
-    get_dict_of_struct,
     search_by_name,
     wait,
 )

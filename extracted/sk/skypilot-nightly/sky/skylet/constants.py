@@ -396,6 +396,10 @@ ROLE_ASSIGNMENT_FAILURE_ERROR_MSG = (
 # persistent through PVC. See kubernetes-ray.yml.j2.
 PERSISTENT_SETUP_SCRIPT_PATH = '~/.sky/.controller_recovery_setup_commands.sh'
 PERSISTENT_RUN_SCRIPT_DIR = '~/.sky/.controller_recovery_task_run'
+# Signal file to indicate that the controller is recovering from a failure.
+# See sky/jobs/utils.py::update_managed_jobs_statuses for more details.
+PERSISTENT_RUN_RESTARTING_SIGNAL_FILE = (
+    '~/.sky/.controller_recovery_restarting_signal')
 
 # The placeholder for the local skypilot config path in file mounts for
 # controllers.
@@ -421,3 +425,38 @@ ALL_CLOUDS = ('aws', 'azure', 'gcp', 'ibm', 'lambda', 'scp', 'oci',
 
 # The user ID of the SkyPilot system.
 SKYPILOT_SYSTEM_USER_ID = 'skypilot-system'
+
+# Resources constants
+TIME_UNITS = {
+    's': 1 / 60,
+    'sec': 1 / 60,
+    'm': 1,
+    'min': 1,
+    'h': 60,
+    'hr': 60,
+    'd': 24 * 60,
+    'day': 24 * 60,
+}
+
+TIME_PATTERN: str = (
+    f'^[0-9]+({"|".join([unit.lower() for unit in TIME_UNITS])})?$/i')
+
+MEMORY_SIZE_UNITS = {
+    'b': 1,
+    'k': 2**10,
+    'kb': 2**10,
+    'm': 2**20,
+    'mb': 2**20,
+    'g': 2**30,
+    'gb': 2**30,
+    't': 2**40,
+    'tb': 2**40,
+    'p': 2**50,
+    'pb': 2**50,
+}
+
+MEMORY_SIZE_PATTERN = (
+    '^[0-9]+('
+    f'{"|".join([unit.lower() for unit in MEMORY_SIZE_UNITS])}'
+    ')?$/i')
+MEMORY_SIZE_PLUS_PATTERN = f'{MEMORY_SIZE_PATTERN[:-3]}+?$/i'

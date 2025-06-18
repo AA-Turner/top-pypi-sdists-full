@@ -5,9 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use append_only_vec::AppendOnlyVec;
 use itertools::Itertools;
 use pyrefly_util::display::count;
+use pyrefly_util::owner::Owner;
+use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
@@ -38,6 +39,85 @@ use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
+
+/// Structure to turn TypeOrExprs into Types.
+/// This is used to avoid re-infering types for arguments multiple types.
+///
+/// Implemented by keeping an `Owner` to hand out references to `Type`.
+pub struct CallWithTypes(Owner<Type>);
+
+impl CallWithTypes {
+    pub fn new() -> Self {
+        Self(Owner::new())
+    }
+
+    pub fn type_or_expr<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
+        x: TypeOrExpr<'b>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> TypeOrExpr<'a> {
+        match x {
+            TypeOrExpr::Expr(e) => {
+                let t = solver.expr_infer(e, errors);
+                TypeOrExpr::Type(self.0.push(t), e.range())
+            }
+            TypeOrExpr::Type(t, r) => TypeOrExpr::Type(t, r),
+        }
+    }
+
+    pub fn call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
+        x: &CallArg<'b>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> CallArg<'a> {
+        match x {
+            CallArg::Arg(x) => CallArg::Arg(self.type_or_expr(*x, solver, errors)),
+            CallArg::Star(x, r) => CallArg::Star(self.type_or_expr(*x, solver, errors), *r),
+        }
+    }
+
+    pub fn call_keyword<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
+        x: &CallKeyword<'b>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> CallKeyword<'a> {
+        CallKeyword {
+            range: x.range,
+            arg: x.arg,
+            value: self.type_or_expr(x.value, solver, errors),
+        }
+    }
+
+    pub fn opt_call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
+        x: Option<&CallArg<'b>>,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> Option<CallArg<'a>> {
+        x.map(|x| self.call_arg(x, solver, errors))
+    }
+
+    pub fn vec_call_arg<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
+        xs: &[CallArg<'b>],
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> Vec<CallArg<'a>> {
+        xs.map(|x| self.call_arg(x, solver, errors))
+    }
+
+    pub fn vec_call_keyword<'a, 'b: 'a, Ans: LookupAnswer>(
+        &'a self,
+        xs: &[CallKeyword<'b>],
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+    ) -> Vec<CallKeyword<'a>> {
+        xs.map(|x| self.call_keyword(x, solver, errors))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct CallKeyword<'a> {
@@ -352,7 +432,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let var_to_rparams = |var| {
             let ps = match self.solver().force_var(var) {
                 Type::ParamSpecValue(ps) => ps,
-                Type::Any(_) => ParamList::everything(),
+                Type::Any(_) | Type::Ellipsis => ParamList::everything(),
+                Type::Concatenate(prefix, _) => {
+                    // TODO: handle second component of Type::Concatenate
+                    let ps = ParamList::everything();
+                    ps.prepend_types(&prefix).into_owned()
+                }
                 t => {
                     error(
                         call_errors,
@@ -535,9 +620,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("Expected {expected}, got {actual}"),
             );
         }
-        // Heap storage for typed dict fields, which are freshly calculated (and need to be owned
-        // somewhere) but are used as references.
-        let kwargs_typed_dict_fields_vec = AppendOnlyVec::new();
         // Missing positional-only arguments, split by whether the corresponding parameters
         // in the callable have names. E.g., functions declared with `def` have named posonly
         // parameters and `typing.Callable`s have unnamed ones.
@@ -574,11 +656,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     kwparams.insert(name.clone(), (ty, required == Required::Required));
                 }
                 Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
-                    let i = kwargs_typed_dict_fields_vec.push(self.typed_dict_fields(&typed_dict));
-                    kwargs_typed_dict_fields_vec[i]
-                        .iter()
+                    self.typed_dict_fields(&typed_dict)
+                        .into_iter_hashed()
                         .for_each(|(name, field)| {
-                            kwparams.insert(name.clone(), (field.ty.clone(), field.required));
+                            kwparams.insert_hashed(name, (field.ty, field.required));
                         });
                     kwargs_is_unpack = true;
                 }

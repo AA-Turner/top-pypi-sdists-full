@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.38.37",
+    version="1.38.38",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -271,6 +271,7 @@ setup(
         "types_boto3_migrationhub_config",
         "types_boto3_migrationhuborchestrator",
         "types_boto3_migrationhubstrategy",
+        "types_boto3_mpa",
         "types_boto3_mq",
         "types_boto3_mturk",
         "types_boto3_mwaa",
@@ -423,7 +424,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.38.37 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.38.38 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -704,6 +705,7 @@ setup(
         "types_boto3_migrationhub_config": ["py.typed", "*.pyi"],
         "types_boto3_migrationhuborchestrator": ["py.typed", "*.pyi"],
         "types_boto3_migrationhubstrategy": ["py.typed", "*.pyi"],
+        "types_boto3_mpa": ["py.typed", "*.pyi"],
         "types_boto3_mq": ["py.typed", "*.pyi"],
         "types_boto3_mturk": ["py.typed", "*.pyi"],
         "types_boto3_mwaa": ["py.typed", "*.pyi"],

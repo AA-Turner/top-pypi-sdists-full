@@ -1,9 +1,9 @@
 from collections.abc import Sequence
-from typing import Literal, TypeAlias, overload
-from typing_extensions import LiteralString
+from typing import Literal, LiteralString, TypeAlias, overload
 
 import numpy as np
 import optype.numpy as onp
+
 from scipy._typing import Falsy, Truthy
 
 __all__ = ["bisplev", "bisplrep", "insert", "spalde", "splantider", "splder", "splev", "splint", "splprep", "splrep", "sproot"]

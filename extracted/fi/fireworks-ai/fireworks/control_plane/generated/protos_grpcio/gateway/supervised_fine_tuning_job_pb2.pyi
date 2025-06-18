@@ -1,5 +1,6 @@
 from ..buf.validate import validate_pb2 as _validate_pb2
 from . import deployment_pb2 as _deployment_pb2
+from . import job_progress_pb2 as _job_progress_pb2
 from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
 from . import wandb_pb2 as _wandb_pb2
@@ -17,17 +18,21 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class SupervisedFineTuningJob(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "state", "status", "created_by", "output_model", "base_model", "warm_start_from", "jinja_template", "early_stop", "epochs", "learning_rate", "max_context_length", "lora_rank", "base_model_weight_precision", "wandb_config", "evaluation_dataset", "accelerator_type", "accelerator_count", "is_turbo", "eval_auto_carveout", "region", "update_time", "nodes", "batch_size", "mtp_enabled", "mtp_num_draft_tokens", "mtp_freeze_base_model")
+    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "state", "status", "created_by", "output_model", "base_model", "warm_start_from", "jinja_template", "early_stop", "epochs", "learning_rate", "max_context_length", "lora_rank", "base_model_weight_precision", "wandb_config", "evaluation_dataset", "accelerator_type", "accelerator_count", "is_turbo", "eval_auto_carveout", "region", "update_time", "nodes", "batch_size", "mtp_enabled", "mtp_num_draft_tokens", "mtp_freeze_base_model", "job_progress", "custom_image_tag", "precision")
     class WeightPrecision(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         WEIGHT_PRECISION_UNSPECIFIED: _ClassVar[SupervisedFineTuningJob.WeightPrecision]
         BFLOAT16: _ClassVar[SupervisedFineTuningJob.WeightPrecision]
         INT8: _ClassVar[SupervisedFineTuningJob.WeightPrecision]
         NF4: _ClassVar[SupervisedFineTuningJob.WeightPrecision]
+        FP8: _ClassVar[SupervisedFineTuningJob.WeightPrecision]
+        FP4_FP8: _ClassVar[SupervisedFineTuningJob.WeightPrecision]
     WEIGHT_PRECISION_UNSPECIFIED: SupervisedFineTuningJob.WeightPrecision
     BFLOAT16: SupervisedFineTuningJob.WeightPrecision
     INT8: SupervisedFineTuningJob.WeightPrecision
     NF4: SupervisedFineTuningJob.WeightPrecision
+    FP8: SupervisedFineTuningJob.WeightPrecision
+    FP4_FP8: SupervisedFineTuningJob.WeightPrecision
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -59,6 +64,9 @@ class SupervisedFineTuningJob(_message.Message):
     MTP_ENABLED_FIELD_NUMBER: _ClassVar[int]
     MTP_NUM_DRAFT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     MTP_FREEZE_BASE_MODEL_FIELD_NUMBER: _ClassVar[int]
+    JOB_PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOM_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
+    PRECISION_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -90,7 +98,10 @@ class SupervisedFineTuningJob(_message.Message):
     mtp_enabled: bool
     mtp_num_draft_tokens: int
     mtp_freeze_base_model: bool
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., output_model: _Optional[str] = ..., base_model: _Optional[str] = ..., warm_start_from: _Optional[str] = ..., jinja_template: _Optional[str] = ..., early_stop: bool = ..., epochs: _Optional[int] = ..., learning_rate: _Optional[float] = ..., max_context_length: _Optional[int] = ..., lora_rank: _Optional[int] = ..., base_model_weight_precision: _Optional[_Union[SupervisedFineTuningJob.WeightPrecision, str]] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., evaluation_dataset: _Optional[str] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., accelerator_count: _Optional[int] = ..., is_turbo: bool = ..., eval_auto_carveout: bool = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., nodes: _Optional[int] = ..., batch_size: _Optional[int] = ..., mtp_enabled: bool = ..., mtp_num_draft_tokens: _Optional[int] = ..., mtp_freeze_base_model: bool = ...) -> None: ...
+    job_progress: _job_progress_pb2.JobProgress
+    custom_image_tag: str
+    precision: SupervisedFineTuningJob.WeightPrecision
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., output_model: _Optional[str] = ..., base_model: _Optional[str] = ..., warm_start_from: _Optional[str] = ..., jinja_template: _Optional[str] = ..., early_stop: bool = ..., epochs: _Optional[int] = ..., learning_rate: _Optional[float] = ..., max_context_length: _Optional[int] = ..., lora_rank: _Optional[int] = ..., base_model_weight_precision: _Optional[_Union[SupervisedFineTuningJob.WeightPrecision, str]] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., evaluation_dataset: _Optional[str] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., accelerator_count: _Optional[int] = ..., is_turbo: bool = ..., eval_auto_carveout: bool = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., nodes: _Optional[int] = ..., batch_size: _Optional[int] = ..., mtp_enabled: bool = ..., mtp_num_draft_tokens: _Optional[int] = ..., mtp_freeze_base_model: bool = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., custom_image_tag: _Optional[str] = ..., precision: _Optional[_Union[SupervisedFineTuningJob.WeightPrecision, str]] = ...) -> None: ...
 
 class GetSupervisedFineTuningJobRequest(_message.Message):
     __slots__ = ("name", "read_mask")

@@ -1,3 +1,4 @@
+from . import batch_inference_job_pb2 as _batch_inference_job_pb2
 from . import job_progress_pb2 as _job_progress_pb2
 from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
@@ -16,7 +17,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ReinforcementFineTuningEpoch(_message.Message):
-    __slots__ = ("name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "update_time", "training_config", "evaluator", "wandb_config", "rollout_n", "ending_assistant_messages", "reinforcement_fine_tuning_job_id", "job_progress")
+    __slots__ = ("name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "update_time", "training_config", "evaluator", "wandb_config", "rollout_n", "ending_assistant_messages", "reinforcement_fine_tuning_job_id", "job_progress", "inference_parameters")
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
     COMPLETED_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -34,6 +35,7 @@ class ReinforcementFineTuningEpoch(_message.Message):
     ENDING_ASSISTANT_MESSAGES_FIELD_NUMBER: _ClassVar[int]
     REINFORCEMENT_FINE_TUNING_JOB_ID_FIELD_NUMBER: _ClassVar[int]
     JOB_PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    INFERENCE_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     name: str
     create_time: _timestamp_pb2.Timestamp
     completed_time: _timestamp_pb2.Timestamp
@@ -51,7 +53,8 @@ class ReinforcementFineTuningEpoch(_message.Message):
     ending_assistant_messages: str
     reinforcement_fine_tuning_job_id: str
     job_progress: _job_progress_pb2.JobProgress
-    def __init__(self, name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., rollout_n: _Optional[int] = ..., ending_assistant_messages: _Optional[str] = ..., reinforcement_fine_tuning_job_id: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ...) -> None: ...
+    inference_parameters: _batch_inference_job_pb2.InferenceParameters
+    def __init__(self, name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., rollout_n: _Optional[int] = ..., ending_assistant_messages: _Optional[str] = ..., reinforcement_fine_tuning_job_id: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., inference_parameters: _Optional[_Union[_batch_inference_job_pb2.InferenceParameters, _Mapping]] = ...) -> None: ...
 
 class GetReinforcementFineTuningEpochRequest(_message.Message):
     __slots__ = ("name", "read_mask")

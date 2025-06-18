@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_csm_threats_agent_rules`
 
-Refer to the Terraform Registry for docs: [`data_datadog_csm_threats_agent_rules`](https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/data-sources/csm_threats_agent_rules).
+Refer to the Terraform Registry for docs: [`data_datadog_csm_threats_agent_rules`](https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,13 +44,14 @@ class DataDatadogCsmThreatsAgentRules(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRules",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
+        policy_id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -59,10 +60,11 @@ class DataDatadogCsmThreatsAgentRules(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules datadog_csm_threats_agent_rules} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
+        :param policy_id: Listing only the rules in the policy with this field as the ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -76,6 +78,7 @@ class DataDatadogCsmThreatsAgentRules(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataDatadogCsmThreatsAgentRulesConfig(
+            policy_id=policy_id,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -100,7 +103,7 @@ class DataDatadogCsmThreatsAgentRules(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogCsmThreatsAgentRules to import.
-        :param import_from_id: The id of the existing DataDatadogCsmThreatsAgentRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/data-sources/csm_threats_agent_rules#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogCsmThreatsAgentRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogCsmThreatsAgentRules to import is found.
         '''
         if __debug__:
@@ -110,6 +113,10 @@ class DataDatadogCsmThreatsAgentRules(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetPolicyId")
+    def reset_policy_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPolicyId", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -139,6 +146,23 @@ class DataDatadogCsmThreatsAgentRules(
     def id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "id"))
 
+    @builtins.property
+    @jsii.member(jsii_name="policyIdInput")
+    def policy_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "policyIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyId")
+    def policy_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "policyId"))
+
+    @policy_id.setter
+    def policy_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec8b17148a17ac6be8f6a8545d9418a28a24e8eb5ebb81e4357c5d8858105838)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyId", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRules",
@@ -159,6 +183,248 @@ class DataDatadogCsmThreatsAgentRulesAgentRules:
         return "DataDatadogCsmThreatsAgentRulesAgentRules(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRulesActions",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataDatadogCsmThreatsAgentRulesAgentRulesActions:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataDatadogCsmThreatsAgentRulesAgentRulesActions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataDatadogCsmThreatsAgentRulesAgentRulesActionsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRulesActionsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c447c8beefa4cb268fcf571700bebeb605e98721d01dca9e7ab58605bdbb4d45)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataDatadogCsmThreatsAgentRulesAgentRulesActionsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bac5fbc3d49e342947395194044df94a6b9955d04d27bce277059daacc3db96)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataDatadogCsmThreatsAgentRulesAgentRulesActionsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab8c5f833a58ef1f443713f90f5b31d8a89b97a6bf99fe3ddd4a7fdc94cfb9df)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8047bcb8c0000558efea844edca0307534879c71716d23cdadcf531e3c5ca153)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bebf7c8f50be6e3e4a2ad905ec5891f963f8de6fd1144832d6582f9fabc85254)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataDatadogCsmThreatsAgentRulesAgentRulesActionsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRulesActionsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__610b387f4dabb3b4f230332c613f0eda8454c683267d09587c12e885cce2a8e0)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="set")
+    def set(
+        self,
+    ) -> "DataDatadogCsmThreatsAgentRulesAgentRulesActionsSetOutputReference":
+        return typing.cast("DataDatadogCsmThreatsAgentRulesAgentRulesActionsSetOutputReference", jsii.get(self, "set"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActions]:
+        return typing.cast(typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActions], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActions],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__148e0bb4eceb6aa81aa3d1987a65bd4a85e7f9ddcb7a1058398e5d5944514c9f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataDatadogCsmThreatsAgentRulesAgentRulesActionsSetOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.dataDatadogCsmThreatsAgentRules.DataDatadogCsmThreatsAgentRulesAgentRulesActionsSetOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c2db9c3a040e38f009c655c728ab890b8fc81c90a82c0789763070a571ae1c8)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="append")
+    def append(self) -> _cdktf_9a9027ec.IResolvable:
+        return typing.cast(_cdktf_9a9027ec.IResolvable, jsii.get(self, "append"))
+
+    @builtins.property
+    @jsii.member(jsii_name="field")
+    def field(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "field"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scope")
+    def scope(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "scope"))
+
+    @builtins.property
+    @jsii.member(jsii_name="size")
+    def size(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "size"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ttl")
+    def ttl(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "ttl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet]:
+        return typing.cast(typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88624dc5deef175719e359612814f1e5644101932c5e80d02bffd2a95de52336)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class DataDatadogCsmThreatsAgentRulesAgentRulesList(
@@ -264,6 +530,11 @@ class DataDatadogCsmThreatsAgentRulesAgentRulesOutputReference(
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
     @builtins.property
+    @jsii.member(jsii_name="actions")
+    def actions(self) -> DataDatadogCsmThreatsAgentRulesAgentRulesActionsList:
+        return typing.cast(DataDatadogCsmThreatsAgentRulesAgentRulesActionsList, jsii.get(self, "actions"))
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "description"))
@@ -287,6 +558,11 @@ class DataDatadogCsmThreatsAgentRulesAgentRulesOutputReference(
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="productTags")
+    def product_tags(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "productTags"))
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -317,6 +593,7 @@ class DataDatadogCsmThreatsAgentRulesAgentRulesOutputReference(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
+        "policy_id": "policyId",
     },
 )
 class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -330,6 +607,7 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
+        policy_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -339,6 +617,7 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
+        :param policy_id: Listing only the rules in the policy with this field as the ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -351,6 +630,7 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
+            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
@@ -366,6 +646,8 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if policy_id is not None:
+            self._values["policy_id"] = policy_id
 
     @builtins.property
     def connection(
@@ -431,6 +713,15 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         result = self._values.get("provisioners")
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
+    @builtins.property
+    def policy_id(self) -> typing.Optional[builtins.str]:
+        '''Listing only the rules in the policy with this field as the ID.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/data-sources/csm_threats_agent_rules#policy_id DataDatadogCsmThreatsAgentRules#policy_id}
+        '''
+        result = self._values.get("policy_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -446,6 +737,11 @@ class DataDatadogCsmThreatsAgentRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 __all__ = [
     "DataDatadogCsmThreatsAgentRules",
     "DataDatadogCsmThreatsAgentRulesAgentRules",
+    "DataDatadogCsmThreatsAgentRulesAgentRulesActions",
+    "DataDatadogCsmThreatsAgentRulesAgentRulesActionsList",
+    "DataDatadogCsmThreatsAgentRulesAgentRulesActionsOutputReference",
+    "DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet",
+    "DataDatadogCsmThreatsAgentRulesAgentRulesActionsSetOutputReference",
     "DataDatadogCsmThreatsAgentRulesAgentRulesList",
     "DataDatadogCsmThreatsAgentRulesAgentRulesOutputReference",
     "DataDatadogCsmThreatsAgentRulesConfig",
@@ -457,6 +753,7 @@ def _typecheckingstub__80a5378c53bb769aba893ca55e93517d4041241c480e3c1a39dc34faa
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    policy_id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -473,6 +770,72 @@ def _typecheckingstub__36f23e00873bee1348193fce407ec1eb580b626ad776c894ab43282b3
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec8b17148a17ac6be8f6a8545d9418a28a24e8eb5ebb81e4357c5d8858105838(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c447c8beefa4cb268fcf571700bebeb605e98721d01dca9e7ab58605bdbb4d45(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bac5fbc3d49e342947395194044df94a6b9955d04d27bce277059daacc3db96(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab8c5f833a58ef1f443713f90f5b31d8a89b97a6bf99fe3ddd4a7fdc94cfb9df(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8047bcb8c0000558efea844edca0307534879c71716d23cdadcf531e3c5ca153(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bebf7c8f50be6e3e4a2ad905ec5891f963f8de6fd1144832d6582f9fabc85254(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__610b387f4dabb3b4f230332c613f0eda8454c683267d09587c12e885cce2a8e0(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__148e0bb4eceb6aa81aa3d1987a65bd4a85e7f9ddcb7a1058398e5d5944514c9f(
+    value: typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActions],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c2db9c3a040e38f009c655c728ab890b8fc81c90a82c0789763070a571ae1c8(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88624dc5deef175719e359612814f1e5644101932c5e80d02bffd2a95de52336(
+    value: typing.Optional[DataDatadogCsmThreatsAgentRulesAgentRulesActionsSet],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -533,6 +896,7 @@ def _typecheckingstub__9b234486b7f8a26370588821e9672e9ada091a7a5599dd0c1803d37b9
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    policy_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

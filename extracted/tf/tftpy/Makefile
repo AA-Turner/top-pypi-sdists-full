@@ -9,7 +9,9 @@ TESTCASE=
 help:
 	@echo "Targets:"
 	@echo "    all"
-	@echo "    test"
+	@echo "    test - run all tests"
+	@echo "    stdout - run stdout test"
+	@echo "    stdin - run stdin test"
 	@echo "    dist"
 	@echo "    lint"
 	@echo "    clean"
@@ -28,6 +30,10 @@ dist:
 test:
 	rm -rf /tmp/foo
 	PYTHONIOENCODING=$(PYTHONIOENCODING) PYTHONPATH=$(PYTHONPATH) $(PY) tests/test.py $(TESTCASE) 2>&1 | tee test.log
+
+runserver:
+	PYTHONPATH=$(PYTHONPATH) $(PY) bin/tftpy_server.py --ip=127.0.0.1 --port=6669 --root=/tmp
+	# test 1 byte packet with "echo 'A' | nc -u 127.0.0.1 6669
 
 clean:
 	rm -rf dist src tftpy-doc* MANIFEST

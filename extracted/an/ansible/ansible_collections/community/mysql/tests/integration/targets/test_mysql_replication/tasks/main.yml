@@ -13,6 +13,10 @@
 # Tests of replication filters and force_context
 - include_tasks: issue-265.yml
 
+# primary_ssl_verify_server_cert
+# Must run before mysql add channels in mysql_replication_channel.yml
+- import_tasks: issue-689.yml
+
 # Tests of primary_delay parameter:
 - import_tasks: mysql_replication_primary_delay.yml
 

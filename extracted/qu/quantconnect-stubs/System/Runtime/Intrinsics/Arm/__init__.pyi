@@ -7231,6 +7231,38 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def shift_left_logical_saturate(value: System.Numerics.Vector[int], count: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqshl[_u8]_m(svbool_t pg, svuint8_t op1, svint8_t op2)
+          UQSHL Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def shift_left_logical_saturate_unsigned(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqshlu[_n_s8]_m(svbool_t pg, svint8_t op1, uint64_t imm2)
+          SQSHLU Ztied1.B, Pg/M, Ztied1.B, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_left_logical_widening_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svshllb[_n_s16](svint8_t op1, uint64_t imm2)
+          SSHLLB Zresult.H, Zop1.B, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_left_logical_widening_odd(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svshllt[_n_s16](svint8_t op1, uint64_t imm2)
+          SSHLLT Zresult.H, Zop1.B, #imm2
+        """
+        ...
+
+    @staticmethod
     def xor(value_1: System.Numerics.Vector[int], value_2: System.Numerics.Vector[int], value_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t sveor3[_u8](svuint8_t op1, svuint8_t op2, svuint8_t op3)

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import enum
 import ipaddress
 import pathlib
-from typing import TYPE_CHECKING, Generic, TypedDict, TypeVar, assert_never, override
+from typing import TYPE_CHECKING, TypedDict, assert_never, override
 
 import click
 import whenever
@@ -15,30 +16,25 @@ from utilities.functions import EnsureStrError, ensure_str, get_class_name
 from utilities.iterables import is_iterable_not_str
 from utilities.parse import ParseObjectError, parse_object
 from utilities.text import split_str
-from utilities.types import (
-    DateDeltaLike,
-    DateLike,
-    DateTimeDeltaLike,
-    EnumLike,
-    IPv4AddressLike,
-    IPv6AddressLike,
-    MaybeStr,
-    PlainDateTimeLike,
-    TEnum,
-    TimeDeltaLike,
-    TimeLike,
-    ZonedDateTimeLike,
-)
 from utilities.whenever import FreqLike, _FreqParseError, _MonthParseCommonISOError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
+    from utilities.types import (
+        DateDeltaLike,
+        DateLike,
+        DateTimeDeltaLike,
+        EnumLike,
+        IPv4AddressLike,
+        IPv6AddressLike,
+        MaybeStr,
+        PlainDateTimeLike,
+        TimeDeltaLike,
+        TimeLike,
+        ZonedDateTimeLike,
+    )
     from utilities.whenever import MonthLike
-
-
-_T = TypeVar("_T")
-_TParam = TypeVar("_TParam", bound=ParamType)
 
 
 FilePath = click.Path(file_okay=True, dir_okay=False, path_type=pathlib.Path)
@@ -145,12 +141,13 @@ class DateTimeDelta(ParamType):
                 assert_never(never)
 
 
-class Enum(ParamType, Generic[TEnum]):
+class Enum[E: enum.Enum](ParamType):
     """An enum-valued parameter."""
 
-    def __init__(self, enum: type[TEnum], /, *, case_sensitive: bool = False) -> None:
+    @override
+    def __init__(self, enum: type[E], /, *, case_sensitive: bool = False) -> None:
         cls = get_class_name(enum)
-        self.name = f"ENUM[{cls}]"
+        self.name = f"enum[{cls}]"
         self._enum = enum
         self._case_sensitive = case_sensitive
         super().__init__()
@@ -162,8 +159,8 @@ class Enum(ParamType, Generic[TEnum]):
 
     @override
     def convert(
-        self, value: EnumLike[TEnum], param: Parameter | None, ctx: Context | None
-    ) -> TEnum:
+        self, value: EnumLike[E], param: Parameter | None, ctx: Context | None
+    ) -> E:
         """Convert a value into the `Enum` type."""
         try:
             return ensure_enum(value, self._enum, case_sensitive=self._case_sensitive)
@@ -180,9 +177,11 @@ class Enum(ParamType, Generic[TEnum]):
 class Freq(ParamType):
     """An frequency-valued parameter."""
 
+    name = "freq"
+
     @override
     def __repr__(self) -> str:
-        return "FREQ"
+        return self.name.upper()
 
     @override
     def convert(
@@ -380,27 +379,24 @@ class ZonedDateTime(ParamType):
 # parameters - frozenset
 
 
-class FrozenSetParameter(ParamType, Generic[_TParam, _T]):
+class FrozenSetParameter[P: ParamType, T](ParamType):
     """A frozenset-valued parameter."""
 
-    def __init__(self, param: _TParam, /, *, separator: str = ",") -> None:
-        self.name = f"FROZENSET[{param.name}]"
+    @override
+    def __init__(self, param: P, /, *, separator: str = ",") -> None:
+        self.name = f"frozenset[{param.name}]"
         self._param = param
         self._separator = separator
         super().__init__()
 
     @override
     def __repr__(self) -> str:
-        desc = repr(self._param)
-        return f"FROZENSET[{desc}]"
+        return f"FROZENSET[{self._param!r}]"
 
     @override
     def convert(
-        self,
-        value: MaybeStr[Iterable[_T]],
-        param: Parameter | None,
-        ctx: Context | None,
-    ) -> frozenset[_T]:
+        self, value: MaybeStr[Iterable[T]], param: Parameter | None, ctx: Context | None
+    ) -> frozenset[T]:
         """Convert a value into the `ListDates` type."""
         if is_iterable_not_str(value):
             return frozenset(value)
@@ -425,6 +421,7 @@ class FrozenSetParameter(ParamType, Generic[_TParam, _T]):
 class FrozenSetChoices(FrozenSetParameter[Choice, str]):
     """A frozenset-of-choices-valued parameter."""
 
+    @override
     def __init__(
         self,
         choices: Sequence[str],
@@ -438,16 +435,12 @@ class FrozenSetChoices(FrozenSetParameter[Choice, str]):
         )
 
 
-class FrozenSetEnums(FrozenSetParameter[Enum[TEnum], TEnum]):
+class FrozenSetEnums[E: enum.Enum](FrozenSetParameter[Enum[E], E]):
     """A frozenset-of-enums-valued parameter."""
 
+    @override
     def __init__(
-        self,
-        enum: type[TEnum],
-        /,
-        *,
-        case_sensitive: bool = False,
-        separator: str = ",",
+        self, enum: type[E], /, *, case_sensitive: bool = False, separator: str = ","
     ) -> None:
         super().__init__(Enum(enum, case_sensitive=case_sensitive), separator=separator)
 
@@ -455,6 +448,7 @@ class FrozenSetEnums(FrozenSetParameter[Enum[TEnum], TEnum]):
 class FrozenSetStrs(FrozenSetParameter[StringParamType, str]):
     """A frozenset-of-strs-valued parameter."""
 
+    @override
     def __init__(self, *, separator: str = ",") -> None:
         super().__init__(StringParamType(), separator=separator)
 
@@ -462,27 +456,24 @@ class FrozenSetStrs(FrozenSetParameter[StringParamType, str]):
 # parameters - list
 
 
-class ListParameter(ParamType, Generic[_TParam, _T]):
+class ListParameter[P: ParamType, T](ParamType):
     """A list-valued parameter."""
 
-    def __init__(self, param: _TParam, /, *, separator: str = ",") -> None:
-        self.name = f"LIST[{param.name}]"
+    @override
+    def __init__(self, param: P, /, *, separator: str = ",") -> None:
+        self.name = f"list[{param.name}]"
         self._param = param
         self._separator = separator
         super().__init__()
 
     @override
     def __repr__(self) -> str:
-        desc = repr(self._param)
-        return f"LIST[{desc}]"
+        return f"LIST[{self._param!r}]"
 
     @override
     def convert(
-        self,
-        value: MaybeStr[Iterable[_T]],
-        param: Parameter | None,
-        ctx: Context | None,
-    ) -> list[_T]:
+        self, value: MaybeStr[Iterable[T]], param: Parameter | None, ctx: Context | None
+    ) -> list[T]:
         """Convert a value into the `List` type."""
         if is_iterable_not_str(value):
             return list(value)
@@ -504,16 +495,29 @@ class ListParameter(ParamType, Generic[_TParam, _T]):
         return _make_metavar(param, desc)
 
 
-class ListEnums(ListParameter[Enum[TEnum], TEnum]):
-    """A list-of-enums-valued parameter."""
+class ListChoices(ListParameter[Choice, str]):
+    """A frozenset-of-choices-valued parameter."""
 
+    @override
     def __init__(
         self,
-        enum: type[TEnum],
+        choices: Sequence[str],
         /,
         *,
         case_sensitive: bool = False,
         separator: str = ",",
+    ) -> None:
+        super().__init__(
+            Choice(choices, case_sensitive=case_sensitive), separator=separator
+        )
+
+
+class ListEnums[E: enum.Enum](ListParameter[Enum[E], E]):
+    """A list-of-enums-valued parameter."""
+
+    @override
+    def __init__(
+        self, enum: type[E], /, *, case_sensitive: bool = False, separator: str = ","
     ) -> None:
         super().__init__(Enum(enum, case_sensitive=case_sensitive), separator=separator)
 
@@ -521,6 +525,7 @@ class ListEnums(ListParameter[Enum[TEnum], TEnum]):
 class ListStrs(ListParameter[StringParamType, str]):
     """A list-of-strs-valued parameter."""
 
+    @override
     def __init__(self, *, separator: str = ",") -> None:
         super().__init__(StringParamType(), separator=separator)
 
@@ -550,6 +555,7 @@ __all__ = [
     "FrozenSetStrs",
     "IPv4Address",
     "IPv6Address",
+    "ListChoices",
     "ListEnums",
     "ListParameter",
     "ListStrs",

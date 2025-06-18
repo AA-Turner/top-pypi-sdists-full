@@ -14,7 +14,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Dataset(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "state", "status", "example_count", "access_policy", "user_uploaded", "evaluation_result", "fireworks_traced", "draft_model_states", "transformed", "external_url", "format", "created_by", "update_time")
+    __slots__ = ("name", "display_name", "create_time", "state", "status", "example_count", "access_policy", "user_uploaded", "evaluation_result", "fireworks_traced", "draft_model_states", "transformed", "splitted", "external_url", "format", "created_by", "update_time")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[Dataset.State]
@@ -51,6 +51,7 @@ class Dataset(_message.Message):
     FIREWORKS_TRACED_FIELD_NUMBER: _ClassVar[int]
     DRAFT_MODEL_STATES_FIELD_NUMBER: _ClassVar[int]
     TRANSFORMED_FIELD_NUMBER: _ClassVar[int]
+    SPLITTED_FIELD_NUMBER: _ClassVar[int]
     EXTERNAL_URL_FIELD_NUMBER: _ClassVar[int]
     FORMAT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
@@ -67,11 +68,12 @@ class Dataset(_message.Message):
     fireworks_traced: FireworksTraced
     draft_model_states: DraftModelStates
     transformed: Transformed
+    splitted: Splitted
     external_url: str
     format: Dataset.Format
     created_by: str
     update_time: _timestamp_pb2.Timestamp
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[_Union[Dataset.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., example_count: _Optional[int] = ..., access_policy: _Optional[_Union[Dataset.AccessPolicy, str]] = ..., user_uploaded: _Optional[_Union[UserUploaded, _Mapping]] = ..., evaluation_result: _Optional[_Union[EvaluationResult, _Mapping]] = ..., fireworks_traced: _Optional[_Union[FireworksTraced, _Mapping]] = ..., draft_model_states: _Optional[_Union[DraftModelStates, _Mapping]] = ..., transformed: _Optional[_Union[Transformed, _Mapping]] = ..., external_url: _Optional[str] = ..., format: _Optional[_Union[Dataset.Format, str]] = ..., created_by: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[_Union[Dataset.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., example_count: _Optional[int] = ..., access_policy: _Optional[_Union[Dataset.AccessPolicy, str]] = ..., user_uploaded: _Optional[_Union[UserUploaded, _Mapping]] = ..., evaluation_result: _Optional[_Union[EvaluationResult, _Mapping]] = ..., fireworks_traced: _Optional[_Union[FireworksTraced, _Mapping]] = ..., draft_model_states: _Optional[_Union[DraftModelStates, _Mapping]] = ..., transformed: _Optional[_Union[Transformed, _Mapping]] = ..., splitted: _Optional[_Union[Splitted, _Mapping]] = ..., external_url: _Optional[str] = ..., format: _Optional[_Union[Dataset.Format, str]] = ..., created_by: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class PreviewDatasetRequest(_message.Message):
     __slots__ = ("name", "page_size", "page_token", "filter", "order_by")
@@ -116,6 +118,12 @@ class Transformed(_message.Message):
     filter: str
     original_format: Dataset.Format
     def __init__(self, source_dataset_id: _Optional[str] = ..., filter: _Optional[str] = ..., original_format: _Optional[_Union[Dataset.Format, str]] = ...) -> None: ...
+
+class Splitted(_message.Message):
+    __slots__ = ("source_dataset_id",)
+    SOURCE_DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    source_dataset_id: str
+    def __init__(self, source_dataset_id: _Optional[str] = ...) -> None: ...
 
 class FireworksTraced(_message.Message):
     __slots__ = ("model", "base_model", "start_time", "end_time")
@@ -289,3 +297,23 @@ class DeleteDatasetRequest(_message.Message):
     NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class SplitDatasetRequest(_message.Message):
+    __slots__ = ("name", "chunk_size", "parent")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CHUNK_SIZE_FIELD_NUMBER: _ClassVar[int]
+    PARENT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    chunk_size: int
+    parent: str
+    def __init__(self, name: _Optional[str] = ..., chunk_size: _Optional[int] = ..., parent: _Optional[str] = ...) -> None: ...
+
+class SplitDatasetResponse(_message.Message):
+    __slots__ = ("chunk_dataset_names", "chunks_created", "total_examples")
+    CHUNK_DATASET_NAMES_FIELD_NUMBER: _ClassVar[int]
+    CHUNKS_CREATED_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_EXAMPLES_FIELD_NUMBER: _ClassVar[int]
+    chunk_dataset_names: _containers.RepeatedScalarFieldContainer[str]
+    chunks_created: int
+    total_examples: int
+    def __init__(self, chunk_dataset_names: _Optional[_Iterable[str]] = ..., chunks_created: _Optional[int] = ..., total_examples: _Optional[int] = ...) -> None: ...

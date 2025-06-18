@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "evergreen-lint"
-version = "0.1.9"  # Duplicated in the top-level __init__.py.
+version = "0.1.10"  # Duplicated in the top-level __init__.py.
 description = ""
 authors = [
     "DevProd Build Team <devprod-build-team@mongodb.com>",

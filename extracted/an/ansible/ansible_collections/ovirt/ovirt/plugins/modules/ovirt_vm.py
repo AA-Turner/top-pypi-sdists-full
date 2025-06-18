@@ -12,9 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_vm
 short_description: Module to manage Virtual Machines in oVirt/RHV
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - This module manages whole lifecycle of the Virtual Machine(VM) in oVirt/RHV.
     - Since VM can hold many states in oVirt/RHV, this see notes to see how the states of the VM are handled.
@@ -60,6 +58,7 @@ options:
                vnic_profile is described by the following dictionary:"
         type: list
         elements: dict
+        default: []
         suboptions:
             source_network_name:
                 description:
@@ -77,6 +76,7 @@ options:
                Cluster mapping is described by the following dictionary:"
         type: list
         elements: dict
+        default: []
         suboptions:
             source_name:
                 description:
@@ -91,6 +91,7 @@ options:
                Role mapping is described by the following dictionary:"
         type: list
         elements: dict
+        default: []
         suboptions:
             source_name:
                 description:
@@ -105,6 +106,7 @@ options:
                The aaa domain mapping is described by the following dictionary:"
         type: list
         elements: dict
+        default: []
         suboptions:
             source_name:
                 description:
@@ -118,18 +120,21 @@ options:
             - "Mapper which maps affinity name between VM's OVF and the destination affinity this VM should be registered to,
                relevant when C(state) is registered."
         elements: dict
+        default: []
     affinity_label_mappings:
         type: list
         description:
             - "Mapper which maps affinity label name between VM's OVF and the destination label this VM should be registered to,
                relevant when C(state) is registered."
         elements: dict
+        default: []
     lun_mappings:
         description:
             - "Mapper which maps lun between VM's OVF and the destination lun this VM should contain, relevant when C(state) is registered.
                lun_mappings is described by the following dictionary:"
         type: list
         elements: dict
+        default: []
         suboptions:
             logical_unit_id:
                 description:
@@ -356,6 +361,7 @@ options:
             - List of NICs, which should be attached to Virtual Machine. NIC is described by following dictionary.
         type: list
         elements: dict
+        default: []
         suboptions:
             name:
                 description:
@@ -378,6 +384,7 @@ options:
             - List of disks, which should be attached to Virtual Machine. Disk is described by following dictionary.
         type: list
         elements: dict
+        default: []
         suboptions:
             name:
                 description:
@@ -514,6 +521,7 @@ options:
               are merged with C(cloud_init_nics) parameters.
         type: list
         elements: dict
+        default: []
         suboptions:
             nic_boot_protocol:
                 description:
@@ -763,6 +771,7 @@ options:
             - "Each vNUMA node is described by following dictionary:"
         type: list
         elements: dict
+        default: []
         suboptions:
             index:
                 description:
@@ -1010,13 +1019,13 @@ EXAMPLES = '''
     cluster: mycluster
     id: 1111-1111-1111-1111
     vnic_profile_mappings:
-    - source_network_name: mynetwork
-      source_profile_name: mynetwork
-      target_profile_id: 3333-3333-3333-3333
-    - source_network_name: mynetwork2
-      source_profile_name: mynetwork2
-      target_profile_id: 4444-4444-4444-4444
-    reassign_bad_macs: "True"
+      - source_network_name: mynetwork
+        source_profile_name: mynetwork
+        target_profile_id: 3333-3333-3333-3333
+      - source_network_name: mynetwork2
+        source_profile_name: mynetwork2
+        target_profile_id: 4444-4444-4444-4444
+        reassign_bad_macs: "True"
 
 - name: Register VM with mappings
   ovirt.ovirt.ovirt_vm:
@@ -1075,7 +1084,7 @@ EXAMPLES = '''
     operating_system: rhel_7x64
     disks:
       - name: rhel7_disk
-        bootable: True
+        bootable: true
     nics:
       - name: nic1
 
@@ -1115,21 +1124,21 @@ EXAMPLES = '''
     template: rhel7
     cluster: mycluster
     cloud_init_nics:
-    - nic_name: eth0
-      nic_boot_protocol: dhcp
-    - nic_name: eth1
-      nic_boot_protocol: static
-      nic_ip_address: 10.34.60.86
-      nic_netmask: 255.255.252.0
-      nic_gateway: 10.34.63.254
-    # IP version 6 parameters are supported since ansible 2.9
-    - nic_name: eth2
-      nic_boot_protocol_v6: static
-      nic_ip_address_v6: '2620:52:0:2282:b898:1f69:6512:36c5'
-      nic_gateway_v6: '2620:52:0:2282:b898:1f69:6512:36c9'
-      nic_netmask_v6: '120'
-    - nic_name: eth3
-      nic_boot_protocol_v6: dhcp
+      - nic_name: eth0
+        nic_boot_protocol: dhcp
+      - nic_name: eth1
+        nic_boot_protocol: static
+        nic_ip_address: 10.34.60.86
+        nic_netmask: 255.255.252.0
+        nic_gateway: 10.34.63.254
+      # IP version 6 parameters are supported since ansible 2.9
+      - nic_name: eth2
+        nic_boot_protocol_v6: static
+        nic_ip_address_v6: '2620:52:0:2282:b898:1f69:6512:36c5'
+        nic_gateway_v6: '2620:52:0:2282:b898:1f69:6512:36c9'
+        nic_netmask_v6: '120'
+      - nic_name: eth3
+        nic_boot_protocol_v6: dhcp
 
 - name: Run VM with sysprep
   ovirt.ovirt.ovirt_vm:
@@ -1177,7 +1186,7 @@ EXAMPLES = '''
     name: myvm
     cd_iso: centos7_x64.iso
     boot_devices:
-        - cdrom
+      - cdrom
 
 - name: Stop vm
   ovirt.ovirt.ovirt_vm:
@@ -1202,14 +1211,14 @@ EXAMPLES = '''
     cluster: mycluster
     numa_tune_mode: "interleave"
     numa_nodes:
-    - index: 0
-      cores: [0]
-      memory: 20
-      numa_node_pins: [0]
-    - index: 1
-      cores: [1]
-      memory: 30
-      numa_node_pins: [1]
+      - index: 0
+        cores: [0]
+        memory: 20
+        numa_node_pins: [0]
+      - index: 1
+        cores: [1]
+        memory: 30
+        numa_node_pins: [1]
 
 - name: Update an existing VM to run without previously created vNUMA nodes (i.e. remove all vNUMA nodes+NUMA pinning setting)
   ovirt.ovirt.ovirt_vm:
@@ -1218,7 +1227,7 @@ EXAMPLES = '''
     state: "present"
     numa_tune_mode: "interleave"
     numa_nodes:
-    - index: -1
+      - index: -1
 
 # When change on the VM needs restart of the VM, use next_run state,
 # The VM will be updated and rebooted if there are any changes.
@@ -1250,7 +1259,7 @@ EXAMPLES = '''
     template: mytemplate
     storage_domain: mynfs
     nics:
-    - name: nic1
+      - name: nic1
 
 - name: Remove VM, if VM is running it will be stopped
   ovirt.ovirt.ovirt_vm:
@@ -1265,11 +1274,11 @@ EXAMPLES = '''
   register: ovirt_quotas
 - ovirt.ovirt.ovirt_vm:
     name: myvm
-    sso: False
-    boot_menu: True
+    sso: false
+    boot_menu: true
     bios_type: q35_ovmf
-    usb_support: True
-    serial_console: True
+    usb_support: true
+    serial_console: true
     quota_id: "{{ ovirt_quotas[0]['id'] }}"
 
 - name: Create a VM that has the console configured for both Spice and VNC
@@ -1284,20 +1293,20 @@ EXAMPLES = '''
 
 # Execute remote viewer to VM
 - block:
-  - name: Create a ticket for console for a running VM
-    ovirt.ovirt.ovirt_vm:
-      name: myvm
-      ticket: true
-      state: running
-    register: myvm
+    - name: Create a ticket for console for a running VM
+      ovirt.ovirt.ovirt_vm:
+        name: myvm
+        ticket: true
+        state: running
+      register: myvm
 
-  - name: Save ticket to file
-    ansible.builtin.copy:
-      content: "{{ myvm.vm.remote_vv_file }}"
-      dest: ~/vvfile.vv
+    - name: Save ticket to file
+      ansible.builtin.copy:
+        content: "{{ myvm.vm.remote_vv_file }}"
+        dest: ~/vvfile.vv
 
-  - name: Run remote viewer with file
-    ansible.builtin.command: remote-viewer ~/vvfile.vv
+    - name: Run remote viewer with file
+      ansible.builtin.command: remote-viewer ~/vvfile.vv
 
 # Default value of host_device state is present
 - name: Attach host devices to virtual machine
@@ -1326,9 +1335,9 @@ EXAMPLES = '''
     state: exported
     cluster: mycluster
     export_ova:
-        host: myhost
-        filename: myvm.ova
-        directory: /tmp/
+      host: myhost
+      filename: myvm.ova
+      directory: /tmp/
 
 - name: Clone VM from snapshot
   ovirt.ovirt.ovirt_vm:
@@ -2427,7 +2436,7 @@ def _get_lun_mappings(module):
                     ),
                 ) if lunMapping['dest_logical_unit_id'] else None,
             ),
-        ),
+        )
     return lunMappings
 
 

@@ -33,7 +33,7 @@ class AlertRule(_message.Message):
     def __init__(self, name: _Optional[str] = ..., alert_rule_configuration: _Optional[str] = ..., threshold: _Optional[float] = ..., duration: _Optional[str] = ..., enabled: bool = ..., filters: _Optional[_Iterable[_Union[Filter, _Mapping]]] = ..., notification_channels: _Optional[_Iterable[str]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Filter(_message.Message):
-    __slots__ = ("key", "value", "operator")
+    __slots__ = ("key", "value", "operator", "value_template")
     class Operator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         OPERATOR_UNSPECIFIED: _ClassVar[Filter.Operator]
@@ -53,10 +53,12 @@ class Filter(_message.Message):
     KEY_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     OPERATOR_FIELD_NUMBER: _ClassVar[int]
+    VALUE_TEMPLATE_FIELD_NUMBER: _ClassVar[int]
     key: str
     value: str
     operator: Filter.Operator
-    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ..., operator: _Optional[_Union[Filter.Operator, str]] = ...) -> None: ...
+    value_template: str
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ..., operator: _Optional[_Union[Filter.Operator, str]] = ..., value_template: _Optional[str] = ...) -> None: ...
 
 class AlertRuleConfiguration(_message.Message):
     __slots__ = ("name", "kind", "monitoring_policy_configuration", "create_time", "update_time")
@@ -75,16 +77,18 @@ class AlertRuleConfiguration(_message.Message):
     HIGH_TIME_TO_FIRST_TOKEN: AlertRuleConfiguration.Kind
     HIGH_PER_TOKEN_LATENCY: AlertRuleConfiguration.Kind
     class MonitoringPolicyConfiguration(_message.Message):
-        __slots__ = ("documentation", "display_name", "combiner", "comparison", "expression", "severity", "notification_channels", "deployment_label_key", "aggregations")
+        __slots__ = ("documentation", "display_name", "combiner", "comparison", "expression", "severity", "notification_channels", "deployment_label_key", "aggregations", "default_filters")
         class Aggregation(_message.Message):
-            __slots__ = ("alignment_period", "aligner", "cross_series_reducer")
+            __slots__ = ("alignment_period", "aligner", "cross_series_reducer", "group_by_fields")
             ALIGNMENT_PERIOD_FIELD_NUMBER: _ClassVar[int]
             ALIGNER_FIELD_NUMBER: _ClassVar[int]
             CROSS_SERIES_REDUCER_FIELD_NUMBER: _ClassVar[int]
+            GROUP_BY_FIELDS_FIELD_NUMBER: _ClassVar[int]
             alignment_period: str
             aligner: str
             cross_series_reducer: str
-            def __init__(self, alignment_period: _Optional[str] = ..., aligner: _Optional[str] = ..., cross_series_reducer: _Optional[str] = ...) -> None: ...
+            group_by_fields: _containers.RepeatedScalarFieldContainer[str]
+            def __init__(self, alignment_period: _Optional[str] = ..., aligner: _Optional[str] = ..., cross_series_reducer: _Optional[str] = ..., group_by_fields: _Optional[_Iterable[str]] = ...) -> None: ...
         DOCUMENTATION_FIELD_NUMBER: _ClassVar[int]
         DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
         COMBINER_FIELD_NUMBER: _ClassVar[int]
@@ -94,6 +98,7 @@ class AlertRuleConfiguration(_message.Message):
         NOTIFICATION_CHANNELS_FIELD_NUMBER: _ClassVar[int]
         DEPLOYMENT_LABEL_KEY_FIELD_NUMBER: _ClassVar[int]
         AGGREGATIONS_FIELD_NUMBER: _ClassVar[int]
+        DEFAULT_FILTERS_FIELD_NUMBER: _ClassVar[int]
         documentation: str
         display_name: str
         combiner: str
@@ -103,7 +108,8 @@ class AlertRuleConfiguration(_message.Message):
         notification_channels: _containers.RepeatedScalarFieldContainer[str]
         deployment_label_key: str
         aggregations: _containers.RepeatedCompositeFieldContainer[AlertRuleConfiguration.MonitoringPolicyConfiguration.Aggregation]
-        def __init__(self, documentation: _Optional[str] = ..., display_name: _Optional[str] = ..., combiner: _Optional[str] = ..., comparison: _Optional[str] = ..., expression: _Optional[str] = ..., severity: _Optional[str] = ..., notification_channels: _Optional[_Iterable[str]] = ..., deployment_label_key: _Optional[str] = ..., aggregations: _Optional[_Iterable[_Union[AlertRuleConfiguration.MonitoringPolicyConfiguration.Aggregation, _Mapping]]] = ...) -> None: ...
+        default_filters: _containers.RepeatedCompositeFieldContainer[Filter]
+        def __init__(self, documentation: _Optional[str] = ..., display_name: _Optional[str] = ..., combiner: _Optional[str] = ..., comparison: _Optional[str] = ..., expression: _Optional[str] = ..., severity: _Optional[str] = ..., notification_channels: _Optional[_Iterable[str]] = ..., deployment_label_key: _Optional[str] = ..., aggregations: _Optional[_Iterable[_Union[AlertRuleConfiguration.MonitoringPolicyConfiguration.Aggregation, _Mapping]]] = ..., default_filters: _Optional[_Iterable[_Union[Filter, _Mapping]]] = ...) -> None: ...
     NAME_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     MONITORING_POLICY_CONFIGURATION_FIELD_NUMBER: _ClassVar[int]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: algoliasearch
-Version: 4.19.0
+Version: 4.20.0
 Summary: A fully-featured and blazing-fast Python API client to interact with Algolia.
 License: MIT
 Keywords: algolia,search,full-text-search,neural-search

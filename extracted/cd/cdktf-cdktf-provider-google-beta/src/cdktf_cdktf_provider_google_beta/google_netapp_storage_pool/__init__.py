@@ -1,7 +1,7 @@
 r'''
 # `google_netapp_storage_pool`
 
-Refer to the Terraform Registry for docs: [`google_netapp_storage_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool).
+Refer to the Terraform Registry for docs: [`google_netapp_storage_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleNetappStoragePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleNetappStoragePool.GoogleNetappStoragePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool google_netapp_storage_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool google_netapp_storage_pool}.'''
 
     def __init__(
         self,
@@ -60,6 +60,8 @@ class GoogleNetappStoragePool(
         allow_auto_tiering: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         custom_performance_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         description: typing.Optional[builtins.str] = None,
+        enable_hot_tier_auto_resize: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        hot_tier_size_gib: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         kms_config: typing.Optional[builtins.str] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -78,29 +80,31 @@ class GoogleNetappStoragePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool google_netapp_storage_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool google_netapp_storage_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#capacity_gib GoogleNetappStoragePool#capacity_gib}
-        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#location GoogleNetappStoragePool#location}
-        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#name GoogleNetappStoragePool#name}
-        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#network GoogleNetappStoragePool#network}
-        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#service_level GoogleNetappStoragePool#service_level}
-        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#active_directory GoogleNetappStoragePool#active_directory}
-        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#allow_auto_tiering GoogleNetappStoragePool#allow_auto_tiering}
-        :param custom_performance_enabled: Optional. True if using Independent Scaling of capacity and performance (Hyperdisk). Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#custom_performance_enabled GoogleNetappStoragePool#custom_performance_enabled}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#description GoogleNetappStoragePool#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#id GoogleNetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#kms_config GoogleNetappStoragePool#kms_config}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#labels GoogleNetappStoragePool#labels}
-        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#ldap_enabled GoogleNetappStoragePool#ldap_enabled}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#project GoogleNetappStoragePool#project}.
-        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#replica_zone GoogleNetappStoragePool#replica_zone}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#timeouts GoogleNetappStoragePool#timeouts}
-        :param total_iops: Optional. Custom Performance Total IOPS of the pool If not provided, it will be calculated based on the totalThroughputMibps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#total_iops GoogleNetappStoragePool#total_iops}
-        :param total_throughput_mibps: Optional. Custom Performance Total Throughput of the pool (in MiB/s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#total_throughput_mibps GoogleNetappStoragePool#total_throughput_mibps}
-        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#zone GoogleNetappStoragePool#zone}
+        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#capacity_gib GoogleNetappStoragePool#capacity_gib}
+        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#location GoogleNetappStoragePool#location}
+        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#name GoogleNetappStoragePool#name}
+        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#network GoogleNetappStoragePool#network}
+        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#service_level GoogleNetappStoragePool#service_level}
+        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#active_directory GoogleNetappStoragePool#active_directory}
+        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#allow_auto_tiering GoogleNetappStoragePool#allow_auto_tiering}
+        :param custom_performance_enabled: Optional. True if using Independent Scaling of capacity and performance (Hyperdisk). Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#custom_performance_enabled GoogleNetappStoragePool#custom_performance_enabled}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#description GoogleNetappStoragePool#description}
+        :param enable_hot_tier_auto_resize: Flag indicating that the hot-tier threshold will be auto-increased by 10% of the hot-tier when it hits 100%. Default is true. The increment will kick in only if the new size after increment is still less than or equal to storage pool size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#enable_hot_tier_auto_resize GoogleNetappStoragePool#enable_hot_tier_auto_resize}
+        :param hot_tier_size_gib: Total hot tier capacity for the Storage Pool. It is applicable only to Flex service level. It should be less than the minimum storage pool size and cannot be more than the current storage pool size. It cannot be decreased once set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#hot_tier_size_gib GoogleNetappStoragePool#hot_tier_size_gib}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#id GoogleNetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#kms_config GoogleNetappStoragePool#kms_config}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#labels GoogleNetappStoragePool#labels}
+        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#ldap_enabled GoogleNetappStoragePool#ldap_enabled}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#project GoogleNetappStoragePool#project}.
+        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#replica_zone GoogleNetappStoragePool#replica_zone}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#timeouts GoogleNetappStoragePool#timeouts}
+        :param total_iops: Optional. Custom Performance Total IOPS of the pool If not provided, it will be calculated based on the totalThroughputMibps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#total_iops GoogleNetappStoragePool#total_iops}
+        :param total_throughput_mibps: Optional. Custom Performance Total Throughput of the pool (in MiB/s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#total_throughput_mibps GoogleNetappStoragePool#total_throughput_mibps}
+        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#zone GoogleNetappStoragePool#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -123,6 +127,8 @@ class GoogleNetappStoragePool(
             allow_auto_tiering=allow_auto_tiering,
             custom_performance_enabled=custom_performance_enabled,
             description=description,
+            enable_hot_tier_auto_resize=enable_hot_tier_auto_resize,
+            hot_tier_size_gib=hot_tier_size_gib,
             id=id,
             kms_config=kms_config,
             labels=labels,
@@ -157,7 +163,7 @@ class GoogleNetappStoragePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleNetappStoragePool to import.
-        :param import_from_id: The id of the existing GoogleNetappStoragePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleNetappStoragePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleNetappStoragePool to import is found.
         '''
         if __debug__:
@@ -177,9 +183,9 @@ class GoogleNetappStoragePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#create GoogleNetappStoragePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#delete GoogleNetappStoragePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#update GoogleNetappStoragePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#create GoogleNetappStoragePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#delete GoogleNetappStoragePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#update GoogleNetappStoragePool#update}.
         '''
         value = GoogleNetappStoragePoolTimeouts(
             create=create, delete=delete, update=update
@@ -202,6 +208,14 @@ class GoogleNetappStoragePool(
     @jsii.member(jsii_name="resetDescription")
     def reset_description(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDescription", []))
+
+    @jsii.member(jsii_name="resetEnableHotTierAutoResize")
+    def reset_enable_hot_tier_auto_resize(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEnableHotTierAutoResize", []))
+
+    @jsii.member(jsii_name="resetHotTierSizeGib")
+    def reset_hot_tier_size_gib(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetHotTierSizeGib", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -314,6 +328,18 @@ class GoogleNetappStoragePool(
     @jsii.member(jsii_name="descriptionInput")
     def description_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "descriptionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enableHotTierAutoResizeInput")
+    def enable_hot_tier_auto_resize_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enableHotTierAutoResizeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hotTierSizeGibInput")
+    def hot_tier_size_gib_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hotTierSizeGibInput"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -460,6 +486,35 @@ class GoogleNetappStoragePool(
             type_hints = typing.get_type_hints(_typecheckingstub__9e7c603a5ebd0f9ab9a86521029c6adc0366423b79cced302dbccd7fd763ec28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableHotTierAutoResize")
+    def enable_hot_tier_auto_resize(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "enableHotTierAutoResize"))
+
+    @enable_hot_tier_auto_resize.setter
+    def enable_hot_tier_auto_resize(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b3912ddb942ddea9c39c7767ce833ca20e59415014a93725b1c1f3d24c2edc3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableHotTierAutoResize", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hotTierSizeGib")
+    def hot_tier_size_gib(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "hotTierSizeGib"))
+
+    @hot_tier_size_gib.setter
+    def hot_tier_size_gib(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea1738103b63433ec9c20cda9b84df53284c8e429a76d6a45d6eff8da8a8709f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hotTierSizeGib", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -641,6 +696,8 @@ class GoogleNetappStoragePool(
         "allow_auto_tiering": "allowAutoTiering",
         "custom_performance_enabled": "customPerformanceEnabled",
         "description": "description",
+        "enable_hot_tier_auto_resize": "enableHotTierAutoResize",
+        "hot_tier_size_gib": "hotTierSizeGib",
         "id": "id",
         "kms_config": "kmsConfig",
         "labels": "labels",
@@ -673,6 +730,8 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         allow_auto_tiering: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         custom_performance_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         description: typing.Optional[builtins.str] = None,
+        enable_hot_tier_auto_resize: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        hot_tier_size_gib: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         kms_config: typing.Optional[builtins.str] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -692,25 +751,27 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#capacity_gib GoogleNetappStoragePool#capacity_gib}
-        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#location GoogleNetappStoragePool#location}
-        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#name GoogleNetappStoragePool#name}
-        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#network GoogleNetappStoragePool#network}
-        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#service_level GoogleNetappStoragePool#service_level}
-        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#active_directory GoogleNetappStoragePool#active_directory}
-        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#allow_auto_tiering GoogleNetappStoragePool#allow_auto_tiering}
-        :param custom_performance_enabled: Optional. True if using Independent Scaling of capacity and performance (Hyperdisk). Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#custom_performance_enabled GoogleNetappStoragePool#custom_performance_enabled}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#description GoogleNetappStoragePool#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#id GoogleNetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#kms_config GoogleNetappStoragePool#kms_config}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#labels GoogleNetappStoragePool#labels}
-        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#ldap_enabled GoogleNetappStoragePool#ldap_enabled}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#project GoogleNetappStoragePool#project}.
-        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#replica_zone GoogleNetappStoragePool#replica_zone}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#timeouts GoogleNetappStoragePool#timeouts}
-        :param total_iops: Optional. Custom Performance Total IOPS of the pool If not provided, it will be calculated based on the totalThroughputMibps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#total_iops GoogleNetappStoragePool#total_iops}
-        :param total_throughput_mibps: Optional. Custom Performance Total Throughput of the pool (in MiB/s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#total_throughput_mibps GoogleNetappStoragePool#total_throughput_mibps}
-        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#zone GoogleNetappStoragePool#zone}
+        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#capacity_gib GoogleNetappStoragePool#capacity_gib}
+        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#location GoogleNetappStoragePool#location}
+        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#name GoogleNetappStoragePool#name}
+        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#network GoogleNetappStoragePool#network}
+        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#service_level GoogleNetappStoragePool#service_level}
+        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#active_directory GoogleNetappStoragePool#active_directory}
+        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#allow_auto_tiering GoogleNetappStoragePool#allow_auto_tiering}
+        :param custom_performance_enabled: Optional. True if using Independent Scaling of capacity and performance (Hyperdisk). Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#custom_performance_enabled GoogleNetappStoragePool#custom_performance_enabled}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#description GoogleNetappStoragePool#description}
+        :param enable_hot_tier_auto_resize: Flag indicating that the hot-tier threshold will be auto-increased by 10% of the hot-tier when it hits 100%. Default is true. The increment will kick in only if the new size after increment is still less than or equal to storage pool size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#enable_hot_tier_auto_resize GoogleNetappStoragePool#enable_hot_tier_auto_resize}
+        :param hot_tier_size_gib: Total hot tier capacity for the Storage Pool. It is applicable only to Flex service level. It should be less than the minimum storage pool size and cannot be more than the current storage pool size. It cannot be decreased once set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#hot_tier_size_gib GoogleNetappStoragePool#hot_tier_size_gib}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#id GoogleNetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#kms_config GoogleNetappStoragePool#kms_config}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#labels GoogleNetappStoragePool#labels}
+        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#ldap_enabled GoogleNetappStoragePool#ldap_enabled}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#project GoogleNetappStoragePool#project}.
+        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#replica_zone GoogleNetappStoragePool#replica_zone}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#timeouts GoogleNetappStoragePool#timeouts}
+        :param total_iops: Optional. Custom Performance Total IOPS of the pool If not provided, it will be calculated based on the totalThroughputMibps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#total_iops GoogleNetappStoragePool#total_iops}
+        :param total_throughput_mibps: Optional. Custom Performance Total Throughput of the pool (in MiB/s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#total_throughput_mibps GoogleNetappStoragePool#total_throughput_mibps}
+        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#zone GoogleNetappStoragePool#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -734,6 +795,8 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument allow_auto_tiering", value=allow_auto_tiering, expected_type=type_hints["allow_auto_tiering"])
             check_type(argname="argument custom_performance_enabled", value=custom_performance_enabled, expected_type=type_hints["custom_performance_enabled"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enable_hot_tier_auto_resize", value=enable_hot_tier_auto_resize, expected_type=type_hints["enable_hot_tier_auto_resize"])
+            check_type(argname="argument hot_tier_size_gib", value=hot_tier_size_gib, expected_type=type_hints["hot_tier_size_gib"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument kms_config", value=kms_config, expected_type=type_hints["kms_config"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
@@ -773,6 +836,10 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["custom_performance_enabled"] = custom_performance_enabled
         if description is not None:
             self._values["description"] = description
+        if enable_hot_tier_auto_resize is not None:
+            self._values["enable_hot_tier_auto_resize"] = enable_hot_tier_auto_resize
+        if hot_tier_size_gib is not None:
+            self._values["hot_tier_size_gib"] = hot_tier_size_gib
         if id is not None:
             self._values["id"] = id
         if kms_config is not None:
@@ -862,7 +929,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity_gib(self) -> builtins.str:
         '''Capacity of the storage pool (in GiB).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#capacity_gib GoogleNetappStoragePool#capacity_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#capacity_gib GoogleNetappStoragePool#capacity_gib}
         '''
         result = self._values.get("capacity_gib")
         assert result is not None, "Required property 'capacity_gib' is missing"
@@ -872,7 +939,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#location GoogleNetappStoragePool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#location GoogleNetappStoragePool#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -882,7 +949,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name of the storage pool. Needs to be unique per location/region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#name GoogleNetappStoragePool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#name GoogleNetappStoragePool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -892,7 +959,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> builtins.str:
         '''VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#network GoogleNetappStoragePool#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#network GoogleNetappStoragePool#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -902,7 +969,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_level(self) -> builtins.str:
         '''Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#service_level GoogleNetappStoragePool#service_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#service_level GoogleNetappStoragePool#service_level}
         '''
         result = self._values.get("service_level")
         assert result is not None, "Required property 'service_level' is missing"
@@ -915,7 +982,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'.
         The policy needs to be in the same location as the storage pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#active_directory GoogleNetappStoragePool#active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#active_directory GoogleNetappStoragePool#active_directory}
         '''
         result = self._values.get("active_directory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -929,7 +996,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         True if the storage pool supports Auto Tiering enabled volumes. Default is false.
         Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#allow_auto_tiering GoogleNetappStoragePool#allow_auto_tiering}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#allow_auto_tiering GoogleNetappStoragePool#allow_auto_tiering}
         '''
         result = self._values.get("allow_auto_tiering")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -940,7 +1007,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. True if using Independent Scaling of capacity and performance (Hyperdisk). Default is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#custom_performance_enabled GoogleNetappStoragePool#custom_performance_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#custom_performance_enabled GoogleNetappStoragePool#custom_performance_enabled}
         '''
         result = self._values.get("custom_performance_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -949,14 +1016,40 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#description GoogleNetappStoragePool#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#description GoogleNetappStoragePool#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def enable_hot_tier_auto_resize(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Flag indicating that the hot-tier threshold will be auto-increased by 10% of the hot-tier when it hits 100%.
+
+        Default is true.
+        The increment will kick in only if the new size after increment is still less than or equal to storage pool size.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#enable_hot_tier_auto_resize GoogleNetappStoragePool#enable_hot_tier_auto_resize}
+        '''
+        result = self._values.get("enable_hot_tier_auto_resize")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def hot_tier_size_gib(self) -> typing.Optional[builtins.str]:
+        '''Total hot tier capacity for the Storage Pool.
+
+        It is applicable only to Flex service level.
+        It should be less than the minimum storage pool size and cannot be more than the current storage pool size. It cannot be decreased once set.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#hot_tier_size_gib GoogleNetappStoragePool#hot_tier_size_gib}
+        '''
+        result = self._values.get("hot_tier_size_gib")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#id GoogleNetappStoragePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#id GoogleNetappStoragePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -971,7 +1064,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'.
         The policy needs to be in the same location as the storage pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#kms_config GoogleNetappStoragePool#kms_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#kms_config GoogleNetappStoragePool#kms_config}
         '''
         result = self._values.get("kms_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -983,7 +1076,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#labels GoogleNetappStoragePool#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#labels GoogleNetappStoragePool#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -997,14 +1090,14 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Required to enable extended group support for NFSv3,
         using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#ldap_enabled GoogleNetappStoragePool#ldap_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#ldap_enabled GoogleNetappStoragePool#ldap_enabled}
         '''
         result = self._values.get("ldap_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#project GoogleNetappStoragePool#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#project GoogleNetappStoragePool#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1012,7 +1105,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replica_zone(self) -> typing.Optional[builtins.str]:
         '''Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#replica_zone GoogleNetappStoragePool#replica_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#replica_zone GoogleNetappStoragePool#replica_zone}
         '''
         result = self._values.get("replica_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1021,7 +1114,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleNetappStoragePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#timeouts GoogleNetappStoragePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#timeouts GoogleNetappStoragePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleNetappStoragePoolTimeouts"], result)
@@ -1030,7 +1123,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def total_iops(self) -> typing.Optional[builtins.str]:
         '''Optional. Custom Performance Total IOPS of the pool If not provided, it will be calculated based on the totalThroughputMibps.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#total_iops GoogleNetappStoragePool#total_iops}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#total_iops GoogleNetappStoragePool#total_iops}
         '''
         result = self._values.get("total_iops")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1039,7 +1132,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def total_throughput_mibps(self) -> typing.Optional[builtins.str]:
         '''Optional. Custom Performance Total Throughput of the pool (in MiB/s).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#total_throughput_mibps GoogleNetappStoragePool#total_throughput_mibps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#total_throughput_mibps GoogleNetappStoragePool#total_throughput_mibps}
         '''
         result = self._values.get("total_throughput_mibps")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1052,7 +1145,7 @@ class GoogleNetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_.
         If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#zone GoogleNetappStoragePool#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#zone GoogleNetappStoragePool#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1083,9 +1176,9 @@ class GoogleNetappStoragePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#create GoogleNetappStoragePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#delete GoogleNetappStoragePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#update GoogleNetappStoragePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#create GoogleNetappStoragePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#delete GoogleNetappStoragePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#update GoogleNetappStoragePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__803533c224954d918b602b4074c97376d400358709d489766e71184015a06c56)
@@ -1102,19 +1195,19 @@ class GoogleNetappStoragePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#create GoogleNetappStoragePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#create GoogleNetappStoragePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#delete GoogleNetappStoragePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#delete GoogleNetappStoragePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_netapp_storage_pool#update GoogleNetappStoragePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_netapp_storage_pool#update GoogleNetappStoragePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1253,6 +1346,8 @@ def _typecheckingstub__3a77d21b12ed1b91e42902bdc83477685fbaceb538d5108bc69c1032f
     allow_auto_tiering: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     custom_performance_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
+    enable_hot_tier_auto_resize: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    hot_tier_size_gib: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     kms_config: typing.Optional[builtins.str] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1308,6 +1403,18 @@ def _typecheckingstub__4bb00f31ccb2efc0b7e812efb59c269245478e89a9931619bf2ec8483
     pass
 
 def _typecheckingstub__9e7c603a5ebd0f9ab9a86521029c6adc0366423b79cced302dbccd7fd763ec28(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b3912ddb942ddea9c39c7767ce833ca20e59415014a93725b1c1f3d24c2edc3(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea1738103b63433ec9c20cda9b84df53284c8e429a76d6a45d6eff8da8a8709f(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1409,6 +1516,8 @@ def _typecheckingstub__b96819a7772dc46040a8811d7b2966420d7379b858ebf183a607c8f25
     allow_auto_tiering: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     custom_performance_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
+    enable_hot_tier_auto_resize: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    hot_tier_size_gib: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     kms_config: typing.Optional[builtins.str] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

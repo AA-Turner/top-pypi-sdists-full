@@ -99,6 +99,10 @@ class SdyArrayList:
 replicated_hlo_sharding = xc.HloSharding.replicate()
 
 
+def _unpickle_single_device_sharding(device, memory_kind):
+  return SingleDeviceSharding(device, memory_kind=memory_kind)
+
+
 @use_cpp_class(xc.SingleDeviceSharding)
 class SingleDeviceSharding(jsharding.Sharding):
   """A :class:`Sharding` that places its data on a single device.
@@ -121,7 +125,7 @@ class SingleDeviceSharding(jsharding.Sharding):
     self._memory_kind = memory_kind
 
   def __reduce__(self):
-    return type(self), (self._device,), {'memory_kind': self._memory_kind}
+    return (_unpickle_single_device_sharding, (self._device, self._memory_kind))
 
   def __repr__(self):
     mem = '' if self._memory_kind is None else f', memory_kind={self._memory_kind}'
@@ -205,8 +209,7 @@ class PmapSharding(jsharding.Sharding):
     self.sharding_spec = sharding_spec
 
   def __reduce__(self):
-    return (type(self), (self.devices, self.sharding_spec),
-            {'memory_kind': self.memory_kind})
+    return (type(self), (self.devices, self.sharding_spec))
 
   def __eq__(self, other):
     if not isinstance(other, PmapSharding):
@@ -558,6 +561,9 @@ class DeviceIdSet:
             self._ids == other._ids)
 
 
+def _unpickle_gspmd_sharding(devices, op_sharding, memory_kind):
+  return GSPMDSharding(devices, op_sharding, memory_kind=memory_kind)
+
 @use_cpp_class(xc.GSPMDSharding)
 class GSPMDSharding(jsharding.Sharding):
   _devices: tuple[Device, ...]
@@ -579,8 +585,8 @@ class GSPMDSharding(jsharding.Sharding):
     self._memory_kind = memory_kind
 
   def __reduce__(self):
-    return (type(self), (self._devices, self._hlo_sharding.to_proto()),
-            {'memory_kind': self._memory_kind})
+    return (_unpickle_gspmd_sharding,
+            (self._devices, self._hlo_sharding.to_proto(), self._memory_kind))
 
   @functools.cached_property
   def _hlo_sharding_hash(self):
@@ -638,8 +644,25 @@ class GSPMDSharding(jsharding.Sharding):
     return self._hlo_sharding
 
   def _to_sdy_sharding(self, num_dimensions: int) -> SdyArray:
-    raise NotImplementedError(
-        "GSPMDSharding can't be converted to SdyArray.")
+    if self._hlo_sharding.tuple_elements():
+      raise TypeError(
+          f'Cannot convert GSPMDSharding {self._hlo_sharding} into SdyArray.')
+    elif self._hlo_sharding.is_replicated():
+      empty_mesh = mesh_lib.AbstractMesh((), ())
+      return NamedSharding(empty_mesh, PartitionSpec())._to_sdy_sharding(
+          num_dimensions)
+    elif self._hlo_sharding.is_tiled():
+      if not self._hlo_sharding.is_tile_assignment_iota():
+        raise TypeError(
+            f'Cannot convert GSPMDSharding {self._hlo_sharding} into SdyArray.')
+      axis_sizes = tuple(self._hlo_sharding.get_axis_sizes())
+      axis_names = tuple(f'_axis_{i}' for i in range(len(axis_sizes)))
+      mesh = mesh_lib.AbstractMesh(axis_sizes, axis_names)
+      return _gspmd_to_named_sharding_via_mesh(self, mesh)._to_sdy_sharding(
+          num_dimensions)
+    else:
+      raise TypeError(
+          f'Cannot convert GSPMDSharding {self._hlo_sharding} into SdyArray.')
 
   @functools.cached_property
   def is_fully_replicated(self) -> bool:
@@ -1162,7 +1185,7 @@ def make_key_array_phys_sharding(aval, sharding):
   elif isinstance(sharding, NamedSharding):
     elt_aval = core.physical_element_aval(aval.dtype)
     trailing_spec = [None] * elt_aval.ndim
-    return sharding.with_spec(PartitionSpec(*sharding.spec, *trailing_spec))
+    return sharding.update(spec=PartitionSpec(*sharding.spec, *trailing_spec))
   else:
     hlos = sharding._to_xla_hlo_sharding(aval.ndim)
     return GSPMDSharding(
@@ -1225,7 +1248,7 @@ def logical_sharding(logical_shape, dtype, phys_sharding) -> jsharding.Sharding:
                    *[None] * (len(phys_shape) - len(phys_sharding.spec)))
     else:
       phys_spec = phys_sharding.spec  # type: ignore
-    return phys_sharding.with_spec(phys_spec[:-elt_aval.ndim])
+    return phys_sharding.update(spec=phys_spec[:-elt_aval.ndim])
   else:
     return get_logical_gspmd_sharding(logical_shape, dtype, phys_sharding)
 
@@ -1241,10 +1264,12 @@ def create_mesh_pspec_sharding(
 
 
 def _gspmd_to_named_sharding_via_mesh(
-    out_s: GSPMDSharding, mesh: mesh_lib.Mesh) -> NamedSharding:
+    out_s: GSPMDSharding, mesh: mesh_lib.Mesh | mesh_lib.AbstractMesh
+) -> NamedSharding:
   spec = parse_flatten_op_sharding(out_s._hlo_sharding, mesh)[0]
   return create_mesh_pspec_sharding(
       mesh, spec, memory_kind=out_s.memory_kind)
+
 
 def flatten_spec(spec):
   out = []
@@ -1341,9 +1366,14 @@ def make_mesh(axis_shapes: Sequence[int], axis_names: Sequence[str],
     axis_names: Names of the mesh axes. For example, axis_names=('x', 'y')
     devices: Optional keyword only argument, that allows you to specify the
       devices you want to create a mesh with.
+    axis_types: and optional tuple of :class:`jax.sharding.AxisType` entries
+      corresponding to the ``axis_names``. See `Explicit Sharding`_ for more
+      information.
 
   Returns:
-    A `jax.sharding.Mesh` object.
+    A :class:`jax.sharding.Mesh` object.
+
+  .. _Explicit Sharding:  https://docs.jax.dev/en/latest/notebooks/explicit-sharding.html
   """
   if devices is None:
     devices = xb.devices()

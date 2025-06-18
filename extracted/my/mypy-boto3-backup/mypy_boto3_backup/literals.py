@@ -48,10 +48,13 @@ __all__ = (
     "ListRecoveryPointsByBackupVaultPaginatorName",
     "ListRecoveryPointsByLegalHoldPaginatorName",
     "ListRecoveryPointsByResourcePaginatorName",
+    "ListRestoreAccessBackupVaultsPaginatorName",
     "ListRestoreJobsByProtectedResourcePaginatorName",
     "ListRestoreJobsPaginatorName",
     "ListRestoreTestingPlansPaginatorName",
     "ListRestoreTestingSelectionsPaginatorName",
+    "MpaRevokeSessionStatusType",
+    "MpaSessionStatusType",
     "PaginatorName",
     "RecoveryPointStatusType",
     "RegionName",
@@ -102,6 +105,7 @@ BackupVaultEventType = Literal[
     "BACKUP_JOB_SUCCESSFUL",
     "BACKUP_PLAN_CREATED",
     "BACKUP_PLAN_MODIFIED",
+    "CONTINUOUS_BACKUP_INTERRUPTED",
     "COPY_JOB_FAILED",
     "COPY_JOB_STARTED",
     "COPY_JOB_SUCCESSFUL",
@@ -150,10 +154,13 @@ ListProtectedResourcesPaginatorName = Literal["list_protected_resources"]
 ListRecoveryPointsByBackupVaultPaginatorName = Literal["list_recovery_points_by_backup_vault"]
 ListRecoveryPointsByLegalHoldPaginatorName = Literal["list_recovery_points_by_legal_hold"]
 ListRecoveryPointsByResourcePaginatorName = Literal["list_recovery_points_by_resource"]
+ListRestoreAccessBackupVaultsPaginatorName = Literal["list_restore_access_backup_vaults"]
 ListRestoreJobsByProtectedResourcePaginatorName = Literal["list_restore_jobs_by_protected_resource"]
 ListRestoreJobsPaginatorName = Literal["list_restore_jobs"]
 ListRestoreTestingPlansPaginatorName = Literal["list_restore_testing_plans"]
 ListRestoreTestingSelectionsPaginatorName = Literal["list_restore_testing_selections"]
+MpaRevokeSessionStatusType = Literal["FAILED", "PENDING"]
+MpaSessionStatusType = Literal["APPROVED", "FAILED", "PENDING"]
 RecoveryPointStatusType = Literal[
     "AVAILABLE", "COMPLETED", "CREATING", "DELETING", "EXPIRED", "PARTIAL", "STOPPED"
 ]
@@ -169,7 +176,9 @@ RestoreTestingRecoveryPointTypeType = Literal["CONTINUOUS", "SNAPSHOT"]
 RestoreValidationStatusType = Literal["FAILED", "SUCCESSFUL", "TIMED_OUT", "VALIDATING"]
 StorageClassType = Literal["COLD", "DELETED", "WARM"]
 VaultStateType = Literal["AVAILABLE", "CREATING", "FAILED"]
-VaultTypeType = Literal["BACKUP_VAULT", "LOGICALLY_AIR_GAPPED_BACKUP_VAULT"]
+VaultTypeType = Literal[
+    "BACKUP_VAULT", "LOGICALLY_AIR_GAPPED_BACKUP_VAULT", "RESTORE_ACCESS_BACKUP_VAULT"
+]
 BackupServiceName = Literal["backup"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -316,6 +325,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -428,6 +438,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -603,6 +614,7 @@ PaginatorName = Literal[
     "list_recovery_points_by_backup_vault",
     "list_recovery_points_by_legal_hold",
     "list_recovery_points_by_resource",
+    "list_restore_access_backup_vaults",
     "list_restore_jobs",
     "list_restore_jobs_by_protected_resource",
     "list_restore_testing_plans",
@@ -611,6 +623,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

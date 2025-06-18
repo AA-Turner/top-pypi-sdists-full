@@ -33,11 +33,23 @@ map, unsafe_map = util.safe_map, map
 zip, unsafe_zip = util.safe_zip, zip
 
 
-def all_eqns(jaxpr: core.Jaxpr) -> Iterator[tuple[core.Jaxpr, core.JaxprEqn]]:
+def _all_eqns(
+    jaxpr: core.Jaxpr, visited: set[core.Jaxpr] | None,
+) -> Iterator[tuple[core.Jaxpr, core.JaxprEqn]]:
   for eqn in jaxpr.eqns:
     yield (jaxpr, eqn)
   for subjaxpr in core.subjaxprs(jaxpr):
-    yield from all_eqns(subjaxpr)
+    if visited is None:
+      yield from _all_eqns(subjaxpr, visited)
+    elif subjaxpr not in visited:
+      visited.add(subjaxpr)
+      yield from _all_eqns(subjaxpr, visited)
+
+def all_eqns(
+    jaxpr: core.Jaxpr, revisit_inner_jaxprs: bool = True
+) -> Iterator[tuple[core.Jaxpr, core.JaxprEqn]]:
+  yield from _all_eqns(jaxpr, None if revisit_inner_jaxprs else set())
+
 
 def collect_eqns(jaxpr: core.Jaxpr, key: Callable):
   d = defaultdict(list)
@@ -206,7 +218,7 @@ def pprof_equation_profile(jaxpr: core.Jaxpr) -> bytes:
   """
   d = Counter(
       (eqn.source_info.traceback, eqn.primitive)
-      for _, eqn in all_eqns(jaxpr)
+      for _, eqn in all_eqns(jaxpr, revisit_inner_jaxprs=False)
   )
   return _pprof_profile(d)
 
@@ -233,7 +245,7 @@ def jaxpr_and_binder_in_params(params, index: int) -> Iterator[tuple[core.Jaxpr,
 
 def eqns_using_var(jaxpr: core.Jaxpr, invar: core.Var) -> Iterator[core.JaxprEqn]:
   """Find the leaf equations using a variable"""
-  # The complexity of this call is becauase the invar might originate from a nested jaxpr
+  # The complexity of this call is because the invar might originate from a nested jaxpr
   for eqn, invar_index in eqns_using_var_with_invar_index(jaxpr, invar):
     if (child_jaxprs_and_vars := tuple(jaxpr_and_binder_in_params(eqn.params, invar_index))):
       for (jaxpr, invar) in child_jaxprs_and_vars:

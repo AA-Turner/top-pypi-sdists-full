@@ -45,6 +45,17 @@ class CatalogAccessType(StrEnum):
     ANY = "any"
 
 
+_file_schema = t.Dict(
+    {
+        t.Key("file_name") >> "name": String,
+        t.Key("file_type") >> "type": String,
+        t.Key("file_size") >> "size": Int(),
+        t.Key(
+            "ingest_errors",
+        ): String(allow_blank=True),
+    }
+)
+
 _files_schema = t.Dict(
     {
         t.Key("id"): String,
@@ -75,9 +86,43 @@ _file_catalog_search_schema = t.Dict(
 ).ignore_extra("*")
 
 
-class File(APIObject):
+class File(APIObject, HumanReadable):
     """
-    Represents a file in the DataRobot catalog.
+    Represents an individual file within a Files container.
+
+    This class represents a single file contained within a Files container in the DataRobot catalog.
+    It provides information about individual files such as name, size, and path within the archive.
+
+    Attributes
+    ----------
+    name: str
+        The name of the individual file.
+    type: str
+        The type of the file.
+    size: int
+        The size of the file in bytes.
+    ingest_errors: str
+        The errors encountered during ingestion of the file.
+    """
+
+    _converter = _file_schema.allow_extra("*")
+
+    def __init__(
+        self,
+        name: str,
+        type: str,
+        size: int,
+        ingest_errors: str,
+    ):
+        self.name = name
+        self.type = type
+        self.size = size
+        self.ingest_errors = ingest_errors
+
+
+class Files(APIObject):
+    """
+    Represents one or more files associated with a single entity in the DataRobot catalog.
 
     This class provides functionality to interact with files stored in the DataRobot catalog,
     including retrieving and updating file information and downloading file contents.
@@ -87,23 +132,23 @@ class File(APIObject):
     Attributes
     ----------
     id: str
-        The unique identifier for the file.
+        The unique identifier for the files container.
     name: str
-        The name of the file.
+        The name of the files container.
     type: str
-        The type of file.
+        The type of files container.
     tags: List[str]
-        A list of tags associated with the file.
+        A list of tags associated with the files container.
     num_files: int
-        The number of files in the archive (if the file is an archive).
+        The number of files in the container.
     from_archive: bool
-        Whether the file was extracted from an archive.
+        Whether the files container was extracted from an archive.
     created_at: datetime
-        A timestamp from when the file was created.
+        A timestamp from when the files container was created.
     created_by: str
-        The username of the user who created the file.
+        The username of the user who created the files container.
     description: Optional[str]
-        An optional description of the file.
+        An optional description of the files container.
     """
 
     _converter = _files_schema.allow_extra("*")
@@ -135,26 +180,32 @@ class File(APIObject):
         return f"{self.__class__.__name__}(name={self.name!r}, id={self.id!r})"
 
     @classmethod
-    def get(cls: Type["File"], file_id: str) -> "File":
-        """Get information about a file.
+    def get(cls: Type["Files"], files_id: str) -> "Files":
+        """
+        Get information about a files container.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
-        file_id: str
-            the id of the file
+        files_id: str
+            The id of the files container.
 
         Returns
         -------
-        file: File
-            the queried file
+        files: Files
+            The queried files container.
         """
 
-        path = f"catalogItems/{file_id}/"
+        path = f"catalogItems/{files_id}/"
         return cls.from_location(path)
 
-    def download(self, file_path: Optional[str] = None, filelike: Optional[IOBase] = None) -> None:
+    def download(
+        self,
+        file_name: Optional[str] = None,
+        file_path: Optional[str] = None,
+        filelike: Optional[IOBase] = None,
+    ) -> None:
         """
         Retrieves uploaded file contents.
         Writes it to either the file or a file-like object that can write bytes.
@@ -168,6 +219,11 @@ class File(APIObject):
 
         Parameters
         ----------
+        file_name: Optional[str]
+            The name of the file to download from the files container.
+            If not provided, if the file container was created from an archive,
+            it will download the original archive file.
+            Otherwise, if there is only a single file contained in the container, it will download that.
         file_path: Optional[str]
             The destination to write the file to.
         filelike: Optional[IOBase]
@@ -179,8 +235,13 @@ class File(APIObject):
         None
         """
         assert_single_parameter(("filelike", "file_path"), filelike, file_path)
+        params = {}
+        if file_name:
+            params["file_name"] = file_name
 
-        response = self._client.post(f"{self._path}{self.id}/downloads/", stream=True)
+        response = self._client.post(
+            f"{self._path}{self.id}/downloads/", params=params, stream=True
+        )
         if file_path:
             with open(file_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=1000):
@@ -195,26 +256,26 @@ class File(APIObject):
         source: Union[str, IOBase],
         tags: Optional[List[str]] = None,
         use_archive_contents: bool = True,
-    ) -> "File":
+    ) -> "Files":
         """
-        This method covers File creation from local materials (file) and a URL.
+        This method covers Files container creation from local materials (file) and a URL.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
         source: str or file object
-            Pass a URL, filepath, or file to create and return a File.
+            Pass a URL, filepath, or file to create and return a Files container.
         tags: Optional[List[str]]
-            A list of tags associated with the file.
-        use_archive_contents: bool
-            If True, extract archive contents and associate with the File entity.
-            If False, the archive file will be uploaded as-is. Defaults to True.
+            A list of tags associated with the files container.
+        use_archive_contents: bool (default: True)
+            If True, extract archive contents and associate with the Files container.
+            If False, the archive file will be uploaded as-is.
 
         Returns
         -------
-        response: File
-            The File created from the uploaded data source.
+        response: Files
+            The Files container created from the uploaded data source.
 
         Raises
         ------
@@ -226,17 +287,17 @@ class File(APIObject):
         .. code-block:: python
 
             # Upload a local file
-            file_one = File.upload("./data/document.pdf")
+            files_a = Files.upload("./data/document.pdf")
 
-            # Create a file via URL with tags
-            file_two = File.upload(
+            # Create a files container via URL with tags
+            files_b = Files.upload(
                 "https://example.com/document.pdf",
                 tags=["web", "document"]
             )
 
-            # Create file using a local file object without extracting archive contents
+            # Create files container using a local file object without extracting archive contents
             with open("./data/archive.zip", "rb") as file_pointer:
-                file_three = File.upload(file_pointer, use_archive_contents=False)
+                files_c = Files.upload(file_pointer, use_archive_contents=False)
         """
         error_msg = f"Source parameter ({source}) cannot be determined to be a URL, filepath, or file object."
         try:
@@ -266,9 +327,9 @@ class File(APIObject):
         tags: Optional[List[str]] = None,
         use_archive_contents: bool = True,
         max_wait: int = DEFAULT_MAX_WAIT,
-    ) -> "File":
+    ) -> "Files":
         """
-        Create a new file in the DataRobot catalog from a URL.
+        Create a new files container in the DataRobot catalog from a URL.
 
         This method uploads a file from a given URL to the DataRobot catalog. The method will wait
         for the upload to complete before returning.
@@ -280,17 +341,17 @@ class File(APIObject):
         url: str
             The URL of the file to upload. Must be accessible by the DataRobot server.
         tags: Optional[List[str]]
-            A list of tags associated with the file.
+            A list of tags associated with the files container.
         use_archive_contents: bool
-            If True, extract archive contents and associate with the File entity.
+            If True, extract archive contents and associate with the Files container.
             If False, the archive file will be uploaded as-is. Defaults to True.
         max_wait: Optional[int]
             Maximum time in seconds to wait for the upload to complete. Defaults to DEFAULT_MAX_WAIT.
 
         Returns
         -------
-        File
-            The newly created file object.
+        Files
+            The newly created files container.
 
         Raises
         ------
@@ -319,9 +380,9 @@ class File(APIObject):
         use_archive_contents: bool = True,
         read_timeout: int = DEFAULT_TIMEOUT.UPLOAD,
         max_wait: int = DEFAULT_MAX_WAIT,
-    ) -> "File":
+    ) -> "Files":
         """
-        A blocking call that creates a new file from a file. Returns when the file has
+        A blocking call that creates a new files container from a file. Returns when the file has
         been successfully uploaded and processed.
 
         Warning: This function does not clean up its open files. If you pass a filelike, you are
@@ -333,25 +394,25 @@ class File(APIObject):
         Parameters
         ----------
         file_path: Optional[str]
-            The path to the file. This will create a file object pointing to that file but will
-            not close it.
+            The path to the file. This will create a files container object pointing to that file but
+            will not close the local file.
         filelike: Optional[str]
             An open and readable file object.
         tags: Optional[List[str]]
-            A list of tags associated with the file.
+            A list of tags associated with the files container.
         use_archive_contents: bool
-            If True, extract archive contents and associate with the File entity.
+            If True, extract archive contents and associate with the Files container.
             If False, the archive file will be uploaded as-is. Defaults to True.
         read_timeout: Optional[int]
             The maximum number of seconds to wait for the server to respond indicating that the
             initial upload is complete.
         max_wait: Optional[int]
-            Time in seconds after which file creation is considered unsuccessful.
+            Time in seconds after which files container creation is considered unsuccessful.
 
         Returns
         -------
-        response: File
-            A fully armed and operational File
+        response: Files
+            A fully armed and operational Files container
         """
         assert_single_parameter(("filelike", "file_path"), file_path, filelike)
 
@@ -399,10 +460,10 @@ class File(APIObject):
         credential_data: Optional[Dict[str, str]] = None,
         use_archive_contents: bool = True,
         max_wait: int = DEFAULT_MAX_WAIT,
-    ) -> "File":
+    ) -> "Files":
         """
-        A blocking call that creates a new File from data stored at a DataSource.
-        Returns when the file has been successfully uploaded and processed.
+        A blocking call that creates a new Files container from data stored at a DataSource.
+        Returns when the files container has been successfully uploaded and processed.
 
         .. versionadded:: v3.8
 
@@ -410,22 +471,22 @@ class File(APIObject):
         ----------
         data_source_id: str
             The ID of the DataSource to use as the source of data.
-        tags: list[str], optional
-            A list of tags associated with the file.
-        credential_id: str, optional
+        tags: Optional[List[str]]
+            A list of tags associated with the files container.
+        credential_id: Optional[str]
             The ID of the set of credentials to use for authentication.
-        credential_data: dict, optional
+        credential_data: Optional[Dict[str, str]]
             The credentials to authenticate with the database, to use instead of credential ID.
         use_archive_contents: bool
-            If True, extract archive contents and associate with the file entity.
+            If True, extract archive contents and associate with the files container.
             If False, the archive file will be uploaded as-is. Defaults to True.
         max_wait: Optional[int]
-            Time in seconds after which file creation is considered unsuccessful.
+            Time in seconds after which files container creation is considered unsuccessful.
 
         Returns
         -------
-        response: File
-            The File created from the uploaded data
+        response: Files
+            The Files container created from the uploaded data
         """
         base_data = {
             "data_source_id": data_source_id,
@@ -451,7 +512,7 @@ class File(APIObject):
 
     def update(self) -> None:
         """
-        Updates the File attributes in place with the latest information from the server.
+        Updates the Files container attributes in place with the latest information from the server.
 
         .. versionadded:: v3.8
 
@@ -480,7 +541,7 @@ class File(APIObject):
         tags: Optional[List[str]] = None,
     ) -> None:
         """
-        Modifies the File name, description and/or tags.
+        Modifies the Files container name, description and/or tags.
         Updates the object in place.
 
         .. versionadded:: v3.8
@@ -488,13 +549,13 @@ class File(APIObject):
         Parameters
         ----------
         name: Optional[str]
-            The new name of the file.
+            The new name of the files container.
 
         description: Optional[str]
-            The new description of the file.
+            The new description of the files container.
         tags: Optional[List[str]]
-            A list of tags attached to the file.
-            If any tags were previously specified for the file, they will be overwritten.
+            A list of tags attached to the files container.
+            If any tags were previously specified for the files container, they will be overwritten.
             If omitted or None, keep previous tags.
             To clear them, specify [].
 
@@ -521,40 +582,40 @@ class File(APIObject):
         self.tags = data["tags"]
 
     @classmethod
-    def delete(cls, file_id: str) -> None:
+    def delete(cls, files_id: str) -> None:
         """
-        Soft-deletes a file. You cannot get, list, or do any actions with it, except for undeleting it.
+        Soft-deletes a files container. You cannot get, list, or do any actions with it, except for undeleting it.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
-        file_id: str
-            The id of the file to mark for deletion.
+        files_id: str
+            The id of the files container to mark for deletion.
 
         Returns
         -------
         None
         """
-        cls._client.delete(f"{cls._path}{file_id}/")
+        cls._client.delete(f"{cls._path}{files_id}/")
 
     @classmethod
-    def un_delete(cls, file_id: str) -> None:
+    def un_delete(cls, files_id: str) -> None:
         """
-        Undeletes a previously deleted file. If the file was not deleted, nothing happens.
+        Undeletes a previously deleted files container. If the files container was not deleted, nothing happens.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
-        file_id: str
-            The id of the file to un-delete.
+        files_id: str
+            The id of the files container to un-delete.
 
         Returns
         -------
         None
         """
-        cls._client.patch(f"{cls._path}{file_id}/deleted/")
+        cls._client.patch(f"{cls._path}{files_id}/deleted/")
 
     @classmethod
     def search_catalog(
@@ -569,7 +630,7 @@ class File(APIObject):
         access_type: CatalogAccessType = CatalogAccessType.ANY,
     ) -> List["FilesCatalogSearch"]:
         """
-        Fetch a list of the file catalog entries the current user has access to
+        Fetch a list of the files container catalog entries the current user has access to
         based on an optional search term, tags, owner user info, or sort order.
 
         .. versionadded:: v3.8
@@ -580,7 +641,7 @@ class File(APIObject):
             A value to search for in the file's name, description, tags, etc. The search is case-insensitive.
             If no value is provided for this parameter, or if the empty string is used,
             or if the string contains only whitespace, no filtering will be done. Partial matching
-            is performed on file name and description fields while all other fields will only match
+            is performed on files container name and description fields while all other fields will only match
             if the search matches the whole value exactly.
 
         tags: Optional[List[str]]
@@ -616,9 +677,9 @@ class File(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status
         """
         return FilesCatalogSearch.search_catalog(
             search=search,
@@ -630,6 +691,51 @@ class File(APIObject):
             order_by=order_by,
             access_type=access_type,
         )
+
+    def list_contained_files(
+        self, file_type: str = "", limit: int = 100, offset: int = 0
+    ) -> List["File"]:
+        """
+        List all individual files within a Files container.
+
+        .. versionadded:: v3.8
+
+        This method retrieves information about all individual files contained within
+        a Files object. This is useful for Files objects that contain multiple files
+        or are archives.
+
+        Parameters
+        ----------
+        file_type: str
+            Filter results by file type (e.g., 'txt', 'pdf').
+        limit: Optional[int] (default: 100)
+            Maximum number of files to return. Set to 0 for no limit.
+        offset: Optional[int] (default: 0)
+            Number of files to skip before returning results.
+
+        Returns
+        -------
+        List[File]
+            A list of File objects representing individual files within the Files container.
+
+        Raises
+        ------
+        ClientError
+            If the Files object is not found or access is denied.
+        ServerError
+            If there's a server-side error while retrieving the file list.
+        """
+        endpoint = f"{self._path}{self.id}/allFiles/"
+        params: Dict[str, Union[int, str]] = {"offset": offset}
+        if file_type:
+            params["file_type"] = file_type
+        if limit == 0:
+            files_data = list(unpaginate(endpoint, params, self._client))
+        else:
+            params["limit"] = limit
+            files_data = self._client.get(endpoint, params=params).json()["data"]
+
+        return [File.from_server_data(file_data) for file_data in files_data]
 
 
 class FilesCatalogSearch(APIObject, HumanReadable):
@@ -645,19 +751,19 @@ class FilesCatalogSearch(APIObject, HumanReadable):
         The ID of the catalog entry linked to the file.
 
     name: str
-        The name of the file in the catalog.
+        The name of the files container in the catalog.
 
     description: Optional[str] (default: None)
         The description of the file.
 
     tags: List[str]
-        A list of tags associated with the file.
+        A list of tags associated with the files container.
 
     num_files: Optional[int] (default: None)
-        The number of files in the archive (if the file is an archive).
+        The number of files in the container.
 
     from_archive: Optional[bool] (default: None)
-        Whether the file was extracted from an archive.
+        Whether the files container was extracted from an archive.
 
     created_by: str
         The name of the user that created the file.
@@ -712,7 +818,7 @@ class FilesCatalogSearch(APIObject, HumanReadable):
         access_type: CatalogAccessType = CatalogAccessType.ANY,
     ) -> List["FilesCatalogSearch"]:
         """
-        Fetch a list of the file catalog entries the current user has access to
+        Fetch a list of the files container entries the current user has access to
         based on an optional search term, tags, owner user info, or sort order.
 
         .. versionadded:: v3.8
@@ -723,7 +829,7 @@ class FilesCatalogSearch(APIObject, HumanReadable):
             A value to search for in the file's name, description, tags, etc. The search is case-insensitive.
             If no value is provided for this parameter, or if the empty string is used,
             or if the string contains only whitespace, no filtering will be done. Partial matching
-            is performed on file name and description fields while all other fields will only match
+            is performed on files container name and description fields while all other fields will only match
             if the search matches the whole value exactly.
 
         tags: Optional[List[str]]
@@ -774,8 +880,7 @@ class FilesCatalogSearch(APIObject, HumanReadable):
             "order_by": order_by,
             "access_type": access_type,
         }
-        # Filter out None values (consistent with existing codebase pattern)
-        params = {k: v for k, v in params.items() if v is not None}
+        params = _remove_empty_params(params)
         if limit == 0:
             data = list(unpaginate(cls._path, params, cls._client))
         else:

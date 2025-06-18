@@ -9,6 +9,7 @@ __all__ = [
     "ResponseCreateParamsBase",
     "InputUnionMember1",
     "InputUnionMember1OpenAIResponseOutputMessageWebSearchToolCall",
+    "InputUnionMember1OpenAIResponseOutputMessageFileSearchToolCall",
     "InputUnionMember1OpenAIResponseOutputMessageFunctionToolCall",
     "InputUnionMember1OpenAIResponseInputFunctionToolCallOutput",
     "InputUnionMember1OpenAIResponseMessage",
@@ -16,6 +17,8 @@ __all__ = [
     "InputUnionMember1OpenAIResponseMessageContentUnionMember1OpenAIResponseInputMessageContentText",
     "InputUnionMember1OpenAIResponseMessageContentUnionMember1OpenAIResponseInputMessageContentImage",
     "InputUnionMember1OpenAIResponseMessageContentUnionMember2",
+    "Text",
+    "TextFormat",
     "Tool",
     "ToolOpenAIResponseInputToolWebSearch",
     "ToolOpenAIResponseInputToolFileSearch",
@@ -40,6 +43,8 @@ class ResponseCreateParamsBase(TypedDict, total=False):
 
     instructions: str
 
+    max_infer_iters: int
+
     previous_response_id: str
     """
     (Optional) if specified, the new response will be a continuation of the previous
@@ -50,6 +55,8 @@ class ResponseCreateParamsBase(TypedDict, total=False):
     store: bool
 
     temperature: float
+
+    text: Text
 
     tools: Iterable[Tool]
 
@@ -62,18 +69,30 @@ class InputUnionMember1OpenAIResponseOutputMessageWebSearchToolCall(TypedDict, t
     type: Required[Literal["web_search_call"]]
 
 
-class InputUnionMember1OpenAIResponseOutputMessageFunctionToolCall(TypedDict, total=False):
+class InputUnionMember1OpenAIResponseOutputMessageFileSearchToolCall(TypedDict, total=False):
     id: Required[str]
 
+    queries: Required[List[str]]
+
+    status: Required[str]
+
+    type: Required[Literal["file_search_call"]]
+
+    results: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
+
+
+class InputUnionMember1OpenAIResponseOutputMessageFunctionToolCall(TypedDict, total=False):
     arguments: Required[str]
 
     call_id: Required[str]
 
     name: Required[str]
 
-    status: Required[str]
-
     type: Required[Literal["function_call"]]
+
+    id: str
+
+    status: str
 
 
 class InputUnionMember1OpenAIResponseInputFunctionToolCallOutput(TypedDict, total=False):
@@ -138,10 +157,39 @@ class InputUnionMember1OpenAIResponseMessage(TypedDict, total=False):
 
 InputUnionMember1: TypeAlias = Union[
     InputUnionMember1OpenAIResponseOutputMessageWebSearchToolCall,
+    InputUnionMember1OpenAIResponseOutputMessageFileSearchToolCall,
     InputUnionMember1OpenAIResponseOutputMessageFunctionToolCall,
     InputUnionMember1OpenAIResponseInputFunctionToolCallOutput,
     InputUnionMember1OpenAIResponseMessage,
 ]
+
+
+class TextFormat(TypedDict, total=False):
+    type: Required[Literal["text", "json_schema", "json_object"]]
+    """Must be "text", "json_schema", or "json_object" to identify the format type"""
+
+    description: str
+    """(Optional) A description of the response format. Only used for json_schema."""
+
+    name: str
+    """The name of the response format. Only used for json_schema."""
+
+    schema: Dict[str, Union[bool, float, str, Iterable[object], object, None]]
+    """The JSON schema the response should conform to.
+
+    In a Python SDK, this is often a `pydantic` model. Only used for json_schema.
+    """
+
+    strict: bool
+    """(Optional) Whether to strictly enforce the JSON schema.
+
+    If true, the response must match the schema exactly. Only used for json_schema.
+    """
+
+
+class Text(TypedDict, total=False):
+    format: TextFormat
+    """Configuration for Responses API text format."""
 
 
 class ToolOpenAIResponseInputToolWebSearch(TypedDict, total=False):
@@ -159,7 +207,11 @@ class ToolOpenAIResponseInputToolFileSearchRankingOptions(TypedDict, total=False
 class ToolOpenAIResponseInputToolFileSearch(TypedDict, total=False):
     type: Required[Literal["file_search"]]
 
-    vector_store_id: Required[List[str]]
+    vector_store_ids: Required[List[str]]
+
+    filters: Dict[str, Union[bool, float, str, Iterable[object], object, None]]
+
+    max_num_results: int
 
     ranking_options: ToolOpenAIResponseInputToolFileSearchRankingOptions
 

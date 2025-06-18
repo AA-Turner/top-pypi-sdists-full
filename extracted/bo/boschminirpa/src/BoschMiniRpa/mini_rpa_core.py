@@ -339,9 +339,12 @@ class MiniRPACore:
             date_value = datetime.datetime.strptime(date_value, '%Y-%m-%d').date()
         except ValueError:
             try:
-                date_value = datetime.datetime.strptime(date_value, '%Y-%m-%d %H:%M:%S').date()
+                date_value = datetime.datetime.strptime(date_value, '%Y%m%d').date()
             except ValueError:
-                date_value = pd.NaT
+                try:
+                    date_value = datetime.datetime.strptime(date_value, '%Y-%m-%d %H:%M:%S').date()
+                except ValueError:
+                    date_value = pd.NaT
 
         return date_value
 

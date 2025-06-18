@@ -39,6 +39,7 @@ __all__ = (
     "FindingTypeType",
     "GetFindingRecommendationPaginatorName",
     "GetFindingV2PaginatorName",
+    "InternalAccessTypeType",
     "JobErrorCodeType",
     "JobStatusType",
     "KmsGrantOperationType",
@@ -54,6 +55,7 @@ __all__ = (
     "OrderByType",
     "PaginatorName",
     "PolicyTypeType",
+    "PrincipalTypeType",
     "ReasonCodeType",
     "RecommendationTypeType",
     "RecommendedRemediationActionType",
@@ -61,6 +63,7 @@ __all__ = (
     "ResourceControlPolicyRestrictionType",
     "ResourceServiceName",
     "ResourceTypeType",
+    "ServiceControlPolicyRestrictionType",
     "ServiceName",
     "StatusType",
     "TypeType",
@@ -113,6 +116,7 @@ FindingStatusType = Literal["ACTIVE", "ARCHIVED", "RESOLVED"]
 FindingStatusUpdateType = Literal["ACTIVE", "ARCHIVED"]
 FindingTypeType = Literal[
     "ExternalAccess",
+    "InternalAccess",
     "UnusedIAMRole",
     "UnusedIAMUserAccessKey",
     "UnusedIAMUserPassword",
@@ -120,6 +124,7 @@ FindingTypeType = Literal[
 ]
 GetFindingRecommendationPaginatorName = Literal["get_finding_recommendation"]
 GetFindingV2PaginatorName = Literal["get_finding_v2"]
+InternalAccessTypeType = Literal["INTRA_ACCOUNT", "INTRA_ORG"]
 JobErrorCodeType = Literal[
     "AUTHORIZATION_ERROR",
     "RESOURCE_NOT_FOUND_ERROR",
@@ -156,6 +161,7 @@ OrderByType = Literal["ASC", "DESC"]
 PolicyTypeType = Literal[
     "IDENTITY_POLICY", "RESOURCE_CONTROL_POLICY", "RESOURCE_POLICY", "SERVICE_CONTROL_POLICY"
 ]
+PrincipalTypeType = Literal["IAM_ROLE", "IAM_USER"]
 ReasonCodeType = Literal[
     "AWS_SERVICE_ACCESS_DISABLED",
     "DELEGATED_ADMINISTRATOR_DEREGISTERED",
@@ -165,7 +171,7 @@ ReasonCodeType = Literal[
 RecommendationTypeType = Literal["UnusedPermissionRecommendation"]
 RecommendedRemediationActionType = Literal["CREATE_POLICY", "DETACH_POLICY"]
 ResourceControlPolicyRestrictionType = Literal[
-    "APPLICABLE", "FAILED_TO_EVALUATE_RCP", "NOT_APPLICABLE"
+    "APPLICABLE", "APPLIED", "FAILED_TO_EVALUATE_RCP", "NOT_APPLICABLE"
 ]
 ResourceTypeType = Literal[
     "AWS::DynamoDB::Stream",
@@ -186,8 +192,18 @@ ResourceTypeType = Literal[
     "AWS::SQS::Queue",
     "AWS::SecretsManager::Secret",
 ]
+ServiceControlPolicyRestrictionType = Literal[
+    "APPLICABLE", "APPLIED", "FAILED_TO_EVALUATE_SCP", "NOT_APPLICABLE"
+]
 StatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
-TypeType = Literal["ACCOUNT", "ACCOUNT_UNUSED_ACCESS", "ORGANIZATION", "ORGANIZATION_UNUSED_ACCESS"]
+TypeType = Literal[
+    "ACCOUNT",
+    "ACCOUNT_INTERNAL_ACCESS",
+    "ACCOUNT_UNUSED_ACCESS",
+    "ORGANIZATION",
+    "ORGANIZATION_INTERNAL_ACCESS",
+    "ORGANIZATION_UNUSED_ACCESS",
+]
 ValidatePolicyFindingTypeType = Literal["ERROR", "SECURITY_WARNING", "SUGGESTION", "WARNING"]
 ValidatePolicyPaginatorName = Literal["validate_policy"]
 ValidatePolicyResourceTypeType = Literal[
@@ -457,6 +473,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",

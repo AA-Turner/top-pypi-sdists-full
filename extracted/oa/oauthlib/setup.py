@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 # Hack because logging + setuptools sucks.
-try:
+import contextlib
+with contextlib.suppress(ImportError):
     import multiprocessing
-except ImportError:
-    pass
+
 
 from os.path import dirname, join
 
@@ -27,14 +28,13 @@ setup(
     long_description=fread('README.rst'),
     long_description_content_type='text/x-rst',
     author='The OAuthlib Community',
-    author_email='idan@gazit.me',
-    maintainer='Ib Lundgren',
-    maintainer_email='ib.lundgren@gmail.com',
+    maintainer='Jonathan Huot',
+    maintainer_email='jonathan.huot@gmail.com',
     url='https://github.com/oauthlib/oauthlib',
     platforms='any',
-    license='BSD',
+    license='BSD-3-Clause',
     packages=find_packages(exclude=('docs', 'tests', 'tests.*')),
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     extras_require={
         'rsa': rsa_require,
         'signedtoken': signedtoken_require,
@@ -44,18 +44,17 @@ setup(
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
-        'License :: OSI Approved',
-        'License :: OSI Approved :: BSD License',
         'Operating System :: MacOS',
         'Operating System :: POSIX',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: Implementation',
         'Programming Language :: Python :: Implementation :: CPython',

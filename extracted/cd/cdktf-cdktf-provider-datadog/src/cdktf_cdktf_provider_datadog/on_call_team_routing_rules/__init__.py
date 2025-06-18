@@ -1,7 +1,7 @@
 r'''
 # `datadog_on_call_team_routing_rules`
 
-Refer to the Terraform Registry for docs: [`datadog_on_call_team_routing_rules`](https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules).
+Refer to the Terraform Registry for docs: [`datadog_on_call_team_routing_rules`](https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OnCallTeamRoutingRules(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.onCallTeamRoutingRules.OnCallTeamRoutingRules",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules datadog_on_call_team_routing_rules}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules datadog_on_call_team_routing_rules}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class OnCallTeamRoutingRules(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules datadog_on_call_team_routing_rules} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules datadog_on_call_team_routing_rules} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: ID of the team to associate the routing rules with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#id OnCallTeamRoutingRules#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#rule OnCallTeamRoutingRules#rule}
+        :param id: ID of the team to associate the routing rules with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#id OnCallTeamRoutingRules#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#rule OnCallTeamRoutingRules#rule}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class OnCallTeamRoutingRules(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OnCallTeamRoutingRules to import.
-        :param import_from_id: The id of the existing OnCallTeamRoutingRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OnCallTeamRoutingRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OnCallTeamRoutingRules to import is found.
         '''
         if __debug__:
@@ -214,8 +214,8 @@ class OnCallTeamRoutingRulesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: ID of the team to associate the routing rules with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#id OnCallTeamRoutingRules#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#rule OnCallTeamRoutingRules#rule}
+        :param id: ID of the team to associate the routing rules with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#id OnCallTeamRoutingRules#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#rule OnCallTeamRoutingRules#rule}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -318,7 +318,7 @@ class OnCallTeamRoutingRulesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def id(self) -> builtins.str:
         '''ID of the team to associate the routing rules with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#id OnCallTeamRoutingRules#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#id OnCallTeamRoutingRules#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -333,7 +333,7 @@ class OnCallTeamRoutingRulesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallTeamRoutingRulesRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#rule OnCallTeamRoutingRules#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#rule OnCallTeamRoutingRules#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallTeamRoutingRulesRule"]]], result)
@@ -372,11 +372,11 @@ class OnCallTeamRoutingRulesRule:
         urgency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#action OnCallTeamRoutingRules#action}
-        :param escalation_policy: ID of the policy to be applied when this routing rule matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#escalation_policy OnCallTeamRoutingRules#escalation_policy}
-        :param query: Defines the query or condition that triggers this routing rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#query OnCallTeamRoutingRules#query}
-        :param time_restrictions: time_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#time_restrictions OnCallTeamRoutingRules#time_restrictions}
-        :param urgency: Defines the urgency for pages created via this rule. Only valid if ``escalation_policy`` is set. Valid values are ``high``, ``low``, ``dynamic``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#urgency OnCallTeamRoutingRules#urgency}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#action OnCallTeamRoutingRules#action}
+        :param escalation_policy: ID of the policy to be applied when this routing rule matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#escalation_policy OnCallTeamRoutingRules#escalation_policy}
+        :param query: Defines the query or condition that triggers this routing rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#query OnCallTeamRoutingRules#query}
+        :param time_restrictions: time_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#time_restrictions OnCallTeamRoutingRules#time_restrictions}
+        :param urgency: Defines the urgency for pages created via this rule. Only valid if ``escalation_policy`` is set. Valid values are ``high``, ``low``, ``dynamic``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#urgency OnCallTeamRoutingRules#urgency}
         '''
         if isinstance(time_restrictions, dict):
             time_restrictions = OnCallTeamRoutingRulesRuleTimeRestrictions(**time_restrictions)
@@ -405,7 +405,7 @@ class OnCallTeamRoutingRulesRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallTeamRoutingRulesRuleAction"]]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#action OnCallTeamRoutingRules#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#action OnCallTeamRoutingRules#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallTeamRoutingRulesRuleAction"]]], result)
@@ -414,7 +414,7 @@ class OnCallTeamRoutingRulesRule:
     def escalation_policy(self) -> typing.Optional[builtins.str]:
         '''ID of the policy to be applied when this routing rule matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#escalation_policy OnCallTeamRoutingRules#escalation_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#escalation_policy OnCallTeamRoutingRules#escalation_policy}
         '''
         result = self._values.get("escalation_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -423,7 +423,7 @@ class OnCallTeamRoutingRulesRule:
     def query(self) -> typing.Optional[builtins.str]:
         '''Defines the query or condition that triggers this routing rule. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#query OnCallTeamRoutingRules#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#query OnCallTeamRoutingRules#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -434,7 +434,7 @@ class OnCallTeamRoutingRulesRule:
     ) -> typing.Optional["OnCallTeamRoutingRulesRuleTimeRestrictions"]:
         '''time_restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#time_restrictions OnCallTeamRoutingRules#time_restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#time_restrictions OnCallTeamRoutingRules#time_restrictions}
         '''
         result = self._values.get("time_restrictions")
         return typing.cast(typing.Optional["OnCallTeamRoutingRulesRuleTimeRestrictions"], result)
@@ -445,7 +445,7 @@ class OnCallTeamRoutingRulesRule:
 
         Only valid if ``escalation_policy`` is set. Valid values are ``high``, ``low``, ``dynamic``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#urgency OnCallTeamRoutingRules#urgency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#urgency OnCallTeamRoutingRules#urgency}
         '''
         result = self._values.get("urgency")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -478,8 +478,8 @@ class OnCallTeamRoutingRulesRuleAction:
         send_teams_message: typing.Optional[typing.Union["OnCallTeamRoutingRulesRuleActionSendTeamsMessage", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param send_slack_message: send_slack_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#send_slack_message OnCallTeamRoutingRules#send_slack_message}
-        :param send_teams_message: send_teams_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#send_teams_message OnCallTeamRoutingRules#send_teams_message}
+        :param send_slack_message: send_slack_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#send_slack_message OnCallTeamRoutingRules#send_slack_message}
+        :param send_teams_message: send_teams_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#send_teams_message OnCallTeamRoutingRules#send_teams_message}
         '''
         if isinstance(send_slack_message, dict):
             send_slack_message = OnCallTeamRoutingRulesRuleActionSendSlackMessage(**send_slack_message)
@@ -501,7 +501,7 @@ class OnCallTeamRoutingRulesRuleAction:
     ) -> typing.Optional["OnCallTeamRoutingRulesRuleActionSendSlackMessage"]:
         '''send_slack_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#send_slack_message OnCallTeamRoutingRules#send_slack_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#send_slack_message OnCallTeamRoutingRules#send_slack_message}
         '''
         result = self._values.get("send_slack_message")
         return typing.cast(typing.Optional["OnCallTeamRoutingRulesRuleActionSendSlackMessage"], result)
@@ -512,7 +512,7 @@ class OnCallTeamRoutingRulesRuleAction:
     ) -> typing.Optional["OnCallTeamRoutingRulesRuleActionSendTeamsMessage"]:
         '''send_teams_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#send_teams_message OnCallTeamRoutingRules#send_teams_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#send_teams_message OnCallTeamRoutingRules#send_teams_message}
         '''
         result = self._values.get("send_teams_message")
         return typing.cast(typing.Optional["OnCallTeamRoutingRulesRuleActionSendTeamsMessage"], result)
@@ -656,8 +656,8 @@ class OnCallTeamRoutingRulesRuleActionOutputReference(
         workspace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param channel: Slack channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
-        :param workspace: Slack workspace ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#workspace OnCallTeamRoutingRules#workspace}
+        :param channel: Slack channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
+        :param workspace: Slack workspace ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#workspace OnCallTeamRoutingRules#workspace}
         '''
         value = OnCallTeamRoutingRulesRuleActionSendSlackMessage(
             channel=channel, workspace=workspace
@@ -674,9 +674,9 @@ class OnCallTeamRoutingRulesRuleActionOutputReference(
         tenant: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param channel: Teams channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
-        :param team: Teams team ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#team OnCallTeamRoutingRules#team}
-        :param tenant: Teams tenant ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#tenant OnCallTeamRoutingRules#tenant}
+        :param channel: Teams channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
+        :param team: Teams team ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#team OnCallTeamRoutingRules#team}
+        :param tenant: Teams tenant ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#tenant OnCallTeamRoutingRules#tenant}
         '''
         value = OnCallTeamRoutingRulesRuleActionSendTeamsMessage(
             channel=channel, team=team, tenant=tenant
@@ -751,8 +751,8 @@ class OnCallTeamRoutingRulesRuleActionSendSlackMessage:
         workspace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param channel: Slack channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
-        :param workspace: Slack workspace ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#workspace OnCallTeamRoutingRules#workspace}
+        :param channel: Slack channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
+        :param workspace: Slack workspace ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#workspace OnCallTeamRoutingRules#workspace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b3c05c6913105e5de78511c9c4e28630accfc7348e8bf91bd891f4bd5cbdcb1)
@@ -768,7 +768,7 @@ class OnCallTeamRoutingRulesRuleActionSendSlackMessage:
     def channel(self) -> typing.Optional[builtins.str]:
         '''Slack channel ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
         '''
         result = self._values.get("channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -777,7 +777,7 @@ class OnCallTeamRoutingRulesRuleActionSendSlackMessage:
     def workspace(self) -> typing.Optional[builtins.str]:
         '''Slack workspace ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#workspace OnCallTeamRoutingRules#workspace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#workspace OnCallTeamRoutingRules#workspace}
         '''
         result = self._values.get("workspace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -888,9 +888,9 @@ class OnCallTeamRoutingRulesRuleActionSendTeamsMessage:
         tenant: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param channel: Teams channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
-        :param team: Teams team ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#team OnCallTeamRoutingRules#team}
-        :param tenant: Teams tenant ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#tenant OnCallTeamRoutingRules#tenant}
+        :param channel: Teams channel ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
+        :param team: Teams team ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#team OnCallTeamRoutingRules#team}
+        :param tenant: Teams tenant ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#tenant OnCallTeamRoutingRules#tenant}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99467c250d9aa447574aab5506bceff7a704aff9aa2009e56e671528d3a77588)
@@ -909,7 +909,7 @@ class OnCallTeamRoutingRulesRuleActionSendTeamsMessage:
     def channel(self) -> typing.Optional[builtins.str]:
         '''Teams channel ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#channel OnCallTeamRoutingRules#channel}
         '''
         result = self._values.get("channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -918,7 +918,7 @@ class OnCallTeamRoutingRulesRuleActionSendTeamsMessage:
     def team(self) -> typing.Optional[builtins.str]:
         '''Teams team ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#team OnCallTeamRoutingRules#team}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#team OnCallTeamRoutingRules#team}
         '''
         result = self._values.get("team")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -927,7 +927,7 @@ class OnCallTeamRoutingRulesRuleActionSendTeamsMessage:
     def tenant(self) -> typing.Optional[builtins.str]:
         '''Teams tenant ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#tenant OnCallTeamRoutingRules#tenant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#tenant OnCallTeamRoutingRules#tenant}
         '''
         result = self._values.get("tenant")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1182,8 +1182,8 @@ class OnCallTeamRoutingRulesRuleOutputReference(
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#restriction OnCallTeamRoutingRules#restriction}
-        :param time_zone: Specifies the time zone applicable to the restrictions, e.g. ``America/New_York``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#time_zone OnCallTeamRoutingRules#time_zone}
+        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#restriction OnCallTeamRoutingRules#restriction}
+        :param time_zone: Specifies the time zone applicable to the restrictions, e.g. ``America/New_York``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#time_zone OnCallTeamRoutingRules#time_zone}
         '''
         value = OnCallTeamRoutingRulesRuleTimeRestrictions(
             restriction=restriction, time_zone=time_zone
@@ -1324,8 +1324,8 @@ class OnCallTeamRoutingRulesRuleTimeRestrictions:
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#restriction OnCallTeamRoutingRules#restriction}
-        :param time_zone: Specifies the time zone applicable to the restrictions, e.g. ``America/New_York``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#time_zone OnCallTeamRoutingRules#time_zone}
+        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#restriction OnCallTeamRoutingRules#restriction}
+        :param time_zone: Specifies the time zone applicable to the restrictions, e.g. ``America/New_York``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#time_zone OnCallTeamRoutingRules#time_zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__448ac41217f8d529882745fb0ec520941d68e5c33581f138909ccaee8213c2dc)
@@ -1343,7 +1343,7 @@ class OnCallTeamRoutingRulesRuleTimeRestrictions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction"]]]:
         '''restriction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#restriction OnCallTeamRoutingRules#restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#restriction OnCallTeamRoutingRules#restriction}
         '''
         result = self._values.get("restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction"]]], result)
@@ -1352,7 +1352,7 @@ class OnCallTeamRoutingRulesRuleTimeRestrictions:
     def time_zone(self) -> typing.Optional[builtins.str]:
         '''Specifies the time zone applicable to the restrictions, e.g. ``America/New_York``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#time_zone OnCallTeamRoutingRules#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#time_zone OnCallTeamRoutingRules#time_zone}
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1479,10 +1479,10 @@ class OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end_day: The weekday when the restriction period ends. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#end_day OnCallTeamRoutingRules#end_day}
-        :param end_time: The time of day when the restriction ends (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#end_time OnCallTeamRoutingRules#end_time}
-        :param start_day: The weekday when the restriction period starts. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#start_day OnCallTeamRoutingRules#start_day}
-        :param start_time: The time of day when the restriction begins (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#start_time OnCallTeamRoutingRules#start_time}
+        :param end_day: The weekday when the restriction period ends. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#end_day OnCallTeamRoutingRules#end_day}
+        :param end_time: The time of day when the restriction ends (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#end_time OnCallTeamRoutingRules#end_time}
+        :param start_day: The weekday when the restriction period starts. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#start_day OnCallTeamRoutingRules#start_day}
+        :param start_time: The time of day when the restriction begins (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#start_time OnCallTeamRoutingRules#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bbdb535b9a59b6c0302cf53e9389da3cd568ceb59ad873c72f9ca34bdeda2aa)
@@ -1504,7 +1504,7 @@ class OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction:
     def end_day(self) -> typing.Optional[builtins.str]:
         '''The weekday when the restriction period ends. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#end_day OnCallTeamRoutingRules#end_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#end_day OnCallTeamRoutingRules#end_day}
         '''
         result = self._values.get("end_day")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1513,7 +1513,7 @@ class OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction:
     def end_time(self) -> typing.Optional[builtins.str]:
         '''The time of day when the restriction ends (hh:mm:ss).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#end_time OnCallTeamRoutingRules#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#end_time OnCallTeamRoutingRules#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1522,7 +1522,7 @@ class OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction:
     def start_day(self) -> typing.Optional[builtins.str]:
         '''The weekday when the restriction period starts. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#start_day OnCallTeamRoutingRules#start_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#start_day OnCallTeamRoutingRules#start_day}
         '''
         result = self._values.get("start_day")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1531,7 +1531,7 @@ class OnCallTeamRoutingRulesRuleTimeRestrictionsRestriction:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''The time of day when the restriction begins (hh:mm:ss).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.65.0/docs/resources/on_call_team_routing_rules#start_time OnCallTeamRoutingRules#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.66.0/docs/resources/on_call_team_routing_rules#start_time OnCallTeamRoutingRules#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)

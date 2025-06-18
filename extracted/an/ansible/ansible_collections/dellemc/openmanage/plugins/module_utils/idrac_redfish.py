@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 # Dell OpenManage Ansible Modules
-# Version 9.3.0
-# Copyright (C) 2019-2024 Dell Inc. or its subsidiaries. All Rights Reserved.
+# Version 9.13.0
+# Copyright (C) 2019-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -51,14 +51,11 @@ idrac_auth_params = {
 
 }
 
-SESSION_RESOURCE_COLLECTION = {
-    "SESSION": "/redfish/v1/Sessions",
-    "SESSION_ID": "/redfish/v1/Sessions/{Id}",
-}
 MANAGER_URI = "/redfish/v1/Managers/iDRAC.Embedded.1"
 EXPORT_URI = "/redfish/v1/Managers/iDRAC.Embedded.1/Actions/Oem/EID_674_Manager.ExportSystemConfiguration"
 IMPORT_URI = "/redfish/v1/Managers/iDRAC.Embedded.1/Actions/Oem/EID_674_Manager.ImportSystemConfiguration"
 IMPORT_PREVIEW = "/redfish/v1/Managers/iDRAC.Embedded.1/Actions/Oem/EID_674_Manager.ImportSystemConfigurationPreview"
+GET_IDRAC_MANAGER_ATTRIBUTES_9_10 = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellAttributes/iDRAC.Embedded.1"
 
 
 class OpenURLResponse(object):
@@ -112,7 +109,20 @@ class iDRACRedfishAPI(object):
         self.session_id = None
         self.protocol = 'https'
         self._headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+        if self.x_auth_token is not None:
+            self._headers["X-Auth-Token"] = self.x_auth_token
         self.ipaddress = config_ipv6(self.ipaddress)
+        self.SESSION_RESOURCE_COLLECTION = {
+            "SESSION": "/redfish/v1/SessionService/Sessions",
+            "SESSION_ID": "/redfish/v1/SessionService/Sessions/{Id}",
+        }
+        gen_details = self.get_server_generation
+        generation = gen_details[0]
+        if generation <= 13:
+            self.SESSION_RESOURCE_COLLECTION = {
+                "SESSION": "/redfish/v1/Sessions",
+                "SESSION_ID": "/redfish/v1/Sessions/{Id}",
+            }
 
     def _get_url(self, uri):
         return "{0}://{1}:{2}{3}".format(self.protocol, self.ipaddress, self.port, uri)
@@ -153,7 +163,7 @@ class iDRACRedfishAPI(object):
         if headers:
             req_header.update(headers)
         url_kwargs = self._url_common_args_spec(method, api_timeout, headers=headers)
-        if not (path == SESSION_RESOURCE_COLLECTION["SESSION"] and method == 'POST'):
+        if not (path == self.SESSION_RESOURCE_COLLECTION["SESSION"] and method == 'POST'):
             url_kwargs["url_username"] = self.username
             url_kwargs["url_password"] = self.password
             url_kwargs["force_basic_auth"] = True
@@ -185,7 +195,7 @@ class iDRACRedfishAPI(object):
         if self.req_session and not self.x_auth_token:
             payload = {'UserName': self.username,
                        'Password': self.password}
-            path = SESSION_RESOURCE_COLLECTION["SESSION"]
+            path = self.SESSION_RESOURCE_COLLECTION["SESSION"]
             resp = self.invoke_request(path, 'POST', data=payload)
             if resp and resp.success:
                 self.session_id = resp.json_data.get("Id")
@@ -200,7 +210,7 @@ class iDRACRedfishAPI(object):
     def __exit__(self, exc_type, exc_value, traceback):
         """Deletes a session id, which is in use for request"""
         if self.session_id:
-            path = SESSION_RESOURCE_COLLECTION["SESSION_ID"].format(Id=self.session_id)
+            path = self.SESSION_RESOURCE_COLLECTION["SESSION_ID"].format(Id=self.session_id)
             self.invoke_request(path, 'DELETE')
         return False
 
@@ -215,7 +225,14 @@ class iDRACRedfishAPI(object):
         if response.status_code == 200:
             generation = int(re.search(r"\d+(?=G)", response.json_data["Model"]).group())
             firmware_version = response.json_data["FirmwareVersion"]
-        return generation, firmware_version
+        hw_model = ""
+        try:
+            hw_model_out = self.invoke_request(GET_IDRAC_MANAGER_ATTRIBUTES_9_10, 'GET')
+            if hw_model_out.status_code == 200:
+                hw_model = hw_model_out.json_data.get('Attributes', {}).get('Info.1.HWModel', "iDRAC 9")
+        except HTTPError:
+            hw_model = "iDRAC 8"
+        return generation, firmware_version, hw_model
 
     def wait_for_job_complete(self, task_uri, job_wait=False):
         """

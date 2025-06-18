@@ -9,20 +9,22 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ApiKey(_message.Message):
-    __slots__ = ("key_id", "display_name", "key", "create_time", "secure", "email")
+    __slots__ = ("key_id", "display_name", "key", "create_time", "secure", "email", "prefix")
     KEY_ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     KEY_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
     SECURE_FIELD_NUMBER: _ClassVar[int]
     EMAIL_FIELD_NUMBER: _ClassVar[int]
+    PREFIX_FIELD_NUMBER: _ClassVar[int]
     key_id: str
     display_name: str
     key: str
     create_time: _timestamp_pb2.Timestamp
     secure: bool
     email: str
-    def __init__(self, key_id: _Optional[str] = ..., display_name: _Optional[str] = ..., key: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., secure: bool = ..., email: _Optional[str] = ...) -> None: ...
+    prefix: str
+    def __init__(self, key_id: _Optional[str] = ..., display_name: _Optional[str] = ..., key: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., secure: bool = ..., email: _Optional[str] = ..., prefix: _Optional[str] = ...) -> None: ...
 
 class CreateApiKeyRequest(_message.Message):
     __slots__ = ("parent", "api_key")

@@ -5,9 +5,10 @@ import dataclasses
 import datetime as dt
 import json
 import random
+import typing
 import warnings
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Literal, Mapping, Optional, Sequence, Tuple, TypeVar, Union
 from urllib.parse import urlparse
 
 import grpc
@@ -106,6 +107,7 @@ def _canonicalize_headers(
 def get_features_feather_bytes(
     inputs: "Mapping[FeatureReference, Sequence[Any]] | DataFrame | Table | RecordBatch",
     options: InputEncodeOptions,
+    compression: Literal["lz4", "zstd", "uncompressed"] = "lz4",
 ) -> bytes:
     import pyarrow as pa
 
@@ -122,7 +124,7 @@ def get_features_feather_bytes(
     else:
         encoded_inputs = {str(k): v for k, v in inputs.items()}
         input_batch = pa.RecordBatch.from_pydict(encoded_inputs)
-    inputs_bytes = record_batch_to_arrow_ipc(input_batch)
+    inputs_bytes = record_batch_to_arrow_ipc(input_batch, compression=compression)
     return inputs_bytes
 
 
@@ -418,6 +420,7 @@ class ChalkGRPCClient:
         deployment_tag: str | None = None,
         additional_headers: List[tuple[str, str]] | None = None,
         query_server: str | None = None,
+        input_compression: typing.Literal["lz4", "zstd", "uncompressed"] = "lz4",
         **kwargs: Any,
     ):
         """Create a `ChalkGRPCClient` with the given credentials.
@@ -440,6 +443,7 @@ class ChalkGRPCClient:
             Tag of the deployment to query. If omitted, the active deployment is used.
         """
         super().__init__()
+        self._input_compression: typing.Literal["lz4", "zstd", "uncompressed"] = input_compression
         environment_id = kwargs.get("environment_id", None)
         if environment is not None and environment_id is not None:
             raise ValueError("Both environment and environment_id specified; only pass environment.")
@@ -904,7 +908,7 @@ class ChalkGRPCClient:
                 value_metrics_tag_by_features=query_vmtbf,
                 encoding_options=encoding_options,
                 required_resolver_tags=required_resolver_tags or (),
-                planner_options=planner_options or {},
+                planner_options=query.planner_options or planner_options or {},
                 query_context=query_context,
             )
             requests.append(GenericSingleQuery(bulk_request=request))
@@ -983,7 +987,9 @@ class ChalkGRPCClient:
         planner_options: Mapping[str, str | int | bool],
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None,
     ) -> online_query_pb2.OnlineQueryBulkRequest:
-        inputs_bytes = get_features_feather_bytes(input, self._INPUT_ENCODE_OPTIONS)
+        inputs_bytes = get_features_feather_bytes(
+            input, self._INPUT_ENCODE_OPTIONS, compression=self._input_compression
+        )
         encoded_outputs = encode_outputs(output)
         outputs = encoded_outputs.string_outputs
         # Currently assume every feature tag is just a fqn instead of a more complex expr.

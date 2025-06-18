@@ -144,6 +144,10 @@ rules:
     # Forbid tasks with specific tags from being used in buildvariants with certain tags.
     - rule: "forbid-tasks-with-tag-on-variants"
       tags: {[]}
+
+    # Ensure tasks with special tags only run on allowed distros.
+    - rule: "enforce-tasks-distro-with-special-tag"
+      tags: {[]}
 """[
     1:-1
 ]  # <--- this strips the leading and trailing newlines from this HEREDOC

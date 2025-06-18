@@ -27,6 +27,8 @@ class NewHttpTrigger:
         authentication_method (NewHttpTriggerAuthenticationMethod):
         is_static_website (bool):
         workspaced_route (Union[Unset, bool]):
+        summary (Union[Unset, str]):
+        description (Union[Unset, str]):
         static_asset_config (Union[Unset, NewHttpTriggerStaticAssetConfig]):
         authentication_resource_path (Union[Unset, str]):
         wrap_body (Union[Unset, bool]):
@@ -42,6 +44,8 @@ class NewHttpTrigger:
     authentication_method: NewHttpTriggerAuthenticationMethod
     is_static_website: bool
     workspaced_route: Union[Unset, bool] = UNSET
+    summary: Union[Unset, str] = UNSET
+    description: Union[Unset, str] = UNSET
     static_asset_config: Union[Unset, "NewHttpTriggerStaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, str] = UNSET
     wrap_body: Union[Unset, bool] = UNSET
@@ -60,6 +64,8 @@ class NewHttpTrigger:
 
         is_static_website = self.is_static_website
         workspaced_route = self.workspaced_route
+        summary = self.summary
+        description = self.description
         static_asset_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.static_asset_config, Unset):
             static_asset_config = self.static_asset_config.to_dict()
@@ -84,6 +90,10 @@ class NewHttpTrigger:
         )
         if workspaced_route is not UNSET:
             field_dict["workspaced_route"] = workspaced_route
+        if summary is not UNSET:
+            field_dict["summary"] = summary
+        if description is not UNSET:
+            field_dict["description"] = description
         if static_asset_config is not UNSET:
             field_dict["static_asset_config"] = static_asset_config
         if authentication_resource_path is not UNSET:
@@ -118,6 +128,10 @@ class NewHttpTrigger:
 
         workspaced_route = d.pop("workspaced_route", UNSET)
 
+        summary = d.pop("summary", UNSET)
+
+        description = d.pop("description", UNSET)
+
         _static_asset_config = d.pop("static_asset_config", UNSET)
         static_asset_config: Union[Unset, NewHttpTriggerStaticAssetConfig]
         if isinstance(_static_asset_config, Unset):
@@ -141,6 +155,8 @@ class NewHttpTrigger:
             authentication_method=authentication_method,
             is_static_website=is_static_website,
             workspaced_route=workspaced_route,
+            summary=summary,
+            description=description,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,
             wrap_body=wrap_body,

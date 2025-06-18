@@ -17,5 +17,7 @@
 - name: Utils | Assert user | Assert user has given privileges
   ansible.builtin.assert:
     that:
-      - "'GRANT {{ priv }} ON *.*' in result.stdout"
+      - expected_command in result.stdout
   when: priv is defined
+  vars:
+    expected_command: "GRANT {{ priv }} ON *.*"

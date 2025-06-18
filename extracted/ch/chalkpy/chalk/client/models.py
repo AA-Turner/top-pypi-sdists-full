@@ -491,6 +491,7 @@ class OnlineQuery:
     tags: Optional[Sequence[str]] = None
     required_resolver_tags: Optional[Sequence[str]] = None
     value_metrics_tag_by_features: Sequence[str] = ()
+    planner_options: Optional[Mapping[str, Any]] = None
 
 
 class OnlineQueryManyRequest(BaseModel):

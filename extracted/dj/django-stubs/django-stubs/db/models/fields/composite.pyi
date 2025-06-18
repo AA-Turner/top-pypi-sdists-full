@@ -22,6 +22,7 @@ class CompositeAttribute:
 
 class CompositePrimaryKey(Field):
     field_names: tuple[str]
+    descriptor_class: type[CompositeAttribute]
     def __init__(
         self,
         *args: str,
@@ -59,3 +60,5 @@ class CompositePrimaryKey(Field):
     def __iter__(self) -> Iterator[Field | ForeignObjectRel | GenericForeignKey]: ...
     def __len__(self) -> int: ...
     def get_pk_value_on_save(self, instance: Model) -> tuple: ...  # actual type is tuple of field.value_from_object
+
+def unnest(fields: Iterable[Field[Any, Any]]) -> list[Field[Any, Any]]: ...

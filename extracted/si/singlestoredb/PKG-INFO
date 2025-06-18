@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: singlestoredb
-Version: 1.14.1
+Version: 1.14.2
 Summary: Interface to the SingleStoreDB database and workspace management APIs
 Home-page: https://github.com/singlestore-labs/singlestoredb-python
 Author: SingleStore
@@ -23,6 +23,7 @@ Provides-Extra: kerberos
 Provides-Extra: pytest
 Provides-Extra: rsa
 Provides-Extra: sqlalchemy
+Provides-Extra: vectorstore
 License-File: LICENSE
 
 # <img src="https://github.com/singlestore-labs/singlestoredb-python/blob/main/resources/singlestore-logo.png" height="60" valign="middle"/> SingleStoreDB Python SDK

@@ -27,10 +27,15 @@ fn literal(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         return None;
     }
     let m = p.start();
+    if p.eat(BYTE_STRING) {
+        if p.eat(UESCAPE_KW) {
+            p.eat(STRING);
+        }
+    }
     // E021-03 string continuation syntax
     // If two string literals are next to each other, and don't have a comment
     // between them, then they are automatically combined.
-    if p.eat(STRING) {
+    else if p.eat(STRING) {
         while !p.at(EOF) && p.eat(STRING) {}
     } else {
         p.bump_any();
@@ -50,7 +55,11 @@ fn array_expr(p: &mut Parser<'_>, m: Option<Marker>) -> CompletedMarker {
         R_BRACK
     };
     while !p.at(EOF) && !p.at(closing) {
-        if p.at_ts(SELECT_FIRST) && (select(p, None).is_none() || p.at(EOF) || p.at(closing)) {
+        if p.at_ts(SELECT_FIRST)
+            && (select(p, None, &SelectRestrictions::default()).is_none()
+                || p.at(EOF)
+                || p.at(closing))
+        {
             break;
         }
         if expr(p).is_none() {
@@ -68,6 +77,18 @@ fn array_expr(p: &mut Parser<'_>, m: Option<Marker>) -> CompletedMarker {
     m.complete(p, ARRAY_EXPR)
 }
 
+struct SelectRestrictions {
+    trailing_clauses: bool,
+}
+
+impl Default for SelectRestrictions {
+    fn default() -> Self {
+        Self {
+            trailing_clauses: true,
+        }
+    }
+}
+
 fn opt_paren_select(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     let m = p.start();
     if !p.eat(L_PAREN) {
@@ -78,7 +99,11 @@ fn opt_paren_select(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         // saw_expr = true;
         // we want to check for select stuff before we get the the expr stuff maybe? Although select is an expr so maybe fine? but it's not prefix or postfix so maybe right here is good?
         //
-        if p.at_ts(SELECT_FIRST) && (select(p, None).is_none() || p.at(EOF) || p.at(R_PAREN)) {
+        if p.at_ts(SELECT_FIRST)
+            && (select(p, None, &SelectRestrictions::default()).is_none()
+                || p.at(EOF)
+                || p.at(R_PAREN))
+        {
             break;
         }
         if opt_paren_select(p).is_none() {
@@ -89,14 +114,13 @@ fn opt_paren_select(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         }
     }
     p.expect(R_PAREN);
-    let cm = m.complete(p, PAREN_SELECT);
-    let cm = if p.at_ts(COMPOUND_SELECT_FIRST) {
-        compound_select(p, cm)
+    if p.at_ts(COMPOUND_SELECT_FIRST) {
+        let cm = m.complete(p, PAREN_SELECT);
+        Some(compound_select(p, cm))
     } else {
-        cm
-    };
-    select_trailing_clauses(p);
-    Some(cm)
+        select_trailing_clauses(p);
+        Some(m.complete(p, PAREN_SELECT))
+    }
 }
 
 const SELECT_FIRST: TokenSet = TokenSet::new(&[SELECT_KW, TABLE_KW, WITH_KW, VALUES_KW]);
@@ -116,7 +140,11 @@ fn tuple_expr(p: &mut Parser<'_>) -> CompletedMarker {
         saw_expr = true;
         // we want to check for select stuff before we get the the expr stuff maybe? Although select is an expr so maybe fine? but it's not prefix or postfix so maybe right here is good?
         //
-        if p.at_ts(SELECT_FIRST) && (select(p, None).is_none() || p.at(EOF) || p.at(R_PAREN)) {
+        if p.at_ts(SELECT_FIRST)
+            && (select(p, None, &SelectRestrictions::default()).is_none()
+                || p.at(EOF)
+                || p.at(R_PAREN))
+        {
             break;
         }
         if expr(p).is_none() {
@@ -359,10 +387,6 @@ fn substring_fn(p: &mut Parser<'_>) -> CompletedMarker {
             // SIMILAR a_expr ESCAPE a_expr
             SIMILAR_KW => {
                 p.bump(SIMILAR_KW);
-                if expr(p).is_none() {
-                    p.error("expected an expression");
-                }
-                p.expect(ESCAPE_KW);
                 if expr(p).is_none() {
                     p.error("expected an expression");
                 }
@@ -690,7 +714,10 @@ fn json_array_fn_arg_list(p: &mut Parser<'_>) {
     // 1, 2, 3, 4
     while !p.at(EOF) && !p.at(R_PAREN) && !p.at(RETURNING_KW) {
         if p.at_ts(SELECT_FIRST) {
-            if select(p, None).is_none() || p.at(EOF) || p.at(R_PAREN) {
+            if select(p, None, &SelectRestrictions::default()).is_none()
+                || p.at(EOF)
+                || p.at(R_PAREN)
+            {
                 break;
             }
             opt_json_format_clause(p);
@@ -731,7 +758,7 @@ fn some_any_all_fn(p: &mut Parser<'_>) -> CompletedMarker {
     // args
     p.expect(L_PAREN);
     if p.at_ts(SELECT_FIRST) {
-        select(p, None);
+        select(p, None, &SelectRestrictions::default());
     } else {
         if expr(p).is_none() {
             p.error("expected expression or select");
@@ -825,7 +852,7 @@ fn exists_fn(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(EXISTS_KW));
     custom_fn(p, EXISTS_KW, |p| {
         if p.at_ts(SELECT_FIRST) {
-            select(p, None);
+            select(p, None, &SelectRestrictions::default());
         } else {
             p.error("expected select")
         }
@@ -882,9 +909,6 @@ fn opt_xml_passing_mech(p: &mut Parser<'_>) -> bool {
 }
 
 fn xmlexists_arg(p: &mut Parser<'_>) {
-    if expr(p).is_none() {
-        p.error("expected expression");
-    }
     p.expect(PASSING_KW);
     opt_xml_passing_mech(p);
     if expr(p).is_none() {
@@ -905,6 +929,9 @@ fn xmlexists_arg(p: &mut Parser<'_>) {
 fn xmlexists_fn(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(XMLEXISTS_KW));
     custom_fn(p, XMLEXISTS_KW, |p| {
+        if expr(p).is_none() {
+            p.error("expected expression");
+        }
         xmlexists_arg(p);
     })
 }
@@ -979,7 +1006,7 @@ fn xmlserialize_fn(p: &mut Parser<'_>) -> CompletedMarker {
             p.error("expected expression");
         }
         p.expect(AS_KW);
-        simple_type_name(p);
+        type_name(p);
         if p.eat(NO_KW) {
             p.expect(INDENT_KW);
         } else {
@@ -1462,7 +1489,13 @@ fn opt_name(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         return None;
     }
     let m = p.start();
-    p.bump_any();
+    if p.eat(IDENT) {
+        if p.eat(UESCAPE_KW) {
+            p.expect(STRING);
+        }
+    } else {
+        p.bump_any();
+    }
     Some(m.complete(p, NAME))
 }
 
@@ -2156,10 +2189,14 @@ fn current_op(p: &Parser<'_>, r: &Restrictions) -> (u8, SyntaxKind, Associativit
         PLUS if p.next_not_joined_op(0) => (8, PLUS, Left), // symbol
         // overlaps
         OVERLAPS_KW => (7, OVERLAPS_KW, Left),
+        // escape
+        ESCAPE_KW => (7, ESCAPE_KW, Left),
         // like
         LIKE_KW => (6, LIKE_KW, Left),
         // ilike
         ILIKE_KW => (6, ILIKE_KW, Left),
+        // not similar to
+        NOT_KW if !r.not_disabled && p.at(NOT_SIMILAR_TO) => (6, NOT_SIMILAR_TO, Left),
         // not like
         NOT_KW if !r.not_disabled && p.at(NOT_LIKE) => (6, NOT_LIKE, Left),
         // not ilike
@@ -2446,18 +2483,25 @@ fn compound_select(p: &mut Parser<'_>, cm: CompletedMarker) -> CompletedMarker {
         opt_paren_select(p);
     } else {
         if p.at_ts(SELECT_FIRST) {
-            select(p, None);
+            select(
+                p,
+                None,
+                &SelectRestrictions {
+                    trailing_clauses: false,
+                },
+            );
         } else {
             p.error("expected start of a select statement")
         }
     }
+    select_trailing_clauses(p);
     m.complete(p, COMPOUND_SELECT)
 }
 
 // error recovery:
 // - <https://youtu.be/0HlrqwLjCxA?feature=shared&t=2172>
 /// <https://www.postgresql.org/docs/17/sql-select.html>
-fn select(p: &mut Parser, m: Option<Marker>) -> Option<CompletedMarker> {
+fn select(p: &mut Parser, m: Option<Marker>, r: &SelectRestrictions) -> Option<CompletedMarker> {
     assert!(p.at_ts(SELECT_FIRST));
     let m = m.unwrap_or_else(|| p.start());
 
@@ -2495,7 +2539,9 @@ fn select(p: &mut Parser, m: Option<Marker>) -> Option<CompletedMarker> {
         let cm = m.complete(p, SELECT);
         return Some(compound_select(p, cm));
     }
-    select_trailing_clauses(p);
+    if r.trailing_clauses {
+        select_trailing_clauses(p);
+    }
     Some(m.complete(p, out_kind))
 }
 
@@ -2898,14 +2944,15 @@ fn data_source(p: &mut Parser<'_>) {
                 p.expect(L_PAREN);
                 xml_namespace_list(p);
                 p.expect(R_PAREN);
+                p.expect(COMMA);
             }
             if expr(p).is_none() {
                 p.error("expected expression");
             }
             xmlexists_arg(p);
-            p.expect(COLUMNS_KW);
             xmltable_column_list(p);
             p.expect(R_PAREN);
+            opt_alias(p);
         }
         ROWS_KW if p.nth_at(1, FROM_KW) => {
             p.bump(ROWS_KW);
@@ -2940,13 +2987,17 @@ fn data_source(p: &mut Parser<'_>) {
 }
 
 fn xmltable_column_list(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(COLUMNS_KW);
     xmltable_column_el(p);
     while !p.at(EOF) && p.eat(COMMA) {
         xmltable_column_el(p);
     }
+    m.complete(p, XML_TABLE_COLUMN_LIST);
 }
 
 fn xmltable_column_el(p: &mut Parser<'_>) {
+    let m = p.start();
     name(p);
     if p.eat(FOR_KW) {
         p.expect(ORDINALITY_KW);
@@ -2954,20 +3005,21 @@ fn xmltable_column_el(p: &mut Parser<'_>) {
         type_name(p);
         opt_xmltable_column_option_list(p);
     }
+    m.complete(p, XML_TABLE_COLUMN);
 }
 
 fn opt_xmltable_column_option_list(p: &mut Parser<'_>) {
-    if opt_xmltable_column_option_el(p) {
+    let m = p.start();
+    if opt_xmltable_column_option_el(p).is_none() {
+        m.abandon(p);
         return;
     }
-    while !p.at(EOF) && p.eat(COMMA) {
-        if !opt_xmltable_column_option_el(p) {
-            p.error("expected column option");
-        }
-    }
+    while !p.at(EOF) && opt_xmltable_column_option_el(p).is_some() {}
+    m.complete(p, XML_COLUMN_OPTION_LIST);
 }
 
-fn opt_xmltable_column_option_el(p: &mut Parser<'_>) -> bool {
+fn opt_xmltable_column_option_el(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+    let m = p.start();
     match p.current() {
         DEFAULT_KW | PATH_KW | IDENT => {
             p.bump_any();
@@ -2982,9 +3034,12 @@ fn opt_xmltable_column_option_el(p: &mut Parser<'_>) -> bool {
         NULL_KW => {
             p.bump(NULL_KW);
         }
-        _ => return false,
+        _ => {
+            m.abandon(p);
+            return None;
+        }
     }
-    true
+    Some(m.complete(p, XML_COLUMN_OPTION))
 }
 
 fn xml_namespace_list(p: &mut Parser<'_>) {
@@ -5319,7 +5374,7 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
         (ROLLBACK_KW, _) => Some(rollback(p)),
         (SAVEPOINT_KW, _) => Some(savepoint(p)),
         (SECURITY_KW, LABEL_KW) => Some(security_label(p)),
-        (SELECT_KW | TABLE_KW | VALUES_KW, _) => select(p, None),
+        (SELECT_KW | TABLE_KW | VALUES_KW, _) => select(p, None, &SelectRestrictions::default()),
         (SET_KW, CONSTRAINTS_KW) => Some(set_constraints(p)),
         (SET_KW, LOCAL_KW) => match p.nth(2) {
             ROLE_KW => Some(set_role(p)),
@@ -11986,7 +12041,9 @@ fn create_schema(p: &mut Parser<'_>) -> CompletedMarker {
 
 fn query(p: &mut Parser<'_>) {
     // TODO: this needs to be more general
-    if (!p.at_ts(SELECT_FIRST) || select(p, None).is_none()) && opt_paren_select(p).is_none() {
+    if (!p.at_ts(SELECT_FIRST) || select(p, None, &SelectRestrictions::default()).is_none())
+        && opt_paren_select(p).is_none()
+    {
         p.error("expected select stmt")
     }
 }
@@ -12107,7 +12164,7 @@ fn set_clause(p: &mut Parser<'_>) {
             if p.eat(L_PAREN) {
                 // ( sub-SELECT )
                 if p.at(SELECT_KW) && !found_row {
-                    if select(p, None).is_none() {
+                    if select(p, None, &SelectRestrictions::default()).is_none() {
                         p.error("expected sub-SELECT");
                     }
                 } else {
@@ -12202,7 +12259,7 @@ fn with(p: &mut Parser<'_>, m: Option<Marker>) -> Option<CompletedMarker> {
     with_query_clause(p);
     match p.current() {
         DELETE_KW => Some(delete(p, Some(m))),
-        SELECT_KW | TABLE_KW | VALUES_KW => select(p, Some(m)),
+        SELECT_KW | TABLE_KW | VALUES_KW => select(p, Some(m), &SelectRestrictions::default()),
         INSERT_KW => Some(insert(p, Some(m))),
         UPDATE_KW => Some(update(p, Some(m))),
         MERGE_KW => Some(merge(p, Some(m))),
@@ -13098,6 +13155,10 @@ fn set(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.bump(SET_KW);
     let _ = p.eat(SESSION_KW) || p.eat(LOCAL_KW);
+    if p.eat(XML_KW) {
+        p.expect(OPTION_KW);
+        let _ = p.eat(DOCUMENT_KW) || p.eat(CONTENT_KW);
+    } else
     // TIME ZONE { value | 'value' | LOCAL | DEFAULT }
     if p.eat(TIME_KW) {
         p.expect(ZONE_KW);
@@ -13714,7 +13775,13 @@ fn alter_table_action(p: &mut Parser<'_>) -> Option<SyntaxKind> {
 fn opt_col_label(p: &mut Parser<'_>) -> bool {
     if p.at_ts(COL_LABEL_FIRST) {
         let m = p.start();
-        p.bump_any();
+        if p.eat(IDENT) {
+            if p.eat(UESCAPE_KW) {
+                p.expect(STRING);
+            }
+        } else {
+            p.bump_any();
+        }
         m.complete(p, NAME);
         true
     } else {

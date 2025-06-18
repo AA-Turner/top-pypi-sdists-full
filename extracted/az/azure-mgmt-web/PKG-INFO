@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-mgmt-web
-Version: 8.0.0
+Version: 9.0.0
 Summary: Microsoft Azure Web Apps Management Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -11,24 +11,23 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
 Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Requires-Dist: azure-mgmt-core>=1.5.0
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Web Apps Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +50,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -89,6 +88,29 @@ section of the project.
 
 
 # Release History
+
+## 9.0.0 (2025-06-16)
+
+### Features Added
+
+  - Added operation WebSiteManagementClientOperationsMixin.regional_check_name_availability
+  - Added operation group SiteCertificatesOperations
+  - Model AppServicePlan has a new parameter async_scaling_enabled
+  - Model Site has a new parameter client_affinity_partitioning_enabled
+  - Model Site has a new parameter client_affinity_proxy_enabled
+  - Model Site has a new parameter outbound_vnet_routing
+  - Model Site has a new parameter ssh_enabled
+  - Model SiteConfig has a new parameter http20_proxy_flag
+  - Model SiteConfigResource has a new parameter http20_proxy_flag
+  - Model SiteContainer has a new parameter inherit_app_settings_and_connection_strings
+  - Model SitePatchResource has a new parameter client_affinity_proxy_enabled
+
+### Breaking Changes
+
+  - Model Site no longer has parameter vnet_backup_restore_enabled
+  - Model Site no longer has parameter vnet_content_share_enabled
+  - Model Site no longer has parameter vnet_image_pull_enabled
+  - Model Site no longer has parameter vnet_route_all_enabled
 
 ## 8.0.0 (2025-01-23)
 

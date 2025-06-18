@@ -1,7 +1,7 @@
 r'''
 # `google_container_analysis_note`
 
-Refer to the Terraform Registry for docs: [`google_container_analysis_note`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note).
+Refer to the Terraform Registry for docs: [`google_container_analysis_note`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleContainerAnalysisNote(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleContainerAnalysisNote.GoogleContainerAnalysisNote",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note google_container_analysis_note}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note google_container_analysis_note}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleContainerAnalysisNote(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note google_container_analysis_note} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note google_container_analysis_note} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param attestation_authority: attestation_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#attestation_authority GoogleContainerAnalysisNote#attestation_authority}
-        :param name: The name of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#name GoogleContainerAnalysisNote#name}
-        :param expiration_time: Time of expiration for this note. Leave empty if note does not expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#expiration_time GoogleContainerAnalysisNote#expiration_time}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#id GoogleContainerAnalysisNote#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param long_description: A detailed description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#long_description GoogleContainerAnalysisNote#long_description}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#project GoogleContainerAnalysisNote#project}.
-        :param related_note_names: Names of other notes related to this note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#related_note_names GoogleContainerAnalysisNote#related_note_names}
-        :param related_url: related_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#related_url GoogleContainerAnalysisNote#related_url}
-        :param short_description: A one sentence description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#short_description GoogleContainerAnalysisNote#short_description}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#timeouts GoogleContainerAnalysisNote#timeouts}
+        :param attestation_authority: attestation_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#attestation_authority GoogleContainerAnalysisNote#attestation_authority}
+        :param name: The name of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#name GoogleContainerAnalysisNote#name}
+        :param expiration_time: Time of expiration for this note. Leave empty if note does not expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#expiration_time GoogleContainerAnalysisNote#expiration_time}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#id GoogleContainerAnalysisNote#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param long_description: A detailed description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#long_description GoogleContainerAnalysisNote#long_description}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#project GoogleContainerAnalysisNote#project}.
+        :param related_note_names: Names of other notes related to this note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#related_note_names GoogleContainerAnalysisNote#related_note_names}
+        :param related_url: related_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#related_url GoogleContainerAnalysisNote#related_url}
+        :param short_description: A one sentence description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#short_description GoogleContainerAnalysisNote#short_description}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#timeouts GoogleContainerAnalysisNote#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleContainerAnalysisNote(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleContainerAnalysisNote to import.
-        :param import_from_id: The id of the existing GoogleContainerAnalysisNote that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleContainerAnalysisNote that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleContainerAnalysisNote to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class GoogleContainerAnalysisNote(
         hint: typing.Union["GoogleContainerAnalysisNoteAttestationAuthorityHint", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param hint: hint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#hint GoogleContainerAnalysisNote#hint}
+        :param hint: hint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#hint GoogleContainerAnalysisNote#hint}
         '''
         value = GoogleContainerAnalysisNoteAttestationAuthority(hint=hint)
 
@@ -176,9 +176,9 @@ class GoogleContainerAnalysisNote(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#create GoogleContainerAnalysisNote#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#delete GoogleContainerAnalysisNote#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#update GoogleContainerAnalysisNote#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#create GoogleContainerAnalysisNote#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#delete GoogleContainerAnalysisNote#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#update GoogleContainerAnalysisNote#update}.
         '''
         value = GoogleContainerAnalysisNoteTimeouts(
             create=create, delete=delete, update=update
@@ -416,7 +416,7 @@ class GoogleContainerAnalysisNoteAttestationAuthority:
         hint: typing.Union["GoogleContainerAnalysisNoteAttestationAuthorityHint", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param hint: hint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#hint GoogleContainerAnalysisNote#hint}
+        :param hint: hint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#hint GoogleContainerAnalysisNote#hint}
         '''
         if isinstance(hint, dict):
             hint = GoogleContainerAnalysisNoteAttestationAuthorityHint(**hint)
@@ -431,7 +431,7 @@ class GoogleContainerAnalysisNoteAttestationAuthority:
     def hint(self) -> "GoogleContainerAnalysisNoteAttestationAuthorityHint":
         '''hint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#hint GoogleContainerAnalysisNote#hint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#hint GoogleContainerAnalysisNote#hint}
         '''
         result = self._values.get("hint")
         assert result is not None, "Required property 'hint' is missing"
@@ -457,7 +457,7 @@ class GoogleContainerAnalysisNoteAttestationAuthority:
 class GoogleContainerAnalysisNoteAttestationAuthorityHint:
     def __init__(self, *, human_readable_name: builtins.str) -> None:
         '''
-        :param human_readable_name: The human readable name of this Attestation Authority, for example "qa". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#human_readable_name GoogleContainerAnalysisNote#human_readable_name}
+        :param human_readable_name: The human readable name of this Attestation Authority, for example "qa". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#human_readable_name GoogleContainerAnalysisNote#human_readable_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58564c3a777764adec323c2af0d2458a42c7f70b6e926ea2c6f1e7c3d30707bb)
@@ -470,7 +470,7 @@ class GoogleContainerAnalysisNoteAttestationAuthorityHint:
     def human_readable_name(self) -> builtins.str:
         '''The human readable name of this Attestation Authority, for example "qa".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#human_readable_name GoogleContainerAnalysisNote#human_readable_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#human_readable_name GoogleContainerAnalysisNote#human_readable_name}
         '''
         result = self._values.get("human_readable_name")
         assert result is not None, "Required property 'human_readable_name' is missing"
@@ -566,7 +566,7 @@ class GoogleContainerAnalysisNoteAttestationAuthorityOutputReference(
     @jsii.member(jsii_name="putHint")
     def put_hint(self, *, human_readable_name: builtins.str) -> None:
         '''
-        :param human_readable_name: The human readable name of this Attestation Authority, for example "qa". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#human_readable_name GoogleContainerAnalysisNote#human_readable_name}
+        :param human_readable_name: The human readable name of this Attestation Authority, for example "qa". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#human_readable_name GoogleContainerAnalysisNote#human_readable_name}
         '''
         value = GoogleContainerAnalysisNoteAttestationAuthorityHint(
             human_readable_name=human_readable_name
@@ -659,16 +659,16 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param attestation_authority: attestation_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#attestation_authority GoogleContainerAnalysisNote#attestation_authority}
-        :param name: The name of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#name GoogleContainerAnalysisNote#name}
-        :param expiration_time: Time of expiration for this note. Leave empty if note does not expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#expiration_time GoogleContainerAnalysisNote#expiration_time}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#id GoogleContainerAnalysisNote#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param long_description: A detailed description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#long_description GoogleContainerAnalysisNote#long_description}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#project GoogleContainerAnalysisNote#project}.
-        :param related_note_names: Names of other notes related to this note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#related_note_names GoogleContainerAnalysisNote#related_note_names}
-        :param related_url: related_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#related_url GoogleContainerAnalysisNote#related_url}
-        :param short_description: A one sentence description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#short_description GoogleContainerAnalysisNote#short_description}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#timeouts GoogleContainerAnalysisNote#timeouts}
+        :param attestation_authority: attestation_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#attestation_authority GoogleContainerAnalysisNote#attestation_authority}
+        :param name: The name of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#name GoogleContainerAnalysisNote#name}
+        :param expiration_time: Time of expiration for this note. Leave empty if note does not expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#expiration_time GoogleContainerAnalysisNote#expiration_time}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#id GoogleContainerAnalysisNote#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param long_description: A detailed description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#long_description GoogleContainerAnalysisNote#long_description}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#project GoogleContainerAnalysisNote#project}.
+        :param related_note_names: Names of other notes related to this note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#related_note_names GoogleContainerAnalysisNote#related_note_names}
+        :param related_url: related_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#related_url GoogleContainerAnalysisNote#related_url}
+        :param short_description: A one sentence description of the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#short_description GoogleContainerAnalysisNote#short_description}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#timeouts GoogleContainerAnalysisNote#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -798,7 +798,7 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def attestation_authority(self) -> GoogleContainerAnalysisNoteAttestationAuthority:
         '''attestation_authority block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#attestation_authority GoogleContainerAnalysisNote#attestation_authority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#attestation_authority GoogleContainerAnalysisNote#attestation_authority}
         '''
         result = self._values.get("attestation_authority")
         assert result is not None, "Required property 'attestation_authority' is missing"
@@ -808,7 +808,7 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the note.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#name GoogleContainerAnalysisNote#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#name GoogleContainerAnalysisNote#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -818,14 +818,14 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def expiration_time(self) -> typing.Optional[builtins.str]:
         '''Time of expiration for this note. Leave empty if note does not expire.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#expiration_time GoogleContainerAnalysisNote#expiration_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#expiration_time GoogleContainerAnalysisNote#expiration_time}
         '''
         result = self._values.get("expiration_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#id GoogleContainerAnalysisNote#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#id GoogleContainerAnalysisNote#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -837,14 +837,14 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def long_description(self) -> typing.Optional[builtins.str]:
         '''A detailed description of the note.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#long_description GoogleContainerAnalysisNote#long_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#long_description GoogleContainerAnalysisNote#long_description}
         '''
         result = self._values.get("long_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#project GoogleContainerAnalysisNote#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#project GoogleContainerAnalysisNote#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -852,7 +852,7 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def related_note_names(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Names of other notes related to this note.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#related_note_names GoogleContainerAnalysisNote#related_note_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#related_note_names GoogleContainerAnalysisNote#related_note_names}
         '''
         result = self._values.get("related_note_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -863,7 +863,7 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerAnalysisNoteRelatedUrl"]]]:
         '''related_url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#related_url GoogleContainerAnalysisNote#related_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#related_url GoogleContainerAnalysisNote#related_url}
         '''
         result = self._values.get("related_url")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleContainerAnalysisNoteRelatedUrl"]]], result)
@@ -872,7 +872,7 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def short_description(self) -> typing.Optional[builtins.str]:
         '''A one sentence description of the note.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#short_description GoogleContainerAnalysisNote#short_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#short_description GoogleContainerAnalysisNote#short_description}
         '''
         result = self._values.get("short_description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -881,7 +881,7 @@ class GoogleContainerAnalysisNoteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleContainerAnalysisNoteTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#timeouts GoogleContainerAnalysisNote#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#timeouts GoogleContainerAnalysisNote#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleContainerAnalysisNoteTimeouts"], result)
@@ -911,8 +911,8 @@ class GoogleContainerAnalysisNoteRelatedUrl:
         label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: Specific URL associated with the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#url GoogleContainerAnalysisNote#url}
-        :param label: Label to describe usage of the URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#label GoogleContainerAnalysisNote#label}
+        :param url: Specific URL associated with the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#url GoogleContainerAnalysisNote#url}
+        :param label: Label to describe usage of the URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#label GoogleContainerAnalysisNote#label}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e76b0f6111a83ea137d5b8632d8e098e527fffaa1bfe8d53d7efc5a153819a7)
@@ -928,7 +928,7 @@ class GoogleContainerAnalysisNoteRelatedUrl:
     def url(self) -> builtins.str:
         '''Specific URL associated with the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#url GoogleContainerAnalysisNote#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#url GoogleContainerAnalysisNote#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -938,7 +938,7 @@ class GoogleContainerAnalysisNoteRelatedUrl:
     def label(self) -> typing.Optional[builtins.str]:
         '''Label to describe usage of the URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#label GoogleContainerAnalysisNote#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#label GoogleContainerAnalysisNote#label}
         '''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1144,9 +1144,9 @@ class GoogleContainerAnalysisNoteTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#create GoogleContainerAnalysisNote#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#delete GoogleContainerAnalysisNote#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#update GoogleContainerAnalysisNote#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#create GoogleContainerAnalysisNote#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#delete GoogleContainerAnalysisNote#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#update GoogleContainerAnalysisNote#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__231add8ce83b1d763fbad1201ef4e6a4ac8c25e4eb911fd02d484b070052f4d6)
@@ -1163,19 +1163,19 @@ class GoogleContainerAnalysisNoteTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#create GoogleContainerAnalysisNote#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#create GoogleContainerAnalysisNote#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#delete GoogleContainerAnalysisNote#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#delete GoogleContainerAnalysisNote#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_container_analysis_note#update GoogleContainerAnalysisNote#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_container_analysis_note#update GoogleContainerAnalysisNote#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

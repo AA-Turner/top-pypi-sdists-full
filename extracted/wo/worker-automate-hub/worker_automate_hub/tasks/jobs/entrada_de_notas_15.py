@@ -65,9 +65,6 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
     try:
         # Get config from BOF
         config = await get_config_by_name("login_emsys")
-        console.print(task)
-
-        console.print(config)
 
         # Seta config entrada na var nota para melhor entendimento
         nota = task.configEntrada
@@ -541,8 +538,13 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         panel_TabPagamento = panel_TTabSheet.child_window(class_name="TTabSheet")
         #check if have restante
-        remove_btn = panel_TabPagamento.child_window(class_name="TDBIBitBtn", found_index=0)
-        remove_btn.click()
+        app = Application().connect(class_name="TFrmNotaFiscalEntrada")
+        panel_nf = app['TFrmNotaFiscalEntrada']
+        remove_btn = panel_nf.child_window(class_name="TDBIBitBtn", found_index=0)
+        if remove_btn.exists() and remove_btn.is_enabled():   
+            remove_btn.click()
+        else:
+            print("Botão de exclusão não encontrado ou desabilitado.")
         try:
             #Confirm screen to remove actual value and expiration date
             app = Application().connect(class_name="TMessageForm")
@@ -694,3 +696,4 @@ async def entrada_de_notas_15(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
+    

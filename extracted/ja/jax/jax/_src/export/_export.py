@@ -25,15 +25,14 @@ import json
 import re
 from typing import Any, Protocol, TypeVar, Union, cast
 
-from absl import logging
+import logging
 import numpy as np
 
-import jax
-from jax import sharding
-
 from jax._src import ad_util
+from jax._src import api
 from jax._src import config
 from jax._src import core
+from jax._src import custom_derivatives
 from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import effects
@@ -45,15 +44,20 @@ from jax._src.lib import _jax
 from jax._src.lib.mlir import ir, passmanager
 from jax._src.lib.mlir.dialects import hlo
 from jax._src.lib.mlir.dialects import func as func_dialect
+from jax._src import mesh
 from jax._src import pjit
+from jax._src import sharding
 from jax._src import sharding_impls
 from jax._src import source_info_util
 from jax._src import stages
 from jax._src import tree_util
+from jax._src import typing
 from jax._src import util
 from jax._src import xla_bridge as xb
 
 from jax._src.export import shape_poly
+
+logger = logging.getLogger(__name__)
 
 map = util.safe_map
 zip = util.safe_zip
@@ -213,7 +217,7 @@ class Exported:
 
   def in_shardings_jax(
     self,
-    mesh: sharding.Mesh) -> Sequence[sharding.Sharding | None]:
+    mesh: mesh.Mesh) -> Sequence[sharding.Sharding | None]:
     """Creates Shardings corresponding to self.in_shardings_hlo.
 
     The Exported object stores `in_shardings_hlo` as HloShardings, which are
@@ -223,7 +227,7 @@ class Exported:
 
     Example usage:
 
-      >>> from jax import export
+      >>> from jax import export, sharding
       >>> # Prepare the exported object:
       >>> exp_mesh = sharding.Mesh(jax.devices(), ("a",))
       >>> exp = export.export(jax.jit(lambda x: jax.numpy.add(x, x),
@@ -253,7 +257,7 @@ class Exported:
 
   def out_shardings_jax(
       self,
-      mesh: sharding.Mesh) -> Sequence[sharding.Sharding | None]:
+      mesh: mesh.Mesh) -> Sequence[sharding.Sharding | None]:
     """Creates Shardings corresponding to `self.out_shardings_hlo`.
 
     See documentation for in_shardings_jax.
@@ -510,13 +514,13 @@ def default_export_platform() -> str:
   One of: `tpu`, `cpu`, `cuda`, `rocm`.
   """
   # Canonicalize to turn 'gpu' into 'cuda' or 'rocm'
-  return xb.canonicalize_platform(jax.default_backend())
+  return xb.canonicalize_platform(xb.default_backend())
 
 default_lowering_platform = default_export_platform
 
 def shape_and_dtype_jax_array(a) -> tuple[Sequence[int | None], DType]:
   """Returns the shape and dtype of a jax.Array or a j"""
-  if isinstance(a, jax.ShapeDtypeStruct):
+  if isinstance(a, api.ShapeDtypeStruct):
     return a.shape, a.dtype
   aval = core.get_aval(a)
   return aval.shape, aval.dtype
@@ -692,7 +696,7 @@ def _export_lowered(
   shardy_enabled = _jax.sdy.lowered_with_shardy(
       mlir.module_to_bytecode(mlir_module))
 
-  mlir_module_serialized = _module_to_bytecode(mlir_module, shardy_enabled)
+  mlir_module_serialized = _module_to_bytecode(mlir_module)
 
   # Figure out the result types and shapes
   if "global_out_avals" in lowering.compile_args:
@@ -704,16 +708,15 @@ def _export_lowered(
     out_avals_flat = lowered.compile_args["out_avals"]  # type: ignore
 
   # Log and then check the module.
-  if logging.vlog_is_on(3):
-    logmsg = (f"fun_name={fun_name} version={version} "
-              f"lowering_platforms={lowering._platforms} "  # type: ignore[unused-ignore,attribute-error]
-              f"disabled_checks={disabled_checks}")
-    logging.info("Exported JAX function: %s\n", logmsg)
-    logging.info(mlir.dump_module_message(mlir_module, "export"))
-    logging.info(
-        "Size of mlir_module_serialized: %d byte",
-        len(mlir_module_serialized),
-    )
+  logmsg = (f"fun_name={fun_name} version={version} "
+            f"lowering_platforms={lowering._platforms} "  # type: ignore[unused-ignore,attribute-error]
+            f"disabled_checks={disabled_checks}")
+  logger.debug("Exported JAX function: %s\n", logmsg)
+  logger.debug(mlir.dump_module_message(mlir_module, "export"))
+  logger.debug(
+      "Size of mlir_module_serialized: %d byte",
+      len(mlir_module_serialized),
+  )
 
   _check_module(mlir_module,
                 disabled_checks=disabled_checks,
@@ -746,14 +749,14 @@ def _export_lowered(
   cur_mesh = cur_arg = cur_k_path = None
   # lowered.args_info is a tree of the args, but we need the out avals too to
   # get the key paths for.
-  out_avals_tree = jax.tree_util.tree_unflatten(lowered.out_tree, out_avals_flat)
+  out_avals_tree = tree_util.tree_unflatten(lowered.out_tree, out_avals_flat)
   if config.use_shardy_partitioner.value:
     for sharding, (k_path, arg) in zip(
         itertools.chain.from_iterable([
             all_in_shardings, lowering.compile_args["out_shardings"]]),
         itertools.chain.from_iterable([
-            jax.tree.flatten_with_path(lowered.args_info)[0],
-            jax.tree.flatten_with_path(out_avals_tree)[0]])):
+            tree_util.tree_flatten_with_path(lowered.args_info)[0],
+            tree_util.tree_flatten_with_path(out_avals_tree)[0]])):
       if isinstance(sharding, sharding_impls.NamedSharding):
         if cur_mesh is None:
           cur_mesh, cur_arg, cur_k_path = sharding.mesh, arg, k_path
@@ -807,12 +810,8 @@ def _export_lowered(
       calling_convention_version=version,
       _get_vjp=_get_exported_vjp)
 
-def _module_to_bytecode(module: ir.Module, shardy_enabled: bool) -> bytes:
-  if shardy_enabled:
-    mlir_str = _jax.sdy.sdy_round_trip_export_pipeline(
-        mlir.module_to_bytecode(module))
-  else:
-    mlir_str = mlir.module_to_bytecode(module)
+def _module_to_bytecode(module: ir.Module) -> bytes:
+  mlir_str = mlir.module_to_bytecode(module)
   # `target_version` is used to manage situations when a StableHLO producer
   # and a StableHLO consumer were built using different versions of StableHLO.
   #
@@ -1089,6 +1088,8 @@ _GPU_FFI_KERNELS = [
     "hipsolver_gesvd_ffi", "hipsolver_gesvdj_ffi",
     # tridiagonal on GPU
     "cusolver_sytrd_ffi",
+    # tridiagonal_solve on GPU
+    "cusparse_gtsv2_ffi",
 ]
 # These are the JAX custom call target names that are guaranteed to be stable.
 # Their backwards compatibility is tested by back_compat_test.py.
@@ -1104,12 +1105,6 @@ _CUSTOM_CALL_TARGETS_GUARANTEED_STABLE = {
     "Eigh",
     # qr and svd on TPU
     "Qr", "ProductOfElementaryHouseholderReflectors",
-    # triangular_solve on CPU
-    "blas_strsm", "blas_dtrsm", "blas_ctrsm", "blas_ztrsm",
-    # schur on CPU
-    "lapack_sgees", "lapack_dgees", "lapack_cgees", "lapack_zgees",
-    # tridiagonal on CPU
-    "lapack_ssytrd", "lapack_dsytrd", "lapack_chetrd", "lapack_zhetrd",
     # lu on TPU
     "LuDecomposition",
     # ApproxTopK on TPU
@@ -1217,7 +1212,7 @@ def expand_in_shardings(in_shardings: Sequence[LoweringSharding],
 
 def _hlo_sharding_to_gspmd_sharding(
     hlo_sharding: HloSharding | None,
-    device_assignment: Sequence[jax.Device]
+    device_assignment: Sequence[_jax.Device]
     ) -> sharding_impls.GSPMDSharding | None:
   if hlo_sharding is None:
     return None
@@ -1262,7 +1257,7 @@ def _get_vjp_fun(
 
     args_flat_jax, out_cts_flat_jax = util.split_list(args_and_out_cts_flat_jax,
                                                       [len(in_avals)])
-    _, pullback_jax = jax.vjp(primal_fun if flat_primal_fun else flattened_primal_fun_jax,
+    _, pullback_jax = api.vjp(primal_fun if flat_primal_fun else flattened_primal_fun_jax,
                               *args_flat_jax)
     return pullback_jax(out_cts_flat_jax)
 
@@ -1294,12 +1289,12 @@ def _get_vjp_fun(
 
 ### Calling the exported function
 
-def call(exported: Exported) -> Callable[..., jax.Array]:
+def call(exported: Exported) -> Callable[..., typing.Array]:
   if not isinstance(exported, Exported):
     raise ValueError(
       "The exported argument must be an export.Exported. "
       f"Found {exported}.")
-  @jax.custom_vjp
+  @custom_derivatives.custom_vjp
   def f_flat(*args_flat):
     return call_exported_p.bind(*args_flat, exported=exported)
 

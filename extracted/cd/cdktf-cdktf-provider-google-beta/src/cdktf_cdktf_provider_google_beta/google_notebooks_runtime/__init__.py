@@ -1,7 +1,7 @@
 r'''
 # `google_notebooks_runtime`
 
-Refer to the Terraform Registry for docs: [`google_notebooks_runtime`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime).
+Refer to the Terraform Registry for docs: [`google_notebooks_runtime`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleNotebooksRuntime(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleNotebooksRuntime.GoogleNotebooksRuntime",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime google_notebooks_runtime}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime google_notebooks_runtime}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleNotebooksRuntime(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime google_notebooks_runtime} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime google_notebooks_runtime} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#location GoogleNotebooksRuntime#location}
-        :param name: The name specified for the Notebook runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#name GoogleNotebooksRuntime#name}
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#access_config GoogleNotebooksRuntime#access_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#id GoogleNotebooksRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#project GoogleNotebooksRuntime#project}.
-        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#software_config GoogleNotebooksRuntime#software_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#timeouts GoogleNotebooksRuntime#timeouts}
-        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#virtual_machine GoogleNotebooksRuntime#virtual_machine}
+        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#location GoogleNotebooksRuntime#location}
+        :param name: The name specified for the Notebook runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#name GoogleNotebooksRuntime#name}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#access_config GoogleNotebooksRuntime#access_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#id GoogleNotebooksRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#project GoogleNotebooksRuntime#project}.
+        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#software_config GoogleNotebooksRuntime#software_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#timeouts GoogleNotebooksRuntime#timeouts}
+        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#virtual_machine GoogleNotebooksRuntime#virtual_machine}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleNotebooksRuntime(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleNotebooksRuntime to import.
-        :param import_from_id: The id of the existing GoogleNotebooksRuntime that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleNotebooksRuntime that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleNotebooksRuntime to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class GoogleNotebooksRuntime(
         runtime_owner: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_type: The type of access mode this instance. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#RuntimeAccessType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#access_type GoogleNotebooksRuntime#access_type}
-        :param runtime_owner: The owner of this runtime after creation. Format: 'alias@example.com'. Currently supports one owner only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#runtime_owner GoogleNotebooksRuntime#runtime_owner}
+        :param access_type: The type of access mode this instance. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#RuntimeAccessType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#access_type GoogleNotebooksRuntime#access_type}
+        :param runtime_owner: The owner of this runtime after creation. Format: 'alias@example.com'. Currently supports one owner only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#runtime_owner GoogleNotebooksRuntime#runtime_owner}
         '''
         value = GoogleNotebooksRuntimeAccessConfig(
             access_type=access_type, runtime_owner=runtime_owner
@@ -170,15 +170,15 @@ class GoogleNotebooksRuntime(
         post_startup_script_behavior: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#custom_gpu_driver_path GoogleNotebooksRuntime#custom_gpu_driver_path}
-        :param enable_health_monitoring: Verifies core internal services are running. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_health_monitoring GoogleNotebooksRuntime#enable_health_monitoring}
-        :param idle_shutdown: Runtime will automatically shutdown after idle_shutdown_time. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#idle_shutdown GoogleNotebooksRuntime#idle_shutdown}
-        :param idle_shutdown_timeout: Time in minutes to wait before shuting down runtime. Default: 180 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#idle_shutdown_timeout GoogleNotebooksRuntime#idle_shutdown_timeout}
-        :param install_gpu_driver: Install Nvidia Driver automatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#install_gpu_driver GoogleNotebooksRuntime#install_gpu_driver}
-        :param kernels: kernels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#kernels GoogleNotebooksRuntime#kernels}
-        :param notebook_upgrade_schedule: Cron expression in UTC timezone for schedule instance auto upgrade. Please follow the `cron format <https://en.wikipedia.org/wiki/Cron>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#notebook_upgrade_schedule GoogleNotebooksRuntime#notebook_upgrade_schedule}
-        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#post_startup_script GoogleNotebooksRuntime#post_startup_script}
-        :param post_startup_script_behavior: Behavior for the post startup script. Possible values: ["POST_STARTUP_SCRIPT_BEHAVIOR_UNSPECIFIED", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#post_startup_script_behavior GoogleNotebooksRuntime#post_startup_script_behavior}
+        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#custom_gpu_driver_path GoogleNotebooksRuntime#custom_gpu_driver_path}
+        :param enable_health_monitoring: Verifies core internal services are running. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_health_monitoring GoogleNotebooksRuntime#enable_health_monitoring}
+        :param idle_shutdown: Runtime will automatically shutdown after idle_shutdown_time. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#idle_shutdown GoogleNotebooksRuntime#idle_shutdown}
+        :param idle_shutdown_timeout: Time in minutes to wait before shuting down runtime. Default: 180 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#idle_shutdown_timeout GoogleNotebooksRuntime#idle_shutdown_timeout}
+        :param install_gpu_driver: Install Nvidia Driver automatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#install_gpu_driver GoogleNotebooksRuntime#install_gpu_driver}
+        :param kernels: kernels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#kernels GoogleNotebooksRuntime#kernels}
+        :param notebook_upgrade_schedule: Cron expression in UTC timezone for schedule instance auto upgrade. Please follow the `cron format <https://en.wikipedia.org/wiki/Cron>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#notebook_upgrade_schedule GoogleNotebooksRuntime#notebook_upgrade_schedule}
+        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#post_startup_script GoogleNotebooksRuntime#post_startup_script}
+        :param post_startup_script_behavior: Behavior for the post startup script. Possible values: ["POST_STARTUP_SCRIPT_BEHAVIOR_UNSPECIFIED", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#post_startup_script_behavior GoogleNotebooksRuntime#post_startup_script_behavior}
         '''
         value = GoogleNotebooksRuntimeSoftwareConfig(
             custom_gpu_driver_path=custom_gpu_driver_path,
@@ -203,9 +203,9 @@ class GoogleNotebooksRuntime(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#create GoogleNotebooksRuntime#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#delete GoogleNotebooksRuntime#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#update GoogleNotebooksRuntime#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#create GoogleNotebooksRuntime#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#delete GoogleNotebooksRuntime#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#update GoogleNotebooksRuntime#update}.
         '''
         value = GoogleNotebooksRuntimeTimeouts(
             create=create, delete=delete, update=update
@@ -220,7 +220,7 @@ class GoogleNotebooksRuntime(
         virtual_machine_config: typing.Optional[typing.Union["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param virtual_machine_config: virtual_machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#virtual_machine_config GoogleNotebooksRuntime#virtual_machine_config}
+        :param virtual_machine_config: virtual_machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#virtual_machine_config GoogleNotebooksRuntime#virtual_machine_config}
         '''
         value = GoogleNotebooksRuntimeVirtualMachine(
             virtual_machine_config=virtual_machine_config
@@ -443,8 +443,8 @@ class GoogleNotebooksRuntimeAccessConfig:
         runtime_owner: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_type: The type of access mode this instance. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#RuntimeAccessType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#access_type GoogleNotebooksRuntime#access_type}
-        :param runtime_owner: The owner of this runtime after creation. Format: 'alias@example.com'. Currently supports one owner only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#runtime_owner GoogleNotebooksRuntime#runtime_owner}
+        :param access_type: The type of access mode this instance. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#RuntimeAccessType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#access_type GoogleNotebooksRuntime#access_type}
+        :param runtime_owner: The owner of this runtime after creation. Format: 'alias@example.com'. Currently supports one owner only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#runtime_owner GoogleNotebooksRuntime#runtime_owner}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ddf77ac5db0fa99072a87b41c8c9463c683695218cef2e40ede818f37d90a66)
@@ -460,7 +460,7 @@ class GoogleNotebooksRuntimeAccessConfig:
     def access_type(self) -> typing.Optional[builtins.str]:
         '''The type of access mode this instance. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#RuntimeAccessType'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#access_type GoogleNotebooksRuntime#access_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#access_type GoogleNotebooksRuntime#access_type}
         '''
         result = self._values.get("access_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -469,7 +469,7 @@ class GoogleNotebooksRuntimeAccessConfig:
     def runtime_owner(self) -> typing.Optional[builtins.str]:
         '''The owner of this runtime after creation. Format: 'alias@example.com'. Currently supports one owner only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#runtime_owner GoogleNotebooksRuntime#runtime_owner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#runtime_owner GoogleNotebooksRuntime#runtime_owner}
         '''
         result = self._values.get("runtime_owner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -620,15 +620,15 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#location GoogleNotebooksRuntime#location}
-        :param name: The name specified for the Notebook runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#name GoogleNotebooksRuntime#name}
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#access_config GoogleNotebooksRuntime#access_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#id GoogleNotebooksRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#project GoogleNotebooksRuntime#project}.
-        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#software_config GoogleNotebooksRuntime#software_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#timeouts GoogleNotebooksRuntime#timeouts}
-        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#virtual_machine GoogleNotebooksRuntime#virtual_machine}
+        :param location: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#location GoogleNotebooksRuntime#location}
+        :param name: The name specified for the Notebook runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#name GoogleNotebooksRuntime#name}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#access_config GoogleNotebooksRuntime#access_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#id GoogleNotebooksRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#project GoogleNotebooksRuntime#project}.
+        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#software_config GoogleNotebooksRuntime#software_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#timeouts GoogleNotebooksRuntime#timeouts}
+        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#virtual_machine GoogleNotebooksRuntime#virtual_machine}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -759,7 +759,7 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''A reference to the zone where the machine resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#location GoogleNotebooksRuntime#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#location GoogleNotebooksRuntime#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -769,7 +769,7 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name specified for the Notebook runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#name GoogleNotebooksRuntime#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#name GoogleNotebooksRuntime#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -779,14 +779,14 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def access_config(self) -> typing.Optional[GoogleNotebooksRuntimeAccessConfig]:
         '''access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#access_config GoogleNotebooksRuntime#access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#access_config GoogleNotebooksRuntime#access_config}
         '''
         result = self._values.get("access_config")
         return typing.cast(typing.Optional[GoogleNotebooksRuntimeAccessConfig], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#id GoogleNotebooksRuntime#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#id GoogleNotebooksRuntime#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -808,14 +808,14 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#project GoogleNotebooksRuntime#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#project GoogleNotebooksRuntime#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -825,7 +825,7 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleNotebooksRuntimeSoftwareConfig"]:
         '''software_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#software_config GoogleNotebooksRuntime#software_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#software_config GoogleNotebooksRuntime#software_config}
         '''
         result = self._values.get("software_config")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeSoftwareConfig"], result)
@@ -834,7 +834,7 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleNotebooksRuntimeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#timeouts GoogleNotebooksRuntime#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#timeouts GoogleNotebooksRuntime#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeTimeouts"], result)
@@ -845,7 +845,7 @@ class GoogleNotebooksRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleNotebooksRuntimeVirtualMachine"]:
         '''virtual_machine block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#virtual_machine GoogleNotebooksRuntime#virtual_machine}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#virtual_machine GoogleNotebooksRuntime#virtual_machine}
         '''
         result = self._values.get("virtual_machine")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeVirtualMachine"], result)
@@ -1033,15 +1033,15 @@ class GoogleNotebooksRuntimeSoftwareConfig:
         post_startup_script_behavior: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#custom_gpu_driver_path GoogleNotebooksRuntime#custom_gpu_driver_path}
-        :param enable_health_monitoring: Verifies core internal services are running. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_health_monitoring GoogleNotebooksRuntime#enable_health_monitoring}
-        :param idle_shutdown: Runtime will automatically shutdown after idle_shutdown_time. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#idle_shutdown GoogleNotebooksRuntime#idle_shutdown}
-        :param idle_shutdown_timeout: Time in minutes to wait before shuting down runtime. Default: 180 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#idle_shutdown_timeout GoogleNotebooksRuntime#idle_shutdown_timeout}
-        :param install_gpu_driver: Install Nvidia Driver automatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#install_gpu_driver GoogleNotebooksRuntime#install_gpu_driver}
-        :param kernels: kernels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#kernels GoogleNotebooksRuntime#kernels}
-        :param notebook_upgrade_schedule: Cron expression in UTC timezone for schedule instance auto upgrade. Please follow the `cron format <https://en.wikipedia.org/wiki/Cron>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#notebook_upgrade_schedule GoogleNotebooksRuntime#notebook_upgrade_schedule}
-        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#post_startup_script GoogleNotebooksRuntime#post_startup_script}
-        :param post_startup_script_behavior: Behavior for the post startup script. Possible values: ["POST_STARTUP_SCRIPT_BEHAVIOR_UNSPECIFIED", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#post_startup_script_behavior GoogleNotebooksRuntime#post_startup_script_behavior}
+        :param custom_gpu_driver_path: Specify a custom Cloud Storage path where the GPU driver is stored. If not specified, we'll automatically choose from official GPU drivers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#custom_gpu_driver_path GoogleNotebooksRuntime#custom_gpu_driver_path}
+        :param enable_health_monitoring: Verifies core internal services are running. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_health_monitoring GoogleNotebooksRuntime#enable_health_monitoring}
+        :param idle_shutdown: Runtime will automatically shutdown after idle_shutdown_time. Default: True. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#idle_shutdown GoogleNotebooksRuntime#idle_shutdown}
+        :param idle_shutdown_timeout: Time in minutes to wait before shuting down runtime. Default: 180 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#idle_shutdown_timeout GoogleNotebooksRuntime#idle_shutdown_timeout}
+        :param install_gpu_driver: Install Nvidia Driver automatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#install_gpu_driver GoogleNotebooksRuntime#install_gpu_driver}
+        :param kernels: kernels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#kernels GoogleNotebooksRuntime#kernels}
+        :param notebook_upgrade_schedule: Cron expression in UTC timezone for schedule instance auto upgrade. Please follow the `cron format <https://en.wikipedia.org/wiki/Cron>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#notebook_upgrade_schedule GoogleNotebooksRuntime#notebook_upgrade_schedule}
+        :param post_startup_script: Path to a Bash script that automatically runs after a notebook instance fully boots up. The path must be a URL or Cloud Storage path (gs://path-to-file/file-name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#post_startup_script GoogleNotebooksRuntime#post_startup_script}
+        :param post_startup_script_behavior: Behavior for the post startup script. Possible values: ["POST_STARTUP_SCRIPT_BEHAVIOR_UNSPECIFIED", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#post_startup_script_behavior GoogleNotebooksRuntime#post_startup_script_behavior}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43eb5fb242f21167589124f6aae474161c041ccd495c6668eb275163d96fae1d)
@@ -1080,7 +1080,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
 
         If not specified, we'll automatically choose from official GPU drivers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#custom_gpu_driver_path GoogleNotebooksRuntime#custom_gpu_driver_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#custom_gpu_driver_path GoogleNotebooksRuntime#custom_gpu_driver_path}
         '''
         result = self._values.get("custom_gpu_driver_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1091,7 +1091,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Verifies core internal services are running. Default: True.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_health_monitoring GoogleNotebooksRuntime#enable_health_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_health_monitoring GoogleNotebooksRuntime#enable_health_monitoring}
         '''
         result = self._values.get("enable_health_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1102,7 +1102,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Runtime will automatically shutdown after idle_shutdown_time. Default: True.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#idle_shutdown GoogleNotebooksRuntime#idle_shutdown}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#idle_shutdown GoogleNotebooksRuntime#idle_shutdown}
         '''
         result = self._values.get("idle_shutdown")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1111,7 +1111,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
     def idle_shutdown_timeout(self) -> typing.Optional[jsii.Number]:
         '''Time in minutes to wait before shuting down runtime. Default: 180 minutes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#idle_shutdown_timeout GoogleNotebooksRuntime#idle_shutdown_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#idle_shutdown_timeout GoogleNotebooksRuntime#idle_shutdown_timeout}
         '''
         result = self._values.get("idle_shutdown_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1122,7 +1122,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Install Nvidia Driver automatically.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#install_gpu_driver GoogleNotebooksRuntime#install_gpu_driver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#install_gpu_driver GoogleNotebooksRuntime#install_gpu_driver}
         '''
         result = self._values.get("install_gpu_driver")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1133,7 +1133,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNotebooksRuntimeSoftwareConfigKernels"]]]:
         '''kernels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#kernels GoogleNotebooksRuntime#kernels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#kernels GoogleNotebooksRuntime#kernels}
         '''
         result = self._values.get("kernels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNotebooksRuntimeSoftwareConfigKernels"]]], result)
@@ -1142,7 +1142,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
     def notebook_upgrade_schedule(self) -> typing.Optional[builtins.str]:
         '''Cron expression in UTC timezone for schedule instance auto upgrade. Please follow the `cron format <https://en.wikipedia.org/wiki/Cron>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#notebook_upgrade_schedule GoogleNotebooksRuntime#notebook_upgrade_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#notebook_upgrade_schedule GoogleNotebooksRuntime#notebook_upgrade_schedule}
         '''
         result = self._values.get("notebook_upgrade_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1154,7 +1154,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
         The path must be a URL or
         Cloud Storage path (gs://path-to-file/file-name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#post_startup_script GoogleNotebooksRuntime#post_startup_script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#post_startup_script GoogleNotebooksRuntime#post_startup_script}
         '''
         result = self._values.get("post_startup_script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1163,7 +1163,7 @@ class GoogleNotebooksRuntimeSoftwareConfig:
     def post_startup_script_behavior(self) -> typing.Optional[builtins.str]:
         '''Behavior for the post startup script. Possible values: ["POST_STARTUP_SCRIPT_BEHAVIOR_UNSPECIFIED", "RUN_EVERY_START", "DOWNLOAD_AND_RUN_EVERY_START"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#post_startup_script_behavior GoogleNotebooksRuntime#post_startup_script_behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#post_startup_script_behavior GoogleNotebooksRuntime#post_startup_script_behavior}
         '''
         result = self._values.get("post_startup_script_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1193,8 +1193,8 @@ class GoogleNotebooksRuntimeSoftwareConfigKernels:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b98d6f91a8d1be54bbf4ba505b819640b68ce67f971078f0de64ebc0d612ae55)
@@ -1210,7 +1210,7 @@ class GoogleNotebooksRuntimeSoftwareConfigKernels:
     def repository(self) -> builtins.str:
         '''The path to the container image repository. For example: gcr.io/{project_id}/{imageName}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -1220,7 +1220,7 @@ class GoogleNotebooksRuntimeSoftwareConfigKernels:
     def tag(self) -> typing.Optional[builtins.str]:
         '''The tag of the container image. If not specified, this defaults to the latest tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1683,9 +1683,9 @@ class GoogleNotebooksRuntimeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#create GoogleNotebooksRuntime#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#delete GoogleNotebooksRuntime#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#update GoogleNotebooksRuntime#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#create GoogleNotebooksRuntime#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#delete GoogleNotebooksRuntime#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#update GoogleNotebooksRuntime#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0eae06ed3df479b075b81c1f38233986ec623e3c53114e823947bf7add633ef0)
@@ -1702,19 +1702,19 @@ class GoogleNotebooksRuntimeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#create GoogleNotebooksRuntime#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#create GoogleNotebooksRuntime#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#delete GoogleNotebooksRuntime#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#delete GoogleNotebooksRuntime#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#update GoogleNotebooksRuntime#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#update GoogleNotebooksRuntime#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1843,7 +1843,7 @@ class GoogleNotebooksRuntimeVirtualMachine:
         virtual_machine_config: typing.Optional[typing.Union["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param virtual_machine_config: virtual_machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#virtual_machine_config GoogleNotebooksRuntime#virtual_machine_config}
+        :param virtual_machine_config: virtual_machine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#virtual_machine_config GoogleNotebooksRuntime#virtual_machine_config}
         '''
         if isinstance(virtual_machine_config, dict):
             virtual_machine_config = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig(**virtual_machine_config)
@@ -1860,7 +1860,7 @@ class GoogleNotebooksRuntimeVirtualMachine:
     ) -> typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig"]:
         '''virtual_machine_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#virtual_machine_config GoogleNotebooksRuntime#virtual_machine_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#virtual_machine_config GoogleNotebooksRuntime#virtual_machine_config}
         '''
         result = self._values.get("virtual_machine_config")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig"], result)
@@ -1917,20 +1917,20 @@ class GoogleNotebooksRuntimeVirtualMachineOutputReference(
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param data_disk: data_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#data_disk GoogleNotebooksRuntime#data_disk}
-        :param machine_type: The Compute Engine machine type used for runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#machine_type GoogleNotebooksRuntime#machine_type}
-        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#accelerator_config GoogleNotebooksRuntime#accelerator_config}
-        :param container_images: container_images block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#container_images GoogleNotebooksRuntime#container_images}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#encryption_config GoogleNotebooksRuntime#encryption_config}
-        :param internal_ip_only: If true, runtime will only have internal IP addresses. By default, runtimes are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each vm. This 'internal_ip_only' restriction can only be enabled for subnetwork enabled networks, and all dependencies must be configured to be accessible without external IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#internal_ip_only GoogleNotebooksRuntime#internal_ip_only}
-        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
-        :param metadata: The Compute Engine metadata entries to add to virtual machine. (see [Project and instance metadata](https://cloud.google.com /compute/docs/storing-retrieving-metadata#project_and_instance _metadata)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#metadata GoogleNotebooksRuntime#metadata}
-        :param network: The Compute Engine network to be used for machine communications. Cannot be specified with subnetwork. If neither 'network' nor 'subnet' is specified, the "default" network of the project is used, if it exists. A full URL or partial URI. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/global/default' - 'projects/[project_id]/regions/global/default' Runtimes are managed resources inside Google Infrastructure. Runtimes support the following network configurations: - Google Managed Network (Network & subnet are empty) - Consumer Project VPC (network & subnet are required). Requires configuring Private Service Access. - Shared VPC (network & subnet are required). Requires configuring Private Service Access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#network GoogleNotebooksRuntime#network}
-        :param nic_type: The type of vNIC to be used on this interface. This may be gVNIC or VirtioNet. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#nic_type GoogleNotebooksRuntime#nic_type}
-        :param reserved_ip_range: Reserved IP Range name is used for VPC Peering. The subnetwork allocation will use the range *name* if it's assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#reserved_ip_range GoogleNotebooksRuntime#reserved_ip_range}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#shielded_instance_config GoogleNotebooksRuntime#shielded_instance_config}
-        :param subnet: The Compute Engine subnetwork to be used for machine communications. Cannot be specified with network. A full URL or partial URI are valid. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/us-east1/subnetworks/sub0' - 'projects/[project_id]/regions/us-east1/subnetworks/sub0' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#subnet GoogleNotebooksRuntime#subnet}
-        :param tags: The Compute Engine tags to add to runtime (see [Tagging instances] (https://cloud.google.com/compute/docs/ label-or-tag-resources#tags)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#tags GoogleNotebooksRuntime#tags}
+        :param data_disk: data_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#data_disk GoogleNotebooksRuntime#data_disk}
+        :param machine_type: The Compute Engine machine type used for runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#machine_type GoogleNotebooksRuntime#machine_type}
+        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#accelerator_config GoogleNotebooksRuntime#accelerator_config}
+        :param container_images: container_images block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#container_images GoogleNotebooksRuntime#container_images}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#encryption_config GoogleNotebooksRuntime#encryption_config}
+        :param internal_ip_only: If true, runtime will only have internal IP addresses. By default, runtimes are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each vm. This 'internal_ip_only' restriction can only be enabled for subnetwork enabled networks, and all dependencies must be configured to be accessible without external IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#internal_ip_only GoogleNotebooksRuntime#internal_ip_only}
+        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        :param metadata: The Compute Engine metadata entries to add to virtual machine. (see [Project and instance metadata](https://cloud.google.com /compute/docs/storing-retrieving-metadata#project_and_instance _metadata)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#metadata GoogleNotebooksRuntime#metadata}
+        :param network: The Compute Engine network to be used for machine communications. Cannot be specified with subnetwork. If neither 'network' nor 'subnet' is specified, the "default" network of the project is used, if it exists. A full URL or partial URI. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/global/default' - 'projects/[project_id]/regions/global/default' Runtimes are managed resources inside Google Infrastructure. Runtimes support the following network configurations: - Google Managed Network (Network & subnet are empty) - Consumer Project VPC (network & subnet are required). Requires configuring Private Service Access. - Shared VPC (network & subnet are required). Requires configuring Private Service Access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#network GoogleNotebooksRuntime#network}
+        :param nic_type: The type of vNIC to be used on this interface. This may be gVNIC or VirtioNet. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#nic_type GoogleNotebooksRuntime#nic_type}
+        :param reserved_ip_range: Reserved IP Range name is used for VPC Peering. The subnetwork allocation will use the range *name* if it's assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#reserved_ip_range GoogleNotebooksRuntime#reserved_ip_range}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#shielded_instance_config GoogleNotebooksRuntime#shielded_instance_config}
+        :param subnet: The Compute Engine subnetwork to be used for machine communications. Cannot be specified with network. A full URL or partial URI are valid. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/us-east1/subnetworks/sub0' - 'projects/[project_id]/regions/us-east1/subnetworks/sub0' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#subnet GoogleNotebooksRuntime#subnet}
+        :param tags: The Compute Engine tags to add to runtime (see [Tagging instances] (https://cloud.google.com/compute/docs/ label-or-tag-resources#tags)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#tags GoogleNotebooksRuntime#tags}
         '''
         value = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig(
             data_disk=data_disk,
@@ -2035,20 +2035,20 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param data_disk: data_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#data_disk GoogleNotebooksRuntime#data_disk}
-        :param machine_type: The Compute Engine machine type used for runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#machine_type GoogleNotebooksRuntime#machine_type}
-        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#accelerator_config GoogleNotebooksRuntime#accelerator_config}
-        :param container_images: container_images block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#container_images GoogleNotebooksRuntime#container_images}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#encryption_config GoogleNotebooksRuntime#encryption_config}
-        :param internal_ip_only: If true, runtime will only have internal IP addresses. By default, runtimes are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each vm. This 'internal_ip_only' restriction can only be enabled for subnetwork enabled networks, and all dependencies must be configured to be accessible without external IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#internal_ip_only GoogleNotebooksRuntime#internal_ip_only}
-        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
-        :param metadata: The Compute Engine metadata entries to add to virtual machine. (see [Project and instance metadata](https://cloud.google.com /compute/docs/storing-retrieving-metadata#project_and_instance _metadata)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#metadata GoogleNotebooksRuntime#metadata}
-        :param network: The Compute Engine network to be used for machine communications. Cannot be specified with subnetwork. If neither 'network' nor 'subnet' is specified, the "default" network of the project is used, if it exists. A full URL or partial URI. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/global/default' - 'projects/[project_id]/regions/global/default' Runtimes are managed resources inside Google Infrastructure. Runtimes support the following network configurations: - Google Managed Network (Network & subnet are empty) - Consumer Project VPC (network & subnet are required). Requires configuring Private Service Access. - Shared VPC (network & subnet are required). Requires configuring Private Service Access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#network GoogleNotebooksRuntime#network}
-        :param nic_type: The type of vNIC to be used on this interface. This may be gVNIC or VirtioNet. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#nic_type GoogleNotebooksRuntime#nic_type}
-        :param reserved_ip_range: Reserved IP Range name is used for VPC Peering. The subnetwork allocation will use the range *name* if it's assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#reserved_ip_range GoogleNotebooksRuntime#reserved_ip_range}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#shielded_instance_config GoogleNotebooksRuntime#shielded_instance_config}
-        :param subnet: The Compute Engine subnetwork to be used for machine communications. Cannot be specified with network. A full URL or partial URI are valid. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/us-east1/subnetworks/sub0' - 'projects/[project_id]/regions/us-east1/subnetworks/sub0' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#subnet GoogleNotebooksRuntime#subnet}
-        :param tags: The Compute Engine tags to add to runtime (see [Tagging instances] (https://cloud.google.com/compute/docs/ label-or-tag-resources#tags)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#tags GoogleNotebooksRuntime#tags}
+        :param data_disk: data_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#data_disk GoogleNotebooksRuntime#data_disk}
+        :param machine_type: The Compute Engine machine type used for runtimes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#machine_type GoogleNotebooksRuntime#machine_type}
+        :param accelerator_config: accelerator_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#accelerator_config GoogleNotebooksRuntime#accelerator_config}
+        :param container_images: container_images block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#container_images GoogleNotebooksRuntime#container_images}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#encryption_config GoogleNotebooksRuntime#encryption_config}
+        :param internal_ip_only: If true, runtime will only have internal IP addresses. By default, runtimes are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each vm. This 'internal_ip_only' restriction can only be enabled for subnetwork enabled networks, and all dependencies must be configured to be accessible without external IP addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#internal_ip_only GoogleNotebooksRuntime#internal_ip_only}
+        :param labels: The labels to associate with this runtime. Label **keys** must contain 1 to 63 characters, and must conform to [RFC 1035] (https://www.ietf.org/rfc/rfc1035.txt). Label **values** may be empty, but, if present, must contain 1 to 63 characters, and must conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No more than 32 labels can be associated with a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        :param metadata: The Compute Engine metadata entries to add to virtual machine. (see [Project and instance metadata](https://cloud.google.com /compute/docs/storing-retrieving-metadata#project_and_instance _metadata)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#metadata GoogleNotebooksRuntime#metadata}
+        :param network: The Compute Engine network to be used for machine communications. Cannot be specified with subnetwork. If neither 'network' nor 'subnet' is specified, the "default" network of the project is used, if it exists. A full URL or partial URI. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/global/default' - 'projects/[project_id]/regions/global/default' Runtimes are managed resources inside Google Infrastructure. Runtimes support the following network configurations: - Google Managed Network (Network & subnet are empty) - Consumer Project VPC (network & subnet are required). Requires configuring Private Service Access. - Shared VPC (network & subnet are required). Requires configuring Private Service Access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#network GoogleNotebooksRuntime#network}
+        :param nic_type: The type of vNIC to be used on this interface. This may be gVNIC or VirtioNet. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#nic_type GoogleNotebooksRuntime#nic_type}
+        :param reserved_ip_range: Reserved IP Range name is used for VPC Peering. The subnetwork allocation will use the range *name* if it's assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#reserved_ip_range GoogleNotebooksRuntime#reserved_ip_range}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#shielded_instance_config GoogleNotebooksRuntime#shielded_instance_config}
+        :param subnet: The Compute Engine subnetwork to be used for machine communications. Cannot be specified with network. A full URL or partial URI are valid. Examples: - 'https://www.googleapis.com/compute/v1/projects/[project_id]/ regions/us-east1/subnetworks/sub0' - 'projects/[project_id]/regions/us-east1/subnetworks/sub0' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#subnet GoogleNotebooksRuntime#subnet}
+        :param tags: The Compute Engine tags to add to runtime (see [Tagging instances] (https://cloud.google.com/compute/docs/ label-or-tag-resources#tags)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#tags GoogleNotebooksRuntime#tags}
         '''
         if isinstance(data_disk, dict):
             data_disk = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk(**data_disk)
@@ -2109,7 +2109,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     ) -> "GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk":
         '''data_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#data_disk GoogleNotebooksRuntime#data_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#data_disk GoogleNotebooksRuntime#data_disk}
         '''
         result = self._values.get("data_disk")
         assert result is not None, "Required property 'data_disk' is missing"
@@ -2119,7 +2119,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     def machine_type(self) -> builtins.str:
         '''The Compute Engine machine type used for runtimes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#machine_type GoogleNotebooksRuntime#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#machine_type GoogleNotebooksRuntime#machine_type}
         '''
         result = self._values.get("machine_type")
         assert result is not None, "Required property 'machine_type' is missing"
@@ -2131,7 +2131,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     ) -> typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigAcceleratorConfig"]:
         '''accelerator_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#accelerator_config GoogleNotebooksRuntime#accelerator_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#accelerator_config GoogleNotebooksRuntime#accelerator_config}
         '''
         result = self._values.get("accelerator_config")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigAcceleratorConfig"], result)
@@ -2142,7 +2142,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigContainerImages"]]]:
         '''container_images block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#container_images GoogleNotebooksRuntime#container_images}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#container_images GoogleNotebooksRuntime#container_images}
         '''
         result = self._values.get("container_images")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigContainerImages"]]], result)
@@ -2153,7 +2153,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     ) -> typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#encryption_config GoogleNotebooksRuntime#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#encryption_config GoogleNotebooksRuntime#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigEncryptionConfig"], result)
@@ -2171,7 +2171,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
         enabled networks, and all dependencies must be configured to be
         accessible without external IP addresses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#internal_ip_only GoogleNotebooksRuntime#internal_ip_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#internal_ip_only GoogleNotebooksRuntime#internal_ip_only}
         '''
         result = self._values.get("internal_ip_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2187,7 +2187,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
         conform to `RFC 1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. No
         more than 32 labels can be associated with a cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2196,7 +2196,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The Compute Engine metadata entries to add to virtual machine. (see [Project and instance metadata](https://cloud.google.com /compute/docs/storing-retrieving-metadata#project_and_instance _metadata)).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#metadata GoogleNotebooksRuntime#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#metadata GoogleNotebooksRuntime#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2220,7 +2220,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
         - Shared VPC (network & subnet are required). Requires
           configuring Private Service Access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#network GoogleNotebooksRuntime#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#network GoogleNotebooksRuntime#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2232,7 +2232,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
         This may be gVNIC
         or VirtioNet. Possible values: ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#nic_type GoogleNotebooksRuntime#nic_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#nic_type GoogleNotebooksRuntime#nic_type}
         '''
         result = self._values.get("nic_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2241,7 +2241,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     def reserved_ip_range(self) -> typing.Optional[builtins.str]:
         '''Reserved IP Range name is used for VPC Peering. The subnetwork allocation will use the range *name* if it's assigned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#reserved_ip_range GoogleNotebooksRuntime#reserved_ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#reserved_ip_range GoogleNotebooksRuntime#reserved_ip_range}
         '''
         result = self._values.get("reserved_ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2252,7 +2252,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     ) -> typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#shielded_instance_config GoogleNotebooksRuntime#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#shielded_instance_config GoogleNotebooksRuntime#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigShieldedInstanceConfig"], result)
@@ -2268,7 +2268,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
           regions/us-east1/subnetworks/sub0'
         - 'projects/[project_id]/regions/us-east1/subnetworks/sub0'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#subnet GoogleNotebooksRuntime#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#subnet GoogleNotebooksRuntime#subnet}
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2277,7 +2277,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfig:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Compute Engine tags to add to runtime (see [Tagging instances] (https://cloud.google.com/compute/docs/ label-or-tag-resources#tags)).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#tags GoogleNotebooksRuntime#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#tags GoogleNotebooksRuntime#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2307,8 +2307,8 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigAcceleratorConfig:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#core_count GoogleNotebooksRuntime#core_count}
-        :param type: Accelerator model. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#AcceleratorType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
+        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#core_count GoogleNotebooksRuntime#core_count}
+        :param type: Accelerator model. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#AcceleratorType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa12cb61c0e29d4ec1b2afb893324bc1c5b4f0cc45682f339949efe0470fe36a)
@@ -2324,7 +2324,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigAcceleratorConfig:
     def core_count(self) -> typing.Optional[jsii.Number]:
         '''Count of cores of this accelerator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#core_count GoogleNotebooksRuntime#core_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#core_count GoogleNotebooksRuntime#core_count}
         '''
         result = self._values.get("core_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2333,7 +2333,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigAcceleratorConfig:
     def type(self) -> typing.Optional[builtins.str]:
         '''Accelerator model. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#AcceleratorType'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2443,8 +2443,8 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigContainerImages:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a0fdf1d779ddc4c34ac8c1ea3c7094c7144b3436df954db13f3a1321d8aad3c)
@@ -2460,7 +2460,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigContainerImages:
     def repository(self) -> builtins.str:
         '''The path to the container image repository. For example: gcr.io/{project_id}/{imageName}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#repository GoogleNotebooksRuntime#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -2470,7 +2470,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigContainerImages:
     def tag(self) -> typing.Optional[builtins.str]:
         '''The tag of the container image. If not specified, this defaults to the latest tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#tag GoogleNotebooksRuntime#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2684,11 +2684,11 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#initialize_params GoogleNotebooksRuntime#initialize_params}
-        :param interface: "Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. Persistent disks must always use SCSI and the request will fail if you attempt to attach a persistent disk in any other format than SCSI. Local SSDs can use either NVME or SCSI. For performance characteristics of SCSI over NVMe, see Local SSD performance. Valid values: * NVME * SCSI". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#interface GoogleNotebooksRuntime#interface}
-        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#mode GoogleNotebooksRuntime#mode}
-        :param source: Specifies a valid partial or full URL to an existing Persistent Disk resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#source GoogleNotebooksRuntime#source}
-        :param type: Specifies the type of the disk, either SCRATCH or PERSISTENT. If not specified, the default is PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
+        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#initialize_params GoogleNotebooksRuntime#initialize_params}
+        :param interface: "Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. Persistent disks must always use SCSI and the request will fail if you attempt to attach a persistent disk in any other format than SCSI. Local SSDs can use either NVME or SCSI. For performance characteristics of SCSI over NVMe, see Local SSD performance. Valid values: * NVME * SCSI". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#interface GoogleNotebooksRuntime#interface}
+        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#mode GoogleNotebooksRuntime#mode}
+        :param source: Specifies a valid partial or full URL to an existing Persistent Disk resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#source GoogleNotebooksRuntime#source}
+        :param type: Specifies the type of the disk, either SCRATCH or PERSISTENT. If not specified, the default is PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
         '''
         if isinstance(initialize_params, dict):
             initialize_params = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitializeParams(**initialize_params)
@@ -2717,7 +2717,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk:
     ) -> typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitializeParams"]:
         '''initialize_params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#initialize_params GoogleNotebooksRuntime#initialize_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#initialize_params GoogleNotebooksRuntime#initialize_params}
         '''
         result = self._values.get("initialize_params")
         return typing.cast(typing.Optional["GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitializeParams"], result)
@@ -2732,7 +2732,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk:
         can use either NVME or SCSI. For performance characteristics of SCSI
         over NVMe, see Local SSD performance. Valid values: * NVME * SCSI".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#interface GoogleNotebooksRuntime#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#interface GoogleNotebooksRuntime#interface}
         '''
         result = self._values.get("interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2744,7 +2744,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk:
         If not specified, the default is to attach
         the disk in READ_WRITE mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#mode GoogleNotebooksRuntime#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#mode GoogleNotebooksRuntime#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2753,7 +2753,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk:
     def source(self) -> typing.Optional[builtins.str]:
         '''Specifies a valid partial or full URL to an existing Persistent Disk resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#source GoogleNotebooksRuntime#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#source GoogleNotebooksRuntime#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2762,7 +2762,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk:
     def type(self) -> typing.Optional[builtins.str]:
         '''Specifies the type of the disk, either SCRATCH or PERSISTENT. If not specified, the default is PERSISTENT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2801,11 +2801,11 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitialize
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param description: Provide this property when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#description GoogleNotebooksRuntime#description}
-        :param disk_name: Specifies the disk name. If not specified, the default is to use the name of the instance. If the disk with the instance name exists already in the given zone/region, a new name will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_name GoogleNotebooksRuntime#disk_name}
-        :param disk_size_gb: Specifies the size of the disk in base-2 GB. If not specified, the disk will be the same size as the image (usually 10GB). If specified, the size must be equal to or larger than 10GB. Default 100 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_size_gb GoogleNotebooksRuntime#disk_size_gb}
-        :param disk_type: The type of the boot disk attached to this runtime, defaults to standard persistent disk. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/ reference/rest/v1/projects.locations.runtimes#disktype'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_type GoogleNotebooksRuntime#disk_type}
-        :param labels: Labels to apply to this disk. These can be later modified by the disks.setLabels method. This field is only applicable for persistent disks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        :param description: Provide this property when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#description GoogleNotebooksRuntime#description}
+        :param disk_name: Specifies the disk name. If not specified, the default is to use the name of the instance. If the disk with the instance name exists already in the given zone/region, a new name will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_name GoogleNotebooksRuntime#disk_name}
+        :param disk_size_gb: Specifies the size of the disk in base-2 GB. If not specified, the disk will be the same size as the image (usually 10GB). If specified, the size must be equal to or larger than 10GB. Default 100 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_size_gb GoogleNotebooksRuntime#disk_size_gb}
+        :param disk_type: The type of the boot disk attached to this runtime, defaults to standard persistent disk. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/ reference/rest/v1/projects.locations.runtimes#disktype'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_type GoogleNotebooksRuntime#disk_type}
+        :param labels: Labels to apply to this disk. These can be later modified by the disks.setLabels method. This field is only applicable for persistent disks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77d816422b1e6f1ff9d1677f1e80f4790b6431f40b00de858cee524eb13b25e1)
@@ -2830,7 +2830,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitialize
     def description(self) -> typing.Optional[builtins.str]:
         '''Provide this property when creating the disk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#description GoogleNotebooksRuntime#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#description GoogleNotebooksRuntime#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2844,7 +2844,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitialize
         instance name exists already in the given zone/region, a
         new name will be automatically generated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_name GoogleNotebooksRuntime#disk_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_name GoogleNotebooksRuntime#disk_name}
         '''
         result = self._values.get("disk_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2858,7 +2858,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitialize
         (usually 10GB). If specified, the size must be equal to
         or larger than 10GB. Default 100 GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_size_gb GoogleNotebooksRuntime#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_size_gb GoogleNotebooksRuntime#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2867,7 +2867,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitialize
     def disk_type(self) -> typing.Optional[builtins.str]:
         '''The type of the boot disk attached to this runtime, defaults to standard persistent disk. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/ reference/rest/v1/projects.locations.runtimes#disktype'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_type GoogleNotebooksRuntime#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_type GoogleNotebooksRuntime#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2880,7 +2880,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitialize
         by the disks.setLabels method. This field is only
         applicable for persistent disks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3073,11 +3073,11 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskOutputRefe
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param description: Provide this property when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#description GoogleNotebooksRuntime#description}
-        :param disk_name: Specifies the disk name. If not specified, the default is to use the name of the instance. If the disk with the instance name exists already in the given zone/region, a new name will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_name GoogleNotebooksRuntime#disk_name}
-        :param disk_size_gb: Specifies the size of the disk in base-2 GB. If not specified, the disk will be the same size as the image (usually 10GB). If specified, the size must be equal to or larger than 10GB. Default 100 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_size_gb GoogleNotebooksRuntime#disk_size_gb}
-        :param disk_type: The type of the boot disk attached to this runtime, defaults to standard persistent disk. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/ reference/rest/v1/projects.locations.runtimes#disktype'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#disk_type GoogleNotebooksRuntime#disk_type}
-        :param labels: Labels to apply to this disk. These can be later modified by the disks.setLabels method. This field is only applicable for persistent disks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
+        :param description: Provide this property when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#description GoogleNotebooksRuntime#description}
+        :param disk_name: Specifies the disk name. If not specified, the default is to use the name of the instance. If the disk with the instance name exists already in the given zone/region, a new name will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_name GoogleNotebooksRuntime#disk_name}
+        :param disk_size_gb: Specifies the size of the disk in base-2 GB. If not specified, the disk will be the same size as the image (usually 10GB). If specified, the size must be equal to or larger than 10GB. Default 100 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_size_gb GoogleNotebooksRuntime#disk_size_gb}
+        :param disk_type: The type of the boot disk attached to this runtime, defaults to standard persistent disk. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/ reference/rest/v1/projects.locations.runtimes#disktype'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#disk_type GoogleNotebooksRuntime#disk_type}
+        :param labels: Labels to apply to this disk. These can be later modified by the disks.setLabels method. This field is only applicable for persistent disks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#labels GoogleNotebooksRuntime#labels}
         '''
         value = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskInitializeParams(
             description=description,
@@ -3252,7 +3252,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDiskOutputRefe
 class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigEncryptionConfig:
     def __init__(self, *, kms_key: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key: The Cloud KMS resource identifier of the customer-managed encryption key used to protect a resource, such as a disks. It has the following format: 'projects/{PROJECT_ID}/locations/{REGION}/keyRings/ {KEY_RING_NAME}/cryptoKeys/{KEY_NAME}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#kms_key GoogleNotebooksRuntime#kms_key}
+        :param kms_key: The Cloud KMS resource identifier of the customer-managed encryption key used to protect a resource, such as a disks. It has the following format: 'projects/{PROJECT_ID}/locations/{REGION}/keyRings/ {KEY_RING_NAME}/cryptoKeys/{KEY_NAME}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#kms_key GoogleNotebooksRuntime#kms_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63ecd5795655e113191546162d6f516270a8626b8efa0c804d38e7c5cfca3646)
@@ -3269,7 +3269,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigEncryptionConfig:
         'projects/{PROJECT_ID}/locations/{REGION}/keyRings/
         {KEY_RING_NAME}/cryptoKeys/{KEY_NAME}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#kms_key GoogleNotebooksRuntime#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#kms_key GoogleNotebooksRuntime#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3373,8 +3373,8 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#core_count GoogleNotebooksRuntime#core_count}
-        :param type: Accelerator model. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#AcceleratorType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
+        :param core_count: Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#core_count GoogleNotebooksRuntime#core_count}
+        :param type: Accelerator model. For valid values, see 'https://cloud.google.com/vertex-ai/docs/workbench/reference/ rest/v1/projects.locations.runtimes#AcceleratorType'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
         '''
         value = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigAcceleratorConfig(
             core_count=core_count, type=type
@@ -3406,11 +3406,11 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#initialize_params GoogleNotebooksRuntime#initialize_params}
-        :param interface: "Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. Persistent disks must always use SCSI and the request will fail if you attempt to attach a persistent disk in any other format than SCSI. Local SSDs can use either NVME or SCSI. For performance characteristics of SCSI over NVMe, see Local SSD performance. Valid values: * NVME * SCSI". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#interface GoogleNotebooksRuntime#interface}
-        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#mode GoogleNotebooksRuntime#mode}
-        :param source: Specifies a valid partial or full URL to an existing Persistent Disk resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#source GoogleNotebooksRuntime#source}
-        :param type: Specifies the type of the disk, either SCRATCH or PERSISTENT. If not specified, the default is PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
+        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#initialize_params GoogleNotebooksRuntime#initialize_params}
+        :param interface: "Specifies the disk interface to use for attaching this disk, which is either SCSI or NVME. The default is SCSI. Persistent disks must always use SCSI and the request will fail if you attempt to attach a persistent disk in any other format than SCSI. Local SSDs can use either NVME or SCSI. For performance characteristics of SCSI over NVMe, see Local SSD performance. Valid values: * NVME * SCSI". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#interface GoogleNotebooksRuntime#interface}
+        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#mode GoogleNotebooksRuntime#mode}
+        :param source: Specifies a valid partial or full URL to an existing Persistent Disk resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#source GoogleNotebooksRuntime#source}
+        :param type: Specifies the type of the disk, either SCRATCH or PERSISTENT. If not specified, the default is PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#type GoogleNotebooksRuntime#type}
         '''
         value = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigDataDisk(
             initialize_params=initialize_params,
@@ -3429,7 +3429,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigOutputReference(
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key: The Cloud KMS resource identifier of the customer-managed encryption key used to protect a resource, such as a disks. It has the following format: 'projects/{PROJECT_ID}/locations/{REGION}/keyRings/ {KEY_RING_NAME}/cryptoKeys/{KEY_NAME}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#kms_key GoogleNotebooksRuntime#kms_key}
+        :param kms_key: The Cloud KMS resource identifier of the customer-managed encryption key used to protect a resource, such as a disks. It has the following format: 'projects/{PROJECT_ID}/locations/{REGION}/keyRings/ {KEY_RING_NAME}/cryptoKeys/{KEY_NAME}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#kms_key GoogleNotebooksRuntime#kms_key}
         '''
         value = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigEncryptionConfig(
             kms_key=kms_key
@@ -3446,9 +3446,9 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigOutputReference(
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_integrity_monitoring GoogleNotebooksRuntime#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled.Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_secure_boot GoogleNotebooksRuntime#enable_secure_boot}
-        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_vtpm GoogleNotebooksRuntime#enable_vtpm}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_integrity_monitoring GoogleNotebooksRuntime#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled.Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_secure_boot GoogleNotebooksRuntime#enable_secure_boot}
+        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_vtpm GoogleNotebooksRuntime#enable_vtpm}
         '''
         value = GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigShieldedInstanceConfig(
             enable_integrity_monitoring=enable_integrity_monitoring,
@@ -3786,9 +3786,9 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigShieldedInstanceCo
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_integrity_monitoring GoogleNotebooksRuntime#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled.Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_secure_boot GoogleNotebooksRuntime#enable_secure_boot}
-        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_vtpm GoogleNotebooksRuntime#enable_vtpm}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_integrity_monitoring GoogleNotebooksRuntime#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled.Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_secure_boot GoogleNotebooksRuntime#enable_secure_boot}
+        :param enable_vtpm: Defines whether the instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_vtpm GoogleNotebooksRuntime#enable_vtpm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7e01a379fbeac88f419bc03d3eae2061cec16fd7cee3b39a78ab28290251e83)
@@ -3815,7 +3815,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigShieldedInstanceCo
         from the implicitly trusted boot image when the instance is
         created. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_integrity_monitoring GoogleNotebooksRuntime#enable_integrity_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_integrity_monitoring GoogleNotebooksRuntime#enable_integrity_monitoring}
         '''
         result = self._values.get("enable_integrity_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3826,7 +3826,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigShieldedInstanceCo
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance has Secure Boot enabled.Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_secure_boot GoogleNotebooksRuntime#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_secure_boot GoogleNotebooksRuntime#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3837,7 +3837,7 @@ class GoogleNotebooksRuntimeVirtualMachineVirtualMachineConfigShieldedInstanceCo
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance has the vTPM enabled. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_notebooks_runtime#enable_vtpm GoogleNotebooksRuntime#enable_vtpm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_notebooks_runtime#enable_vtpm GoogleNotebooksRuntime#enable_vtpm}
         '''
         result = self._values.get("enable_vtpm")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

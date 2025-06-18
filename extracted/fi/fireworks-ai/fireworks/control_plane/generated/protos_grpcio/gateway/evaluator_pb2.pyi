@@ -64,7 +64,7 @@ class Criterion(_message.Message):
     def __init__(self, type: _Optional[_Union[Criterion.Type, str]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., code_snippets: _Optional[_Union[CodeSnippets, _Mapping]] = ...) -> None: ...
 
 class CodeSnippets(_message.Message):
-    __slots__ = ("language", "file_contents")
+    __slots__ = ("language", "file_contents", "entry_file", "entry_func")
     class FileContentsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -74,9 +74,13 @@ class CodeSnippets(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     LANGUAGE_FIELD_NUMBER: _ClassVar[int]
     FILE_CONTENTS_FIELD_NUMBER: _ClassVar[int]
+    ENTRY_FILE_FIELD_NUMBER: _ClassVar[int]
+    ENTRY_FUNC_FIELD_NUMBER: _ClassVar[int]
     language: str
     file_contents: _containers.ScalarMap[str, str]
-    def __init__(self, language: _Optional[str] = ..., file_contents: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    entry_file: str
+    entry_func: str
+    def __init__(self, language: _Optional[str] = ..., file_contents: _Optional[_Mapping[str, str]] = ..., entry_file: _Optional[str] = ..., entry_func: _Optional[str] = ...) -> None: ...
 
 class RollupSettings(_message.Message):
     __slots__ = ("criteria_weights", "python_code", "success_threshold", "skip_rollup")

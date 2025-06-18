@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_system_certs
-Version: 5.0
+Version: 5.2
 Summary: Automatically configures Python to use system certificates via truststore
 Author-email: Andrew Leech <andrew@alelec.net>
 License-Expression: BSD-3-Clause
@@ -20,7 +20,7 @@ Classifier: Topic :: Security :: Cryptography
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: truststore>=0.8.0
+Requires-Dist: pip>=24.2
 Dynamic: license-file
 
 ================
@@ -42,20 +42,20 @@ This works for pip, requests, urllib3, and any other Python library that uses th
 Requirements
 ------------
 * Python 3.10 or higher
-* ``truststore`` library (installed automatically)
+* pip 24.2 or higher (upgraded automatically if needed)
 
 Compatibility
 -------------
-``pip-system-certs`` uses the ``truststore`` library to inject system certificate verification 
-into Python's SSL context. This provides native OS integration using:
+``pip-system-certs`` uses pip's built-in ``truststore`` library to inject system certificate 
+verification into Python's SSL context. This provides native OS integration using:
 
 * **macOS**: Security framework
 * **Windows**: CryptoAPI  
 * **Linux**: OpenSSL with system certificate stores
 
-This approach is more reliable than monkey-patching and automatically works with any Python 
-library that uses SSL (requests, urllib3, httpx, etc.). The ``truststore`` library is the 
-same technology now used by pip 24.2+ by default.
+This approach leverages the same truststore technology that pip uses internally, ensuring 
+compatibility and reliability. It automatically works with any Python library that uses SSL 
+(requests, urllib3, httpx, etc.).
 
 If you encounter issues, please report them at https://gitlab.com/alelec/pip-system-certs/-/issues
 
@@ -79,16 +79,17 @@ This must be called before any SSL connections are made.
 
 Architecture
 ------------
-This package uses a bootstrap system to automatically inject ``truststore`` into Python's SSL 
-context at startup:
+This package uses a bootstrap system to automatically inject system certificate support:
 
 1. A ``.pth`` file triggers the bootstrap when Python starts
-2. The bootstrap calls ``truststore.inject_into_ssl()`` to configure system certificates
-3. All subsequent SSL connections use the system certificate store
+2. Uses pip's vendored ``truststore`` library (pip 24.2+) for compatibility
+3. Calls ``truststore.inject_into_ssl()`` to globally configure system certificates
+4. All subsequent SSL connections (pip, requests, etc.) use the system certificate store
 
 Acknowledgements
 ----------------
-This package now uses the ``truststore`` library by Seth Michael Larson for system certificate 
-integration: https://pypi.org/project/truststore/
+This package leverages pip's vendored ``truststore`` library by Seth Michael Larson for system 
+certificate integration. This ensures compatibility with modern pip versions while avoiding 
+dependency conflicts.
 
 The bootstrap system was originally inspired by the autowrapt module.

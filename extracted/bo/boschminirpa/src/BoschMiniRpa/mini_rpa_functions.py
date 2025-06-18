@@ -263,7 +263,6 @@ class MiniRpaFunction(MiniRPACore):
             # fill missing, convert to str, join with separator
             combine_data[new_column_name] = combine_data[from_column_list].fillna('').astype(str).agg(separator.join, axis=1)
 
-
             # combine_data[new_column_name] = ''
             # for column_index, column_name in enumerate(from_column_list):
             #     temp_column_name = f'{column_name}_temp'
@@ -1128,15 +1127,16 @@ class MiniRpaFunction(MiniRPACore):
                                           update_range, False, self.port)
             del target_data
 
-    def hrs_merge_weekly_rehiring_data(self, rehiring_folder_path, rehiring_sheet_name):
+    def hrs_merge_weekly_rehiring_data(self, rehiring_folder_path, rehiring_sheet_name, text_column_names):
         """ This function is used to merge weekly rehiring data from multiple files and save it to a specified folder.
 
         Args:
             rehiring_folder_path(str): This is the folder path where weekly rehiring files are located.
             rehiring_sheet_name(str): This is the sheet name of the rehiring files to be merged.
+            text_column_names(str): This is the list of column names that should be treated as text.
         """
         hrs_merge_weekly_rehiring_data(self.user_name, self.user_password, self.server_name, self.share_name, rehiring_folder_path, rehiring_sheet_name, self.report_save_path,
-                                       self.port)
+                                       self.port, text_column_names)
 
     def hrs_collect_row_value_diffs(self, from_folder_path: str, from_file_name: str, from_sheet_name: str, from_column_by: str, update_folder_path: str, update_file_name: str,
                                     update_sheet_name: str, update_column_by: str, config_folder_path: str, config_file_name: str, config_sheet_name: str,

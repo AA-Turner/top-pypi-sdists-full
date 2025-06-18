@@ -2120,6 +2120,48 @@ class TestUnrollerCompatability(QiskitTestCase):
 
         self.assertEqual(block, out)
 
+    def test_unroll_with_clbit_mapping(self):
+        """Test unrolling a custom definition that has qubits and clbits
+        that require mapping to the global clbits.
+        Regression test for: https://github.com/Qiskit/qiskit/issues/14569
+        """
+        block = QuantumCircuit(2, 2)
+        block.h(0)
+        block.measure([0, 1], [0, 1])
+
+        circuit = QuantumCircuit(6, 6)
+        circuit.append(block.to_instruction(), [0, 1], [0, 1])
+        circuit.append(block.to_instruction(), [2, 3], [3, 2])
+        circuit.append(block.to_instruction(), [4, 5], [4, 5])
+
+        hls = HighLevelSynthesis(basis_gates=["h", "measure"])
+        out = hls(circuit)
+
+        self.assertEqual(
+            (out.find_bit(out.data[3].qubits[0]).index, out.find_bit(out.data[3].clbits[0]).index),
+            (0, 0),
+        )
+        self.assertEqual(
+            (out.find_bit(out.data[4].qubits[0]).index, out.find_bit(out.data[4].clbits[0]).index),
+            (1, 1),
+        )
+        self.assertEqual(
+            (out.find_bit(out.data[5].qubits[0]).index, out.find_bit(out.data[5].clbits[0]).index),
+            (3, 2),
+        )
+        self.assertEqual(
+            (out.find_bit(out.data[6].qubits[0]).index, out.find_bit(out.data[6].clbits[0]).index),
+            (2, 3),
+        )
+        self.assertEqual(
+            (out.find_bit(out.data[7].qubits[0]).index, out.find_bit(out.data[7].clbits[0]).index),
+            (4, 4),
+        )
+        self.assertEqual(
+            (out.find_bit(out.data[8].qubits[0]).index, out.find_bit(out.data[8].clbits[0]).index),
+            (5, 5),
+        )
+
 
 class TestGate(Gate):
     """Mock one qubit zero param gate."""
@@ -2705,6 +2747,22 @@ class TestPauliEvolutionSynthesisPlugins(QiskitTestCase):
         self.assertEqual(Operator(qc), Operator(qct))
         self.assertEqual(count_rotation_gates(qct), 1)
 
+    def test_default_preserve_order(self):
+        """Test that option preserve_order is reset."""
+        op = SparsePauliOp(["IIIX", "IIXX", "IYYI", "IIZZ"], coeffs=[1, 2, 3, 4])
+        qc = QuantumCircuit(6)
+        qc.append(PauliEvolutionGate(op), [1, 2, 3, 4])
+        with self.subTest("preserve_order_is_reset"):
+            hls_config = HLSConfig(PauliEvolution=[("default", {"preserve_order": False})])
+            hls_pass = HighLevelSynthesis(hls_config=hls_config)
+            qct = hls_pass(qc)
+            self.assertEqual(qct.depth(), 3)
+            # check that preserve_order is reset and is no longer False
+            hls_config = HLSConfig(PauliEvolution=[("default", {})])
+            hls_pass = HighLevelSynthesis(hls_config=hls_config)
+            qct = hls_pass(qc)
+            self.assertEqual(qct.depth(), 4)
+
     def test_rustiq_upto_options(self):
         """Test non-default Rustiq options upto_phase and upto_clifford."""
         op = SparsePauliOp(["XXXX", "YYYY", "ZZZZ"], coeffs=[1, 2, 3])
@@ -2757,6 +2815,20 @@ class TestPauliEvolutionSynthesisPlugins(QiskitTestCase):
             cnt_ops = qct.count_ops()
             self.assertEqual(count_rotation_gates(qct), 6)
             self.assertEqual(cnt_ops["cx"], 4)
+        with self.subTest("preserve_order_is_reset"):
+            hls_config = HLSConfig(PauliEvolution=[("rustiq", {"preserve_order": False})])
+            hls_pass = HighLevelSynthesis(hls_config=hls_config)
+            qct = hls_pass(qc)
+            cnt_ops = qct.count_ops()
+            self.assertEqual(count_rotation_gates(qct), 6)
+            self.assertEqual(cnt_ops["cx"], 4)
+            # check that preserve_order is reset and is no longer False
+            hls_config = HLSConfig(PauliEvolution=[("rustiq", {})])
+            hls_pass = HighLevelSynthesis(hls_config=hls_config)
+            qct = hls_pass(qc)
+            cnt_ops = qct.count_ops()
+            self.assertEqual(count_rotation_gates(qct), 6)
+            self.assertEqual(cnt_ops["cx"], 16)
 
     def test_rustiq_upto_phase(self):
         """Check that Rustiq synthesis with ``upto_phase=True`` produces a correct

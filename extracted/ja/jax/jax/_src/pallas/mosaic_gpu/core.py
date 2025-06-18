@@ -87,6 +87,16 @@ class CompilerParams(pallas_core.CompilerParams):
       references. Defaults to 0, and must be strictly smaller than
       max_concurrent_steps. Generally, you'll want to set it to 1 if you don't
       await the WGMMA in the body.
+    unsafe_no_auto_barriers: If True, Pallas will never automatically insert
+      barrier instructions that ensure synchronous semantics of loads and stores.
+      At the moment, the insertion is done conservatively and might regress
+      performance. There are (at least) two conditions that must be satisfied
+      for the use of this flag to be safe. First, no memory region is ever read
+      *and* written to by the same thread (async copies are performed by
+      background threads and do not count towards this rule). Secondly, no
+      thread ever calls commit_smem(), reads from the committed SMEM and then
+      issues an async copy overwriting that region (this is a very artificial
+      and highly unlikely scenario).
     profile_space: The number of profiler events that can be collected in a
       single invocation. It is undefined behavior if a thread collects more
       events than this.
@@ -97,11 +107,16 @@ class CompilerParams(pallas_core.CompilerParams):
   dimension_semantics: Sequence[DimensionSemantics] | None = None
   max_concurrent_steps: int = 1
   delay_release: int = 0
+  unsafe_no_auto_barriers: bool = False
   profile_space: int = 0
   profile_dir: str = ""
   lowering_semantics: mgpu.core.LoweringSemantics = mgpu.core.LoweringSemantics.Lane
 
   def __post_init__(self):
+    if self.dimension_semantics is not None:
+      object.__setattr__(
+          self, "dimension_semantics", tuple(self.dimension_semantics)
+      )
     if bool(self.profile_space) ^ bool(self.profile_dir):
       raise ValueError(
           "Either both profile_space and profile_dir must be set, or neither."
@@ -199,30 +214,6 @@ def kernel(
     )
     return outs[0] if unwrap_out else outs
   return wrapper
-
-
-def _is_known_divisible(value, divisor, fuel=10) -> bool:
-  """Returns True if the value is statically known to be divisible by the divisor."""
-  if divisor == 1:
-    return True
-  if fuel < 0:
-    return False
-  if not isinstance(value.owner, ir.Operation):
-    return False
-  def_op = value.owner.opview
-  match def_op:
-    case arith_dialect.IndexCastOp():
-      return _is_known_divisible(value.owner.operands[0], divisor, fuel - 1)
-    case arith_dialect.ConstantOp():
-      return ir.IntegerAttr(def_op.value).value % divisor == 0
-    case arith_dialect.MulIOp():
-      return (_is_known_divisible(value.owner.operands[0], divisor, fuel // 2) or
-              _is_known_divisible(value.owner.operands[1], divisor, (fuel + 1)// 2))
-    case arith_dialect.SelectOp():
-      return (_is_known_divisible(value.owner.operands[1], divisor, fuel // 2) and
-              _is_known_divisible(value.owner.operands[2], divisor, (fuel + 1)// 2))
-
-  return False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -351,13 +342,17 @@ class AbstractRefUnion(pallas_core.AbstractMemoryRef):
     del tracer, index, value  # Unused.
     raise ValueError("Ref unions can't be assigned to.")
 
+  def update(self, inner_aval=None, memory_space=None):
+    ref = super().update(inner_aval, memory_space)
+    return AbstractRefUnion(ref.inner_aval, self.refs, self.memory_space)
+
 
 @dataclasses.dataclass(init=False, frozen=True)
 class RefUnion(GPUMemoryRef):
   """A sequence of trees of refs that are allowed to reuse the same memory.
 
   One should not make assumptions as to how each ref will map to the underlying
-  memory region, since arbitrary padding may be applied inbetween different
+  memory region, since arbitrary padding may be applied in between different
   refs.
 
   As such, ref unions are only safe to use when the groups of refs that we
@@ -448,7 +443,7 @@ class UntileRef(state_types.Transform):
       self, perm: tuple[int, ...]
   ) -> tuple[tuple[int, ...], state_types.Transform]:
     # The transpose in question is applied to the utiled ref so we
-    # need to translate it by duplicating and offseting the last part.
+    # need to translate it by duplicating and offsetting the last part.
     off = len(perm)
     new_suffix = [i + off for i in perm[-len(self.tiling) :]]
     if set(new_suffix) != set(range(off, off + len(self.tiling))):
@@ -488,7 +483,7 @@ class UntileRef(state_types.Transform):
               f" tiling ({tile})"
           )
         if isinstance(idx.base, ir.Value):
-          if not _is_known_divisible(idx.base, tile):
+          if not mgpu_utils.is_known_divisible(idx.base, tile):
             raise ValueError(
                 "Dynamic slice base index (which is a dynamic value) cannot be"
                 f" statically proven to be divisible by the tiling ({tile})"
@@ -797,6 +792,7 @@ class BlockSpec(pallas_core.BlockSpec):
       index_map_tree: tree_util.PyTreeDef,
       grid: pallas_core.GridMappingGrid,
       mapped_dims: tuple[int, ...],
+      debug: bool = False,
   ) -> pallas_core.BlockMapping:
     bm = super().to_block_mapping(
         origin,
@@ -805,6 +801,7 @@ class BlockSpec(pallas_core.BlockSpec):
         index_map_tree=index_map_tree,
         grid=grid,
         mapped_dims=mapped_dims,
+        debug=debug,
     )
     block_inner_aval = bm.block_aval.inner_aval
     for t in self.transforms:
@@ -850,7 +847,7 @@ class ClusterBarrierType(dtypes.ExtendedDType):
     return self.name
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class Barrier:
   """Describes a barrier Ref.
 
@@ -860,11 +857,11 @@ class Barrier:
       barriers can be accessed by indexing into the barrier Ref.
     for_tensor_core: Whether this barrier is used for synchronizing with
       the tensor core. This should be set to True when waiting on Blackwell
-      (TC Gen 5) asynchoronous matmul instructions.
+      (TC Gen 5) asynchronous matmul instructions.
   """
-  num_arrivals: int
+  num_arrivals: int = 1
   num_barriers: int = 1
-  for_tensor_core: bool = dataclasses.field(default=False, kw_only=True)
+  for_tensor_core: bool = False
 
   def get_ref_aval(self) -> AbstractMemoryRef:
     aval = jax_core.ShapedArray(
@@ -879,7 +876,7 @@ class Barrier:
           f"Num arrivals must be at least 1, but got {self.num_arrivals}"
       )
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class ClusterBarrier:
   collective_axes: tuple[str | tuple[str, ...], ...]
   num_barriers: int = 1
@@ -925,11 +922,12 @@ class WGMMAAbstractAccumulatorRef(AbstractMemoryRef):
   def __repr__(self) -> str:
     return f'Accumulator{{{self.inner_aval.str_short()}}}'
 
-  def update_weak_type(self, weak_type):
-    return _as_accum(super().update_weak_type(weak_type))
-
   def update(self, inner_aval=None, memory_space=None):
-    return _as_accum(super().update(inner_aval=None, memory_space=None))
+    ref = super().update(inner_aval, memory_space)
+    return WGMMAAbstractAccumulatorRef(
+        inner_aval=ref.inner_aval,
+        memory_space=ref.memory_space,
+    )
 
   def _getitem(self, tracer, idx):
     from jax._src.pallas.mosaic_gpu.primitives import wgmma_accumulator_deref  # pytype: disable=import-error
@@ -941,12 +939,6 @@ class WGMMAAbstractAccumulatorRef(AbstractMemoryRef):
     return arr
 
 
-def _as_accum(ref) -> WGMMAAbstractAccumulatorRef:
-  return WGMMAAbstractAccumulatorRef(
-      inner_aval=ref.inner_aval,
-      memory_space=ref.memory_space,  # pytype: disable=attribute-error
-  )
-
 class AbstractTMEMRef(AbstractMemoryRef):
   __slots__ = ["inner_aval", "memory_space", "packed", "collective"]
 
@@ -957,6 +949,12 @@ class AbstractTMEMRef(AbstractMemoryRef):
 
   def __repr__(self) -> str:
     return f'TMEM({self.inner_aval.str_short()},packed={self.packed})'
+
+  def update(self, inner_aval=None, memory_space=None):
+    ref = super().update(inner_aval, memory_space)
+    return AbstractTMEMRef(
+        ref.inner_aval, ref.memory_space, self.packed, self.collective
+    )
 
 
 _WARPGROUP_AXIS_NAME = object()
@@ -992,6 +990,10 @@ class Mesh:
           "Requested too many CUDA threads per block. Each Mosaic thread"
           " corresponds to 128 CUDA threads."
       )
+    object.__setattr__(self, "grid", tuple(self.grid))
+    object.__setattr__(self, "grid_names", tuple(self.grid_names))
+    object.__setattr__(self, "cluster", tuple(self.cluster))
+    object.__setattr__(self, "cluster_names", tuple(self.cluster_names))
 
   @property
   def backend(self) -> str:

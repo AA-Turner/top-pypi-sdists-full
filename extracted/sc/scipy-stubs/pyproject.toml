@@ -5,18 +5,18 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scipy-stubs"
-version = "1.15.3.0"
+version = "1.16.0.0"
 description = "Type annotations for SciPy"
 readme = "README.md"
 authors = [
     {name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com"},
 ]
 maintainers = [
-    {name = "SciPy Developers", email = "scipy-dev@python.org"},
     {name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com"},
+    {name = "SciPy Developers", email = "scipy-dev@python.org"},
 ]
 license = "BSD-3-Clause"
-keywords = ["scipy", "typing", "pep484"]
+keywords = ["scipy", "typing", "stubs", "mypy", "pyright", "pep484", "pep561", "scipy-stubs"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -24,17 +24,17 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Stubs Only",
 ]
-requires-python = ">=3.10"
-dependencies = ["optype>=0.9.3"]
+requires-python = ">=3.11"
+dependencies = ["optype>=0.10.0,<1"]
 
     [project.optional-dependencies]
-    scipy = ["scipy>=1.15.3,<1.16"]
+    scipy = ["scipy>=1.16.0rc2,<1.17"]
 
     [project.urls]
     Homepage = "https://scipy.org/"
@@ -46,28 +46,22 @@ dependencies = ["optype>=0.9.3"]
 [dependency-groups]
 extras = ["scipy-stubs[scipy]"]
 ci = ["packaging>=25.0"]
-mdformat = [
-    "mdformat>=0.7.22",
-    "mdformat-gfm>=0.4.1",
-    "mdformat-gfm-alerts>=1.0.1",
-]
 lint = [
     {include-group = "extras"},
-    {include-group = "mdformat"},
-    "ruff>=0.11.8",
+    "ruff>=0.12.0",
     "sp-repo-review[cli]>=2025.5.2",
 ]
 type = [
     {include-group = "extras"},
     {include-group = "ci"},
-    "basedmypy[faster-cache]>=2.10.0",
-    "basedpyright>=1.29.1",
+    "basedpyright>=1.29.4",
+    "mypy>=1.16.1",
+    "orjson>=3.10.18; python_version<'3.14'", # used by mypy
 ]
 dev = [
     {include-group = "lint"},
     {include-group = "type"},
 ]
-
 
 [tool.hatch.build]
 packages = ["scipy-stubs"]
@@ -98,9 +92,8 @@ uv run
     --no-editable
     --reinstall-package=scipy-stubs
     stubtest
-    --mypy-config-file=pyproject.toml
     --allowlist=.mypyignore
-    --ignore-unused-allowlist
+    --mypy-config-file=pyproject.toml
     $modules
 """
 args = [{name = "modules", positional = true, multiple = true, default = "scipy"}]
@@ -114,24 +107,15 @@ extend-exclude = ["*.pyi", ".mypyignore"]
 strict = true
 strict_bytes = true
 
-enable_error_code = [
-    "ignore-without-code",
-    "redundant-expr",
-    "truthy-bool",
-]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = false
 warn_unused_ignores = true
-# basedmypy/mypy compat
 disallow_any_decorated = false
 disallow_any_explicit = false
 disallow_any_expr = false
 disallow_subclassing_any = false
-# https://github.com/python/mypy/issues/18744
-disable_bytearray_promotion = true
-disable_memoryview_promotion = true
-# optype numpy compat
-always_true = ["NP123", "NP124", "NP125", "NP126", "NP20", "NP21", "NP22"]
-always_false = ["NP23", "NP30"]
+# optype.numpy compat
+always_true = ["NP125", "NP126", "NP20", "NP21", "NP22", "NP23"]
 
 
 [tool.pyright]
@@ -151,6 +135,7 @@ reportPropertyTypeMismatch = false
 reportShadowedImports = true
 reportUninitializedInstanceVariable = true
 reportUnnecessaryTypeIgnoreComment = true
+reportUnusedExpression = false
 
 # overridden in the execution environments
 reportInvalidStubStatement = false
@@ -163,7 +148,7 @@ reportPrivateUsage = false
 # basedpyright
 failOnWarnings = true
 reportIgnoreCommentWithoutRule = true
-reportImplicitAbstractClass = true
+reportImplicitAbstractClass = false
 reportImplicitRelativeImport = true
 reportInvalidCast = true
 reportPrivateLocalImportUsage = true
@@ -174,6 +159,7 @@ strictGenericNarrowing = false
 root = "scipy-stubs"
 reportInvalidStubStatement = true
 reportUnusedCallResult = true
+reportUnusedExpression = true
 
 [[executionEnvironments]]
 root = "tests"
@@ -184,16 +170,13 @@ reportUnreachable = true
 reportUnsafeMultipleInheritance = true # base
 
     [tool.pyright.defineConstant]
-    # optype numpy compat
-    NP123 = true
-    NP124 = true
+    # optype.numpy compat
     NP125 = true
     NP126 = true
     NP20 = true
     NP21 = true
     NP22 = true
-    NP23 = false
-    NP30 = false
+    NP23 = true
 
 [tool.repo-review]
 ignore = [
@@ -209,25 +192,26 @@ ignore = [
 
 [tool.ruff]
 src = ["scipy-stubs", "scripts"]
-extend-exclude = [".venv", ".git", ".mypy_cache", ".tox"]
+extend-exclude = [".git", ".mypy_cache", ".tox", ".venv"]
 force-exclude = true
-# https://typing.readthedocs.io/en/latest/guides/writing_stubs.html#maximum-line-length
+# https://typing.python.org/en/latest/guides/writing_stubs.html#maximum-line-length
 line-length = 130
+preview = true
 
     [tool.ruff.format]
-    docstring-code-format = true
     line-ending = "lf"
+    skip-magic-trailing-comma = true
 
     [tool.ruff.lint]
-    preview = true
     select = ["ALL"]
-    ignore = ["D", "FBT", "COM812", "CPY", "EM", "TD", "FIX", "DOC"]
+    ignore = ["D", "FBT", "ANN401", "COM812", "CPY", "EM", "TD", "FIX", "DOC"]
 
         [tool.ruff.lint.per-file-ignores]
         "*.pyi" = ["F", "E741", "N", "A", "PYI054", "PLC2701", "PLW3201", "PLR", "FURB"]
 
         [tool.ruff.lint.flake8-import-conventions]
         banned-from = ["numpy", "numpy.typing", "optype", "optype.numpy", "optype.typing"]
+
             [tool.ruff.lint.flake8-import-conventions.extend-aliases]
             "ctypes" = "ct"
             "datetime" = "dt"
@@ -235,18 +219,62 @@ line-length = 130
             "numpy.typing" = "npt"
             "optype" = "op"
             "optype.numpy" = "onp"
+            "optype.numpy.compat" = "npc"
             "optype.typing" = "opt"
 
         [tool.ruff.lint.isort]
+        case-sensitive = true
         combine-as-imports = true
-        known-first-party = ["scipy"]
-        no-lines-before = ["typing", "first-party", "local-folder"]
-        section-order = ["standard-library", "typing", "third-party", "first-party", "local-folder"]
-        split-on-trailing-comma = true
+        extra-standard-library = ["_typeshed", "typing_extensions"]
+        known-local-folder = ["scipy"]
+        split-on-trailing-comma = false
 
-            [tool.ruff.lint.isort.sections]
-            typing = ["collections.abc", "types", "typing", "typing_extensions"]
 
-        [tool.ruff.lint.flake8-annotations]
-        allow-star-arg-any = true
-        mypy-init-return = true
+[tool.tox]
+min_version = "4"
+requires = ["tox-uv>=1"]
+env_list = ["lint", "pyright", "mypy", "3.11", "3.12", "3.13", "3.14"]
+
+    [tool.tox.env_run_base]
+    description = "stubtest with {base_python}"
+    runner = "uv-venv-lock-runner"
+    dependency_groups = ["type"]
+    uv_sync_flags = ["--no-editable", "--reinstall-package=scipy-stubs"]
+    commands = [
+        [
+            "stubtest",
+            "--allowlist=.mypyignore",
+            "--mypy-config-file=pyproject.toml",
+            {replace = "posargs", default = ["scipy"], extend = true},
+        ],
+    ]
+
+    [tool.tox.env.lint]
+    description = "lint"
+    runner = "uv-venv-lock-runner"
+    dependency_groups = ["lint"]
+    commands = [
+        ["repo-review", "."],
+        ["ruff", "check", "--show-fixes"],
+        ["ruff", "format", "--check"],
+    ]
+
+    [tool.tox.env.pyright]
+    description = "basedpyright"
+    runner = "uv-venv-lock-runner"
+    dependency_groups = ["type"]
+    commands = [["basedpyright"]]
+
+    [tool.tox.env.mypy]
+    description = "mypy"
+    runner = "uv-venv-lock-runner"
+    dependency_groups = ["type"]
+    commands = [
+        [
+            "mypy",
+            "--hide-error-context",
+            "--hide-error-code-links",
+            "--no-incremental",
+            {replace = "posargs", default = ["."], extend = true},
+        ],
+    ]

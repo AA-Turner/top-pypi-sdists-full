@@ -12,7 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_role
 short_description: Module to manage roles in oVirt/RHV
 version_added: "1.0.0"
-author: "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage roles in oVirt/RHV."
 options:
@@ -46,6 +46,7 @@ options:
             - "List can contain name of permit."
         type: list
         elements: str
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt
 '''
 
@@ -85,15 +86,9 @@ ovirt_role:
 from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     BaseModule,
     check_sdk,
-    convert_to_bytes,
     create_connection,
     equal,
-    get_dict_of_struct,
-    get_link_name,
-    get_id_by_name,
     ovirt_full_argument_spec,
-    search_by_attributes,
-    search_by_name,
 )
 from ansible.module_utils.basic import AnsibleModule
 import traceback

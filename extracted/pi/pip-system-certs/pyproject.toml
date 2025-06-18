@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Security :: Cryptography",
 ]
 dependencies = [
-    "truststore>=0.8.0"
+    "pip>=24.2"
 ]
 requires-python = ">=3.10"
 dynamic = ["version"]

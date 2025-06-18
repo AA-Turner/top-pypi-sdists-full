@@ -54,7 +54,7 @@ class MetricInsights(InsightsConfiguration):
         add_to_existing: bool = True,
         with_evaluation_datasets: bool = False,
     ) -> None:
-        """Copy metric insights to from one playground to another.
+        """Copy metric insights from one playground to another.
 
         Parameters
         ----------

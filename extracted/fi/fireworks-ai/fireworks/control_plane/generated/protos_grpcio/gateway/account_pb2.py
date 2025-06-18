@@ -33,7 +33,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15gateway/account.proto\x12\x07gateway\x1a\x15gateway/options.proto\x1a\x14gateway/status.proto\x1a\x12gateway/user.proto\x1a\x13gateway/wandb.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd9\t\n\x07\x41\x63\x63ount\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x05\x12\x36\n\x0b\x63reate_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12)\n\x0cintended_use\x18\x13 \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12\x38\n\x13prometheus_endpoint\x18\x04 \x01(\tB\x1b\xe2\x41\x02\x01\x05\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x44\n\x1f\x61thena_cost_usage_report_bucket\x18\x05 \x01(\tB\x1b\xe2\x41\x02\x01\x05\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x38\n\x0c\x61\x63\x63ount_type\x18\x06 \x01(\x0e\x32\x1c.gateway.Account.AccountTypeB\x04\xe2\x41\x01\x01\x12\x13\n\x05\x65mail\x18\t \x01(\tB\x04\xe2\x41\x01\x02\x12,\n\x05state\x18\x07 \x01(\x0e\x32\x16.gateway.Account.StateB\x05\xe2\x41\x02\x03\x05\x12&\n\x06status\x18\x08 \x01(\x0b\x32\x0f.gateway.StatusB\x05\xe2\x41\x02\x03\x05\x12?\n\rsuspend_state\x18\x0c \x01(\x0e\x32\x1d.gateway.Account.SuspendStateB\t\xe2\x41\x02\x03\x05\x98\xf1\x04\x01\x12\x30\n\x12stripe_customer_id\x18\r \x01(\tB\x14\xe2\x41\x02\x03\x05\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12O\n\x0foidc_issuer_url\x18\x0e \x01(\tB6\xe2\x41\x02\x04\x01\xb2\xf1\x04\x17\x61\x63\x63ount_oidc_issuer_url\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x33\n\x0eoidc_client_id\x18\x0f \x01(\tB\x1b\xe2\x41\x02\x04\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x33\n\x0e\x63ognito_domain\x18\x10 \x01(\tB\x1b\xe2\x41\x02\x04\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x46\n\x0cwandb_config\x18\x11 \x01(\x0b\x32\x14.gateway.WandbConfigB\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x35\n\x0bupdate_time\x18\x12 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03\"X\n\x0b\x41\x63\x63ountType\x12\x1c\n\x18\x41\x43\x43OUNT_TYPE_UNSPECIFIED\x10\x00\x12\r\n\tDEVELOPER\x10\x01\x12\x0e\n\nENTERPRISE\x10\x02\x12\x0c\n\x08\x42USINESS\x10\x04\"S\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x43REATING\x10\x01\x12\t\n\x05READY\x10\x02\x12\x0c\n\x08UPDATING\x10\x03\x12\x0c\n\x08\x44\x45LETING\x10\x04\"k\n\x0cSuspendState\x12\x0f\n\x0bUNSUSPENDED\x10\x00\x12\x13\n\x0f\x46\x41ILED_PAYMENTS\x10\x01\x12\x13\n\x0f\x43REDIT_DEPLETED\x10\x02\x12 \n\x1cMONTHLY_SPEND_LIMIT_EXCEEDED\x10\x03:L\xea\x41\x43\n\x18\x61pi.fireworks.ai/Account\x12\x14\x61\x63\x63ounts/{AccountId}*\x08\x61\x63\x63ounts2\x07\x61\x63\x63ount\x82\xf1\x04\x02\x18\x01\"\x90\x01\n\x14\x43reateAccountRequest\x12\'\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\x10.gateway.AccountB\x04\xe2\x41\x01\x02\x12\x18\n\naccount_id\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x12\n\x04wait\x18\x03 \x01(\x08\x42\x04\xe2\x41\x01\x01\x12!\n\x04user\x18\x04 \x01(\x0b\x32\r.gateway.UserB\x04\xe2\x41\x01\x01\"\\\n\x11GetAccountRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xd9\x01\n\x13ListAccountsRequest\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12,\n\x08show_all\x18\x06 \x01(\x08\x42\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x33\n\tread_mask\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"g\n\x14ListAccountsResponse\x12\"\n\x08\x61\x63\x63ounts\x18\x01 \x03(\x0b\x32\x10.gateway.Account\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"v\n\x14UpdateAccountRequest\x12\'\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\x10.gateway.AccountB\x04\xe2\x41\x01\x02\x12\x35\n\x0bupdate_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"U\n\x14\x44\x65leteAccountRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12)\n\x05\x66orce\x18\x02 \x01(\x08\x42\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLYBCZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15gateway/account.proto\x12\x07gateway\x1a\x15gateway/options.proto\x1a\x14gateway/status.proto\x1a\x12gateway/user.proto\x1a\x13gateway/wandb.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdb\t\n\x07\x41\x63\x63ount\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x36\n\x0b\x63reate_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12)\n\x0cintended_use\x18\x13 \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12\x38\n\x13prometheus_endpoint\x18\x04 \x01(\tB\x1b\xe2\x41\x02\x01\x05\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x44\n\x1f\x61thena_cost_usage_report_bucket\x18\x05 \x01(\tB\x1b\xe2\x41\x02\x01\x05\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12:\n\x0c\x61\x63\x63ount_type\x18\x06 \x01(\x0e\x32\x1c.gateway.Account.AccountTypeB\x06\x18\x01\xe2\x41\x01\x01\x12\x13\n\x05\x65mail\x18\t \x01(\tB\x04\xe2\x41\x01\x02\x12,\n\x05state\x18\x07 \x01(\x0e\x32\x16.gateway.Account.StateB\x05\xe2\x41\x02\x03\x05\x12&\n\x06status\x18\x08 \x01(\x0b\x32\x0f.gateway.StatusB\x05\xe2\x41\x02\x03\x05\x12?\n\rsuspend_state\x18\x0c \x01(\x0e\x32\x1d.gateway.Account.SuspendStateB\t\xe2\x41\x02\x03\x05\x98\xf1\x04\x01\x12\x30\n\x12stripe_customer_id\x18\r \x01(\tB\x14\xe2\x41\x02\x03\x05\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12O\n\x0foidc_issuer_url\x18\x0e \x01(\tB6\xe2\x41\x02\x04\x01\xb2\xf1\x04\x17\x61\x63\x63ount_oidc_issuer_url\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x33\n\x0eoidc_client_id\x18\x0f \x01(\tB\x1b\xe2\x41\x02\x04\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x33\n\x0e\x63ognito_domain\x18\x10 \x01(\tB\x1b\xe2\x41\x02\x04\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x46\n\x0cwandb_config\x18\x11 \x01(\x0b\x32\x14.gateway.WandbConfigB\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x35\n\x0bupdate_time\x18\x12 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03\"X\n\x0b\x41\x63\x63ountType\x12\x1c\n\x18\x41\x43\x43OUNT_TYPE_UNSPECIFIED\x10\x00\x12\r\n\tDEVELOPER\x10\x01\x12\x0e\n\nENTERPRISE\x10\x02\x12\x0c\n\x08\x42USINESS\x10\x04\"S\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x43REATING\x10\x01\x12\t\n\x05READY\x10\x02\x12\x0c\n\x08UPDATING\x10\x03\x12\x0c\n\x08\x44\x45LETING\x10\x04\"k\n\x0cSuspendState\x12\x0f\n\x0bUNSUSPENDED\x10\x00\x12\x13\n\x0f\x46\x41ILED_PAYMENTS\x10\x01\x12\x13\n\x0f\x43REDIT_DEPLETED\x10\x02\x12 \n\x1cMONTHLY_SPEND_LIMIT_EXCEEDED\x10\x03:L\xea\x41\x43\n\x18\x61pi.fireworks.ai/Account\x12\x14\x61\x63\x63ounts/{AccountId}*\x08\x61\x63\x63ounts2\x07\x61\x63\x63ount\x82\xf1\x04\x02\x18\x01\"\x90\x01\n\x14\x43reateAccountRequest\x12\'\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\x10.gateway.AccountB\x04\xe2\x41\x01\x02\x12\x18\n\naccount_id\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x12\n\x04wait\x18\x03 \x01(\x08\x42\x04\xe2\x41\x01\x01\x12!\n\x04user\x18\x04 \x01(\x0b\x32\r.gateway.UserB\x04\xe2\x41\x01\x01\"\\\n\x11GetAccountRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xd9\x01\n\x13ListAccountsRequest\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12,\n\x08show_all\x18\x06 \x01(\x08\x42\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x33\n\tread_mask\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"g\n\x14ListAccountsResponse\x12\"\n\x08\x61\x63\x63ounts\x18\x01 \x03(\x0b\x32\x10.gateway.Account\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"v\n\x14UpdateAccountRequest\x12\'\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\x10.gateway.AccountB\x04\xe2\x41\x01\x02\x12\x35\n\x0bupdate_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"U\n\x14\x44\x65leteAccountRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12)\n\x05\x66orce\x18\x02 \x01(\x08\x42\x1a\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLYBCZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -44,7 +44,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_ACCOUNT'].fields_by_name['name']._loaded_options = None
   _globals['_ACCOUNT'].fields_by_name['name']._serialized_options = b'\342A\002\003\005'
   _globals['_ACCOUNT'].fields_by_name['display_name']._loaded_options = None
-  _globals['_ACCOUNT'].fields_by_name['display_name']._serialized_options = b'\342A\001\005'
+  _globals['_ACCOUNT'].fields_by_name['display_name']._serialized_options = b'\342A\001\001'
   _globals['_ACCOUNT'].fields_by_name['create_time']._loaded_options = None
   _globals['_ACCOUNT'].fields_by_name['create_time']._serialized_options = b'\342A\002\003\005'
   _globals['_ACCOUNT'].fields_by_name['intended_use']._loaded_options = None
@@ -54,7 +54,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_ACCOUNT'].fields_by_name['athena_cost_usage_report_bucket']._loaded_options = None
   _globals['_ACCOUNT'].fields_by_name['athena_cost_usage_report_bucket']._serialized_options = b'\342A\002\001\005\372\322\344\223\002\020\022\016SUPERUSER_ONLY'
   _globals['_ACCOUNT'].fields_by_name['account_type']._loaded_options = None
-  _globals['_ACCOUNT'].fields_by_name['account_type']._serialized_options = b'\342A\001\001'
+  _globals['_ACCOUNT'].fields_by_name['account_type']._serialized_options = b'\030\001\342A\001\001'
   _globals['_ACCOUNT'].fields_by_name['email']._loaded_options = None
   _globals['_ACCOUNT'].fields_by_name['email']._serialized_options = b'\342A\001\002'
   _globals['_ACCOUNT'].fields_by_name['state']._loaded_options = None
@@ -110,23 +110,23 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_DELETEACCOUNTREQUEST'].fields_by_name['force']._loaded_options = None
   _globals['_DELETEACCOUNTREQUEST'].fields_by_name['force']._serialized_options = b'\342A\001\001\372\322\344\223\002\020\022\016SUPERUSER_ONLY'
   _globals['_ACCOUNT']._serialized_start=277
-  _globals['_ACCOUNT']._serialized_end=1518
-  _globals['_ACCOUNT_ACCOUNTTYPE']._serialized_start=1158
-  _globals['_ACCOUNT_ACCOUNTTYPE']._serialized_end=1246
-  _globals['_ACCOUNT_STATE']._serialized_start=1248
-  _globals['_ACCOUNT_STATE']._serialized_end=1331
-  _globals['_ACCOUNT_SUSPENDSTATE']._serialized_start=1333
-  _globals['_ACCOUNT_SUSPENDSTATE']._serialized_end=1440
-  _globals['_CREATEACCOUNTREQUEST']._serialized_start=1521
-  _globals['_CREATEACCOUNTREQUEST']._serialized_end=1665
-  _globals['_GETACCOUNTREQUEST']._serialized_start=1667
-  _globals['_GETACCOUNTREQUEST']._serialized_end=1759
-  _globals['_LISTACCOUNTSREQUEST']._serialized_start=1762
-  _globals['_LISTACCOUNTSREQUEST']._serialized_end=1979
-  _globals['_LISTACCOUNTSRESPONSE']._serialized_start=1981
-  _globals['_LISTACCOUNTSRESPONSE']._serialized_end=2084
-  _globals['_UPDATEACCOUNTREQUEST']._serialized_start=2086
-  _globals['_UPDATEACCOUNTREQUEST']._serialized_end=2204
-  _globals['_DELETEACCOUNTREQUEST']._serialized_start=2206
-  _globals['_DELETEACCOUNTREQUEST']._serialized_end=2291
+  _globals['_ACCOUNT']._serialized_end=1520
+  _globals['_ACCOUNT_ACCOUNTTYPE']._serialized_start=1160
+  _globals['_ACCOUNT_ACCOUNTTYPE']._serialized_end=1248
+  _globals['_ACCOUNT_STATE']._serialized_start=1250
+  _globals['_ACCOUNT_STATE']._serialized_end=1333
+  _globals['_ACCOUNT_SUSPENDSTATE']._serialized_start=1335
+  _globals['_ACCOUNT_SUSPENDSTATE']._serialized_end=1442
+  _globals['_CREATEACCOUNTREQUEST']._serialized_start=1523
+  _globals['_CREATEACCOUNTREQUEST']._serialized_end=1667
+  _globals['_GETACCOUNTREQUEST']._serialized_start=1669
+  _globals['_GETACCOUNTREQUEST']._serialized_end=1761
+  _globals['_LISTACCOUNTSREQUEST']._serialized_start=1764
+  _globals['_LISTACCOUNTSREQUEST']._serialized_end=1981
+  _globals['_LISTACCOUNTSRESPONSE']._serialized_start=1983
+  _globals['_LISTACCOUNTSRESPONSE']._serialized_end=2086
+  _globals['_UPDATEACCOUNTREQUEST']._serialized_start=2088
+  _globals['_UPDATEACCOUNTREQUEST']._serialized_end=2206
+  _globals['_DELETEACCOUNTREQUEST']._serialized_start=2208
+  _globals['_DELETEACCOUNTREQUEST']._serialized_end=2293
 # @@protoc_insertion_point(module_scope)

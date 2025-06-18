@@ -1,12 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: lonboard
-Version: 0.10.4
+Version: 0.11.0
 Summary: Fast, interactive geospatial data visualization in Jupyter.
-License: MIT
-Keywords: GIS,cartography,visualization,geopandas,pandas,shapely
-Author: Kyle Barron
-Author-email: kyle@developmentseed.org
-Requires-Python: >=3.8,<4.0
+Project-URL: homepage, https://developmentseed.org/lonboard/latest/
+Project-URL: documentation, https://developmentseed.org/lonboard/latest/
+Project-URL: repository, https://github.com/developmentseed/lonboard
+Project-URL: issues, https://github.com/developmentseed/lonboard/issues
+Project-URL: changelog, https://github.com/developmentseed/lonboard/blob/main/CHANGELOG.md
+Author-email: Kyle Barron <kyle@developmentseed.org>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: GIS,cartography,geopandas,pandas,shapely,visualization
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Jupyter
 Classifier: Framework :: Jupyter :: JupyterLab
@@ -14,34 +18,28 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.9
+Requires-Dist: anywidget~=0.9.0
+Requires-Dist: arro3-compute>=0.4.1
+Requires-Dist: arro3-core>=0.4.1
+Requires-Dist: arro3-io>=0.4.1
+Requires-Dist: ipywidgets>=7.6.0
+Requires-Dist: numpy>=1.14
+Requires-Dist: pyproj>=3.3
+Requires-Dist: traitlets>=5.7.1
+Requires-Dist: typing-extensions~=4.6.0; python_version < '3.12'
 Provides-Extra: cli
+Requires-Dist: click>=8.1.7; extra == 'cli'
+Requires-Dist: pyogrio>=0.8; extra == 'cli'
+Requires-Dist: shapely>=2; extra == 'cli'
 Provides-Extra: geopandas
+Requires-Dist: geopandas>=0.13; extra == 'geopandas'
+Requires-Dist: pandas>=2; extra == 'geopandas'
+Requires-Dist: shapely>=2; extra == 'geopandas'
 Provides-Extra: movingpandas
-Requires-Dist: anywidget (>=0.9.0,<0.10.0)
-Requires-Dist: arro3-compute (>=0.4.1)
-Requires-Dist: arro3-core (>=0.4.1)
-Requires-Dist: arro3-io (>=0.4.1)
-Requires-Dist: click (>=8.1.7,<9.0.0) ; extra == "cli"
-Requires-Dist: geopandas (>=0.13) ; extra == "geopandas"
-Requires-Dist: ipywidgets (>=7.6.0)
-Requires-Dist: movingpandas (>=0.17) ; extra == "movingpandas"
-Requires-Dist: numpy (>=1.14)
-Requires-Dist: pandas (>=2,<3) ; extra == "geopandas"
-Requires-Dist: pyogrio (>=0.8) ; extra == "cli"
-Requires-Dist: pyproj (>=3.3)
-Requires-Dist: shapely (>=2,<3) ; extra == "cli" or extra == "geopandas"
-Requires-Dist: traitlets (>=5.7.1)
-Requires-Dist: typing-extensions (>=4.6.0,<5.0.0) ; python_version < "3.12"
-Project-URL: Documentation, https://developmentseed.org/lonboard/latest/
-Project-URL: Repository, https://github.com/developmentseed/lonboard
+Requires-Dist: movingpandas>=0.17; extra == 'movingpandas'
 Description-Content-Type: text/markdown
 
 # Lonboard
@@ -107,4 +105,3 @@ Refer to the documentation at [developmentseed.org/lonboard](https://development
 This is a new binding to the [deck.gl](https://deck.gl) geospatial data visualization library. A "deck" is the part of a skateboard you ride on. What's a fast, geospatial skateboard? A <em>lon</em>board.
 
 ![](assets/dalle-lonboard.jpg)
-

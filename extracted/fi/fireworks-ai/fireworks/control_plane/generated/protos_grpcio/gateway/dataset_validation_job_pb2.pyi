@@ -39,7 +39,7 @@ DATASET_VALIDATION_JOB_RESULT_SUCCESS: DatasetValidationJobResult
 DATASET_VALIDATION_JOB_RESULT_FAILURE: DatasetValidationJobResult
 
 class DatasetValidationJob(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "created_by", "state", "status", "dataset_name", "format", "result", "validation_error", "dataset_names", "update_time", "rewards", "region")
+    __slots__ = ("name", "display_name", "create_time", "created_by", "state", "status", "dataset_name", "format", "result", "validation_error", "dataset_names", "update_time", "rewards", "region", "custom_image_tag")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -54,6 +54,7 @@ class DatasetValidationJob(_message.Message):
     UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     REWARDS_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
+    CUSTOM_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -68,7 +69,8 @@ class DatasetValidationJob(_message.Message):
     update_time: _timestamp_pb2.Timestamp
     rewards: _containers.RepeatedScalarFieldContainer[str]
     region: _deployment_pb2.Region
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., dataset_name: _Optional[str] = ..., format: _Optional[_Union[DatasetValidationFormat, str]] = ..., result: _Optional[_Union[DatasetValidationJobResult, str]] = ..., validation_error: _Optional[str] = ..., dataset_names: _Optional[_Iterable[str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., rewards: _Optional[_Iterable[str]] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ...) -> None: ...
+    custom_image_tag: str
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., dataset_name: _Optional[str] = ..., format: _Optional[_Union[DatasetValidationFormat, str]] = ..., result: _Optional[_Union[DatasetValidationJobResult, str]] = ..., validation_error: _Optional[str] = ..., dataset_names: _Optional[_Iterable[str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., rewards: _Optional[_Iterable[str]] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., custom_image_tag: _Optional[str] = ...) -> None: ...
 
 class GetDatasetValidationJobRequest(_message.Message):
     __slots__ = ("name", "read_mask")

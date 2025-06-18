@@ -911,6 +911,8 @@ class IbmDb2LuwDataProviderSettingsTypeDef(TypedDict):
     DatabaseName: NotRequired[str]
     SslMode: NotRequired[DmsSslModeValueType]
     CertificateArn: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class IbmDb2zOsDataProviderSettingsTypeDef(TypedDict):
     ServerName: NotRequired[str]
@@ -918,12 +920,16 @@ class IbmDb2zOsDataProviderSettingsTypeDef(TypedDict):
     DatabaseName: NotRequired[str]
     SslMode: NotRequired[DmsSslModeValueType]
     CertificateArn: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class MariaDbDataProviderSettingsTypeDef(TypedDict):
     ServerName: NotRequired[str]
     Port: NotRequired[int]
     SslMode: NotRequired[DmsSslModeValueType]
     CertificateArn: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class MicrosoftSqlServerDataProviderSettingsTypeDef(TypedDict):
     ServerName: NotRequired[str]
@@ -931,6 +937,8 @@ class MicrosoftSqlServerDataProviderSettingsTypeDef(TypedDict):
     DatabaseName: NotRequired[str]
     SslMode: NotRequired[DmsSslModeValueType]
     CertificateArn: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class MongoDbDataProviderSettingsTypeDef(TypedDict):
     ServerName: NotRequired[str]
@@ -947,6 +955,8 @@ class MySqlDataProviderSettingsTypeDef(TypedDict):
     Port: NotRequired[int]
     SslMode: NotRequired[DmsSslModeValueType]
     CertificateArn: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class OracleDataProviderSettingsTypeDef(TypedDict):
     ServerName: NotRequired[str]
@@ -959,6 +969,8 @@ class OracleDataProviderSettingsTypeDef(TypedDict):
     SecretsManagerOracleAsmAccessRoleArn: NotRequired[str]
     SecretsManagerSecurityDbEncryptionSecretId: NotRequired[str]
     SecretsManagerSecurityDbEncryptionAccessRoleArn: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class PostgreSqlDataProviderSettingsTypeDef(TypedDict):
     ServerName: NotRequired[str]
@@ -966,11 +978,15 @@ class PostgreSqlDataProviderSettingsTypeDef(TypedDict):
     DatabaseName: NotRequired[str]
     SslMode: NotRequired[DmsSslModeValueType]
     CertificateArn: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class RedshiftDataProviderSettingsTypeDef(TypedDict):
     ServerName: NotRequired[str]
     Port: NotRequired[int]
     DatabaseName: NotRequired[str]
+    S3Path: NotRequired[str]
+    S3AccessRoleArn: NotRequired[str]
 
 class DatabaseInstanceSoftwareDetailsResponseTypeDef(TypedDict):
     Engine: NotRequired[str]
@@ -2549,6 +2565,7 @@ class CreateDataProviderMessageTypeDef(TypedDict):
     Settings: DataProviderSettingsTypeDef
     DataProviderName: NotRequired[str]
     Description: NotRequired[str]
+    Virtual: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class DataProviderTypeDef(TypedDict):
@@ -2557,6 +2574,7 @@ class DataProviderTypeDef(TypedDict):
     DataProviderCreationTime: NotRequired[datetime]
     Description: NotRequired[str]
     Engine: NotRequired[str]
+    Virtual: NotRequired[bool]
     Settings: NotRequired[DataProviderSettingsTypeDef]
 
 class ModifyDataProviderMessageTypeDef(TypedDict):
@@ -2564,6 +2582,7 @@ class ModifyDataProviderMessageTypeDef(TypedDict):
     DataProviderName: NotRequired[str]
     Description: NotRequired[str]
     Engine: NotRequired[str]
+    Virtual: NotRequired[bool]
     ExactSettings: NotRequired[bool]
     Settings: NotRequired[DataProviderSettingsTypeDef]
 

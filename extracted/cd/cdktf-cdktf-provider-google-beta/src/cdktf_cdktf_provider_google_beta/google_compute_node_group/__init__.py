@@ -1,7 +1,7 @@
 r'''
 # `google_compute_node_group`
 
-Refer to the Terraform Registry for docs: [`google_compute_node_group`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group).
+Refer to the Terraform Registry for docs: [`google_compute_node_group`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeNodeGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeNodeGroup.GoogleComputeNodeGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group google_compute_node_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group google_compute_node_group}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class GoogleComputeNodeGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group google_compute_node_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group google_compute_node_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#node_template GoogleComputeNodeGroup#node_template}
-        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#autoscaling_policy GoogleComputeNodeGroup#autoscaling_policy}
-        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#description GoogleComputeNodeGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#initial_size GoogleComputeNodeGroup#initial_size}
-        :param maintenance_interval: Specifies the frequency of planned maintenance events. Set to one of the following: - AS_NEEDED: Hosts are eligible to receive infrastructure and hypervisor updates as they become available. - RECURRENT: Hosts receive planned infrastructure and hypervisor updates on a periodic basis, but not more frequently than every 28 days. This minimizes the number of planned maintenance operations on individual hosts and reduces the frequency of disruptions, both live migrations and terminations, on individual VMs. Possible values: ["AS_NEEDED", "RECURRENT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_interval GoogleComputeNodeGroup#maintenance_interval}
-        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_policy GoogleComputeNodeGroup#maintenance_policy}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_window GoogleComputeNodeGroup#maintenance_window}
-        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#name GoogleComputeNodeGroup#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project GoogleComputeNodeGroup#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#share_settings GoogleComputeNodeGroup#share_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#timeouts GoogleComputeNodeGroup#timeouts}
-        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#zone GoogleComputeNodeGroup#zone}
+        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#node_template GoogleComputeNodeGroup#node_template}
+        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#autoscaling_policy GoogleComputeNodeGroup#autoscaling_policy}
+        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#description GoogleComputeNodeGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#initial_size GoogleComputeNodeGroup#initial_size}
+        :param maintenance_interval: Specifies the frequency of planned maintenance events. Set to one of the following: - AS_NEEDED: Hosts are eligible to receive infrastructure and hypervisor updates as they become available. - RECURRENT: Hosts receive planned infrastructure and hypervisor updates on a periodic basis, but not more frequently than every 28 days. This minimizes the number of planned maintenance operations on individual hosts and reduces the frequency of disruptions, both live migrations and terminations, on individual VMs. Possible values: ["AS_NEEDED", "RECURRENT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_interval GoogleComputeNodeGroup#maintenance_interval}
+        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_policy GoogleComputeNodeGroup#maintenance_policy}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_window GoogleComputeNodeGroup#maintenance_window}
+        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#name GoogleComputeNodeGroup#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project GoogleComputeNodeGroup#project}.
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#share_settings GoogleComputeNodeGroup#share_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#timeouts GoogleComputeNodeGroup#timeouts}
+        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#zone GoogleComputeNodeGroup#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class GoogleComputeNodeGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeNodeGroup to import.
-        :param import_from_id: The id of the existing GoogleComputeNodeGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeNodeGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeNodeGroup to import is found.
         '''
         if __debug__:
@@ -159,9 +159,9 @@ class GoogleComputeNodeGroup(
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#max_nodes GoogleComputeNodeGroup#max_nodes}
-        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#min_nodes GoogleComputeNodeGroup#min_nodes}
-        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#mode GoogleComputeNodeGroup#mode}
+        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#max_nodes GoogleComputeNodeGroup#max_nodes}
+        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#min_nodes GoogleComputeNodeGroup#min_nodes}
+        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#mode GoogleComputeNodeGroup#mode}
         '''
         value = GoogleComputeNodeGroupAutoscalingPolicy(
             max_nodes=max_nodes, min_nodes=min_nodes, mode=mode
@@ -172,7 +172,7 @@ class GoogleComputeNodeGroup(
     @jsii.member(jsii_name="putMaintenanceWindow")
     def put_maintenance_window(self, *, start_time: builtins.str) -> None:
         '''
-        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#start_time GoogleComputeNodeGroup#start_time}
+        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#start_time GoogleComputeNodeGroup#start_time}
         '''
         value = GoogleComputeNodeGroupMaintenanceWindow(start_time=start_time)
 
@@ -186,8 +186,8 @@ class GoogleComputeNodeGroup(
         project_map: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleComputeNodeGroupShareSettingsProjectMap", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#share_type GoogleComputeNodeGroup#share_type}
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project_map GoogleComputeNodeGroup#project_map}
+        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#share_type GoogleComputeNodeGroup#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project_map GoogleComputeNodeGroup#project_map}
         '''
         value = GoogleComputeNodeGroupShareSettings(
             share_type=share_type, project_map=project_map
@@ -204,9 +204,9 @@ class GoogleComputeNodeGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#create GoogleComputeNodeGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#delete GoogleComputeNodeGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#update GoogleComputeNodeGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#create GoogleComputeNodeGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#delete GoogleComputeNodeGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#update GoogleComputeNodeGroup#update}.
         '''
         value = GoogleComputeNodeGroupTimeouts(
             create=create, delete=delete, update=update
@@ -510,9 +510,9 @@ class GoogleComputeNodeGroupAutoscalingPolicy:
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#max_nodes GoogleComputeNodeGroup#max_nodes}
-        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#min_nodes GoogleComputeNodeGroup#min_nodes}
-        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#mode GoogleComputeNodeGroup#mode}
+        :param max_nodes: Maximum size of the node group. Set to a value less than or equal to 100 and greater than or equal to min-nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#max_nodes GoogleComputeNodeGroup#max_nodes}
+        :param min_nodes: Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#min_nodes GoogleComputeNodeGroup#min_nodes}
+        :param mode: The autoscaling mode. Set to one of the following: - OFF: Disables the autoscaler. - ON: Enables scaling in and scaling out. - ONLY_SCALE_OUT: Enables only scaling out. You must use this mode if your node groups are configured to restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#mode GoogleComputeNodeGroup#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65b15382b5c60f033790d678a38c8c820101b22ffdb6a3e27ea8a9e44161b43c)
@@ -534,7 +534,7 @@ class GoogleComputeNodeGroupAutoscalingPolicy:
         Set to a value less than or equal
         to 100 and greater than or equal to min-nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#max_nodes GoogleComputeNodeGroup#max_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#max_nodes GoogleComputeNodeGroup#max_nodes}
         '''
         result = self._values.get("max_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -543,7 +543,7 @@ class GoogleComputeNodeGroupAutoscalingPolicy:
     def min_nodes(self) -> typing.Optional[jsii.Number]:
         '''Minimum size of the node group. Must be less than or equal to max-nodes. The default value is 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#min_nodes GoogleComputeNodeGroup#min_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#min_nodes GoogleComputeNodeGroup#min_nodes}
         '''
         result = self._values.get("min_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -560,7 +560,7 @@ class GoogleComputeNodeGroupAutoscalingPolicy:
           You must use this mode if your node groups are configured to
           restart their hosted VMs on minimal servers. Possible values: ["OFF", "ON", "ONLY_SCALE_OUT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#mode GoogleComputeNodeGroup#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#mode GoogleComputeNodeGroup#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -737,19 +737,19 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#node_template GoogleComputeNodeGroup#node_template}
-        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#autoscaling_policy GoogleComputeNodeGroup#autoscaling_policy}
-        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#description GoogleComputeNodeGroup#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#initial_size GoogleComputeNodeGroup#initial_size}
-        :param maintenance_interval: Specifies the frequency of planned maintenance events. Set to one of the following: - AS_NEEDED: Hosts are eligible to receive infrastructure and hypervisor updates as they become available. - RECURRENT: Hosts receive planned infrastructure and hypervisor updates on a periodic basis, but not more frequently than every 28 days. This minimizes the number of planned maintenance operations on individual hosts and reduces the frequency of disruptions, both live migrations and terminations, on individual VMs. Possible values: ["AS_NEEDED", "RECURRENT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_interval GoogleComputeNodeGroup#maintenance_interval}
-        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_policy GoogleComputeNodeGroup#maintenance_policy}
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_window GoogleComputeNodeGroup#maintenance_window}
-        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#name GoogleComputeNodeGroup#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project GoogleComputeNodeGroup#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#share_settings GoogleComputeNodeGroup#share_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#timeouts GoogleComputeNodeGroup#timeouts}
-        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#zone GoogleComputeNodeGroup#zone}
+        :param node_template: The URL of the node template to which this node group belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#node_template GoogleComputeNodeGroup#node_template}
+        :param autoscaling_policy: autoscaling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#autoscaling_policy GoogleComputeNodeGroup#autoscaling_policy}
+        :param description: An optional textual description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#description GoogleComputeNodeGroup#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_size: The initial number of nodes in the node group. One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#initial_size GoogleComputeNodeGroup#initial_size}
+        :param maintenance_interval: Specifies the frequency of planned maintenance events. Set to one of the following: - AS_NEEDED: Hosts are eligible to receive infrastructure and hypervisor updates as they become available. - RECURRENT: Hosts receive planned infrastructure and hypervisor updates on a periodic basis, but not more frequently than every 28 days. This minimizes the number of planned maintenance operations on individual hosts and reduces the frequency of disruptions, both live migrations and terminations, on individual VMs. Possible values: ["AS_NEEDED", "RECURRENT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_interval GoogleComputeNodeGroup#maintenance_interval}
+        :param maintenance_policy: Specifies how to handle instances when a node in the group undergoes maintenance. Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_policy GoogleComputeNodeGroup#maintenance_policy}
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_window GoogleComputeNodeGroup#maintenance_window}
+        :param name: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#name GoogleComputeNodeGroup#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project GoogleComputeNodeGroup#project}.
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#share_settings GoogleComputeNodeGroup#share_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#timeouts GoogleComputeNodeGroup#timeouts}
+        :param zone: Zone where this node group is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#zone GoogleComputeNodeGroup#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -893,7 +893,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_template(self) -> builtins.str:
         '''The URL of the node template to which this node group belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#node_template GoogleComputeNodeGroup#node_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#node_template GoogleComputeNodeGroup#node_template}
         '''
         result = self._values.get("node_template")
         assert result is not None, "Required property 'node_template' is missing"
@@ -905,7 +905,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GoogleComputeNodeGroupAutoscalingPolicy]:
         '''autoscaling_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#autoscaling_policy GoogleComputeNodeGroup#autoscaling_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#autoscaling_policy GoogleComputeNodeGroup#autoscaling_policy}
         '''
         result = self._values.get("autoscaling_policy")
         return typing.cast(typing.Optional[GoogleComputeNodeGroupAutoscalingPolicy], result)
@@ -914,14 +914,14 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional textual description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#description GoogleComputeNodeGroup#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#description GoogleComputeNodeGroup#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -935,7 +935,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         One of 'initial_size' or 'autoscaling_policy' must be configured on resource creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#initial_size GoogleComputeNodeGroup#initial_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#initial_size GoogleComputeNodeGroup#initial_size}
         '''
         result = self._values.get("initial_size")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -949,7 +949,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - AS_NEEDED: Hosts are eligible to receive infrastructure and hypervisor updates as they become available.
         - RECURRENT: Hosts receive planned infrastructure and hypervisor updates on a periodic basis, but not more frequently than every 28 days. This minimizes the number of planned maintenance operations on individual hosts and reduces the frequency of disruptions, both live migrations and terminations, on individual VMs. Possible values: ["AS_NEEDED", "RECURRENT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_interval GoogleComputeNodeGroup#maintenance_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_interval GoogleComputeNodeGroup#maintenance_interval}
         '''
         result = self._values.get("maintenance_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -960,7 +960,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set to one of: DEFAULT, RESTART_IN_PLACE, or MIGRATE_WITHIN_NODE_GROUP. The default value is DEFAULT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_policy GoogleComputeNodeGroup#maintenance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_policy GoogleComputeNodeGroup#maintenance_policy}
         '''
         result = self._values.get("maintenance_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -971,7 +971,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeNodeGroupMaintenanceWindow"]:
         '''maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#maintenance_window GoogleComputeNodeGroup#maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#maintenance_window GoogleComputeNodeGroup#maintenance_window}
         '''
         result = self._values.get("maintenance_window")
         return typing.cast(typing.Optional["GoogleComputeNodeGroupMaintenanceWindow"], result)
@@ -980,14 +980,14 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#name GoogleComputeNodeGroup#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#name GoogleComputeNodeGroup#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project GoogleComputeNodeGroup#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project GoogleComputeNodeGroup#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -995,7 +995,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def share_settings(self) -> typing.Optional["GoogleComputeNodeGroupShareSettings"]:
         '''share_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#share_settings GoogleComputeNodeGroup#share_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#share_settings GoogleComputeNodeGroup#share_settings}
         '''
         result = self._values.get("share_settings")
         return typing.cast(typing.Optional["GoogleComputeNodeGroupShareSettings"], result)
@@ -1004,7 +1004,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeNodeGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#timeouts GoogleComputeNodeGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#timeouts GoogleComputeNodeGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeNodeGroupTimeouts"], result)
@@ -1013,7 +1013,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''Zone where this node group is located.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#zone GoogleComputeNodeGroup#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#zone GoogleComputeNodeGroup#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1038,7 +1038,7 @@ class GoogleComputeNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GoogleComputeNodeGroupMaintenanceWindow:
     def __init__(self, *, start_time: builtins.str) -> None:
         '''
-        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#start_time GoogleComputeNodeGroup#start_time}
+        :param start_time: instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#start_time GoogleComputeNodeGroup#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bb3328f9098745dbed300d656753d3fc4c79d922b2a64966e4a7f11808a2b6b)
@@ -1051,7 +1051,7 @@ class GoogleComputeNodeGroupMaintenanceWindow:
     def start_time(self) -> builtins.str:
         '''instances.start time of the window. This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#start_time GoogleComputeNodeGroup#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#start_time GoogleComputeNodeGroup#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -1137,8 +1137,8 @@ class GoogleComputeNodeGroupShareSettings:
         project_map: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleComputeNodeGroupShareSettingsProjectMap", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#share_type GoogleComputeNodeGroup#share_type}
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project_map GoogleComputeNodeGroup#project_map}
+        :param share_type: Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#share_type GoogleComputeNodeGroup#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project_map GoogleComputeNodeGroup#project_map}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73afa14696f349455180b9cc626bb23496b66c415f04ff86f13f9674ee0567b2)
@@ -1154,7 +1154,7 @@ class GoogleComputeNodeGroupShareSettings:
     def share_type(self) -> builtins.str:
         '''Node group sharing type. Possible values: ["ORGANIZATION", "SPECIFIC_PROJECTS", "LOCAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#share_type GoogleComputeNodeGroup#share_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#share_type GoogleComputeNodeGroup#share_type}
         '''
         result = self._values.get("share_type")
         assert result is not None, "Required property 'share_type' is missing"
@@ -1166,7 +1166,7 @@ class GoogleComputeNodeGroupShareSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeNodeGroupShareSettingsProjectMap"]]]:
         '''project_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project_map GoogleComputeNodeGroup#project_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project_map GoogleComputeNodeGroup#project_map}
         '''
         result = self._values.get("project_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeNodeGroupShareSettingsProjectMap"]]], result)
@@ -1273,8 +1273,8 @@ class GoogleComputeNodeGroupShareSettingsOutputReference(
 class GoogleComputeNodeGroupShareSettingsProjectMap:
     def __init__(self, *, id: builtins.str, project_id: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project_id: The project id/number should be the same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project_id GoogleComputeNodeGroup#project_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project_id: The project id/number should be the same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project_id GoogleComputeNodeGroup#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c38de56b68951b39eb54fff299f1ccbc9ccad55d6e9c98ee58a782eaf096ff4b)
@@ -1287,7 +1287,7 @@ class GoogleComputeNodeGroupShareSettingsProjectMap:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#id GoogleComputeNodeGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1300,7 +1300,7 @@ class GoogleComputeNodeGroupShareSettingsProjectMap:
     def project_id(self) -> builtins.str:
         '''The project id/number should be the same as the key of this project config in the project map.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#project_id GoogleComputeNodeGroup#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#project_id GoogleComputeNodeGroup#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -1503,9 +1503,9 @@ class GoogleComputeNodeGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#create GoogleComputeNodeGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#delete GoogleComputeNodeGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#update GoogleComputeNodeGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#create GoogleComputeNodeGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#delete GoogleComputeNodeGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#update GoogleComputeNodeGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a506d11f7792bf00bef2936f68e9c0163c0c1a78bcdcdcbe6f60b69bd9f825df)
@@ -1522,19 +1522,19 @@ class GoogleComputeNodeGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#create GoogleComputeNodeGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#create GoogleComputeNodeGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#delete GoogleComputeNodeGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#delete GoogleComputeNodeGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_node_group#update GoogleComputeNodeGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_node_group#update GoogleComputeNodeGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

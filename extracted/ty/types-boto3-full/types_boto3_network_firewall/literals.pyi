@@ -61,6 +61,7 @@ __all__ = (
     "StatefulRuleDirectionType",
     "StatefulRuleProtocolType",
     "StreamExceptionPolicyType",
+    "SummaryRuleOptionType",
     "TCPFlagType",
     "TargetTypeType",
     "TransitGatewayAttachmentStatusType",
@@ -93,7 +94,9 @@ LogTypeType = Literal["ALERT", "FLOW", "TLS"]
 OverrideActionType = Literal["DROP_TO_ALERT"]
 PerObjectSyncStatusType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
 ResourceManagedStatusType = Literal["ACCOUNT", "MANAGED"]
-ResourceManagedTypeType = Literal["AWS_MANAGED_DOMAIN_LISTS", "AWS_MANAGED_THREAT_SIGNATURES"]
+ResourceManagedTypeType = Literal[
+    "ACTIVE_THREAT_DEFENSE", "AWS_MANAGED_DOMAIN_LISTS", "AWS_MANAGED_THREAT_SIGNATURES"
+]
 ResourceStatusType = Literal["ACTIVE", "DELETING", "ERROR"]
 RevocationCheckActionType = Literal["DROP", "PASS", "REJECT"]
 RuleGroupTypeType = Literal["STATEFUL", "STATELESS"]
@@ -124,6 +127,7 @@ StatefulRuleProtocolType = Literal[
     "UDP",
 ]
 StreamExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
+SummaryRuleOptionType = Literal["METADATA", "MSG", "SID"]
 TCPFlagType = Literal["ACK", "CWR", "ECE", "FIN", "PSH", "RST", "SYN", "URG"]
 TargetTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 TransitGatewayAttachmentStatusType = Literal[
@@ -396,6 +400,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",

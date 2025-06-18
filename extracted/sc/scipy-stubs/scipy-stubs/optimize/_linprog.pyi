@@ -1,10 +1,11 @@
 from collections.abc import Callable, Sequence
-from typing import Final, Literal, TypeAlias, TypedDict, overload, type_check_only
-from typing_extensions import LiteralString, deprecated
+from typing import Final, Literal, LiteralString, TypeAlias, TypedDict, overload, type_check_only
+from typing_extensions import deprecated
 
 import numpy as np
 import optype.numpy as onp
 import optype.numpy.compat as npc
+
 from ._optimize import OptimizeResult as _OptimizeResult
 from ._typing import Bound, MethodLinprog, MethodLinprogLegacy
 

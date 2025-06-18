@@ -1,18 +1,20 @@
 """
-    Classes and methods to maintain any bibtex information that is stored
-    outside the doctree.
+Classes and methods to maintain any bibtex information that is stored
+outside the doctree.
 
-    .. autoclass:: Citation
-        :members:
+.. autoclass:: Citation
+    :members:
 
-    .. autoclass:: BibtexDomain
-        :members:
+.. autoclass:: BibtexDomain
+    :members:
 """
 
 import ast
 import re
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Dict,
     Iterable,
     List,
@@ -39,7 +41,7 @@ from sphinx.locale import _
 
 import sphinxcontrib.bibtex.plugin
 
-from .bibfile import BibData, normpath_filename, process_bibdata
+from .bibfile import BibData, process_bibdata
 from .citation_target import CitationTarget, parse_citation_targets
 from .roles import CiteRole
 from .style.referencing import BaseReferenceStyle, format_references
@@ -67,7 +69,6 @@ def _raise_invalid_node(node):
 
 
 class _FilterVisitor(ast.NodeVisitor):
-
     """Visit the abstract syntax tree of a parsed filter expression."""
 
     entry = None
@@ -300,11 +301,12 @@ class BibtexDomain(Domain):
         # check config
         if env.app.config.bibtex_bibfiles is None:
             raise ExtensionError("You must configure the bibtex_bibfiles setting")
-        # update bib file information in the cache
+        # canonicalize bibfile paths relative to confdir
         bibfiles = [
-            normpath_filename(env, "/" + bibfile)
+            (Path(env.app.confdir) / bibfile).resolve()
             for bibfile in env.app.config.bibtex_bibfiles
         ]
+        # update bib file information in the cache
         self.data["bibdata"] = process_bibdata(
             self.bibdata, bibfiles, env.app.config.bibtex_encoding
         )
@@ -329,7 +331,7 @@ class BibtexDomain(Domain):
             if bib_key.docname == docname:
                 del self.bibliographies[bib_key]
 
-    def merge_domaindata(self, docnames: List[str], otherdata: Dict) -> None:
+    def merge_domaindata(self, docnames: AbstractSet[str], otherdata: Dict) -> None:
         for bib_key, bib_value in otherdata["bibliographies"].items():
             if bib_key.docname in docnames:
                 self.bibliographies[bib_key] = bib_value
@@ -378,8 +380,8 @@ class BibtexDomain(Domain):
                 if bibliography.list_ == "citation":
                     used_keys.add(key)
                     if formatted_entry.label not in used_labels:
-                        used_labels[formatted_entry.label] = key
-                    elif used_labels[formatted_entry.label] != key:
+                        used_labels[formatted_entry.label] = formatted_entry.key
+                    elif used_labels[formatted_entry.label] != formatted_entry.key:
                         # if used_label[label] == key then already
                         # duplicate key warning
                         logger.warning(
@@ -387,7 +389,7 @@ class BibtexDomain(Domain):
                             % (
                                 formatted_entry.label,
                                 used_labels[formatted_entry.label],
-                                key,
+                                formatted_entry.key,
                             ),
                             location=(bibliography_key.docname, bibliography.line),
                             type="bibtex",
@@ -395,7 +397,7 @@ class BibtexDomain(Domain):
                         )
         return []  # expects list of updated docnames
 
-    def resolve_xref(
+    def resolve_xref(  # type: ignore
         self,
         env: "BuildEnvironment",
         fromdocname: str,
@@ -405,6 +407,9 @@ class BibtexDomain(Domain):
         node: "pending_xref",
         contnode: docutils.nodes.Element,
     ) -> docutils.nodes.Element:
+        # TODO: sphinx>7 has docutils.nodes.reference | None return type...
+        # TODO: for now we ignore this type error, seems to work 🤞
+        # TODO: create pending_xref for each citation target instead, in CiteRole?
         """Replace node by list of citation references (one for each key)."""
         targets = parse_citation_targets(target)
         keys: Dict[str, CitationTarget] = {target2.key: target2 for target2 in targets}
@@ -450,7 +455,7 @@ class BibtexDomain(Domain):
         result_node += formatted_references.render(self.backend)
         return result_node
 
-    def resolve_any_xref(
+    def resolve_any_xref(  # type: ignore
         self,
         env: "BuildEnvironment",
         fromdocname: str,
@@ -459,6 +464,9 @@ class BibtexDomain(Domain):
         node: "pending_xref",
         contnode: docutils.nodes.Element,
     ) -> List[Tuple[str, docutils.nodes.Element]]:
+        # TODO: sphinx>7 has List[Tuple[str, docutils.nodes.reference]] return type...
+        # TODO: for now we ignore this type error, seems to work 🤞
+        # TODO: create pending_xref for each citation target instead, in CiteRole?
         """Replace node by list of citation references (one for each key),
         provided that the target has citation keys.
         """
@@ -487,9 +495,9 @@ class BibtexDomain(Domain):
             for target in citation_ref.targets:
                 yield target.key
 
-    def get_entries(self, bibfiles: List[str]) -> Iterable["Entry"]:
+    def get_entries(self, bibfiles: List[Path]) -> Iterable["Entry"]:
         """Return all bibliography entries from the bib files, unsorted (i.e.
-        in order of appearance in the bib files.
+        in order of appearance in the bib files).
         """
         for bibfile in bibfiles:
             for key in self.bibdata.bibfiles[bibfile].keys:
@@ -581,9 +589,11 @@ class BibtexDomain(Domain):
                 yield (
                     entry,
                     style.format_entry(bibliography.labelprefix + label, entry),
-                    style2.format_entry(bibliography.labelprefix + label, entry)
-                    if style2
-                    else None,
+                    (
+                        style2.format_entry(bibliography.labelprefix + label, entry)
+                        if style2
+                        else None
+                    ),
                 )
             except FieldIsMissing as exc:
                 logger.warning(

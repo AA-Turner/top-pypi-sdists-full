@@ -387,7 +387,7 @@ def submit_azure_credentials(coiled_account, sub_id, rg_name, region, creds_to_s
             "resource_group_name": rg_name,
             "default_region": region,
         }
-        cloud._sync_request(setup_endpoint, method="POST", json=setup_data)
+        cloud._sync_request(setup_endpoint, method="POST", handle_confirm=True, json=setup_data)
 
         if check_after:
             print("Coiled Azure credentials...")

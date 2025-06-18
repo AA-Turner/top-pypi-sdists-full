@@ -20,7 +20,7 @@ import enum
 import functools
 import string
 from collections.abc import Hashable
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import jax
 from jax import lax
@@ -346,9 +346,9 @@ max_contiguous_p.def_impl(lambda x, **_: x)
 mlir.register_lowering(max_contiguous_p, lambda _, x, **__: [x])
 
 def max_contiguous(x, values):
-  if not isinstance(values, list):
-    values = [values]
-  return max_contiguous_p.bind(x, values=values)
+  if not isinstance(values, (list, tuple)):
+    values = (values,)
+  return max_contiguous_p.bind(x, values=tuple(values))
 
 @max_contiguous_p.def_abstract_eval
 def _max_contiguous_abstract_eval(aval, **_):
@@ -359,9 +359,8 @@ multiple_of_p = jax_core.Primitive("multiple_of")
 multiple_of_p.def_impl(lambda x, **_: x)
 mlir.register_lowering(multiple_of_p, lambda _, x, **__: [x])
 
-def multiple_of(x: jax.Array, values: list[int] | int) -> jax.Array:
-  if not isinstance(values, list):
-    values = [values]
+def multiple_of(x: jax.Array, values: Sequence[int] | int) -> jax.Array:
+  values = (values,) if isinstance(values, int) else tuple(values)
   return multiple_of_p.bind(x, values=values)
 
 @multiple_of_p.def_abstract_eval
@@ -490,7 +489,7 @@ def _load_discharge_rule(in_avals, out_avals, *args_flat, args_tree, **_):
     scalar_dims = [not isinstance(s, Slice) and not s.shape for s in indices]
     slice_starts = [s.start if isinstance(s, Slice) else s for s in indices]
     slice_sizes = tuple(s.size if isinstance(s, Slice) else 1 for s in indices)
-    # fixes an inconstency with lax.dynamic_slice where if the slice goes out
+    # fixes an inconsistency with lax.dynamic_slice where if the slice goes out
     # of bounds, it will instead move the start_index backwards so the slice
     # will fit in memory.
     ref = _pad_values_to_avoid_dynamic_slice_oob_shift(ref, slice_sizes)

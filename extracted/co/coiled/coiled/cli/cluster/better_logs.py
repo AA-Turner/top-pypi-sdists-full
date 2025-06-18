@@ -400,6 +400,11 @@ def format_log_event(
         if event.get("instance_id") and event.get("instance_id") in instances:
             label = instances[event["instance_id"]]["label"]
             color = instances[event["instance_id"]]["color"]
+        elif event.get("task_id") is not None:
+            task_id = event["task_id"]
+            # for batch job tasks, use task ID as the label
+            label = f"Task {task_id}"
+            color = COLORS[task_id % len(COLORS)]
         else:
             # we might not know about instance if it showed up while we're tailing all worker logs
             label = event.get("instance_id") or event.get("instance")

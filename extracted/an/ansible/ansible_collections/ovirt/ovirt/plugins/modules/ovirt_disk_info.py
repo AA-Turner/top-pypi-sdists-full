@@ -27,7 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_disk_info
 short_description: Retrieve information about one or more oVirt/RHV disks
 version_added: "1.0.0"
-author: "Katerina Koukiou (@KKoukiou)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV disks."
     - This module was called C(ovirt_disk_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -43,6 +43,7 @@ options:
             - "For example to search Disk X from storage Y use following pattern:
                name=X and storage.name=Y"
         type: str
+        default: ''
     follow:
         description:
             - List of linked entities, which should be fetched along with the main entity.
@@ -52,6 +53,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

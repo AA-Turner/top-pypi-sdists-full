@@ -1002,8 +1002,12 @@ class ChalkAPIClientImpl(ChalkClient):
             if local:
                 raise ValueError("Cannot use local mode in a notebook")
 
+            # Register Cell Magics
+            self._register_cell_magics()
+
             if branch is None:
                 self.whoami()
+
             else:
                 self._load_branches(timeout=...)
 
@@ -1660,12 +1664,39 @@ https://docs.chalk.ai/cli/apply
 
         search.observe(on_feature_select, names="value")
 
+    def _register_cell_magics(self):
+        try:
+            from IPython.core.magic import register_cell_magic
+        except ImportError:
+            _logger.warning("Failed to register cell magics, IPython not found")
+            return
+
+        from chalk.utils.notebook import register_resolver_from_cell_magic
+
+        def sql_resolver(line: str, cell: str | None):
+            """Parses the cell as a SQL string resolver and uploads it to the branch"""
+            from chalk.sql._internal.sql_file_resolver import SQLStringResult
+
+            register_resolver_from_cell_magic(
+                sql_string_result=SQLStringResult(
+                    path=re.sub(r"[^A-Za-z_\-0-9]+", "_", line.strip()),
+                    sql_string=cell,
+                    error=None,
+                )
+            )
+
+        register_cell_magic(sql_resolver)
+
     def load_features(
         self,
-        branch: BranchIdParam = None,
+        branch: BranchIdParam = ...,
     ):
         if not notebook.is_notebook():
             raise ValueError("'ChalkClient().load_features()' must be called in a notebook.")
+
+        if notebook.notebook_features_loaded.get() is True:
+            print("Notebook features already loaded. To reload features, first restart the kernel.")
+            return
 
         if branch is ...:
             branch = self._branch
@@ -1754,6 +1785,7 @@ https://docs.chalk.ai/cli/apply
             features_processed[k] = table
 
         caller_frame.f_globals.update(features_raw)
+        notebook.notebook_features_loaded.set(True)
         try:
             self._display_feature_search(features_processed)
         except Exception:

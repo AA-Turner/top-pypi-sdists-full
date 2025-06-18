@@ -1,7 +1,7 @@
 r'''
 # `google_apphub_workload`
 
-Refer to the Terraform Registry for docs: [`google_apphub_workload`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload).
+Refer to the Terraform Registry for docs: [`google_apphub_workload`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApphubWorkload(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApphubWorkload.GoogleApphubWorkload",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload google_apphub_workload}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload google_apphub_workload}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleApphubWorkload(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload google_apphub_workload} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload google_apphub_workload} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#application_id GoogleApphubWorkload#application_id}
-        :param discovered_workload: Immutable. The resource name of the original discovered workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#discovered_workload GoogleApphubWorkload#discovered_workload}
-        :param location: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#location GoogleApphubWorkload#location}
-        :param workload_id: The Workload identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#workload_id GoogleApphubWorkload#workload_id}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#attributes GoogleApphubWorkload#attributes}
-        :param description: User-defined description of a Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#description GoogleApphubWorkload#description}
-        :param display_name: User-defined name for the Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#id GoogleApphubWorkload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#project GoogleApphubWorkload#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#timeouts GoogleApphubWorkload#timeouts}
+        :param application_id: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#application_id GoogleApphubWorkload#application_id}
+        :param discovered_workload: Immutable. The resource name of the original discovered workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#discovered_workload GoogleApphubWorkload#discovered_workload}
+        :param location: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#location GoogleApphubWorkload#location}
+        :param workload_id: The Workload identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#workload_id GoogleApphubWorkload#workload_id}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#attributes GoogleApphubWorkload#attributes}
+        :param description: User-defined description of a Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#description GoogleApphubWorkload#description}
+        :param display_name: User-defined name for the Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#id GoogleApphubWorkload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#project GoogleApphubWorkload#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#timeouts GoogleApphubWorkload#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleApphubWorkload(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApphubWorkload to import.
-        :param import_from_id: The id of the existing GoogleApphubWorkload that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApphubWorkload that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApphubWorkload to import is found.
         '''
         if __debug__:
@@ -152,11 +152,11 @@ class GoogleApphubWorkload(
         operator_owners: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleApphubWorkloadAttributesOperatorOwners", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#business_owners GoogleApphubWorkload#business_owners}
-        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#criticality GoogleApphubWorkload#criticality}
-        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#developer_owners GoogleApphubWorkload#developer_owners}
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#environment GoogleApphubWorkload#environment}
-        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#operator_owners GoogleApphubWorkload#operator_owners}
+        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#business_owners GoogleApphubWorkload#business_owners}
+        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#criticality GoogleApphubWorkload#criticality}
+        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#developer_owners GoogleApphubWorkload#developer_owners}
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#environment GoogleApphubWorkload#environment}
+        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#operator_owners GoogleApphubWorkload#operator_owners}
         '''
         value = GoogleApphubWorkloadAttributes(
             business_owners=business_owners,
@@ -177,9 +177,9 @@ class GoogleApphubWorkload(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#create GoogleApphubWorkload#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#delete GoogleApphubWorkload#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#update GoogleApphubWorkload#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#create GoogleApphubWorkload#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#delete GoogleApphubWorkload#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#update GoogleApphubWorkload#update}.
         '''
         value = GoogleApphubWorkloadTimeouts(
             create=create, delete=delete, update=update
@@ -440,11 +440,11 @@ class GoogleApphubWorkloadAttributes:
         operator_owners: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleApphubWorkloadAttributesOperatorOwners", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#business_owners GoogleApphubWorkload#business_owners}
-        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#criticality GoogleApphubWorkload#criticality}
-        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#developer_owners GoogleApphubWorkload#developer_owners}
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#environment GoogleApphubWorkload#environment}
-        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#operator_owners GoogleApphubWorkload#operator_owners}
+        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#business_owners GoogleApphubWorkload#business_owners}
+        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#criticality GoogleApphubWorkload#criticality}
+        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#developer_owners GoogleApphubWorkload#developer_owners}
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#environment GoogleApphubWorkload#environment}
+        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#operator_owners GoogleApphubWorkload#operator_owners}
         '''
         if isinstance(criticality, dict):
             criticality = GoogleApphubWorkloadAttributesCriticality(**criticality)
@@ -475,7 +475,7 @@ class GoogleApphubWorkloadAttributes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApphubWorkloadAttributesBusinessOwners"]]]:
         '''business_owners block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#business_owners GoogleApphubWorkload#business_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#business_owners GoogleApphubWorkload#business_owners}
         '''
         result = self._values.get("business_owners")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApphubWorkloadAttributesBusinessOwners"]]], result)
@@ -486,7 +486,7 @@ class GoogleApphubWorkloadAttributes:
     ) -> typing.Optional["GoogleApphubWorkloadAttributesCriticality"]:
         '''criticality block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#criticality GoogleApphubWorkload#criticality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#criticality GoogleApphubWorkload#criticality}
         '''
         result = self._values.get("criticality")
         return typing.cast(typing.Optional["GoogleApphubWorkloadAttributesCriticality"], result)
@@ -497,7 +497,7 @@ class GoogleApphubWorkloadAttributes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApphubWorkloadAttributesDeveloperOwners"]]]:
         '''developer_owners block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#developer_owners GoogleApphubWorkload#developer_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#developer_owners GoogleApphubWorkload#developer_owners}
         '''
         result = self._values.get("developer_owners")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApphubWorkloadAttributesDeveloperOwners"]]], result)
@@ -508,7 +508,7 @@ class GoogleApphubWorkloadAttributes:
     ) -> typing.Optional["GoogleApphubWorkloadAttributesEnvironment"]:
         '''environment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#environment GoogleApphubWorkload#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#environment GoogleApphubWorkload#environment}
         '''
         result = self._values.get("environment")
         return typing.cast(typing.Optional["GoogleApphubWorkloadAttributesEnvironment"], result)
@@ -519,7 +519,7 @@ class GoogleApphubWorkloadAttributes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApphubWorkloadAttributesOperatorOwners"]]]:
         '''operator_owners block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#operator_owners GoogleApphubWorkload#operator_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#operator_owners GoogleApphubWorkload#operator_owners}
         '''
         result = self._values.get("operator_owners")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleApphubWorkloadAttributesOperatorOwners"]]], result)
@@ -549,8 +549,8 @@ class GoogleApphubWorkloadAttributesBusinessOwners:
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
-        :param display_name: Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        :param email: Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
+        :param display_name: Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af3ea84c45c176b5eef40ac2ad27e86fe934ea457c580d9a81c3d5ffaeabbed8)
@@ -566,7 +566,7 @@ class GoogleApphubWorkloadAttributesBusinessOwners:
     def email(self) -> builtins.str:
         '''Email address of the contacts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -576,7 +576,7 @@ class GoogleApphubWorkloadAttributesBusinessOwners:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Contact's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -776,7 +776,7 @@ class GoogleApphubWorkloadAttributesBusinessOwnersOutputReference(
 class GoogleApphubWorkloadAttributesCriticality:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
+        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52e2908b57c169430b291bc0d4a00a7dbc9b6d15ed5fbceaaa83777dc4da1638)
@@ -789,7 +789,7 @@ class GoogleApphubWorkloadAttributesCriticality:
     def type(self) -> builtins.str:
         '''Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -875,8 +875,8 @@ class GoogleApphubWorkloadAttributesDeveloperOwners:
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
-        :param display_name: Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        :param email: Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
+        :param display_name: Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c560ac7e49dace4d206e8961168ff7e0697dcc6b8741693d85cb6f78f903c944)
@@ -892,7 +892,7 @@ class GoogleApphubWorkloadAttributesDeveloperOwners:
     def email(self) -> builtins.str:
         '''Email address of the contacts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -902,7 +902,7 @@ class GoogleApphubWorkloadAttributesDeveloperOwners:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Contact's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1102,7 +1102,7 @@ class GoogleApphubWorkloadAttributesDeveloperOwnersOutputReference(
 class GoogleApphubWorkloadAttributesEnvironment:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
+        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8966c3d509e5241daef61029983d42d2a9bf177d0e3fec78c0cc116f229fa17)
@@ -1115,7 +1115,7 @@ class GoogleApphubWorkloadAttributesEnvironment:
     def type(self) -> builtins.str:
         '''Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1201,8 +1201,8 @@ class GoogleApphubWorkloadAttributesOperatorOwners:
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
-        :param display_name: Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        :param email: Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
+        :param display_name: Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2641f1b4b516d1d3962c7bc50e422a4b531476fcd4ca242f9acfde851f2e77cc)
@@ -1218,7 +1218,7 @@ class GoogleApphubWorkloadAttributesOperatorOwners:
     def email(self) -> builtins.str:
         '''Email address of the contacts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#email GoogleApphubWorkload#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -1228,7 +1228,7 @@ class GoogleApphubWorkloadAttributesOperatorOwners:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Contact's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1456,7 +1456,7 @@ class GoogleApphubWorkloadAttributesOutputReference(
     @jsii.member(jsii_name="putCriticality")
     def put_criticality(self, *, type: builtins.str) -> None:
         '''
-        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
+        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
         '''
         value = GoogleApphubWorkloadAttributesCriticality(type=type)
 
@@ -1478,7 +1478,7 @@ class GoogleApphubWorkloadAttributesOutputReference(
     @jsii.member(jsii_name="putEnvironment")
     def put_environment(self, *, type: builtins.str) -> None:
         '''
-        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
+        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#type GoogleApphubWorkload#type}
         '''
         value = GoogleApphubWorkloadAttributesEnvironment(type=type)
 
@@ -1646,16 +1646,16 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#application_id GoogleApphubWorkload#application_id}
-        :param discovered_workload: Immutable. The resource name of the original discovered workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#discovered_workload GoogleApphubWorkload#discovered_workload}
-        :param location: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#location GoogleApphubWorkload#location}
-        :param workload_id: The Workload identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#workload_id GoogleApphubWorkload#workload_id}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#attributes GoogleApphubWorkload#attributes}
-        :param description: User-defined description of a Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#description GoogleApphubWorkload#description}
-        :param display_name: User-defined name for the Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#id GoogleApphubWorkload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#project GoogleApphubWorkload#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#timeouts GoogleApphubWorkload#timeouts}
+        :param application_id: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#application_id GoogleApphubWorkload#application_id}
+        :param discovered_workload: Immutable. The resource name of the original discovered workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#discovered_workload GoogleApphubWorkload#discovered_workload}
+        :param location: Part of 'parent'. Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#location GoogleApphubWorkload#location}
+        :param workload_id: The Workload identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#workload_id GoogleApphubWorkload#workload_id}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#attributes GoogleApphubWorkload#attributes}
+        :param description: User-defined description of a Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#description GoogleApphubWorkload#description}
+        :param display_name: User-defined name for the Workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#id GoogleApphubWorkload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#project GoogleApphubWorkload#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#timeouts GoogleApphubWorkload#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1783,7 +1783,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''Part of 'parent'.  Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#application_id GoogleApphubWorkload#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#application_id GoogleApphubWorkload#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -1793,7 +1793,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def discovered_workload(self) -> builtins.str:
         '''Immutable. The resource name of the original discovered workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#discovered_workload GoogleApphubWorkload#discovered_workload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#discovered_workload GoogleApphubWorkload#discovered_workload}
         '''
         result = self._values.get("discovered_workload")
         assert result is not None, "Required property 'discovered_workload' is missing"
@@ -1803,7 +1803,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Part of 'parent'.  Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#location GoogleApphubWorkload#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#location GoogleApphubWorkload#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1813,7 +1813,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def workload_id(self) -> builtins.str:
         '''The Workload identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#workload_id GoogleApphubWorkload#workload_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#workload_id GoogleApphubWorkload#workload_id}
         '''
         result = self._values.get("workload_id")
         assert result is not None, "Required property 'workload_id' is missing"
@@ -1823,7 +1823,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def attributes(self) -> typing.Optional[GoogleApphubWorkloadAttributes]:
         '''attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#attributes GoogleApphubWorkload#attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#attributes GoogleApphubWorkload#attributes}
         '''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[GoogleApphubWorkloadAttributes], result)
@@ -1832,7 +1832,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''User-defined description of a Workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#description GoogleApphubWorkload#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#description GoogleApphubWorkload#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1841,14 +1841,14 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User-defined name for the Workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#display_name GoogleApphubWorkload#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#id GoogleApphubWorkload#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#id GoogleApphubWorkload#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1858,7 +1858,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#project GoogleApphubWorkload#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#project GoogleApphubWorkload#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1866,7 +1866,7 @@ class GoogleApphubWorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleApphubWorkloadTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#timeouts GoogleApphubWorkload#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#timeouts GoogleApphubWorkload#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApphubWorkloadTimeouts"], result)
@@ -1897,9 +1897,9 @@ class GoogleApphubWorkloadTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#create GoogleApphubWorkload#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#delete GoogleApphubWorkload#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#update GoogleApphubWorkload#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#create GoogleApphubWorkload#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#delete GoogleApphubWorkload#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#update GoogleApphubWorkload#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d113780a64a30e3c2cf112af0eee4b59ee4c20924ef985ebc99976e9d6d01a7f)
@@ -1916,19 +1916,19 @@ class GoogleApphubWorkloadTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#create GoogleApphubWorkload#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#create GoogleApphubWorkload#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#delete GoogleApphubWorkload#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#delete GoogleApphubWorkload#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apphub_workload#update GoogleApphubWorkload#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apphub_workload#update GoogleApphubWorkload#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

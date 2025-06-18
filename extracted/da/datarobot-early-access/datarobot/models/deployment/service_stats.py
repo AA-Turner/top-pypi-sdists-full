@@ -189,7 +189,7 @@ class ServiceStats(APIObject, MonitoringDataQueryBuilderMixin):
         metrics = data.pop("metrics")
 
         data = from_api(data, keep_null_keys=True)
-        data["metrics"] = metrics
+        data["metrics"] = metrics  # type: ignore[call-overload]
         return cls.from_data(data)
 
 

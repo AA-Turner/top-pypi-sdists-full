@@ -5,7 +5,7 @@ from typing import Optional
 import urllib.request
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'c093624863dbd49ba5acad3590ba8f5c294d37a3'
+_SKYPILOT_COMMIT_SHA = 'fa78e63ee618b8695df1bca87911a231cce3d7da'
 
 
 def _get_git_commit():
@@ -35,7 +35,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20250616'
+__version__ = '1.0.0.dev20250617'
 __root_dir__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -81,7 +81,6 @@ _set_http_proxy_env_vars()
 # Keep this order to avoid cyclic imports
 # pylint: disable=wrong-import-position
 from sky import backends
-from sky import benchmark
 from sky import clouds
 from sky.admin_policy import AdminPolicy
 from sky.admin_policy import MutatedUserRequest
@@ -168,7 +167,6 @@ __all__ = [
     'Optimizer',
     'OptimizeTarget',
     'backends',
-    'benchmark',
     'list_accelerators',
     '__root_dir__',
     'Storage',

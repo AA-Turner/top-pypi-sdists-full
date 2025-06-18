@@ -313,6 +313,7 @@ class MiniRpaManager(MiniRpaFunction):
             deletion_keyword = self.process_dict.get('deletion_keyword', '')
             separator = self.process_dict.get('separator', '')
             separator = separator if separator else ''
+            text_column_names = self.process_dict.get('text_column_names', '')
 
             from_folder_path = from_folder_path if from_folder_path else self.report_save_path
             from_file_path = from_folder_path + os.sep + from_file_name
@@ -426,7 +427,7 @@ class MiniRpaManager(MiniRpaFunction):
                 self.hrs_copy_first_row_to_ranges(from_folder_path, from_file_name, from_sheet_name, has_from_file_condition, update_folder_path, update_file_name,
                                                   update_sheet_name, update_column_name, int(update_row_number))
             elif function_name == 'hrs_merge_weekly_rehiring_data':
-                self.hrs_merge_weekly_rehiring_data(rehiring_folder_path, rehiring_sheet_name)
+                self.hrs_merge_weekly_rehiring_data(rehiring_folder_path, rehiring_sheet_name, text_column_names)
             elif function_name == 'hrs_collect_row_value_diffs':
                 self.hrs_collect_row_value_diffs(from_folder_path, from_file_name, from_sheet_name, from_column_by, update_folder_path,
                                                  update_file_name, update_sheet_name, update_column_by, config_folder_path, config_file_name, config_sheet_name,

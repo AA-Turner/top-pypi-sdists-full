@@ -92,7 +92,9 @@
 
     - assert:
         that:
-        - result.queries == ["SET GLOBAL `{{ set_name }}` = {{ set_value }}"]
+        - result.queries == expected_queries
+      vars:
+        expected_queries: ["SET GLOBAL `{{ set_name }}` = {{ set_value }}"]
 
     - include_tasks: assert_var.yml
       vars:
@@ -291,9 +293,9 @@
     # Bugfix https://github.com/ansible-collections/community.mysql/issues/652
 
     - name: Get server version
-      register: result
       mysql_info:
         <<: *mysql_params
+      register: result
 
     - name: Set variable name when running on MySQL
       set_fact:
@@ -316,7 +318,9 @@
       assert:
         that:
         - result is changed or result.msg == "Variable is already set to requested value."
-        - result.msg == "Variable is already set to requested value." or result.queries == ["SET GLOBAL `{{ log_slow_statements }}` = ON"]
+        - result.msg == "Variable is already set to requested value." or result.queries == expected_queries
+      vars:
+        expected_queries: ["SET GLOBAL `{{ log_slow_statements }}` = ON"]
 
     - name: Set a boolean value again using ON
       mysql_variables:
@@ -378,7 +382,9 @@
       assert:
         that:
         - result is changed
-        - result.queries == ["SET GLOBAL `{{ log_slow_statements }}` = ON"]
+        - result.queries == expected_queries
+      vars:
+        expected_queries: ["SET GLOBAL `{{ log_slow_statements }}` = ON"]
 
     #============================================================
     # Verify mysql_variable fails with an incorrect login_password parameter
@@ -452,7 +458,9 @@
 
         - assert:
             that:
-            - result.queries == ["SET PERSIST `{{ set_name }}` = {{ set_value }}"]
+            - result.queries == expected_queries
+          vars:
+            expected_queries: ["SET PERSIST `{{ set_name }}` = {{ set_value }}"]
 
         - include_tasks: assert_var.yml
           vars:
@@ -494,7 +502,9 @@
         - assert:
             that:
             - result is changed
-            - result.queries == ["SET PERSIST_ONLY `{{ set_name }}` = {{ set_value }}"]
+            - result.queries == expected_queries
+          vars:
+            expected_queries: ["SET PERSIST_ONLY `{{ set_name }}` = {{ set_value }}"]
 
         - name: try to update mysql variable value (expect changed=false) in persist_only mode again
           mysql_variables:

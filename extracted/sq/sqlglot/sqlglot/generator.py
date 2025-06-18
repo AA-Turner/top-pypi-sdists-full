@@ -201,6 +201,7 @@ class Generator(metaclass=_Generator):
         exp.StreamingTableProperty: lambda *_: "STREAMING",
         exp.StrictProperty: lambda *_: "STRICT",
         exp.SwapTable: lambda self, e: f"SWAP WITH {self.sql(e, 'this')}",
+        exp.TableColumn: lambda self, e: self.sql(e.this),
         exp.Tags: lambda self, e: f"TAG ({self.expressions(e, flat=True)})",
         exp.TemporaryProperty: lambda *_: "TEMPORARY",
         exp.TitleColumnConstraint: lambda self, e: f"TITLE {self.sql(e, 'this')}",
@@ -462,6 +463,11 @@ class Generator(metaclass=_Generator):
 
     # Whether to wrap <props> in `AlterSet`, e.g., ALTER ... SET (<props>)
     ALTER_SET_WRAPPED = False
+
+    # Whether to normalize the date parts in EXTRACT(<date_part> FROM <expr>) into a common representation
+    # For instance, to extract the day of week in ISO semantics, one can use ISODOW, DAYOFWEEKISO etc depending on the dialect.
+    # TODO: The normalization should be done by default once we've tested it across all dialects.
+    NORMALIZE_EXTRACT_DATE_PARTS = False
 
     # The name to generate for the JSONPath expression. If `None`, only `this` will be generated
     PARSE_JSON_NAME: t.Optional[str] = "PARSE_JSON"
@@ -2909,9 +2915,17 @@ class Generator(metaclass=_Generator):
         return f"NEXT VALUE FOR {self.sql(expression, 'this')}{order}"
 
     def extract_sql(self, expression: exp.Extract) -> str:
-        this = self.sql(expression, "this") if self.EXTRACT_ALLOWS_QUOTES else expression.this.name
+        from sqlglot.dialects.dialect import map_date_part
+
+        this = (
+            map_date_part(expression.this, self.dialect)
+            if self.NORMALIZE_EXTRACT_DATE_PARTS
+            else expression.this
+        )
+        this_sql = self.sql(this) if self.EXTRACT_ALLOWS_QUOTES else this.name
         expression_sql = self.sql(expression, "expression")
-        return f"EXTRACT({this} FROM {expression_sql})"
+
+        return f"EXTRACT({this_sql} FROM {expression_sql})"
 
     def trim_sql(self, expression: exp.Trim) -> str:
         trim_type = self.sql(expression, "position")
@@ -4766,7 +4780,10 @@ class Generator(metaclass=_Generator):
 
     def detach_sql(self, expression: exp.Detach) -> str:
         this = self.sql(expression, "this")
-        exists_sql = " IF EXISTS" if expression.args.get("exists") else ""
+        # the DATABASE keyword is required if IF EXISTS is set
+        # without it, DuckDB throws an error: Parser Error: syntax error at or near "exists" (Line Number: 1)
+        # ref: https://duckdb.org/docs/stable/sql/statements/attach.html#detach-syntax
+        exists_sql = " DATABASE IF EXISTS" if expression.args.get("exists") else ""
 
         return f"DETACH{exists_sql} {this}"
 

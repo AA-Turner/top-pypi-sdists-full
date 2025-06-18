@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-schema-to-pydantic
-Version: 0.2.6
+Version: 0.3.0
 Summary: A Python library for automatically generating Pydantic v2 models from JSON Schema definitions
 Project-URL: Homepage, https://github.com/richard-gyiko/json-schema-to-pydantic
 Project-URL: Bug-Tracker, https://github.com/richard-gyiko/json-schema-to-pydantic/issues

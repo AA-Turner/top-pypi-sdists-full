@@ -45,7 +45,7 @@
     - name: Plugin auth | Check that the expected plugin type is set (with hash string)
       ansible.builtin.assert:
         that:
-          - "'{{ test_plugin_type }}' in show_create_user.stdout"
+          - test_plugin_type in show_create_user.stdout
       when: db_engine == 'mysql' or (db_engine == 'mariadb' and db_version is version('10.3', '>='))
 
     - ansible.builtin.include_tasks: utils/assert_user.yml

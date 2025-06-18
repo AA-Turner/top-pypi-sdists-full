@@ -8,13 +8,13 @@ include = ["tftpy"]
 
 [project]
 name = "tftpy"
-version = "0.8.5"
+version = "0.8.6"
 authors = [
   { name="Michael Soulier", email="msoulier@digitaltorque.ca" },
 ]
 description = "A TFTP protocol library for Python"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -24,3 +24,6 @@ license = { text = "MIT" }
 [project.urls]
 Homepage = "https://github.com/msoulier/tftpy"
 Issues = "https://github.com/msoulier/tftpy/issues"
+
+[tools.setuptools]
+script-files = ["bin/tftpy_client.py", "bin/tftpy_server.py"]

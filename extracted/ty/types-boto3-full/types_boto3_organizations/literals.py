@@ -91,6 +91,7 @@ EffectivePolicyTypeType = Literal[
     "BACKUP_POLICY",
     "CHATBOT_POLICY",
     "DECLARATIVE_POLICY_EC2",
+    "SECURITYHUB_POLICY",
     "TAG_POLICY",
 ]
 HandshakePartyTypeType = Literal["ACCOUNT", "EMAIL", "ORGANIZATION"]
@@ -133,6 +134,7 @@ PolicyTypeType = Literal[
     "CHATBOT_POLICY",
     "DECLARATIVE_POLICY_EC2",
     "RESOURCE_CONTROL_POLICY",
+    "SECURITYHUB_POLICY",
     "SERVICE_CONTROL_POLICY",
     "TAG_POLICY",
 ]
@@ -396,6 +398,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",

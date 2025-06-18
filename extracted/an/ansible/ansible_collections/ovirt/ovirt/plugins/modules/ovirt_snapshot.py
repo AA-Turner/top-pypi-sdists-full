@@ -27,9 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_snapshot
 short_description: "Module to manage Virtual Machine Snapshots in oVirt/RHV"
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage Virtual Machine Snapshots in oVirt/RHV"
 options:
@@ -207,7 +205,7 @@ import os
 import ssl
 import time
 
-from ansible.module_utils.six.moves.http_client import HTTPSConnection, IncompleteRead
+from ansible.module_utils.six.moves.http_client import HTTPSConnection
 from ansible.module_utils.six.moves.urllib.parse import urlparse
 
 from datetime import datetime

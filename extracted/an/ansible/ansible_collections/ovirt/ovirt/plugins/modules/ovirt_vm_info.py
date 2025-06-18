@@ -27,9 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_vm_info
 short_description: Retrieve information about one or more oVirt/RHV virtual machines
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV virtual machines."
     - This module was called C(ovirt_vm_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -45,6 +43,7 @@ options:
         - "For example to search VM X from cluster Y use following pattern:
            name=X and cluster=Y"
       type: str
+      default: ''
     all_content:
       description:
         - "If I(true) all the attributes of the virtual machines should be
@@ -81,6 +80,7 @@ options:
       version_added: 1.5.0
       elements: str
       aliases: ['follows']
+      default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

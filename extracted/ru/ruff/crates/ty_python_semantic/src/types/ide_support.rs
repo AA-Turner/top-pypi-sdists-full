@@ -116,7 +116,8 @@ impl AllMembers {
             | Type::SpecialForm(_)
             | Type::KnownInstance(_)
             | Type::TypeVar(_)
-            | Type::BoundSuper(_) => {
+            | Type::BoundSuper(_)
+            | Type::TypeIs(_) => {
                 if let Type::ClassLiteral(class_literal) = ty.to_meta_type(db) {
                     self.extend_with_class_members(db, class_literal);
                 }
@@ -184,10 +185,8 @@ impl AllMembers {
             let index = semantic_index(db, file);
             for function_scope_id in attribute_scopes(db, class_body_scope) {
                 let place_table = index.place_table(function_scope_id);
-                for instance_attribute in place_table.instance_attributes() {
-                    let name = instance_attribute.sub_segments()[0].as_member().unwrap();
-                    self.members.insert(name.clone());
-                }
+                self.members
+                    .extend(place_table.instance_attributes().cloned());
             }
         }
     }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.3.6
+Version: 0.3.8
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -45,7 +45,7 @@ GWAY
 
 Welcome, this is the GWAY project README file and demo website.
 
-**GWAY** is a CLI and function-dispatch framework that allows you to invoke and chain Python functions from your own projects or built-ins, with automatic sigil & context resolution, argument injection, control inversion, auto-wired recipes and multi-environment support. GWAY is async-compatible and fully instrumented.
+**GWAY** is a CLI and function-dispatch framework that allows you to invoke and chain Python functions from your own projects or built-ins, with sigil in-context resolution, argument injection, control inversion, auto-wired recipes and multi-environment support. GWAY is async-compatible and fully instrumented.
 
 `Our Goal: Lower the barrier to a higher-level of systems integration.`
 
@@ -252,10 +252,11 @@ Then in your recipe:
 
     # recipes/website.gwr
     web app setup --project mysite --home hello
+    web app setup --project navbar
     web server start-app --host 127.0.0.1 --port 8888
     until --lock-file VERSION --lock-pypi
 
-Navigate to http://127.0.0.1:8888/mysite/hello or /mysite/about to see your views.
+Navigate to http://127.0.0.1:8888/mysite/hello or /mysite/about to see your views, including a handy navbar.
 
 Composing Sites from Multiple Projects
 --------------------------------------
@@ -275,9 +276,11 @@ You can chain as many projects as you want; each can define its own set of views
     until --lock-file VERSION --lock-pypi
 
 
-The above example combines basic features such as cookies and navbar with custom projects, a virtual upload/download box system and Conway's Game of Life, into a single application.
+The above example combines basic features such as cookies and navbar with custom projects, a virtual upload/download box system and Conway's Game of Life, into a single application. 
 
-You can disable default basic features by passing --no-navbar and/or --no-cookies to web app setup.
+The above recipe also shows that you can skip repeated commands. For example, instead of writing "web app setup" multiple times, each line below that doesn't start with a command repeats the last command with new parameters.
+
+
 
 How It Works
 ------------

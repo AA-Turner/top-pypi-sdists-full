@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_acm.literals import CertificateManagedByType
+    from types_boto3_acm.literals import CertificateExportType
 
-    data: CertificateManagedByType = "CLOUDFRONT"
+    data: CertificateExportType = "DISABLED"
     ```
 """
 
@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "ACMServiceName",
+    "CertificateExportType",
     "CertificateManagedByType",
     "CertificateStatusType",
     "CertificateTransparencyLoggingPreferenceType",
@@ -50,6 +51,7 @@ __all__ = (
 )
 
 
+CertificateExportType = Literal["DISABLED", "ENABLED"]
 CertificateManagedByType = Literal["CLOUDFRONT"]
 CertificateStatusType = Literal[
     "EXPIRED",
@@ -392,6 +394,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: singer-sdk
-Version: 0.47.1
+Version: 0.47.2
 Summary: A framework for building Singer taps
 Project-URL: Homepage, https://sdk.meltano.com/en/latest/
 Project-URL: Repository, https://github.com/meltano/sdk

@@ -409,8 +409,7 @@ impl Forall<Forallable> {
         let param_map = self
             .tparams
             .quantified()
-            .cloned()
-            .zip(targs.as_slice().iter().cloned())
+            .zip(targs.as_slice())
             .collect::<SmallMap<_, _>>();
         self.body.as_type().subst(&param_map)
     }
@@ -647,6 +646,16 @@ impl Type {
         Type::Never(NeverStyle::Never)
     }
 
+    pub fn is_function_type(&self) -> bool {
+        matches!(
+            self,
+            Type::Function { .. }
+                | Type::Overload { .. }
+                | Type::BoundMethod { .. }
+                | Type::Callable { .. }
+        )
+    }
+
     pub fn as_module(&self) -> Option<&Module> {
         match self {
             Type::Module(m) => Some(m),
@@ -664,6 +673,10 @@ impl Type {
 
     pub fn callable_param_spec(p: Type, ret: Type) -> Self {
         Type::Callable(Box::new(Callable::param_spec(p, ret)))
+    }
+
+    pub fn is_union(&self) -> bool {
+        matches!(self, Type::Union(_))
     }
 
     pub fn is_never(&self) -> bool {
@@ -813,13 +826,13 @@ impl Type {
         }
     }
 
-    pub fn subst(mut self, mp: &SmallMap<Quantified, Type>) -> Self {
+    pub fn subst(mut self, mp: &SmallMap<&Quantified, &Type>) -> Self {
         // We are looking up Quantified in a map, and Quantified may contain a Quantified within it.
         // Therefore, to make sure we still get matches, work top-down (not using `transform`).
-        fn f(ty: &mut Type, mp: &SmallMap<Quantified, Type>) {
+        fn f(ty: &mut Type, mp: &SmallMap<&Quantified, &Type>) {
             if let Type::Quantified(x) = ty {
                 if let Some(w) = mp.get(x) {
-                    *ty = w.clone();
+                    *ty = (*w).clone();
                 }
             } else {
                 ty.recurse_mut(&mut |x| f(x, mp));

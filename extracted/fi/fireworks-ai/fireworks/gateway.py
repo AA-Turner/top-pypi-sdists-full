@@ -7,6 +7,7 @@ import time
 from typing import List, Optional, TypeVar, Union
 
 from fireworks._const import FIREWORKS_API_BASE_URL, FIREWORKS_GATEWAY_ADDR
+from fireworks._util import get_api_key_from_env
 import grpclib
 import grpc
 from grpc._channel import _InactiveRpcError
@@ -19,6 +20,14 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.gateway_pb2_grpc im
 from fireworks.control_plane.generated.protos_grpcio.gateway.supervised_fine_tuning_job_pb2 import (
     SupervisedFineTuningJob as SyncSupervisedFineTuningJob,
     CreateSupervisedFineTuningJobRequest as SyncCreateSupervisedFineTuningJobRequest,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.reinforcement_fine_tuning_job_pb2 import (
+    ReinforcementFineTuningJob as SyncReinforcementFineTuningJob,
+    CreateReinforcementFineTuningJobRequest as SyncCreateReinforcementFineTuningJobRequest,
+    GetReinforcementFineTuningJobRequest as SyncGetReinforcementFineTuningJobRequest,
+    ListReinforcementFineTuningJobsRequest as SyncListReinforcementFineTuningJobsRequest,
+    ListReinforcementFineTuningJobsResponse as SyncListReinforcementFineTuningJobsResponse,
+    DeleteReinforcementFineTuningJobRequest as SyncDeleteReinforcementFineTuningJobRequest,
 )
 from fireworks.control_plane.generated.protos_grpcio.gateway.deployed_model_pb2 import (
     DeployedModel as SyncDeployedModel,
@@ -36,6 +45,8 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.dataset_pb2 import 
     GetDatasetUploadEndpointRequest as SyncGetDatasetUploadEndpointRequest,
     GetDatasetRequest as SyncGetDatasetRequest,
     ValidateDatasetUploadRequest as SyncValidateDatasetUploadRequest,
+    GetDatasetDownloadEndpointRequest as SyncGetDatasetDownloadEndpointRequest,
+    GetDatasetDownloadEndpointResponse as SyncGetDatasetDownloadEndpointResponse,
 )
 from fireworks.control_plane.generated.protos_grpcio.gateway.supervised_fine_tuning_job_pb2 import (
     ListSupervisedFineTuningJobsRequest as SyncListSupervisedFineTuningJobsRequest,
@@ -61,6 +72,20 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.model_pb2 import (
     GetModelRequest as SyncGetModelRequest,
     ListModelsRequest as SyncListModelsRequest,
     ListModelsResponse as SyncListModelsResponse,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.evaluator_pb2 import (
+    PreviewEvaluatorRequest as SyncPreviewEvaluatorRequest,
+    PreviewEvaluatorResponse as SyncPreviewEvaluatorResponse,
+    GetEvaluatorRequest as SyncGetEvaluatorRequest,
+    Evaluator as SyncEvaluator,
+    CreateEvaluatorRequest as SyncCreateEvaluatorRequest,
+    ListEvaluatorsRequest as SyncListEvaluatorsRequest,
+    ListEvaluatorsResponse as SyncListEvaluatorsResponse,
+)
+from fireworks.control_plane.generated.protos_grpcio.gateway.evaluation_job_pb2 import (
+    CreateEvaluationJobRequest as SyncCreateEvaluationJobRequest,
+    EvaluationJob as SyncEvaluationJob,
+    GetEvaluationJobRequest as SyncGetEvaluationJobRequest,
 )
 from fireworks.control_plane.generated.protos.gateway import (
     AcceleratorType,
@@ -150,16 +175,6 @@ class CustomAuthInterceptor(
         return continuation(new_details, request_iterator)
 
 
-def _get_api_key_from_env() -> Optional[str]:
-    """
-    Attempts to obtain API key from the environment variable.
-
-    Returns:
-        API key retrieved from env variable or None if missing.
-    """
-    return os.environ.get("FIREWORKS_API_KEY")
-
-
 R = TypeVar("R")
 
 
@@ -184,7 +199,7 @@ class Gateway:
         """
         self._server_addr = server_addr
         if not api_key:
-            api_key = _get_api_key_from_env()
+            api_key = get_api_key_from_env()
             if not api_key:
                 raise ValueError(
                     "Fireworks API key not found. Please provide an API key either as a parameter "
@@ -223,6 +238,42 @@ class Gateway:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self._channel.close()
+
+    def create_reinforcement_fine_tuning_job_sync(
+        self, request: SyncCreateReinforcementFineTuningJobRequest
+    ) -> SyncReinforcementFineTuningJob:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        response = self._sync_stub.CreateReinforcementFineTuningJob(request)
+        return response
+
+    def get_reinforcement_fine_tuning_job_sync(self, id: str) -> Optional[SyncReinforcementFineTuningJob]:
+        try:
+            account_id = self.account_id()
+            response = self._sync_stub.GetReinforcementFineTuningJob(
+                SyncGetReinforcementFineTuningJobRequest(
+                    name=f"accounts/{account_id}/reinforcementFineTuningJobs/{id}"
+                )
+            )
+            return response
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
+
+    def list_reinforcement_fine_tuning_jobs_sync(
+        self, request: SyncListReinforcementFineTuningJobsRequest
+    ) -> SyncListReinforcementFineTuningJobsResponse:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        response = self._sync_stub.ListReinforcementFineTuningJobs(request)
+        return response
+
+    def delete_reinforcement_fine_tuning_job_sync(self, id: str) -> None:
+        account_id = self.account_id()
+        self._sync_stub.DeleteReinforcementFineTuningJob(
+            SyncDeleteReinforcementFineTuningJobRequest(name=f"accounts/{account_id}/reinforcementFineTuningJobs/{id}")
+        )
 
     async def create_supervised_fine_tuning_job(
         self, request: CreateSupervisedFineTuningJobRequest
@@ -370,6 +421,18 @@ class Gateway:
         response = self._sync_stub.CreateDataset(request)
         return response
 
+    def get_dataset_download_endpoint_sync(self, id: str) -> Optional[SyncGetDatasetDownloadEndpointResponse]:
+        try:
+            account_id = self.account_id()
+            response = self._sync_stub.GetDatasetDownloadEndpoint(
+                SyncGetDatasetDownloadEndpointRequest(name=f"accounts/{account_id}/datasets/{id}")
+            )
+            return response
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
+
     async def get_dataset_upload_endpoint(
         self,
         name: str,
@@ -442,15 +505,17 @@ class Gateway:
     def list_models_sync(
         self,
         *,
-        page_size: int = 0,
+        page_size: int = 200,
         page_token: str = "",
         filter: str = "",
         order_by: str = "",
         include_deployed_model_refs: bool = False,
-    ) -> ListModelsResponse:
-        account_id = self.account_id()
+        parent: Optional[str] = None,
+    ) -> SyncListModelsResponse:
+        if parent is None:
+            parent = f"accounts/{self.account_id()}"
         request = SyncListModelsRequest(
-            parent=f"accounts/{account_id}",
+            parent=parent,
             page_size=page_size,
             page_token=page_token,
             filter=filter,
@@ -532,6 +597,43 @@ class Gateway:
         if not name.startswith("accounts/"):
             name = f"accounts/{self.account_id()}/deployments/{name}"
         self._sync_stub.DeleteDeployment(SyncDeleteDeploymentRequest(name=name, ignore_checks=ignore_checks))
+
+    def preview_evaluator_sync(self, request: SyncPreviewEvaluatorRequest) -> SyncPreviewEvaluatorResponse:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        return self._sync_stub.PreviewEvaluator(request)
+
+    def get_evaluator_sync(self, name: str) -> Optional[SyncEvaluator]:
+        try:
+            if not name.startswith("accounts/"):
+                name = f"accounts/{self.account_id()}/evaluators/{name}"
+            return self._sync_stub.GetEvaluator(SyncGetEvaluatorRequest(name=name))
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
+
+    def list_evaluators_sync(self, request: SyncListEvaluatorsRequest) -> SyncListEvaluatorsResponse:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        return self._sync_stub.ListEvaluators(request)
+
+    def create_evaluator_sync(self, request: SyncCreateEvaluatorRequest) -> SyncEvaluator:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        return self._sync_stub.CreateEvaluator(request)
+
+    def create_evaluation_job_sync(self, request: SyncCreateEvaluationJobRequest) -> SyncEvaluationJob:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        return self._sync_stub.CreateEvaluationJob(request)
+
+    def get_evaluation_job_sync(self, name: str) -> Optional[SyncEvaluationJob]:
+        if not name:
+            return None
+        if not name.startswith("accounts/"):
+            name = f"accounts/{self.account_id()}/evaluation_jobs/{name}"
+        return self._sync_stub.GetEvaluationJob(SyncGetEvaluationJobRequest(name=name))
 
     async def update_deployment(
         self,

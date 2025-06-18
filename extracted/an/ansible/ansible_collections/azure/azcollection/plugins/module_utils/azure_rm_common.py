@@ -261,9 +261,9 @@ try:
     from azure.mgmt.sql import SqlManagementClient
     from azure.mgmt.servicebus import ServiceBusManagementClient
     from azure.mgmt.rdbms.postgresql import PostgreSQLManagementClient
-    from azure.mgmt.rdbms.postgresql_flexibleservers import PostgreSQLManagementClient as PostgreSQLFlexibleManagementClient
+    from azure.mgmt.postgresqlflexibleservers import PostgreSQLManagementClient as PostgreSQLFlexibleManagementClient
     from azure.mgmt.rdbms.mysql import MySQLManagementClient
-    from azure.mgmt.rdbms.mysql_flexibleservers import MySQLManagementClient as MySQLFlexibleManagementClient
+    from azure.mgmt.mysqlflexibleservers import MySQLManagementClient as MySQLFlexibleManagementClient
     from azure.mgmt.rdbms.mariadb import MariaDBManagementClient
     from azure.mgmt.containerregistry import ContainerRegistryManagementClient
     from azure.mgmt.containerinstance import ContainerInstanceManagementClient
@@ -287,10 +287,13 @@ try:
     import azure.mgmt.datafactory.models as DataFactoryModel
     from azure.identity._credentials import client_secret, user_password, certificate, managed_identity
     from azure.identity import AzureCliCredential
-    from msgraph import GraphServiceClient
+    from kiota_authentication_azure.azure_identity_authentication_provider import AzureIdentityAuthenticationProvider
+    from msgraph_core import GraphClientFactory, NationalClouds
+    from msgraph import GraphRequestAdapter, GraphServiceClient
     from azure.mgmt.batch import BatchManagementClient
     from azure.mgmt.batch import models as BatchManagementModel
     from azure.mgmt.resourcehealth import ResourceHealthMgmtClient
+    from azure.mgmt.cdn import CdnManagementClient
 
 except ImportError as exc:
     Authentication = object
@@ -432,6 +435,7 @@ class AzureRMModuleBase(object):
         self._resource_client = None
         self._compute_client = None
         self._disk_client = None
+        self._image_version_client = None
         self._multi_disk_client = None
         self._diskencryptionset_client = None
         self._image_client = None
@@ -467,6 +471,7 @@ class AzureRMModuleBase(object):
         self._event_hub_client = None
         self._batch_account_client = None
         self._resourcehealth_client = None
+        self._cdn_client = None
 
         self.check_mode = self.module.check_mode
         self.api_profile = self.module.params.get('api_profile')
@@ -907,7 +912,16 @@ class AzureRMModuleBase(object):
     #    return client
 
     def get_msgraph_client(self):
-        return GraphServiceClient(self.azure_auth.azure_credential_track2)
+        auth_provider = AzureIdentityAuthenticationProvider(self.azure_auth.azure_credential_track2)
+        cloud_mapping = {
+            azure_cloud.AZURE_CHINA_CLOUD: NationalClouds.China,
+            azure_cloud.AZURE_US_GOV_CLOUD: NationalClouds.US_GOV,
+            azure_cloud.AZURE_GERMAN_CLOUD: NationalClouds.Germany
+        }
+        host = cloud_mapping.get(self._cloud_environment, NationalClouds.Global)
+        client = GraphClientFactory.create_with_default_middleware(host=host)
+        request_adapter = GraphRequestAdapter(auth_provider, client=client)
+        return GraphServiceClient(self.azure_auth.azure_credential_track2, request_adapter=request_adapter)
 
     def get_mgmt_svc_client(self, client_type, base_url=None, api_version=None, suppress_subscription_id=False):
         self.log('Getting management service client {0}'.format(client_type.__name__))
@@ -1152,6 +1166,20 @@ class AzureRMModuleBase(object):
         return ComputeManagementClient.models("2023-04-02")
 
     @property
+    def image_version_client(self):
+        self.log('Getting gallery image version client')
+        if not self._image_version_client:
+            self._image_version_client = self.get_mgmt_svc_client(ComputeManagementClient,
+                                                                  base_url=self._cloud_environment.endpoints.resource_manager,
+                                                                  api_version='2023-07-03')
+        return self._image_version_client
+
+    @property
+    def image_version_models(self):
+        self.log("Getting image version models")
+        return ComputeManagementClient.models("2023-07-03")
+
+    @property
     def multi_disk_client(self):
         self.log('Getting disk client')
         if not self._multi_disk_client:
@@ -1253,7 +1281,8 @@ class AzureRMModuleBase(object):
         self.log('Getting PostgreSQL client')
         if not self._postgresql_flexible_client:
             self._postgresql_flexible_client = self.get_mgmt_svc_client(PostgreSQLFlexibleManagementClient,
-                                                                        base_url=self._cloud_environment.endpoints.resource_manager)
+                                                                        base_url=self._cloud_environment.endpoints.resource_manager,
+                                                                        api_version='2024-08-01')
         return self._postgresql_flexible_client
 
     @property
@@ -1269,7 +1298,8 @@ class AzureRMModuleBase(object):
         self.log('Getting MySQL Flexible client')
         if not self._mysql_flexible_client:
             self._mysql_flexible_client = self.get_mgmt_svc_client(MySQLFlexibleManagementClient,
-                                                                   base_url=self._cloud_environment.endpoints.resource_manager)
+                                                                   base_url=self._cloud_environment.endpoints.resource_manager,
+                                                                   api_version='2024-08-01')
         return self._mysql_flexible_client
 
     @property
@@ -1488,6 +1518,15 @@ class AzureRMModuleBase(object):
     @property
     def batch_account_model(self):
         return BatchManagementModel
+
+    @property
+    def cdn_client(self):
+        self.log('Getting cdn client...')
+        if not self._cdn_client:
+            self._cdn_client = self.get_mgmt_svc_client(CdnManagementClient,
+                                                        base_url=self._cloud_environment.endpoints.resource_manager,
+                                                        api_version='2024-02-01')
+        return self._cdn_client
 
 
 class AzureRMAuthException(Exception):

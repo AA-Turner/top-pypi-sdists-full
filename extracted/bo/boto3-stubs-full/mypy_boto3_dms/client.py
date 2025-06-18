@@ -378,8 +378,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[BatchStartRecommendationsRequestTypeDef]
     ) -> BatchStartRecommendationsResponseTypeDef:
         """
-        Starts the analysis of up to 20 source databases to recommend target engines
-        for each source database.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/batch_start_recommendations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#batch_start_recommendations)
@@ -439,7 +439,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[CreateFleetAdvisorCollectorRequestTypeDef]
     ) -> CreateFleetAdvisorCollectorResponseTypeDef:
         """
-        Creates a Fleet Advisor collector using the specified parameters.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/create_fleet_advisor_collector.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#create_fleet_advisor_collector)
@@ -570,7 +571,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DeleteCollectorRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes the specified Fleet Advisor collector.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/delete_fleet_advisor_collector.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#delete_fleet_advisor_collector)
@@ -580,7 +582,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DeleteFleetAdvisorDatabasesRequestTypeDef]
     ) -> DeleteFleetAdvisorDatabasesResponseTypeDef:
         """
-        Deletes the specified Fleet Advisor collector databases.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/delete_fleet_advisor_databases.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#delete_fleet_advisor_databases)
@@ -814,7 +817,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeFleetAdvisorCollectorsRequestTypeDef]
     ) -> DescribeFleetAdvisorCollectorsResponseTypeDef:
         """
-        Returns a list of the Fleet Advisor collectors in your account.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_fleet_advisor_collectors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_fleet_advisor_collectors)
@@ -824,7 +828,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeFleetAdvisorDatabasesRequestTypeDef]
     ) -> DescribeFleetAdvisorDatabasesResponseTypeDef:
         """
-        Returns a list of Fleet Advisor databases in your account.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_fleet_advisor_databases.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_fleet_advisor_databases)
@@ -834,8 +839,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeFleetAdvisorLsaAnalysisRequestTypeDef]
     ) -> DescribeFleetAdvisorLsaAnalysisResponseTypeDef:
         """
-        Provides descriptions of large-scale assessment (LSA) analyses produced by your
-        Fleet Advisor collectors.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_fleet_advisor_lsa_analysis.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_fleet_advisor_lsa_analysis)
@@ -845,8 +850,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeFleetAdvisorSchemaObjectSummaryRequestTypeDef]
     ) -> DescribeFleetAdvisorSchemaObjectSummaryResponseTypeDef:
         """
-        Provides descriptions of the schemas discovered by your Fleet Advisor
-        collectors.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_fleet_advisor_schema_object_summary.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_fleet_advisor_schema_object_summary)
@@ -856,7 +861,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeFleetAdvisorSchemasRequestTypeDef]
     ) -> DescribeFleetAdvisorSchemasResponseTypeDef:
         """
-        Returns a list of schemas detected by Fleet Advisor Collectors in your account.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_fleet_advisor_schemas.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_fleet_advisor_schemas)
@@ -961,8 +967,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeRecommendationLimitationsRequestTypeDef]
     ) -> DescribeRecommendationLimitationsResponseTypeDef:
         """
-        Returns a paginated list of limitations for recommendations of target Amazon
-        Web Services engines.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_recommendation_limitations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_recommendation_limitations)
@@ -972,8 +978,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeRecommendationsRequestTypeDef]
     ) -> DescribeRecommendationsResponseTypeDef:
         """
-        Returns a paginated list of target engine recommendations for your source
-        databases.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_recommendations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_recommendations)
@@ -1325,8 +1331,8 @@ class DatabaseMigrationServiceClient(BaseClient):
 
     def run_fleet_advisor_lsa_analysis(self) -> RunFleetAdvisorLsaAnalysisResponseTypeDef:
         """
-        Runs large-scale assessment (LSA) analysis on every Fleet Advisor collector in
-        your account.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/run_fleet_advisor_lsa_analysis.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#run_fleet_advisor_lsa_analysis)
@@ -1409,8 +1415,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartRecommendationsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Starts the analysis of your source database to provide recommendations of
-        target engines.
+        End of support notice: On May 20, 2026, Amazon Web Services will end support
+        for Amazon Web Services DMS Fleet Advisor;.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_recommendations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_recommendations)

@@ -1,7 +1,9 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Union, Optional
+from typing import Dict, List, Union, Optional
 from typing_extensions import Literal, Annotated, TypeAlias
+
+from pydantic import Field as FieldInfo
 
 from .._utils import PropertyInfo
 from .._models import BaseModel
@@ -15,7 +17,13 @@ __all__ = [
     "OutputOpenAIResponseMessageContentUnionMember1OpenAIResponseInputMessageContentImage",
     "OutputOpenAIResponseMessageContentUnionMember2",
     "OutputOpenAIResponseOutputMessageWebSearchToolCall",
+    "OutputOpenAIResponseOutputMessageFileSearchToolCall",
     "OutputOpenAIResponseOutputMessageFunctionToolCall",
+    "OutputOpenAIResponseOutputMessageMcpCall",
+    "OutputOpenAIResponseOutputMessageMcpListTools",
+    "OutputOpenAIResponseOutputMessageMcpListToolsTool",
+    "Text",
+    "TextFormat",
     "Error",
 ]
 
@@ -71,28 +79,107 @@ class OutputOpenAIResponseOutputMessageWebSearchToolCall(BaseModel):
     type: Literal["web_search_call"]
 
 
-class OutputOpenAIResponseOutputMessageFunctionToolCall(BaseModel):
+class OutputOpenAIResponseOutputMessageFileSearchToolCall(BaseModel):
     id: str
 
+    queries: List[str]
+
+    status: str
+
+    type: Literal["file_search_call"]
+
+    results: Optional[List[Dict[str, Union[bool, float, str, List[object], object, None]]]] = None
+
+
+class OutputOpenAIResponseOutputMessageFunctionToolCall(BaseModel):
     arguments: str
 
     call_id: str
 
     name: str
 
-    status: str
-
     type: Literal["function_call"]
+
+    id: Optional[str] = None
+
+    status: Optional[str] = None
+
+
+class OutputOpenAIResponseOutputMessageMcpCall(BaseModel):
+    id: str
+
+    arguments: str
+
+    name: str
+
+    server_label: str
+
+    type: Literal["mcp_call"]
+
+    error: Optional[str] = None
+
+    output: Optional[str] = None
+
+
+class OutputOpenAIResponseOutputMessageMcpListToolsTool(BaseModel):
+    input_schema: Dict[str, Union[bool, float, str, List[object], object, None]]
+
+    name: str
+
+    description: Optional[str] = None
+
+
+class OutputOpenAIResponseOutputMessageMcpListTools(BaseModel):
+    id: str
+
+    server_label: str
+
+    tools: List[OutputOpenAIResponseOutputMessageMcpListToolsTool]
+
+    type: Literal["mcp_list_tools"]
 
 
 Output: TypeAlias = Annotated[
     Union[
         OutputOpenAIResponseMessage,
         OutputOpenAIResponseOutputMessageWebSearchToolCall,
+        OutputOpenAIResponseOutputMessageFileSearchToolCall,
         OutputOpenAIResponseOutputMessageFunctionToolCall,
+        OutputOpenAIResponseOutputMessageMcpCall,
+        OutputOpenAIResponseOutputMessageMcpListTools,
     ],
     PropertyInfo(discriminator="type"),
 ]
+
+
+class TextFormat(BaseModel):
+    type: Literal["text", "json_schema", "json_object"]
+    """Must be "text", "json_schema", or "json_object" to identify the format type"""
+
+    description: Optional[str] = None
+    """(Optional) A description of the response format. Only used for json_schema."""
+
+    name: Optional[str] = None
+    """The name of the response format. Only used for json_schema."""
+
+    schema_: Optional[Dict[str, Union[bool, float, str, List[object], object, None]]] = FieldInfo(
+        alias="schema", default=None
+    )
+    """The JSON schema the response should conform to.
+
+    In a Python SDK, this is often a `pydantic` model. Only used for json_schema.
+    """
+
+    strict: Optional[bool] = None
+    """(Optional) Whether to strictly enforce the JSON schema.
+
+    If true, the response must match the schema exactly. Only used for json_schema.
+    """
+
+
+class Text(BaseModel):
+    format: Optional[TextFormat] = None
+    """Configuration for Responses API text format."""
 
 
 class Error(BaseModel):
@@ -125,6 +212,8 @@ class ResponseObject(BaseModel):
     parallel_tool_calls: bool
 
     status: str
+
+    text: Text
 
     error: Optional[Error] = None
 

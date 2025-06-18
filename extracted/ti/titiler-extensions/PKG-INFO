@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: titiler-extensions
-Version: 0.22.2
+Version: 0.22.3
 Summary: Extensions for TiTiler Factories.
 Keywords: COG,STAC,MosaicJSON,Fastapi,Dynamic tile server,GDAL,Rasterio,OGC
 Author-Email: Vincent Sarago <vincent@developmentseed.com>
@@ -21,7 +21,7 @@ Project-URL: Issues, https://github.com/developmentseed/titiler/issues
 Project-URL: Source, https://github.com/developmentseed/titiler
 Project-URL: Changelog, https://developmentseed.org/titiler/release-notes/
 Requires-Python: >=3.9
-Requires-Dist: titiler.core==0.22.2
+Requires-Dist: titiler.core==0.22.3
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

@@ -2,6 +2,7 @@ from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
 from ..google.api import field_behavior_pb2 as _field_behavior_pb2
 from ..google.api import resource_pb2 as _resource_pb2
+from ..google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -91,20 +92,22 @@ class GetDeployedModelRequest(_message.Message):
     def __init__(self, name: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
 
 class ListDeployedModelsRequest(_message.Message):
-    __slots__ = ("parent", "page_size", "page_token", "filter", "order_by", "read_mask")
+    __slots__ = ("parent", "page_size", "page_token", "filter", "order_by", "read_mask", "show_internal")
     PARENT_FIELD_NUMBER: _ClassVar[int]
     PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     FILTER_FIELD_NUMBER: _ClassVar[int]
     ORDER_BY_FIELD_NUMBER: _ClassVar[int]
     READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    SHOW_INTERNAL_FIELD_NUMBER: _ClassVar[int]
     parent: str
     page_size: int
     page_token: str
     filter: str
     order_by: str
     read_mask: _field_mask_pb2.FieldMask
-    def __init__(self, parent: _Optional[str] = ..., page_size: _Optional[int] = ..., page_token: _Optional[str] = ..., filter: _Optional[str] = ..., order_by: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
+    show_internal: bool
+    def __init__(self, parent: _Optional[str] = ..., page_size: _Optional[int] = ..., page_token: _Optional[str] = ..., filter: _Optional[str] = ..., order_by: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ..., show_internal: bool = ...) -> None: ...
 
 class ListDeployedModelsResponse(_message.Message):
     __slots__ = ("deployed_models", "next_page_token", "total_size")

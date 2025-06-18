@@ -10,16 +10,14 @@
 [sessions]
 
 [sessions.lint]
-# https://ansible.readthedocs.io/projects/antsibull-nox/config-file/#basic-linting-sessions
-
-# disable reformatting for now
 run_isort = false
 run_black = false
-
-# disable most linters
 run_flake8 = false
 run_pylint = false
-run_yamllint = false
+run_yamllint = true
+yamllint_config = ".yamllint"
+yamllint_config_plugins = ".yamllint-docs"
+yamllint_config_plugins_examples = ".yamllint-examples"
 run_mypy = false
 
 [sessions.docs_check]
@@ -32,6 +30,10 @@ run_no_unwanted_files = true
 no_unwanted_files_module_extensions = [".py"]
 no_unwanted_files_yaml_extensions = [".yml"]
 run_action_groups = true
+run_no_trailing_whitespace = true
+no_trailing_whitespace_skip_directories = [
+    "tests/unit/plugins/modules/fixtures/",
+]
 
 [[sessions.extra_checks.action_groups_config]]
 name = "api"

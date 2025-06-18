@@ -1,7 +1,7 @@
 r'''
 # `google_resource_manager_capability`
 
-Refer to the Terraform Registry for docs: [`google_resource_manager_capability`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability).
+Refer to the Terraform Registry for docs: [`google_resource_manager_capability`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleResourceManagerCapability(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleResourceManagerCapability.GoogleResourceManagerCapability",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability google_resource_manager_capability}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability google_resource_manager_capability}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GoogleResourceManagerCapability(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability google_resource_manager_capability} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability google_resource_manager_capability} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capability_name: Capability name that should be updated on the folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#capability_name GoogleResourceManagerCapability#capability_name}
-        :param parent: Folder on which Capability needs to be updated in the format folders/folder_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#parent GoogleResourceManagerCapability#parent}
-        :param value: Capability Value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#value GoogleResourceManagerCapability#value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#id GoogleResourceManagerCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#timeouts GoogleResourceManagerCapability#timeouts}
+        :param capability_name: Capability name that should be updated on the folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#capability_name GoogleResourceManagerCapability#capability_name}
+        :param parent: Folder on which Capability needs to be updated in the format folders/folder_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#parent GoogleResourceManagerCapability#parent}
+        :param value: Capability Value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#value GoogleResourceManagerCapability#value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#id GoogleResourceManagerCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#timeouts GoogleResourceManagerCapability#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GoogleResourceManagerCapability(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleResourceManagerCapability to import.
-        :param import_from_id: The id of the existing GoogleResourceManagerCapability that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleResourceManagerCapability that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleResourceManagerCapability to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class GoogleResourceManagerCapability(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#create GoogleResourceManagerCapability#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#delete GoogleResourceManagerCapability#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#update GoogleResourceManagerCapability#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#create GoogleResourceManagerCapability#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#delete GoogleResourceManagerCapability#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#update GoogleResourceManagerCapability#update}.
         '''
         value = GoogleResourceManagerCapabilityTimeouts(
             create=create, delete=delete, update=update
@@ -295,11 +295,11 @@ class GoogleResourceManagerCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capability_name: Capability name that should be updated on the folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#capability_name GoogleResourceManagerCapability#capability_name}
-        :param parent: Folder on which Capability needs to be updated in the format folders/folder_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#parent GoogleResourceManagerCapability#parent}
-        :param value: Capability Value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#value GoogleResourceManagerCapability#value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#id GoogleResourceManagerCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#timeouts GoogleResourceManagerCapability#timeouts}
+        :param capability_name: Capability name that should be updated on the folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#capability_name GoogleResourceManagerCapability#capability_name}
+        :param parent: Folder on which Capability needs to be updated in the format folders/folder_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#parent GoogleResourceManagerCapability#parent}
+        :param value: Capability Value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#value GoogleResourceManagerCapability#value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#id GoogleResourceManagerCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#timeouts GoogleResourceManagerCapability#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -411,7 +411,7 @@ class GoogleResourceManagerCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def capability_name(self) -> builtins.str:
         '''Capability name that should be updated on the folder.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#capability_name GoogleResourceManagerCapability#capability_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#capability_name GoogleResourceManagerCapability#capability_name}
         '''
         result = self._values.get("capability_name")
         assert result is not None, "Required property 'capability_name' is missing"
@@ -421,7 +421,7 @@ class GoogleResourceManagerCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def parent(self) -> builtins.str:
         '''Folder on which Capability needs to be updated in the format folders/folder_id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#parent GoogleResourceManagerCapability#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#parent GoogleResourceManagerCapability#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -431,7 +431,7 @@ class GoogleResourceManagerCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def value(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Capability Value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#value GoogleResourceManagerCapability#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#value GoogleResourceManagerCapability#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -439,7 +439,7 @@ class GoogleResourceManagerCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#id GoogleResourceManagerCapability#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#id GoogleResourceManagerCapability#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -451,7 +451,7 @@ class GoogleResourceManagerCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["GoogleResourceManagerCapabilityTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#timeouts GoogleResourceManagerCapability#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#timeouts GoogleResourceManagerCapability#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleResourceManagerCapabilityTimeouts"], result)
@@ -482,9 +482,9 @@ class GoogleResourceManagerCapabilityTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#create GoogleResourceManagerCapability#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#delete GoogleResourceManagerCapability#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#update GoogleResourceManagerCapability#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#create GoogleResourceManagerCapability#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#delete GoogleResourceManagerCapability#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#update GoogleResourceManagerCapability#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f9d7d106b2d0a4e9bf724ff7b9866293bb4aadf251ee23bcbe52e47cfcb07a8)
@@ -501,19 +501,19 @@ class GoogleResourceManagerCapabilityTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#create GoogleResourceManagerCapability#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#create GoogleResourceManagerCapability#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#delete GoogleResourceManagerCapability#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#delete GoogleResourceManagerCapability#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_resource_manager_capability#update GoogleResourceManagerCapability#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_resource_manager_capability#update GoogleResourceManagerCapability#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

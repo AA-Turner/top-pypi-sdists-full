@@ -34,8 +34,9 @@ from jax._src import path as pathlib
 from jax._src import profiler
 from jax._src import traceback_util
 from jax._src.interpreters import mlir
-from jax._src.lib import xla_client as xc
 from jax._src.lib import jaxlib_extension_version
+from jax._src.lib import xla_client as xc
+from jax._src.lib import _jax
 from jax._src.lib.mlir import ir
 import numpy as np
 
@@ -242,7 +243,7 @@ def get_compile_options(
   else:
     compile_options.profile_version = _NO_PROFILE_DONT_RETRIEVE
     if backend is None:
-      logging.info("get_compile_options: no backend supplied; "
+      logger.info("get_compile_options: no backend supplied; "
                    "disabling XLA-AutoFDO profile")
     else:
       fdo_profile_version = get_latest_profile_version(backend)
@@ -291,6 +292,43 @@ def backend_compile(
     module: ir.Module,
     executable_devices: xc.DeviceList,
     options: xc.CompileOptions,
+) -> xc.Executable:
+  sym_name = module.operation.attributes['sym_name']
+  module_name = ir.StringAttr(sym_name).value
+  # Convert ir.Module to a string representation, unless the backend
+  # explicitly flags the ability to handle a module directly (avoiding the
+  # overhead of back and forth conversions).
+  # TODO(slebedev): Change the backend.compile() to accept ir.Module.
+  built_c: Any
+  if getattr(backend, "needs_str_ir", True):
+    built_c = mlir.module_to_bytecode(module)
+  else:
+    built_c = module
+
+  if (options.executable_build_options.fdo_profile is not None
+      and len(options.executable_build_options.fdo_profile)):
+    logger.debug(
+        "Compiling module %s with FDO profile of length %d",
+        module_name,
+        len(options.executable_build_options.fdo_profile),
+    )
+
+  try:
+    return backend.compile(built_c, executable_devices, options)
+  except xc.XlaRuntimeError as e:
+    for error_handler in _XLA_RUNTIME_ERROR_HANDLERS:
+      handler_result = error_handler(e)
+      if handler_result is not None:
+        raise handler_result from e
+    raise e
+
+
+@profiler.annotate_function
+def backend_compile_and_load(
+    backend: xc.Client,
+    module: ir.Module,
+    executable_devices: xc.DeviceList,
+    options: xc.CompileOptions,
     host_callbacks: Sequence[Any],
 ) -> xc.LoadedExecutable:
   sym_name = module.operation.attributes['sym_name']
@@ -314,26 +352,41 @@ def backend_compile(
     )
 
   try:
-    if jaxlib_extension_version < 332:
-      if host_callbacks:
-        return backend.compile(
-            built_c, compile_options=options, host_callbacks=host_callbacks)  # type: ignore
-      return backend.compile(built_c, compile_options=options)  # type: ignore
-
     # we use a separate function call to ensure that XLA compilation appears
     # separately in Python profiling results
-    if host_callbacks:
+    # TODO(dsuo): Simplify this logic once we delete _jax.CompileOnlyPyClient.
+    if jaxlib_extension_version < 345 or (
+        jaxlib_extension_version >= 345
+        and isinstance(backend, _jax.CompileOnlyPyClient)
+    ):
+      if host_callbacks:
+        return backend.compile(
+            built_c,
+            executable_devices=executable_devices,  # type: ignore
+            compile_options=options,
+            host_callbacks=host_callbacks,  # type: ignore
+        )
+      # Some backends don't have `host_callbacks` option yet
+      # TODO(sharadmv): remove this fallback when all backends allow `compile`
+      # to take in `host_callbacks`
       return backend.compile(
+          built_c, executable_devices=executable_devices, compile_options=options)  # type: ignore
+    else:
+      if host_callbacks:
+        return backend.compile_and_load(
+            built_c,
+            executable_devices=executable_devices,
+            compile_options=options,
+            host_callbacks=host_callbacks,
+        )
+      # Some backends don't have `host_callbacks` option yet
+      # TODO(sharadmv): remove this fallback when all backends allow `compile`
+      # to take in `host_callbacks`
+      return backend.compile_and_load(
           built_c,
-          executable_devices=executable_devices,  # type: ignore
+          executable_devices=executable_devices,
           compile_options=options,
-          host_callbacks=host_callbacks,
       )
-    # Some backends don't have `host_callbacks` option yet
-    # TODO(sharadmv): remove this fallback when all backends allow `compile`
-    # to take in `host_callbacks`
-    return backend.compile(
-        built_c, executable_devices=executable_devices, compile_options=options)  # type: ignore
   except xc.XlaRuntimeError as e:
     for error_handler in _XLA_RUNTIME_ERROR_HANDLERS:
       handler_result = error_handler(e)
@@ -376,7 +429,7 @@ def compile_or_get_cached(
   module_name = ir.StringAttr(sym_name).value
 
   if dumped_to := mlir.dump_module_to_file(computation, "compile"):
-    logging.info("Dumped the module to %s.", dumped_to)
+    logger.info("Dumped the module to %s.", dumped_to)
 
   is_multi_process = (
       len({device.process_index for device in devices.flatten()}) > 1
@@ -398,7 +451,7 @@ def compile_or_get_cached(
   )
 
   if cache_key is None:
-    return backend_compile(
+    return backend_compile_and_load(
         backend, computation, executable_devices, compile_options,
         host_callbacks)
 
@@ -426,7 +479,7 @@ def compile_or_get_cached(
       config.share_binary_between_hosts.value
       and is_multi_process
       and distributed.global_state.client is not None
-      # Host callbacks are currently baked into the HLO module so we cant share
+      # Host callbacks are currently baked into the HLO module so we can't share
       # them.
       and len(host_callbacks) == 0
   ):
@@ -521,7 +574,7 @@ def _resolve_compilation_strategy(
     # The compilation cache is enabled and AutoPGLE is enabled/expected
     if _is_executable_in_cache(backend, pgle_optimized_cache_key):
       if config.compilation_cache_expect_pgle.value:
-        logging.info(f"PGLE-optimized {module_name} loaded from compilation cache")
+        logger.info(f"PGLE-optimized {module_name} loaded from compilation cache")
       # No need to record N profiles in this case
       if pgle_profiler is not None:
         pgle_profiler.disable()
@@ -692,12 +745,8 @@ def _compile_and_share_module(
     serialized_executable = compilation_cache.decompress_executable(
         serialized_executable
     )
-    if jaxlib_extension_version < 332:
-      executable = backend.deserialize_executable(
-          serialized_executable, compile_options)  # type: ignore
-    else:
-      executable = backend.deserialize_executable(
-          serialized_executable, executable_devices, compile_options)  # type: ignore
+    executable = backend.deserialize_executable(
+        serialized_executable, executable_devices, compile_options)  # type: ignore
 
   _compile_and_share_module.modules_cache[cache_key] = executable
   return executable
@@ -716,7 +765,7 @@ def _compile_and_write_cache(
     cache_key: str,
 ) -> xc.LoadedExecutable:
   start_time = time.monotonic()
-  executable = backend_compile(
+  executable = backend_compile_and_load(
       backend, computation, executable_devices, compile_options, host_callbacks
   )
   compile_time = time.monotonic() - start_time

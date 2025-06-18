@@ -1569,14 +1569,9 @@ OR individual keyword arguments. You cannot pass both."
             The name of the target column in the uploaded file. Should not be provided if
             ``unsupervised_mode`` is ``True``.
         mode : Optional[str]
-            You can use ``AUTOPILOT_MODE`` enum to choose between
-
-            * ``AUTOPILOT_MODE.FULL_AUTO``
-            * ``AUTOPILOT_MODE.MANUAL``
-            * ``AUTOPILOT_MODE.QUICK``
-            * ``AUTOPILOT_MODE.COMPREHENSIVE``: Runs all blueprints in the repository (warning:
-              this may be extremely slow).
-
+            You can use ``AUTOPILOT_MODE`` enum to choose between ``AUTOPILOT_MODE.FULL_AUTO``,
+            ``AUTOPILOT_MODE.MANUAL``, ``AUTOPILOT_MODE.QUICK``, and ``AUTOPILOT_MODE.COMPREHENSIVE``.
+            ``COMPREHENSIVE` runs all blueprints in the repository (this may be extremely slow).
             If unspecified, ``QUICK`` is used. If the ``MANUAL`` value is used, the model
             creation process will need to be started by executing the ``start_autopilot``
             function with the desired featurelist. It will start immediately otherwise.

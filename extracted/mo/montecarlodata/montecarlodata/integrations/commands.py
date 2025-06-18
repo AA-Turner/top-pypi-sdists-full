@@ -1072,6 +1072,35 @@ def add_redshift(ctx, database, name, **kwargs):
     )
 
 
+@integrations.command(help=f"Setup a Redshift consumer integration. {WAREHOUSE_VERBIAGE}.")
+@click.pass_obj
+@click.option("--port", help="HTTP port.", default=5439, type=click.INT, show_default=True)
+@click.option(
+    "--producer-resource-id",
+    help="UUID of Producer warehouse",
+    required=True,
+    type=click.UUID,
+    callback=convert_uuid_callback,
+)
+@add_common_options(warehouse_create_option())
+@add_common_options(DATABASE_OPTIONS)
+@add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
+@add_common_options(NETWORK_OPTIONS)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_redshift_consumer_connection(ctx, database, name, **kwargs):
+    """
+    Onboard a redshift consumer connection
+    """
+    WarehouseOnboardingService(
+        config=ctx["config"],
+        command_name="integrations add_redshift_consumer",
+    ).onboard_redshift_consumer(
+        dbName=database,
+        warehouseName=name,
+        **kwargs,
+    )
+
+
 @integrations.command(help=f"Setup a Snowflake integration. {WAREHOUSE_VERBIAGE}.")
 @click.pass_obj
 @click.option(

@@ -66,10 +66,9 @@ class CertoraBuildCacheManager:
         @returns None if no cache hit, otherwise - the matching `.certora_build.json` file, and a set of source files
         """
         build_cache_dir = Util.get_certora_build_cache_dir()
-        main_cache_key = CertoraBuildCacheManager.get_main_cache_key(context)
-        main_cache_entry_dir = build_cache_dir / main_cache_key
+        main_cache_entry_dir = build_cache_dir / context.main_cache_key
         if not main_cache_entry_dir.exists():
-            build_cache_logger.info(f"cache miss on build cache key {main_cache_key}")
+            build_cache_logger.info(f"cache miss on build cache key {context.main_cache_key}")
             return None
 
         # here's the tricky matching part:
@@ -92,7 +91,7 @@ class CertoraBuildCacheManager:
                     build_cache_logger.debug(f"Current sub build cache key computed for {file_list_file} is invalid")
                     continue
                 elif sub_cache_key_current_for_list == sub_cache_key_from_saved_entry:
-                    build_cache_logger.info(f"We have a match on build cache key {main_cache_key} and "
+                    build_cache_logger.info(f"We have a match on build cache key {context.main_cache_key} and "
                                             f"{sub_cache_key_current_for_list}")
                     sub_cache_key = sub_cache_key_current_for_list
                     all_contract_files = set([Path(f) for f in file_list])
@@ -103,24 +102,24 @@ class CertoraBuildCacheManager:
 
         if sub_cache_key is None:
             build_cache_logger.info("All sub-cache-key file list files missed, cache miss on build cache key "
-                                    f"{main_cache_key}")
+                                    f"{context.main_cache_key}")
             return None
 
         # cache hit
         certora_build_file = main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.certora_build_suffix}"
         if not certora_build_file.exists():
-            build_cache_logger.warning(f"Got a cache-hit on build cache key {main_cache_key} and {sub_cache_key} "
+            build_cache_logger.warning(f"Got a cache-hit on build cache key {context.main_cache_key} and {sub_cache_key} "
                                        "but .certora_build.json file does not exist")
             return None
 
         if all_contract_files is None:  # should not be feasible
-            build_cache_logger.warning(f"Got a cache-hit on build cache key {main_cache_key} and {sub_cache_key} "
-                                       "but file list file does not exist")
+            build_cache_logger.warning(f"Got a cache-hit on build cache key {context.main_cache_key} and "
+                                       f"{sub_cache_key} but file list file does not exist")
             return None
 
         build_output_props_file = main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.build_output_props_suffix}"
         if not build_output_props_file.exists():
-            build_cache_logger.warning(f"Got a cache-hit on build cache key {main_cache_key} and {sub_cache_key} "
+            build_cache_logger.warning(f"Got a cache-hit on build cache key {context.main_cache_key} and {sub_cache_key} "
                                        f"but {CachedFiles.build_output_props_suffix} file does not exist")
             return None
 
@@ -131,26 +130,26 @@ class CertoraBuildCacheManager:
     @staticmethod
     def save_build_cache(context: CertoraContext, cached_files: CachedFiles) -> None:
         build_cache_dir = Util.get_certora_build_cache_dir()
-        main_cache_key = CertoraBuildCacheManager.get_main_cache_key(context)
-        main_cache_entry_dir = build_cache_dir / main_cache_key
+        main_cache_entry_dir = build_cache_dir / context.main_cache_key
         sub_cache_key = CertoraBuildCacheManager.get_sub_cache_key(cached_files.all_contract_files)
         if sub_cache_key is None:
-            build_cache_logger.warning(f"Cannot save cache for main build cache key {main_cache_key} "
+            build_cache_logger.warning(f"Cannot save cache for main build cache key {context.main_cache_key} "
                                        "as sub-cache-key could not be computed")
             return
 
         if main_cache_entry_dir.exists():
-            build_cache_logger.info(f"main build cache key already exists {main_cache_key}, "
+            build_cache_logger.info(f"main build cache key already exists {context.main_cache_key}, "
                                     f"saving sub build cache key {sub_cache_key}")
             if cached_files.all_exist(main_cache_entry_dir, sub_cache_key):
                 build_cache_logger.debug("cache already saved under this build cache key, override")
             else:
-                build_cache_logger.debug(f"cache was corrupted, need to re-save build cache key {main_cache_key} "
-                                         f"and sub cache key {sub_cache_key}")
+                build_cache_logger.debug(f"cache was corrupted, need to re-save build cache key "
+                                         f"{context.main_cache_key} and sub cache key {sub_cache_key}")
             CertoraBuildCacheManager.save_files(cached_files, main_cache_entry_dir,
                                                 sub_cache_key)
         else:
-            build_cache_logger.info(f"saving main build cache key {main_cache_key} and sub cache key {sub_cache_key}")
+            build_cache_logger.info(f"saving main build cache key {context.main_cache_key} and sub cache key "
+                                    f"{sub_cache_key}")
             safe_create_dir(main_cache_entry_dir)
             CertoraBuildCacheManager.save_files(cached_files, main_cache_entry_dir,
                                                 sub_cache_key)

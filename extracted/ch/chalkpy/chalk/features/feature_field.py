@@ -5,6 +5,7 @@ import dataclasses
 import functools
 import inspect
 import re
+import weakref
 from collections.abc import Mapping, MutableMapping
 from datetime import timedelta, datetime
 from enum import Enum
@@ -719,12 +720,6 @@ class Feature(Generic[_TPrim, _TRich]):
 
     @classmethod
     def from_root_fqn(cls, root_fqn: str) -> Feature:
-        registry = CURRENT_FEATURE_REGISTRY.get()
-        return cls._from_root_fqn(root_fqn, registry)
-
-    @classmethod
-    @functools.lru_cache(None)
-    def _from_root_fqn(cls, root_fqn: str, registry: FeatureRegistryProtocol) -> Feature:
         """Convert a Root FQN into a feature.
 
         Parameters
@@ -737,8 +732,23 @@ class Feature(Generic[_TPrim, _TRich]):
         Feature
             The feature for that root_fqn.
         """
+        registry = CURRENT_FEATURE_REGISTRY.get()
+        return cls._from_root_fqn(root_fqn, weakref.ref(registry))
+
+    @classmethod
+    @functools.lru_cache(None)
+    def _from_root_fqn(cls, root_fqn: str, registry_ref: weakref.ReferenceType[FeatureRegistryProtocol]) -> Feature:
+        """
+        :param root_fqn:
+        :param registry_ref: weakref to a feature registry from which the feature  object is pulled.
+        Weakref is used to avoid keeping around references to the registry objects in teh lru_cache decorator
+        :return:
+        """
         from chalk.features.pseudofeatures import FQN_OR_NAME_TO_PSEUDOFEATURE
 
+        registry: Optional[FeatureRegistryProtocol] = registry_ref()
+        if registry is None:
+            raise RuntimeError(f"Failed to get feature from registry, registry {registry_ref} no longer exists.")
         feature_sets = registry.get_feature_sets()
 
         if root_fqn in FQN_OR_NAME_TO_PSEUDOFEATURE:

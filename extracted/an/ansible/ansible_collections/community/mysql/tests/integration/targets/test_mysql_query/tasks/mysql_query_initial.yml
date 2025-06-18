@@ -21,7 +21,9 @@
     assert:
       that:
         - result is changed
-        - result.executed_queries == ['CREATE DATABASE {{ test_db }}']
+        - result.executed_queries == expected_queries
+    vars:
+      expected_queries: ['CREATE DATABASE {{ test_db }}']
 
   - name: Create {{ test_table1 }}
     mysql_query:
@@ -34,8 +36,10 @@
     assert:
       that:
         - result is changed
-        - result.executed_queries == ['CREATE TABLE {{ test_table1 }} (id int)']
+        - result.executed_queries == expected_queries
         - result.execution_time_ms[0] > 0
+    vars:
+      expected_queries: ['CREATE TABLE {{ test_table1 }} (id int)']
 
   - name: Insert test data
     mysql_query:
@@ -52,9 +56,14 @@
       that:
         - result is changed
         - result.rowcount == [2, 1]
-        - result.executed_queries == ['INSERT INTO {{ test_table1 }} VALUES (1), (2)', 'INSERT INTO {{ test_table1 }} VALUES (3)']
+        - result.executed_queries == expected_queries
         - result.execution_time_ms[0] > 0
         - result.execution_time_ms[1] > 0
+    vars:
+      expected_queries: [
+        'INSERT INTO {{ test_table1 }} VALUES (1), (2)',
+        'INSERT INTO {{ test_table1 }} VALUES (3)',
+      ]
 
   - name: Check data in {{ test_table1 }}
     mysql_query:
@@ -67,11 +76,13 @@
     assert:
       that:
         - result is not changed
-        - result.executed_queries == ['SELECT * FROM {{ test_table1 }}']
+        - result.executed_queries == expected_queries
         - result.rowcount == [3]
         - result.query_result[0][0].id == 1
         - result.query_result[0][1].id == 2
         - result.query_result[0][2].id == 3
+    vars:
+      expected_queries: ['SELECT * FROM {{ test_table1 }}']
 
   - name: Check data in {{ test_table1 }} using positional args
     mysql_query:
@@ -86,9 +97,11 @@
     assert:
       that:
         - result is not changed
-        - result.executed_queries == ["SELECT * FROM {{ test_table1 }} WHERE id = 1"]
+        - result.executed_queries == expected_queries
         - result.rowcount == [1]
         - result.query_result[0][0].id == 1
+    vars:
+      expected_queries: ["SELECT * FROM {{ test_table1 }} WHERE id = 1"]
 
   - name: Check data in {{ test_table1 }} using named args
     mysql_query:
@@ -103,9 +116,11 @@
     assert:
       that:
         - result is not changed
-        - result.executed_queries == ["SELECT * FROM {{ test_table1 }} WHERE id = 1"]
+        - result.executed_queries == expected_queries
         - result.rowcount == [1]
         - result.query_result[0][0].id == 1
+    vars:
+      expected_queries: ["SELECT * FROM {{ test_table1 }} WHERE id = 1"]
 
   - name: Update data in {{ test_table1 }}
     mysql_query:
@@ -121,8 +136,10 @@
     assert:
       that:
         - result is changed
-        - result.executed_queries == ['UPDATE {{ test_table1 }} SET id = 0 WHERE id = 1']
+        - result.executed_queries == expected_queries
         - result.rowcount == [1]
+    vars:
+      expected_queries: ['UPDATE {{ test_table1 }} SET id = 0 WHERE id = 1']
 
   - name: Check the prev update - row with value 1 does not exist anymore
     mysql_query:
@@ -137,8 +154,10 @@
     assert:
       that:
         - result is not changed
-        - result.executed_queries == ['SELECT * FROM {{ test_table1 }} WHERE id = 1']
+        - result.executed_queries == expected_queries
         - result.rowcount == [0]
+    vars:
+      expected_queries: ['SELECT * FROM {{ test_table1 }} WHERE id = 1']
 
   - name: Check the prev update - row with value - exist
     mysql_query:
@@ -153,8 +172,10 @@
     assert:
       that:
         - result is not changed
-        - result.executed_queries == ['SELECT * FROM {{ test_table1 }} WHERE id = 0']
+        - result.executed_queries == expected_queries
         - result.rowcount == [1]
+    vars:
+      expected_queries: ['SELECT * FROM {{ test_table1 }} WHERE id = 0']
 
   - name: Update data in {{ test_table1 }} again
     mysql_query:
@@ -170,8 +191,10 @@
     assert:
       that:
         - result is not changed
-        - result.executed_queries == ['UPDATE {{ test_table1 }} SET id = 0 WHERE id = 1']
+        - result.executed_queries == expected_queries
         - result.rowcount == [0]
+    vars:
+      expected_queries: ['UPDATE {{ test_table1 }} SET id = 0 WHERE id = 1']
 
   - name: Delete data from {{ test_table1 }}
     mysql_query:
@@ -186,8 +209,10 @@
     assert:
       that:
         - result is changed
-        - result.executed_queries == ['DELETE FROM {{ test_table1 }} WHERE id = 0', 'SELECT * FROM {{ test_table1 }} WHERE id = 0']
+        - result.executed_queries == expected_queries
         - result.rowcount == [1, 0]
+    vars:
+      expected_queries: ['DELETE FROM {{ test_table1 }} WHERE id = 0', 'SELECT * FROM {{ test_table1 }} WHERE id = 0']
 
   - name: Delete data from {{ test_table1 }} again
     mysql_query:
@@ -200,8 +225,10 @@
     assert:
       that:
         - result is not changed
-        - result.executed_queries == ['DELETE FROM {{ test_table1 }} WHERE id = 0']
+        - result.executed_queries == expected_queries
         - result.rowcount == [0]
+    vars:
+      expected_queries: ['DELETE FROM {{ test_table1 }} WHERE id = 0']
 
   - name: Truncate {{ test_table1 }}
     mysql_query:
@@ -216,8 +243,10 @@
     assert:
       that:
         - result is changed
-        - result.executed_queries == ['TRUNCATE {{ test_table1 }}', 'SELECT * FROM {{ test_table1 }}']
+        - result.executed_queries == expected_queries
         - result.rowcount == [0, 0]
+    vars:
+      expected_queries: ['TRUNCATE {{ test_table1 }}', 'SELECT * FROM {{ test_table1 }}']
 
   - name: Rename {{ test_table1 }}
     mysql_query:
@@ -230,8 +259,10 @@
     assert:
       that:
         - result is changed
-        - result.executed_queries == ['RENAME TABLE {{ test_table1 }} TO {{ test_table2 }}']
+        - result.executed_queries == expected_queries
         - result.rowcount == [0]
+    vars:
+      expected_queries: ['RENAME TABLE {{ test_table1 }} TO {{ test_table2 }}']
 
   - name: Check the prev rename
     mysql_query:
@@ -398,7 +429,9 @@
     assert:
       that:
         - result is changed
-        - result.executed_queries == ['DROP DATABASE {{ test_db }}']
+        - result.executed_queries == expected_queries
+    vars:
+      expected_queries: ['DROP DATABASE {{ test_db }}']
 
   always:
 

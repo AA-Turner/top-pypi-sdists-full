@@ -109,6 +109,7 @@ _custom_logger_compatible_callbacks_literal = Literal[
     "argilla",
     "mlflow",
     "langfuse",
+    "langfuse_otel",
     "pagerduty",
     "humanloop",
     "gcs_pubsub",
@@ -309,6 +310,7 @@ disable_end_user_cost_tracking: Optional[bool] = None
 disable_end_user_cost_tracking_prometheus_only: Optional[bool] = None
 enable_end_user_cost_tracking_prometheus_only: Optional[bool] = None
 custom_prometheus_metadata_labels: List[str] = []
+prometheus_metrics_config: Optional[List] = None
 disable_add_prefix_to_prompt: bool = (
     False  # used by anthropic, to disable adding prefix to prompt
 )
@@ -876,6 +878,7 @@ from .utils import (
     TextCompletionResponse,
     get_provider_fields,
     ModelResponseListIterator,
+    get_valid_models,
 )
 
 ALL_LITELLM_RESPONSE_TYPES = [

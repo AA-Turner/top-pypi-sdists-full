@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1agateway/job_progress.proto\x12\x07gateway\"-\n\x0bJobProgress\x12\x0f\n\x07percent\x18\x01 \x01(\x05\x12\r\n\x05\x65poch\x18\x02 \x01(\x05\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1agateway/job_progress.proto\x12\x07gateway\"<\n\x0bJobProgress\x12\x0f\n\x07percent\x18\x01 \x01(\x05\x12\r\n\x05\x65poch\x18\x02 \x01(\x05\x12\r\n\x05\x63hunk\x18\x03 \x01(\x05\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,5 +33,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gateway'
   _globals['_JOBPROGRESS']._serialized_start=39
-  _globals['_JOBPROGRESS']._serialized_end=84
+  _globals['_JOBPROGRESS']._serialized_end=99
 # @@protoc_insertion_point(module_scope)

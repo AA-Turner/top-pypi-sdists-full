@@ -1,7 +1,7 @@
 r'''
 # `google_alloydb_cluster`
 
-Refer to the Terraform Registry for docs: [`google_alloydb_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster).
+Refer to the Terraform Registry for docs: [`google_alloydb_cluster`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleAlloydbCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleAlloydbCluster.GoogleAlloydbCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster google_alloydb_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster google_alloydb_cluster}.'''
 
     def __init__(
         self,
@@ -83,34 +83,34 @@ class GoogleAlloydbCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster google_alloydb_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster google_alloydb_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_id: The ID of the alloydb cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster_id GoogleAlloydbCluster#cluster_id}
-        :param location: The location where the alloydb cluster should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
-        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. https://google.aip.dev/128 An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#annotations GoogleAlloydbCluster#annotations}
-        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#automated_backup_policy GoogleAlloydbCluster#automated_backup_policy}
-        :param cluster_type: The type of cluster. If not set, defaults to PRIMARY. Default value: "PRIMARY" Possible values: ["PRIMARY", "SECONDARY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster_type GoogleAlloydbCluster#cluster_type}
-        :param continuous_backup_config: continuous_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#continuous_backup_config GoogleAlloydbCluster#continuous_backup_config}
-        :param database_version: The database engine major version. This is an optional field and it's populated at the Cluster creation time. Note: Changing this field to a higer version results in upgrading the AlloyDB cluster which is an irreversible change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#database_version GoogleAlloydbCluster#database_version}
-        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. Deleting a cluster forcefully, deletes the cluster and all its associated instances within the cluster. Deleting a Secondary cluster with a secondary instance REQUIRES setting deletion_policy = "FORCE" otherwise an error is returned. This is needed as there is no support to delete just the secondary instance, and the only way to delete secondary instance is to delete the associated secondary cluster forcefully which also deletes the secondary instance. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#deletion_policy GoogleAlloydbCluster#deletion_policy}
-        :param display_name: User-settable and human-readable display name for the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#display_name GoogleAlloydbCluster#display_name}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
-        :param etag: For Resource freshness validation (https://google.aip.dev/154). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#etag GoogleAlloydbCluster#etag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#id GoogleAlloydbCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_user: initial_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#initial_user GoogleAlloydbCluster#initial_user}
-        :param labels: User-defined labels for the alloydb cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
-        :param maintenance_update_policy: maintenance_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#maintenance_update_policy GoogleAlloydbCluster#maintenance_update_policy}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#network_config GoogleAlloydbCluster#network_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#project GoogleAlloydbCluster#project}.
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#psc_config GoogleAlloydbCluster#psc_config}
-        :param restore_backup_source: restore_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#restore_backup_source GoogleAlloydbCluster#restore_backup_source}
-        :param restore_continuous_backup_source: restore_continuous_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#restore_continuous_backup_source GoogleAlloydbCluster#restore_continuous_backup_source}
-        :param secondary_config: secondary_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#secondary_config GoogleAlloydbCluster#secondary_config}
-        :param skip_await_major_version_upgrade: Set to true to skip awaiting on the major version upgrade of the cluster. Possible values: true, false Default value: "true". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#skip_await_major_version_upgrade GoogleAlloydbCluster#skip_await_major_version_upgrade}
-        :param subscription_type: The subscrition type of cluster. Possible values: ["TRIAL", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#subscription_type GoogleAlloydbCluster#subscription_type}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#timeouts GoogleAlloydbCluster#timeouts}
+        :param cluster_id: The ID of the alloydb cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster_id GoogleAlloydbCluster#cluster_id}
+        :param location: The location where the alloydb cluster should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
+        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. https://google.aip.dev/128 An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#annotations GoogleAlloydbCluster#annotations}
+        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#automated_backup_policy GoogleAlloydbCluster#automated_backup_policy}
+        :param cluster_type: The type of cluster. If not set, defaults to PRIMARY. Default value: "PRIMARY" Possible values: ["PRIMARY", "SECONDARY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster_type GoogleAlloydbCluster#cluster_type}
+        :param continuous_backup_config: continuous_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#continuous_backup_config GoogleAlloydbCluster#continuous_backup_config}
+        :param database_version: The database engine major version. This is an optional field and it's populated at the Cluster creation time. Note: Changing this field to a higer version results in upgrading the AlloyDB cluster which is an irreversible change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#database_version GoogleAlloydbCluster#database_version}
+        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. Deleting a cluster forcefully, deletes the cluster and all its associated instances within the cluster. Deleting a Secondary cluster with a secondary instance REQUIRES setting deletion_policy = "FORCE" otherwise an error is returned. This is needed as there is no support to delete just the secondary instance, and the only way to delete secondary instance is to delete the associated secondary cluster forcefully which also deletes the secondary instance. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#deletion_policy GoogleAlloydbCluster#deletion_policy}
+        :param display_name: User-settable and human-readable display name for the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#display_name GoogleAlloydbCluster#display_name}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        :param etag: For Resource freshness validation (https://google.aip.dev/154). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#etag GoogleAlloydbCluster#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#id GoogleAlloydbCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_user: initial_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#initial_user GoogleAlloydbCluster#initial_user}
+        :param labels: User-defined labels for the alloydb cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
+        :param maintenance_update_policy: maintenance_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#maintenance_update_policy GoogleAlloydbCluster#maintenance_update_policy}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#network_config GoogleAlloydbCluster#network_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#project GoogleAlloydbCluster#project}.
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#psc_config GoogleAlloydbCluster#psc_config}
+        :param restore_backup_source: restore_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#restore_backup_source GoogleAlloydbCluster#restore_backup_source}
+        :param restore_continuous_backup_source: restore_continuous_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#restore_continuous_backup_source GoogleAlloydbCluster#restore_continuous_backup_source}
+        :param secondary_config: secondary_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#secondary_config GoogleAlloydbCluster#secondary_config}
+        :param skip_await_major_version_upgrade: Set to true to skip awaiting on the major version upgrade of the cluster. Possible values: true, false Default value: "true". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#skip_await_major_version_upgrade GoogleAlloydbCluster#skip_await_major_version_upgrade}
+        :param subscription_type: The subscrition type of cluster. Possible values: ["TRIAL", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#subscription_type GoogleAlloydbCluster#subscription_type}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#timeouts GoogleAlloydbCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -172,7 +172,7 @@ class GoogleAlloydbCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleAlloydbCluster to import.
-        :param import_from_id: The id of the existing GoogleAlloydbCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleAlloydbCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleAlloydbCluster to import is found.
         '''
         if __debug__:
@@ -197,14 +197,14 @@ class GoogleAlloydbCluster(
         weekly_schedule: typing.Optional[typing.Union["GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param backup_window: The length of the time window during which a backup can be taken. If a backup does not succeed within this time window, it will be canceled and considered failed. The backup window must be at least 5 minutes long. There is no upper bound on the window. If not set, it will default to 1 hour. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#backup_window GoogleAlloydbCluster#backup_window}
-        :param enabled: Whether automated backups are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
-        :param labels: Labels to apply to backups created using this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
-        :param location: The location where the backup will be stored. Currently, the only supported option is to store the backup in the same region as the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
-        :param quantity_based_retention: quantity_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#quantity_based_retention GoogleAlloydbCluster#quantity_based_retention}
-        :param time_based_retention: time_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#time_based_retention GoogleAlloydbCluster#time_based_retention}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#weekly_schedule GoogleAlloydbCluster#weekly_schedule}
+        :param backup_window: The length of the time window during which a backup can be taken. If a backup does not succeed within this time window, it will be canceled and considered failed. The backup window must be at least 5 minutes long. There is no upper bound on the window. If not set, it will default to 1 hour. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#backup_window GoogleAlloydbCluster#backup_window}
+        :param enabled: Whether automated backups are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        :param labels: Labels to apply to backups created using this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
+        :param location: The location where the backup will be stored. Currently, the only supported option is to store the backup in the same region as the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
+        :param quantity_based_retention: quantity_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#quantity_based_retention GoogleAlloydbCluster#quantity_based_retention}
+        :param time_based_retention: time_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#time_based_retention GoogleAlloydbCluster#time_based_retention}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#weekly_schedule GoogleAlloydbCluster#weekly_schedule}
         '''
         value = GoogleAlloydbClusterAutomatedBackupPolicy(
             backup_window=backup_window,
@@ -228,9 +228,9 @@ class GoogleAlloydbCluster(
         recovery_window_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Whether continuous backup recovery is enabled. If not set, defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
-        :param recovery_window_days: The numbers of days that are eligible to restore from using PITR. To support the entire recovery window, backups and logs are retained for one day more than the recovery window. If not set, defaults to 14 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#recovery_window_days GoogleAlloydbCluster#recovery_window_days}
+        :param enabled: Whether continuous backup recovery is enabled. If not set, defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        :param recovery_window_days: The numbers of days that are eligible to restore from using PITR. To support the entire recovery window, backups and logs are retained for one day more than the recovery window. If not set, defaults to 14 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#recovery_window_days GoogleAlloydbCluster#recovery_window_days}
         '''
         value = GoogleAlloydbClusterContinuousBackupConfig(
             enabled=enabled,
@@ -247,7 +247,7 @@ class GoogleAlloydbCluster(
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         value = GoogleAlloydbClusterEncryptionConfig(kms_key_name=kms_key_name)
 
@@ -261,8 +261,8 @@ class GoogleAlloydbCluster(
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: The initial password for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#password GoogleAlloydbCluster#password}
-        :param user: The database username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#user GoogleAlloydbCluster#user}
+        :param password: The initial password for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#password GoogleAlloydbCluster#password}
+        :param user: The database username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#user GoogleAlloydbCluster#user}
         '''
         value = GoogleAlloydbClusterInitialUser(password=password, user=user)
 
@@ -275,7 +275,7 @@ class GoogleAlloydbCluster(
         maintenance_windows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindows", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param maintenance_windows: maintenance_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#maintenance_windows GoogleAlloydbCluster#maintenance_windows}
+        :param maintenance_windows: maintenance_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#maintenance_windows GoogleAlloydbCluster#maintenance_windows}
         '''
         value = GoogleAlloydbClusterMaintenanceUpdatePolicy(
             maintenance_windows=maintenance_windows
@@ -291,8 +291,8 @@ class GoogleAlloydbCluster(
         network: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allocated_ip_range: The name of the allocated IP range for the private IP AlloyDB cluster. For example: "google-managed-services-default". If set, the instance IPs for this cluster will be created in the allocated range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#allocated_ip_range GoogleAlloydbCluster#allocated_ip_range}
-        :param network: The resource link for the VPC network in which cluster resources are created and from which they are accessible via Private IP. The network must belong to the same project as the cluster. It is specified in the form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#network GoogleAlloydbCluster#network}
+        :param allocated_ip_range: The name of the allocated IP range for the private IP AlloyDB cluster. For example: "google-managed-services-default". If set, the instance IPs for this cluster will be created in the allocated range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#allocated_ip_range GoogleAlloydbCluster#allocated_ip_range}
+        :param network: The resource link for the VPC network in which cluster resources are created and from which they are accessible via Private IP. The network must belong to the same project as the cluster. It is specified in the form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#network GoogleAlloydbCluster#network}
         '''
         value = GoogleAlloydbClusterNetworkConfig(
             allocated_ip_range=allocated_ip_range, network=network
@@ -307,7 +307,7 @@ class GoogleAlloydbCluster(
         psc_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param psc_enabled: Create an instance that allows connections from Private Service Connect endpoints to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#psc_enabled GoogleAlloydbCluster#psc_enabled}
+        :param psc_enabled: Create an instance that allows connections from Private Service Connect endpoints to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#psc_enabled GoogleAlloydbCluster#psc_enabled}
         '''
         value = GoogleAlloydbClusterPscConfig(psc_enabled=psc_enabled)
 
@@ -316,7 +316,7 @@ class GoogleAlloydbCluster(
     @jsii.member(jsii_name="putRestoreBackupSource")
     def put_restore_backup_source(self, *, backup_name: builtins.str) -> None:
         '''
-        :param backup_name: The name of the backup that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#backup_name GoogleAlloydbCluster#backup_name}
+        :param backup_name: The name of the backup that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#backup_name GoogleAlloydbCluster#backup_name}
         '''
         value = GoogleAlloydbClusterRestoreBackupSource(backup_name=backup_name)
 
@@ -330,8 +330,8 @@ class GoogleAlloydbCluster(
         point_in_time: builtins.str,
     ) -> None:
         '''
-        :param cluster: The name of the source cluster that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster GoogleAlloydbCluster#cluster}
-        :param point_in_time: The point in time that this cluster is restored to, in RFC 3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#point_in_time GoogleAlloydbCluster#point_in_time}
+        :param cluster: The name of the source cluster that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster GoogleAlloydbCluster#cluster}
+        :param point_in_time: The point in time that this cluster is restored to, in RFC 3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#point_in_time GoogleAlloydbCluster#point_in_time}
         '''
         value = GoogleAlloydbClusterRestoreContinuousBackupSource(
             cluster=cluster, point_in_time=point_in_time
@@ -342,7 +342,7 @@ class GoogleAlloydbCluster(
     @jsii.member(jsii_name="putSecondaryConfig")
     def put_secondary_config(self, *, primary_cluster_name: builtins.str) -> None:
         '''
-        :param primary_cluster_name: Name of the primary cluster must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#primary_cluster_name GoogleAlloydbCluster#primary_cluster_name}
+        :param primary_cluster_name: Name of the primary cluster must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#primary_cluster_name GoogleAlloydbCluster#primary_cluster_name}
         '''
         value = GoogleAlloydbClusterSecondaryConfig(
             primary_cluster_name=primary_cluster_name
@@ -359,9 +359,9 @@ class GoogleAlloydbCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#create GoogleAlloydbCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#delete GoogleAlloydbCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#update GoogleAlloydbCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#create GoogleAlloydbCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#delete GoogleAlloydbCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#update GoogleAlloydbCluster#update}.
         '''
         value = GoogleAlloydbClusterTimeouts(
             create=create, delete=delete, update=update
@@ -931,14 +931,14 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
         weekly_schedule: typing.Optional[typing.Union["GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param backup_window: The length of the time window during which a backup can be taken. If a backup does not succeed within this time window, it will be canceled and considered failed. The backup window must be at least 5 minutes long. There is no upper bound on the window. If not set, it will default to 1 hour. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#backup_window GoogleAlloydbCluster#backup_window}
-        :param enabled: Whether automated backups are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
-        :param labels: Labels to apply to backups created using this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
-        :param location: The location where the backup will be stored. Currently, the only supported option is to store the backup in the same region as the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
-        :param quantity_based_retention: quantity_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#quantity_based_retention GoogleAlloydbCluster#quantity_based_retention}
-        :param time_based_retention: time_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#time_based_retention GoogleAlloydbCluster#time_based_retention}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#weekly_schedule GoogleAlloydbCluster#weekly_schedule}
+        :param backup_window: The length of the time window during which a backup can be taken. If a backup does not succeed within this time window, it will be canceled and considered failed. The backup window must be at least 5 minutes long. There is no upper bound on the window. If not set, it will default to 1 hour. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#backup_window GoogleAlloydbCluster#backup_window}
+        :param enabled: Whether automated backups are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        :param labels: Labels to apply to backups created using this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
+        :param location: The location where the backup will be stored. Currently, the only supported option is to store the backup in the same region as the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
+        :param quantity_based_retention: quantity_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#quantity_based_retention GoogleAlloydbCluster#quantity_based_retention}
+        :param time_based_retention: time_based_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#time_based_retention GoogleAlloydbCluster#time_based_retention}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#weekly_schedule GoogleAlloydbCluster#weekly_schedule}
         '''
         if isinstance(encryption_config, dict):
             encryption_config = GoogleAlloydbClusterAutomatedBackupPolicyEncryptionConfig(**encryption_config)
@@ -986,7 +986,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#backup_window GoogleAlloydbCluster#backup_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#backup_window GoogleAlloydbCluster#backup_window}
         '''
         result = self._values.get("backup_window")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -997,7 +997,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether automated backups are enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1008,7 +1008,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
     ) -> typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyEncryptionConfig"], result)
@@ -1017,7 +1017,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Labels to apply to backups created using this configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1028,7 +1028,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
 
         Currently, the only supported option is to store the backup in the same region as the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1039,7 +1039,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
     ) -> typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyQuantityBasedRetention"]:
         '''quantity_based_retention block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#quantity_based_retention GoogleAlloydbCluster#quantity_based_retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#quantity_based_retention GoogleAlloydbCluster#quantity_based_retention}
         '''
         result = self._values.get("quantity_based_retention")
         return typing.cast(typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyQuantityBasedRetention"], result)
@@ -1050,7 +1050,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
     ) -> typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyTimeBasedRetention"]:
         '''time_based_retention block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#time_based_retention GoogleAlloydbCluster#time_based_retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#time_based_retention GoogleAlloydbCluster#time_based_retention}
         '''
         result = self._values.get("time_based_retention")
         return typing.cast(typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyTimeBasedRetention"], result)
@@ -1061,7 +1061,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
     ) -> typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule"]:
         '''weekly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#weekly_schedule GoogleAlloydbCluster#weekly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#weekly_schedule GoogleAlloydbCluster#weekly_schedule}
         '''
         result = self._values.get("weekly_schedule")
         return typing.cast(typing.Optional["GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule"], result)
@@ -1086,7 +1086,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicy:
 class GoogleAlloydbClusterAutomatedBackupPolicyEncryptionConfig:
     def __init__(self, *, kms_key_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dad549652af7f536259d75dab386c7ad4d799adca246c1cf0608b17e38231b35)
@@ -1101,7 +1101,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyEncryptionConfig:
 
         Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1204,7 +1204,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyOutputReference(
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         value = GoogleAlloydbClusterAutomatedBackupPolicyEncryptionConfig(
             kms_key_name=kms_key_name
@@ -1219,7 +1219,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyOutputReference(
         count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param count: The number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#count GoogleAlloydbCluster#count}
+        :param count: The number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#count GoogleAlloydbCluster#count}
         '''
         value = GoogleAlloydbClusterAutomatedBackupPolicyQuantityBasedRetention(
             count=count
@@ -1234,7 +1234,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyOutputReference(
         retention_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param retention_period: The retention period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#retention_period GoogleAlloydbCluster#retention_period}
+        :param retention_period: The retention period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#retention_period GoogleAlloydbCluster#retention_period}
         '''
         value = GoogleAlloydbClusterAutomatedBackupPolicyTimeBasedRetention(
             retention_period=retention_period
@@ -1250,8 +1250,8 @@ class GoogleAlloydbClusterAutomatedBackupPolicyOutputReference(
         days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param start_times: start_times block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#start_times GoogleAlloydbCluster#start_times}
-        :param days_of_week: The days of the week to perform a backup. At least one day of the week must be provided. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#days_of_week GoogleAlloydbCluster#days_of_week}
+        :param start_times: start_times block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#start_times GoogleAlloydbCluster#start_times}
+        :param days_of_week: The days of the week to perform a backup. At least one day of the week must be provided. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#days_of_week GoogleAlloydbCluster#days_of_week}
         '''
         value = GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule(
             start_times=start_times, days_of_week=days_of_week
@@ -1448,7 +1448,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyOutputReference(
 class GoogleAlloydbClusterAutomatedBackupPolicyQuantityBasedRetention:
     def __init__(self, *, count: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param count: The number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#count GoogleAlloydbCluster#count}
+        :param count: The number of backups to retain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#count GoogleAlloydbCluster#count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d380605aadc72361bd69bc3971e0ff2149a0c331fbb63facaaf4684929a7d2e9)
@@ -1461,7 +1461,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyQuantityBasedRetention:
     def count(self) -> typing.Optional[jsii.Number]:
         '''The number of backups to retain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#count GoogleAlloydbCluster#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#count GoogleAlloydbCluster#count}
         '''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1549,7 +1549,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyTimeBasedRetention:
         retention_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param retention_period: The retention period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#retention_period GoogleAlloydbCluster#retention_period}
+        :param retention_period: The retention period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#retention_period GoogleAlloydbCluster#retention_period}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b168068dd37391716c4d0f8899c38bf6a7328cbc6e36a90cd5167549f7b6138b)
@@ -1562,7 +1562,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyTimeBasedRetention:
     def retention_period(self) -> typing.Optional[builtins.str]:
         '''The retention period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#retention_period GoogleAlloydbCluster#retention_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#retention_period GoogleAlloydbCluster#retention_period}
         '''
         result = self._values.get("retention_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1651,8 +1651,8 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule:
         days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param start_times: start_times block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#start_times GoogleAlloydbCluster#start_times}
-        :param days_of_week: The days of the week to perform a backup. At least one day of the week must be provided. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#days_of_week GoogleAlloydbCluster#days_of_week}
+        :param start_times: start_times block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#start_times GoogleAlloydbCluster#start_times}
+        :param days_of_week: The days of the week to perform a backup. At least one day of the week must be provided. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#days_of_week GoogleAlloydbCluster#days_of_week}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__733a37b2b059f2f44ff196160fc6347d76b6803ba3753de096ba22e65f242890)
@@ -1670,7 +1670,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbClusterAutomatedBackupPolicyWeeklyScheduleStartTimes"]]:
         '''start_times block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#start_times GoogleAlloydbCluster#start_times}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#start_times GoogleAlloydbCluster#start_times}
         '''
         result = self._values.get("start_times")
         assert result is not None, "Required property 'start_times' is missing"
@@ -1682,7 +1682,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklySchedule:
 
         At least one day of the week must be provided. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#days_of_week GoogleAlloydbCluster#days_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#days_of_week GoogleAlloydbCluster#days_of_week}
         '''
         result = self._values.get("days_of_week")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1805,10 +1805,10 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklyScheduleStartTimes:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
-        :param minutes: Minutes of hour of day. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
-        :param seconds: Seconds of minutes of the time. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
+        :param minutes: Minutes of hour of day. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
+        :param seconds: Seconds of minutes of the time. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c55636ca490f44ef49772449712b9fa758f92ede4e43aed580446ab072e99f50)
@@ -1832,7 +1832,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklyScheduleStartTimes:
 
         Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1841,7 +1841,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklyScheduleStartTimes:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day. Currently, only the value 0 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1850,7 +1850,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklyScheduleStartTimes:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds. Currently, only the value 0 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1859,7 +1859,7 @@ class GoogleAlloydbClusterAutomatedBackupPolicyWeeklyScheduleStartTimes:
     def seconds(self) -> typing.Optional[jsii.Number]:
         '''Seconds of minutes of the time. Currently, only the value 0 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2322,30 +2322,30 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_id: The ID of the alloydb cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster_id GoogleAlloydbCluster#cluster_id}
-        :param location: The location where the alloydb cluster should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
-        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. https://google.aip.dev/128 An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#annotations GoogleAlloydbCluster#annotations}
-        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#automated_backup_policy GoogleAlloydbCluster#automated_backup_policy}
-        :param cluster_type: The type of cluster. If not set, defaults to PRIMARY. Default value: "PRIMARY" Possible values: ["PRIMARY", "SECONDARY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster_type GoogleAlloydbCluster#cluster_type}
-        :param continuous_backup_config: continuous_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#continuous_backup_config GoogleAlloydbCluster#continuous_backup_config}
-        :param database_version: The database engine major version. This is an optional field and it's populated at the Cluster creation time. Note: Changing this field to a higer version results in upgrading the AlloyDB cluster which is an irreversible change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#database_version GoogleAlloydbCluster#database_version}
-        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. Deleting a cluster forcefully, deletes the cluster and all its associated instances within the cluster. Deleting a Secondary cluster with a secondary instance REQUIRES setting deletion_policy = "FORCE" otherwise an error is returned. This is needed as there is no support to delete just the secondary instance, and the only way to delete secondary instance is to delete the associated secondary cluster forcefully which also deletes the secondary instance. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#deletion_policy GoogleAlloydbCluster#deletion_policy}
-        :param display_name: User-settable and human-readable display name for the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#display_name GoogleAlloydbCluster#display_name}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
-        :param etag: For Resource freshness validation (https://google.aip.dev/154). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#etag GoogleAlloydbCluster#etag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#id GoogleAlloydbCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_user: initial_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#initial_user GoogleAlloydbCluster#initial_user}
-        :param labels: User-defined labels for the alloydb cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
-        :param maintenance_update_policy: maintenance_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#maintenance_update_policy GoogleAlloydbCluster#maintenance_update_policy}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#network_config GoogleAlloydbCluster#network_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#project GoogleAlloydbCluster#project}.
-        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#psc_config GoogleAlloydbCluster#psc_config}
-        :param restore_backup_source: restore_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#restore_backup_source GoogleAlloydbCluster#restore_backup_source}
-        :param restore_continuous_backup_source: restore_continuous_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#restore_continuous_backup_source GoogleAlloydbCluster#restore_continuous_backup_source}
-        :param secondary_config: secondary_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#secondary_config GoogleAlloydbCluster#secondary_config}
-        :param skip_await_major_version_upgrade: Set to true to skip awaiting on the major version upgrade of the cluster. Possible values: true, false Default value: "true". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#skip_await_major_version_upgrade GoogleAlloydbCluster#skip_await_major_version_upgrade}
-        :param subscription_type: The subscrition type of cluster. Possible values: ["TRIAL", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#subscription_type GoogleAlloydbCluster#subscription_type}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#timeouts GoogleAlloydbCluster#timeouts}
+        :param cluster_id: The ID of the alloydb cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster_id GoogleAlloydbCluster#cluster_id}
+        :param location: The location where the alloydb cluster should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
+        :param annotations: Annotations to allow client tools to store small amount of arbitrary data. This is distinct from labels. https://google.aip.dev/128 An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#annotations GoogleAlloydbCluster#annotations}
+        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#automated_backup_policy GoogleAlloydbCluster#automated_backup_policy}
+        :param cluster_type: The type of cluster. If not set, defaults to PRIMARY. Default value: "PRIMARY" Possible values: ["PRIMARY", "SECONDARY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster_type GoogleAlloydbCluster#cluster_type}
+        :param continuous_backup_config: continuous_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#continuous_backup_config GoogleAlloydbCluster#continuous_backup_config}
+        :param database_version: The database engine major version. This is an optional field and it's populated at the Cluster creation time. Note: Changing this field to a higer version results in upgrading the AlloyDB cluster which is an irreversible change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#database_version GoogleAlloydbCluster#database_version}
+        :param deletion_policy: Policy to determine if the cluster should be deleted forcefully. Deleting a cluster forcefully, deletes the cluster and all its associated instances within the cluster. Deleting a Secondary cluster with a secondary instance REQUIRES setting deletion_policy = "FORCE" otherwise an error is returned. This is needed as there is no support to delete just the secondary instance, and the only way to delete secondary instance is to delete the associated secondary cluster forcefully which also deletes the secondary instance. Possible values: DEFAULT, FORCE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#deletion_policy GoogleAlloydbCluster#deletion_policy}
+        :param display_name: User-settable and human-readable display name for the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#display_name GoogleAlloydbCluster#display_name}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        :param etag: For Resource freshness validation (https://google.aip.dev/154). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#etag GoogleAlloydbCluster#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#id GoogleAlloydbCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_user: initial_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#initial_user GoogleAlloydbCluster#initial_user}
+        :param labels: User-defined labels for the alloydb cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
+        :param maintenance_update_policy: maintenance_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#maintenance_update_policy GoogleAlloydbCluster#maintenance_update_policy}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#network_config GoogleAlloydbCluster#network_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#project GoogleAlloydbCluster#project}.
+        :param psc_config: psc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#psc_config GoogleAlloydbCluster#psc_config}
+        :param restore_backup_source: restore_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#restore_backup_source GoogleAlloydbCluster#restore_backup_source}
+        :param restore_continuous_backup_source: restore_continuous_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#restore_continuous_backup_source GoogleAlloydbCluster#restore_continuous_backup_source}
+        :param secondary_config: secondary_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#secondary_config GoogleAlloydbCluster#secondary_config}
+        :param skip_await_major_version_upgrade: Set to true to skip awaiting on the major version upgrade of the cluster. Possible values: true, false Default value: "true". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#skip_await_major_version_upgrade GoogleAlloydbCluster#skip_await_major_version_upgrade}
+        :param subscription_type: The subscrition type of cluster. Possible values: ["TRIAL", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#subscription_type GoogleAlloydbCluster#subscription_type}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#timeouts GoogleAlloydbCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2535,7 +2535,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster_id(self) -> builtins.str:
         '''The ID of the alloydb cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster_id GoogleAlloydbCluster#cluster_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster_id GoogleAlloydbCluster#cluster_id}
         '''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
@@ -2545,7 +2545,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location where the alloydb cluster should reside.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#location GoogleAlloydbCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -2563,7 +2563,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#annotations GoogleAlloydbCluster#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#annotations GoogleAlloydbCluster#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2574,7 +2574,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GoogleAlloydbClusterAutomatedBackupPolicy]:
         '''automated_backup_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#automated_backup_policy GoogleAlloydbCluster#automated_backup_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#automated_backup_policy GoogleAlloydbCluster#automated_backup_policy}
         '''
         result = self._values.get("automated_backup_policy")
         return typing.cast(typing.Optional[GoogleAlloydbClusterAutomatedBackupPolicy], result)
@@ -2583,7 +2583,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster_type(self) -> typing.Optional[builtins.str]:
         '''The type of cluster. If not set, defaults to PRIMARY. Default value: "PRIMARY" Possible values: ["PRIMARY", "SECONDARY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster_type GoogleAlloydbCluster#cluster_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster_type GoogleAlloydbCluster#cluster_type}
         '''
         result = self._values.get("cluster_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2594,7 +2594,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbClusterContinuousBackupConfig"]:
         '''continuous_backup_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#continuous_backup_config GoogleAlloydbCluster#continuous_backup_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#continuous_backup_config GoogleAlloydbCluster#continuous_backup_config}
         '''
         result = self._values.get("continuous_backup_config")
         return typing.cast(typing.Optional["GoogleAlloydbClusterContinuousBackupConfig"], result)
@@ -2606,7 +2606,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This is an optional field and it's populated at the Cluster creation time.
         Note: Changing this field to a higer version results in upgrading the AlloyDB cluster which is an irreversible change.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#database_version GoogleAlloydbCluster#database_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#database_version GoogleAlloydbCluster#database_version}
         '''
         result = self._values.get("database_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2619,7 +2619,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Deleting a Secondary cluster with a secondary instance REQUIRES setting deletion_policy = "FORCE" otherwise an error is returned. This is needed as there is no support to delete just the secondary instance, and the only way to delete secondary instance is to delete the associated secondary cluster forcefully which also deletes the secondary instance.
         Possible values: DEFAULT, FORCE
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#deletion_policy GoogleAlloydbCluster#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#deletion_policy GoogleAlloydbCluster#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2628,7 +2628,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User-settable and human-readable display name for the Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#display_name GoogleAlloydbCluster#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#display_name GoogleAlloydbCluster#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2639,7 +2639,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbClusterEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["GoogleAlloydbClusterEncryptionConfig"], result)
@@ -2648,14 +2648,14 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def etag(self) -> typing.Optional[builtins.str]:
         '''For Resource freshness validation (https://google.aip.dev/154).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#etag GoogleAlloydbCluster#etag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#etag GoogleAlloydbCluster#etag}
         '''
         result = self._values.get("etag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#id GoogleAlloydbCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#id GoogleAlloydbCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2667,7 +2667,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def initial_user(self) -> typing.Optional["GoogleAlloydbClusterInitialUser"]:
         '''initial_user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#initial_user GoogleAlloydbCluster#initial_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#initial_user GoogleAlloydbCluster#initial_user}
         '''
         result = self._values.get("initial_user")
         return typing.cast(typing.Optional["GoogleAlloydbClusterInitialUser"], result)
@@ -2679,7 +2679,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#labels GoogleAlloydbCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2690,7 +2690,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbClusterMaintenanceUpdatePolicy"]:
         '''maintenance_update_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#maintenance_update_policy GoogleAlloydbCluster#maintenance_update_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#maintenance_update_policy GoogleAlloydbCluster#maintenance_update_policy}
         '''
         result = self._values.get("maintenance_update_policy")
         return typing.cast(typing.Optional["GoogleAlloydbClusterMaintenanceUpdatePolicy"], result)
@@ -2699,14 +2699,14 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_config(self) -> typing.Optional["GoogleAlloydbClusterNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#network_config GoogleAlloydbCluster#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#network_config GoogleAlloydbCluster#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["GoogleAlloydbClusterNetworkConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#project GoogleAlloydbCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#project GoogleAlloydbCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2714,7 +2714,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def psc_config(self) -> typing.Optional["GoogleAlloydbClusterPscConfig"]:
         '''psc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#psc_config GoogleAlloydbCluster#psc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#psc_config GoogleAlloydbCluster#psc_config}
         '''
         result = self._values.get("psc_config")
         return typing.cast(typing.Optional["GoogleAlloydbClusterPscConfig"], result)
@@ -2725,7 +2725,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbClusterRestoreBackupSource"]:
         '''restore_backup_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#restore_backup_source GoogleAlloydbCluster#restore_backup_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#restore_backup_source GoogleAlloydbCluster#restore_backup_source}
         '''
         result = self._values.get("restore_backup_source")
         return typing.cast(typing.Optional["GoogleAlloydbClusterRestoreBackupSource"], result)
@@ -2736,7 +2736,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbClusterRestoreContinuousBackupSource"]:
         '''restore_continuous_backup_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#restore_continuous_backup_source GoogleAlloydbCluster#restore_continuous_backup_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#restore_continuous_backup_source GoogleAlloydbCluster#restore_continuous_backup_source}
         '''
         result = self._values.get("restore_continuous_backup_source")
         return typing.cast(typing.Optional["GoogleAlloydbClusterRestoreContinuousBackupSource"], result)
@@ -2747,7 +2747,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAlloydbClusterSecondaryConfig"]:
         '''secondary_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#secondary_config GoogleAlloydbCluster#secondary_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#secondary_config GoogleAlloydbCluster#secondary_config}
         '''
         result = self._values.get("secondary_config")
         return typing.cast(typing.Optional["GoogleAlloydbClusterSecondaryConfig"], result)
@@ -2758,7 +2758,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to true to skip awaiting on the major version upgrade of the cluster. Possible values: true, false Default value: "true".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#skip_await_major_version_upgrade GoogleAlloydbCluster#skip_await_major_version_upgrade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#skip_await_major_version_upgrade GoogleAlloydbCluster#skip_await_major_version_upgrade}
         '''
         result = self._values.get("skip_await_major_version_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2767,7 +2767,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subscription_type(self) -> typing.Optional[builtins.str]:
         '''The subscrition type of cluster. Possible values: ["TRIAL", "STANDARD"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#subscription_type GoogleAlloydbCluster#subscription_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#subscription_type GoogleAlloydbCluster#subscription_type}
         '''
         result = self._values.get("subscription_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2776,7 +2776,7 @@ class GoogleAlloydbClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleAlloydbClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#timeouts GoogleAlloydbCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#timeouts GoogleAlloydbCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleAlloydbClusterTimeouts"], result)
@@ -2811,9 +2811,9 @@ class GoogleAlloydbClusterContinuousBackupConfig:
         recovery_window_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Whether continuous backup recovery is enabled. If not set, defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
-        :param recovery_window_days: The numbers of days that are eligible to restore from using PITR. To support the entire recovery window, backups and logs are retained for one day more than the recovery window. If not set, defaults to 14 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#recovery_window_days GoogleAlloydbCluster#recovery_window_days}
+        :param enabled: Whether continuous backup recovery is enabled. If not set, defaults to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        :param recovery_window_days: The numbers of days that are eligible to restore from using PITR. To support the entire recovery window, backups and logs are retained for one day more than the recovery window. If not set, defaults to 14 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#recovery_window_days GoogleAlloydbCluster#recovery_window_days}
         '''
         if isinstance(encryption_config, dict):
             encryption_config = GoogleAlloydbClusterContinuousBackupConfigEncryptionConfig(**encryption_config)
@@ -2836,7 +2836,7 @@ class GoogleAlloydbClusterContinuousBackupConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether continuous backup recovery is enabled. If not set, defaults to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#enabled GoogleAlloydbCluster#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2847,7 +2847,7 @@ class GoogleAlloydbClusterContinuousBackupConfig:
     ) -> typing.Optional["GoogleAlloydbClusterContinuousBackupConfigEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#encryption_config GoogleAlloydbCluster#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["GoogleAlloydbClusterContinuousBackupConfigEncryptionConfig"], result)
@@ -2860,7 +2860,7 @@ class GoogleAlloydbClusterContinuousBackupConfig:
 
         If not set, defaults to 14 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#recovery_window_days GoogleAlloydbCluster#recovery_window_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#recovery_window_days GoogleAlloydbCluster#recovery_window_days}
         '''
         result = self._values.get("recovery_window_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2885,7 +2885,7 @@ class GoogleAlloydbClusterContinuousBackupConfig:
 class GoogleAlloydbClusterContinuousBackupConfigEncryptionConfig:
     def __init__(self, *, kms_key_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__788f0ec21185476d6f132d7ca1454d29eff662a9b5392937b2fc7a7431583f1f)
@@ -2900,7 +2900,7 @@ class GoogleAlloydbClusterContinuousBackupConfigEncryptionConfig:
 
         Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3003,7 +3003,7 @@ class GoogleAlloydbClusterContinuousBackupConfigOutputReference(
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         value = GoogleAlloydbClusterContinuousBackupConfigEncryptionConfig(
             kms_key_name=kms_key_name
@@ -3416,7 +3416,7 @@ class GoogleAlloydbClusterContinuousBackupInfoOutputReference(
 class GoogleAlloydbClusterEncryptionConfig:
     def __init__(self, *, kms_key_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        :param kms_key_name: The fully-qualified resource name of the KMS key. Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6994e48e54ff2b9ca317808e2c0e7efc87c70029c476648484b4a0266f71ea9d)
@@ -3431,7 +3431,7 @@ class GoogleAlloydbClusterEncryptionConfig:
 
         Each Cloud KMS key is regionalized and has the following format: projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#kms_key_name GoogleAlloydbCluster#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3667,8 +3667,8 @@ class GoogleAlloydbClusterInitialUser:
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: The initial password for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#password GoogleAlloydbCluster#password}
-        :param user: The database username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#user GoogleAlloydbCluster#user}
+        :param password: The initial password for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#password GoogleAlloydbCluster#password}
+        :param user: The database username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#user GoogleAlloydbCluster#user}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1112959200f4c6a14d4f3185120f30764f95b83fb8bc3959906a6fef0b75a049)
@@ -3684,7 +3684,7 @@ class GoogleAlloydbClusterInitialUser:
     def password(self) -> builtins.str:
         '''The initial password for the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#password GoogleAlloydbCluster#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#password GoogleAlloydbCluster#password}
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
@@ -3694,7 +3694,7 @@ class GoogleAlloydbClusterInitialUser:
     def user(self) -> typing.Optional[builtins.str]:
         '''The database username.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#user GoogleAlloydbCluster#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#user GoogleAlloydbCluster#user}
         '''
         result = self._values.get("user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3797,7 +3797,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicy:
         maintenance_windows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindows", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param maintenance_windows: maintenance_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#maintenance_windows GoogleAlloydbCluster#maintenance_windows}
+        :param maintenance_windows: maintenance_windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#maintenance_windows GoogleAlloydbCluster#maintenance_windows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebb1eff2012f9ed67f19955e9b6cc22b73b006a4bf63aca24e16223a64b68774)
@@ -3812,7 +3812,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindows"]]]:
         '''maintenance_windows block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#maintenance_windows GoogleAlloydbCluster#maintenance_windows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#maintenance_windows GoogleAlloydbCluster#maintenance_windows}
         '''
         result = self._values.get("maintenance_windows")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindows"]]], result)
@@ -3842,8 +3842,8 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindows:
         start_time: typing.Union["GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param day: Preferred day of the week for maintenance, e.g. MONDAY, TUESDAY, etc. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#day GoogleAlloydbCluster#day}
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#start_time GoogleAlloydbCluster#start_time}
+        :param day: Preferred day of the week for maintenance, e.g. MONDAY, TUESDAY, etc. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#day GoogleAlloydbCluster#day}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#start_time GoogleAlloydbCluster#start_time}
         '''
         if isinstance(start_time, dict):
             start_time = GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime(**start_time)
@@ -3860,7 +3860,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindows:
     def day(self) -> builtins.str:
         '''Preferred day of the week for maintenance, e.g. MONDAY, TUESDAY, etc. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#day GoogleAlloydbCluster#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#day GoogleAlloydbCluster#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -3872,7 +3872,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindows:
     ) -> "GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#start_time GoogleAlloydbCluster#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#start_time GoogleAlloydbCluster#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -4019,10 +4019,10 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsOutputReferen
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
-        :param minutes: Minutes of hour of day. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
-        :param seconds: Seconds of minutes of the time. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
+        :param minutes: Minutes of hour of day. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
+        :param seconds: Seconds of minutes of the time. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
         '''
         value = GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -4099,10 +4099,10 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
-        :param minutes: Minutes of hour of day. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
-        :param seconds: Seconds of minutes of the time. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
+        :param minutes: Minutes of hour of day. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
+        :param seconds: Seconds of minutes of the time. Currently, only the value 0 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db904570492af176540b0e4c454f608b57f49c3a90f86c53a4d3252b99553d52)
@@ -4124,7 +4124,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime:
     def hours(self) -> jsii.Number:
         '''Hours of day in 24 hour format. Should be from 0 to 23.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#hours GoogleAlloydbCluster#hours}
         '''
         result = self._values.get("hours")
         assert result is not None, "Required property 'hours' is missing"
@@ -4134,7 +4134,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day. Currently, only the value 0 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#minutes GoogleAlloydbCluster#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4143,7 +4143,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds. Currently, only the value 0 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#nanos GoogleAlloydbCluster#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4152,7 +4152,7 @@ class GoogleAlloydbClusterMaintenanceUpdatePolicyMaintenanceWindowsStartTime:
     def seconds(self) -> typing.Optional[jsii.Number]:
         '''Seconds of minutes of the time. Currently, only the value 0 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#seconds GoogleAlloydbCluster#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4523,8 +4523,8 @@ class GoogleAlloydbClusterNetworkConfig:
         network: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allocated_ip_range: The name of the allocated IP range for the private IP AlloyDB cluster. For example: "google-managed-services-default". If set, the instance IPs for this cluster will be created in the allocated range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#allocated_ip_range GoogleAlloydbCluster#allocated_ip_range}
-        :param network: The resource link for the VPC network in which cluster resources are created and from which they are accessible via Private IP. The network must belong to the same project as the cluster. It is specified in the form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#network GoogleAlloydbCluster#network}
+        :param allocated_ip_range: The name of the allocated IP range for the private IP AlloyDB cluster. For example: "google-managed-services-default". If set, the instance IPs for this cluster will be created in the allocated range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#allocated_ip_range GoogleAlloydbCluster#allocated_ip_range}
+        :param network: The resource link for the VPC network in which cluster resources are created and from which they are accessible via Private IP. The network must belong to the same project as the cluster. It is specified in the form: "projects/{projectNumber}/global/networks/{network_id}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#network GoogleAlloydbCluster#network}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b73f4c2c7e7dd2c6f007a593bfed0fbd1240297c001b6af0b5ee0dc144e924a7)
@@ -4543,7 +4543,7 @@ class GoogleAlloydbClusterNetworkConfig:
         For example: "google-managed-services-default".
         If set, the instance IPs for this cluster will be created in the allocated range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#allocated_ip_range GoogleAlloydbCluster#allocated_ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#allocated_ip_range GoogleAlloydbCluster#allocated_ip_range}
         '''
         result = self._values.get("allocated_ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4555,7 +4555,7 @@ class GoogleAlloydbClusterNetworkConfig:
         The network must belong to the same project as the cluster.
         It is specified in the form: "projects/{projectNumber}/global/networks/{network_id}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#network GoogleAlloydbCluster#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#network GoogleAlloydbCluster#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4662,7 +4662,7 @@ class GoogleAlloydbClusterPscConfig:
         psc_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param psc_enabled: Create an instance that allows connections from Private Service Connect endpoints to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#psc_enabled GoogleAlloydbCluster#psc_enabled}
+        :param psc_enabled: Create an instance that allows connections from Private Service Connect endpoints to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#psc_enabled GoogleAlloydbCluster#psc_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6d1e72a56b5459ac52b3c4d447204cdd7b825a45047ce504356b25a8c9b8209)
@@ -4677,7 +4677,7 @@ class GoogleAlloydbClusterPscConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Create an instance that allows connections from Private Service Connect endpoints to the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#psc_enabled GoogleAlloydbCluster#psc_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#psc_enabled GoogleAlloydbCluster#psc_enabled}
         '''
         result = self._values.get("psc_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4769,7 +4769,7 @@ class GoogleAlloydbClusterPscConfigOutputReference(
 class GoogleAlloydbClusterRestoreBackupSource:
     def __init__(self, *, backup_name: builtins.str) -> None:
         '''
-        :param backup_name: The name of the backup that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#backup_name GoogleAlloydbCluster#backup_name}
+        :param backup_name: The name of the backup that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#backup_name GoogleAlloydbCluster#backup_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9351b0cc0dd539947c2cbb65968d1d3124bac756182c7290eafbf5f8900a91c4)
@@ -4782,7 +4782,7 @@ class GoogleAlloydbClusterRestoreBackupSource:
     def backup_name(self) -> builtins.str:
         '''The name of the backup that this cluster is restored from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#backup_name GoogleAlloydbCluster#backup_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#backup_name GoogleAlloydbCluster#backup_name}
         '''
         result = self._values.get("backup_name")
         assert result is not None, "Required property 'backup_name' is missing"
@@ -4863,8 +4863,8 @@ class GoogleAlloydbClusterRestoreBackupSourceOutputReference(
 class GoogleAlloydbClusterRestoreContinuousBackupSource:
     def __init__(self, *, cluster: builtins.str, point_in_time: builtins.str) -> None:
         '''
-        :param cluster: The name of the source cluster that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster GoogleAlloydbCluster#cluster}
-        :param point_in_time: The point in time that this cluster is restored to, in RFC 3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#point_in_time GoogleAlloydbCluster#point_in_time}
+        :param cluster: The name of the source cluster that this cluster is restored from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster GoogleAlloydbCluster#cluster}
+        :param point_in_time: The point in time that this cluster is restored to, in RFC 3339 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#point_in_time GoogleAlloydbCluster#point_in_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5fcc6e18ea170785bdae35372a226575c61c14e7be6e79310d832eac00c3d8cd)
@@ -4879,7 +4879,7 @@ class GoogleAlloydbClusterRestoreContinuousBackupSource:
     def cluster(self) -> builtins.str:
         '''The name of the source cluster that this cluster is restored from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#cluster GoogleAlloydbCluster#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#cluster GoogleAlloydbCluster#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -4889,7 +4889,7 @@ class GoogleAlloydbClusterRestoreContinuousBackupSource:
     def point_in_time(self) -> builtins.str:
         '''The point in time that this cluster is restored to, in RFC 3339 format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#point_in_time GoogleAlloydbCluster#point_in_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#point_in_time GoogleAlloydbCluster#point_in_time}
         '''
         result = self._values.get("point_in_time")
         assert result is not None, "Required property 'point_in_time' is missing"
@@ -4987,7 +4987,7 @@ class GoogleAlloydbClusterRestoreContinuousBackupSourceOutputReference(
 class GoogleAlloydbClusterSecondaryConfig:
     def __init__(self, *, primary_cluster_name: builtins.str) -> None:
         '''
-        :param primary_cluster_name: Name of the primary cluster must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#primary_cluster_name GoogleAlloydbCluster#primary_cluster_name}
+        :param primary_cluster_name: Name of the primary cluster must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#primary_cluster_name GoogleAlloydbCluster#primary_cluster_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c07e0f798a22ddd2cf1cd48e80604b56751760543dfcf657c15f28ff55bb2ce2)
@@ -5000,7 +5000,7 @@ class GoogleAlloydbClusterSecondaryConfig:
     def primary_cluster_name(self) -> builtins.str:
         '''Name of the primary cluster must be in the format 'projects/{project}/locations/{location}/clusters/{cluster_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#primary_cluster_name GoogleAlloydbCluster#primary_cluster_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#primary_cluster_name GoogleAlloydbCluster#primary_cluster_name}
         '''
         result = self._values.get("primary_cluster_name")
         assert result is not None, "Required property 'primary_cluster_name' is missing"
@@ -5085,9 +5085,9 @@ class GoogleAlloydbClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#create GoogleAlloydbCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#delete GoogleAlloydbCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#update GoogleAlloydbCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#create GoogleAlloydbCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#delete GoogleAlloydbCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#update GoogleAlloydbCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ffc9f589fc75a5ae9b9ad5595a341aace357c4e7cb123df3948774c01fddf483)
@@ -5104,19 +5104,19 @@ class GoogleAlloydbClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#create GoogleAlloydbCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#create GoogleAlloydbCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#delete GoogleAlloydbCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#delete GoogleAlloydbCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_alloydb_cluster#update GoogleAlloydbCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_alloydb_cluster#update GoogleAlloydbCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `google_cloud_run_v2_service`
 
-Refer to the Terraform Registry for docs: [`google_cloud_run_v2_service`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service).
+Refer to the Terraform Registry for docs: [`google_cloud_run_v2_service`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleCloudRunV2Service(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleCloudRunV2Service.GoogleCloudRunV2Service",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service google_cloud_run_v2_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service google_cloud_run_v2_service}.'''
 
     def __init__(
         self,
@@ -81,32 +81,32 @@ class GoogleCloudRunV2Service(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service google_cloud_run_v2_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service google_cloud_run_v2_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the cloud run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#location GoogleCloudRunV2Service#location}
-        :param name: Name of the Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#template GoogleCloudRunV2Service#template}
-        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected in new resources. All system annotations in v1 now have a corresponding field in v2 Service. This field follows Kubernetes annotations' namespacing, limits, and rules. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
-        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#binary_authorization GoogleCloudRunV2Service#binary_authorization}
-        :param build_config: build_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#build_config GoogleCloudRunV2Service#build_config}
-        :param client: Arbitrary identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#client GoogleCloudRunV2Service#client}
-        :param client_version: Arbitrary version identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#client_version GoogleCloudRunV2Service#client_version}
-        :param custom_audiences: One or more custom audiences that you want this service to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests. For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#custom_audiences GoogleCloudRunV2Service#custom_audiences}
-        :param default_uri_disabled: Disables public resolution of the default URI of this service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#default_uri_disabled GoogleCloudRunV2Service#default_uri_disabled}
-        :param deletion_protection: Whether Terraform will be prevented from destroying the service. Defaults to true. When a'terraform destroy' or 'terraform apply' would delete the service, the command will fail if this field is not set to false in Terraform state. When the field is set to true or unset in Terraform state, a 'terraform apply' or 'terraform destroy' that would delete the service will fail. When the field is set to false, deleting the service is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#deletion_protection GoogleCloudRunV2Service#deletion_protection}
-        :param description: User-provided description of the Service. This field currently has a 512-character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#description GoogleCloudRunV2Service#description}
-        :param iap_enabled: Used to enable/disable IAP for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#iap_enabled GoogleCloudRunV2Service#iap_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#id GoogleCloudRunV2Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress: Provides the ingress settings for this Service. On output, returns the currently observed ingress settings, or INGRESS_TRAFFIC_UNSPECIFIED if no revision is active. Possible values: ["INGRESS_TRAFFIC_ALL", "INGRESS_TRAFFIC_INTERNAL_ONLY", "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#ingress GoogleCloudRunV2Service#ingress}
-        :param invoker_iam_disabled: Disables IAM permission check for run.routes.invoke for callers of this service. For more information, visit https://cloud.google.com/run/docs/securing/managing-access#invoker_check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#invoker_iam_disabled GoogleCloudRunV2Service#invoker_iam_disabled}
-        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 Service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
-        :param launch_stage: The launch stage as defined by `Google Cloud Platform Launch Stages <https://cloud.google.com/products#product-launch-stages>`_. Cloud Run supports ALPHA, BETA, and GA. If no value is specified, GA is assumed. Set the launch stage to a preview stage on input to allow use of preview features in that stage. On read (or output), describes whether the resource uses preview features. For example, if ALPHA is provided as input, but only BETA and GA-level features are used, this field will be BETA on output. Possible values: ["UNIMPLEMENTED", "PRELAUNCH", "EARLY_ACCESS", "ALPHA", "BETA", "GA", "DEPRECATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#launch_stage GoogleCloudRunV2Service#launch_stage}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#project GoogleCloudRunV2Service#project}.
-        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeouts GoogleCloudRunV2Service#timeouts}
-        :param traffic: traffic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#traffic GoogleCloudRunV2Service#traffic}
+        :param location: The location of the cloud run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#location GoogleCloudRunV2Service#location}
+        :param name: Name of the Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#template GoogleCloudRunV2Service#template}
+        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected in new resources. All system annotations in v1 now have a corresponding field in v2 Service. This field follows Kubernetes annotations' namespacing, limits, and rules. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
+        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#binary_authorization GoogleCloudRunV2Service#binary_authorization}
+        :param build_config: build_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#build_config GoogleCloudRunV2Service#build_config}
+        :param client: Arbitrary identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#client GoogleCloudRunV2Service#client}
+        :param client_version: Arbitrary version identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#client_version GoogleCloudRunV2Service#client_version}
+        :param custom_audiences: One or more custom audiences that you want this service to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests. For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#custom_audiences GoogleCloudRunV2Service#custom_audiences}
+        :param default_uri_disabled: Disables public resolution of the default URI of this service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#default_uri_disabled GoogleCloudRunV2Service#default_uri_disabled}
+        :param deletion_protection: Whether Terraform will be prevented from destroying the service. Defaults to true. When a'terraform destroy' or 'terraform apply' would delete the service, the command will fail if this field is not set to false in Terraform state. When the field is set to true or unset in Terraform state, a 'terraform apply' or 'terraform destroy' that would delete the service will fail. When the field is set to false, deleting the service is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#deletion_protection GoogleCloudRunV2Service#deletion_protection}
+        :param description: User-provided description of the Service. This field currently has a 512-character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#description GoogleCloudRunV2Service#description}
+        :param iap_enabled: Used to enable/disable IAP for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#iap_enabled GoogleCloudRunV2Service#iap_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#id GoogleCloudRunV2Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress: Provides the ingress settings for this Service. On output, returns the currently observed ingress settings, or INGRESS_TRAFFIC_UNSPECIFIED if no revision is active. Possible values: ["INGRESS_TRAFFIC_ALL", "INGRESS_TRAFFIC_INTERNAL_ONLY", "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#ingress GoogleCloudRunV2Service#ingress}
+        :param invoker_iam_disabled: Disables IAM permission check for run.routes.invoke for callers of this service. For more information, visit https://cloud.google.com/run/docs/securing/managing-access#invoker_check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#invoker_iam_disabled GoogleCloudRunV2Service#invoker_iam_disabled}
+        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 Service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
+        :param launch_stage: The launch stage as defined by `Google Cloud Platform Launch Stages <https://cloud.google.com/products#product-launch-stages>`_. Cloud Run supports ALPHA, BETA, and GA. If no value is specified, GA is assumed. Set the launch stage to a preview stage on input to allow use of preview features in that stage. On read (or output), describes whether the resource uses preview features. For example, if ALPHA is provided as input, but only BETA and GA-level features are used, this field will be BETA on output. Possible values: ["UNIMPLEMENTED", "PRELAUNCH", "EARLY_ACCESS", "ALPHA", "BETA", "GA", "DEPRECATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#launch_stage GoogleCloudRunV2Service#launch_stage}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#project GoogleCloudRunV2Service#project}.
+        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeouts GoogleCloudRunV2Service#timeouts}
+        :param traffic: traffic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#traffic GoogleCloudRunV2Service#traffic}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -166,7 +166,7 @@ class GoogleCloudRunV2Service(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleCloudRunV2Service to import.
-        :param import_from_id: The id of the existing GoogleCloudRunV2Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleCloudRunV2Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleCloudRunV2Service to import is found.
         '''
         if __debug__:
@@ -186,9 +186,9 @@ class GoogleCloudRunV2Service(
         use_default: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param breakglass_justification: If present, indicates to use Breakglass using this justification. If useDefault is False, then it must be empty. For more information on breakglass, see https://cloud.google.com/binary-authorization/docs/using-breakglass Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#breakglass_justification GoogleCloudRunV2Service#breakglass_justification}
-        :param policy: The path to a binary authorization policy. Format: projects/{project}/platforms/cloudRun/{policy-name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#policy GoogleCloudRunV2Service#policy}
-        :param use_default: If True, indicates to use the default project's binary authorization policy. If False, binary authorization will be disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#use_default GoogleCloudRunV2Service#use_default}
+        :param breakglass_justification: If present, indicates to use Breakglass using this justification. If useDefault is False, then it must be empty. For more information on breakglass, see https://cloud.google.com/binary-authorization/docs/using-breakglass Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#breakglass_justification GoogleCloudRunV2Service#breakglass_justification}
+        :param policy: The path to a binary authorization policy. Format: projects/{project}/platforms/cloudRun/{policy-name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#policy GoogleCloudRunV2Service#policy}
+        :param use_default: If True, indicates to use the default project's binary authorization policy. If False, binary authorization will be disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#use_default GoogleCloudRunV2Service#use_default}
         '''
         value = GoogleCloudRunV2ServiceBinaryAuthorization(
             breakglass_justification=breakglass_justification,
@@ -212,14 +212,14 @@ class GoogleCloudRunV2Service(
         worker_pool: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param base_image: The base image used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#base_image GoogleCloudRunV2Service#base_image}
-        :param enable_automatic_updates: Sets whether the function will receive automatic base image updates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#enable_automatic_updates GoogleCloudRunV2Service#enable_automatic_updates}
-        :param environment_variables: User-provided build-time environment variables for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#environment_variables GoogleCloudRunV2Service#environment_variables}
-        :param function_target: The name of the function (as defined in source code) that will be executed. Defaults to the resource name suffix, if not specified. For backward compatibility, if function with given name is not found, then the system will try to use function named "function". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#function_target GoogleCloudRunV2Service#function_target}
-        :param image_uri: Artifact Registry URI to store the built image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#image_uri GoogleCloudRunV2Service#image_uri}
-        :param service_account: Service account to be used for building the container. The format of this field is 'projects/{projectId}/serviceAccounts/{serviceAccountEmail}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
-        :param source_location: The Cloud Storage bucket URI where the function source code is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#source_location GoogleCloudRunV2Service#source_location}
-        :param worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the Cloud Run function. The format of this field is 'projects/{project}/locations/{region}/workerPools/{workerPool}' where {project} and {region} are the project id and region respectively where the worker pool is defined and {workerPool} is the short name of the worker pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#worker_pool GoogleCloudRunV2Service#worker_pool}
+        :param base_image: The base image used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#base_image GoogleCloudRunV2Service#base_image}
+        :param enable_automatic_updates: Sets whether the function will receive automatic base image updates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#enable_automatic_updates GoogleCloudRunV2Service#enable_automatic_updates}
+        :param environment_variables: User-provided build-time environment variables for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#environment_variables GoogleCloudRunV2Service#environment_variables}
+        :param function_target: The name of the function (as defined in source code) that will be executed. Defaults to the resource name suffix, if not specified. For backward compatibility, if function with given name is not found, then the system will try to use function named "function". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#function_target GoogleCloudRunV2Service#function_target}
+        :param image_uri: Artifact Registry URI to store the built image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#image_uri GoogleCloudRunV2Service#image_uri}
+        :param service_account: Service account to be used for building the container. The format of this field is 'projects/{projectId}/serviceAccounts/{serviceAccountEmail}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
+        :param source_location: The Cloud Storage bucket URI where the function source code is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#source_location GoogleCloudRunV2Service#source_location}
+        :param worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the Cloud Run function. The format of this field is 'projects/{project}/locations/{region}/workerPools/{workerPool}' where {project} and {region} are the project id and region respectively where the worker pool is defined and {workerPool} is the short name of the worker pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#worker_pool GoogleCloudRunV2Service#worker_pool}
         '''
         value = GoogleCloudRunV2ServiceBuildConfig(
             base_image=base_image,
@@ -243,9 +243,9 @@ class GoogleCloudRunV2Service(
         scaling_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param manual_instance_count: Total instance count for the service in manual scaling mode. This number of instances is divided among all revisions with specified traffic based on the percent of traffic they are receiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#manual_instance_count GoogleCloudRunV2Service#manual_instance_count}
-        :param min_instance_count: Minimum number of instances for the service, to be divided among all revisions receiving traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
-        :param scaling_mode: The `scaling mode <https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#scalingmode>`_ for the service. Possible values: ["AUTOMATIC", "MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling_mode GoogleCloudRunV2Service#scaling_mode}
+        :param manual_instance_count: Total instance count for the service in manual scaling mode. This number of instances is divided among all revisions with specified traffic based on the percent of traffic they are receiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#manual_instance_count GoogleCloudRunV2Service#manual_instance_count}
+        :param min_instance_count: Minimum number of instances for the service, to be divided among all revisions receiving traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
+        :param scaling_mode: The `scaling mode <https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#scalingmode>`_ for the service. Possible values: ["AUTOMATIC", "MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling_mode GoogleCloudRunV2Service#scaling_mode}
         '''
         value = GoogleCloudRunV2ServiceScaling(
             manual_instance_count=manual_instance_count,
@@ -277,22 +277,22 @@ class GoogleCloudRunV2Service(
         vpc_access: typing.Optional[typing.Union["GoogleCloudRunV2ServiceTemplateVpcAccess", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system annotations in v1 now have a corresponding field in v2 RevisionTemplate. This field follows Kubernetes annotations' namespacing, limits, and rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
-        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#containers GoogleCloudRunV2Service#containers}
-        :param encryption_key: A reference to a customer managed encryption key (CMEK) to use to encrypt this container image. For more information, go to https://cloud.google.com/run/docs/securing/using-cmek Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#encryption_key GoogleCloudRunV2Service#encryption_key}
-        :param execution_environment: The sandbox environment to host this Revision. Possible values: ["EXECUTION_ENVIRONMENT_GEN1", "EXECUTION_ENVIRONMENT_GEN2"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#execution_environment GoogleCloudRunV2Service#execution_environment}
-        :param gpu_zonal_redundancy_disabled: True if GPU zonal redundancy is disabled on this revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#gpu_zonal_redundancy_disabled GoogleCloudRunV2Service#gpu_zonal_redundancy_disabled}
-        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 RevisionTemplate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
-        :param max_instance_request_concurrency: Sets the maximum number of requests that each serving instance can receive. If not specified or 0, defaults to 80 when requested CPU >= 1 and defaults to 1 when requested CPU < 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#max_instance_request_concurrency GoogleCloudRunV2Service#max_instance_request_concurrency}
-        :param node_selector: node_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#node_selector GoogleCloudRunV2Service#node_selector}
-        :param revision: The unique name for the revision. If this field is omitted, it will be automatically generated based on the Service name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
-        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
-        :param service_account: Email address of the IAM service account associated with the revision of the service. The service account represents the identity of the running revision, and determines what permissions the revision has. If not provided, the revision will use the project's default service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
-        :param service_mesh: service_mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_mesh GoogleCloudRunV2Service#service_mesh}
-        :param session_affinity: Enables session affinity. For more information, go to https://cloud.google.com/run/docs/configuring/session-affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#session_affinity GoogleCloudRunV2Service#session_affinity}
-        :param timeout: Max allowed time for an instance to respond to a request. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout GoogleCloudRunV2Service#timeout}
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#volumes GoogleCloudRunV2Service#volumes}
-        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#vpc_access GoogleCloudRunV2Service#vpc_access}
+        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system annotations in v1 now have a corresponding field in v2 RevisionTemplate. This field follows Kubernetes annotations' namespacing, limits, and rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
+        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#containers GoogleCloudRunV2Service#containers}
+        :param encryption_key: A reference to a customer managed encryption key (CMEK) to use to encrypt this container image. For more information, go to https://cloud.google.com/run/docs/securing/using-cmek Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#encryption_key GoogleCloudRunV2Service#encryption_key}
+        :param execution_environment: The sandbox environment to host this Revision. Possible values: ["EXECUTION_ENVIRONMENT_GEN1", "EXECUTION_ENVIRONMENT_GEN2"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#execution_environment GoogleCloudRunV2Service#execution_environment}
+        :param gpu_zonal_redundancy_disabled: True if GPU zonal redundancy is disabled on this revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#gpu_zonal_redundancy_disabled GoogleCloudRunV2Service#gpu_zonal_redundancy_disabled}
+        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 RevisionTemplate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
+        :param max_instance_request_concurrency: Sets the maximum number of requests that each serving instance can receive. If not specified or 0, defaults to 80 when requested CPU >= 1 and defaults to 1 when requested CPU < 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#max_instance_request_concurrency GoogleCloudRunV2Service#max_instance_request_concurrency}
+        :param node_selector: node_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#node_selector GoogleCloudRunV2Service#node_selector}
+        :param revision: The unique name for the revision. If this field is omitted, it will be automatically generated based on the Service name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
+        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
+        :param service_account: Email address of the IAM service account associated with the revision of the service. The service account represents the identity of the running revision, and determines what permissions the revision has. If not provided, the revision will use the project's default service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
+        :param service_mesh: service_mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_mesh GoogleCloudRunV2Service#service_mesh}
+        :param session_affinity: Enables session affinity. For more information, go to https://cloud.google.com/run/docs/configuring/session-affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#session_affinity GoogleCloudRunV2Service#session_affinity}
+        :param timeout: Max allowed time for an instance to respond to a request. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout GoogleCloudRunV2Service#timeout}
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#volumes GoogleCloudRunV2Service#volumes}
+        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#vpc_access GoogleCloudRunV2Service#vpc_access}
         '''
         value = GoogleCloudRunV2ServiceTemplate(
             annotations=annotations,
@@ -324,9 +324,9 @@ class GoogleCloudRunV2Service(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#create GoogleCloudRunV2Service#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#delete GoogleCloudRunV2Service#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#update GoogleCloudRunV2Service#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#create GoogleCloudRunV2Service#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#delete GoogleCloudRunV2Service#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#update GoogleCloudRunV2Service#update}.
         '''
         value = GoogleCloudRunV2ServiceTimeouts(
             create=create, delete=delete, update=update
@@ -932,9 +932,9 @@ class GoogleCloudRunV2ServiceBinaryAuthorization:
         use_default: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param breakglass_justification: If present, indicates to use Breakglass using this justification. If useDefault is False, then it must be empty. For more information on breakglass, see https://cloud.google.com/binary-authorization/docs/using-breakglass Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#breakglass_justification GoogleCloudRunV2Service#breakglass_justification}
-        :param policy: The path to a binary authorization policy. Format: projects/{project}/platforms/cloudRun/{policy-name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#policy GoogleCloudRunV2Service#policy}
-        :param use_default: If True, indicates to use the default project's binary authorization policy. If False, binary authorization will be disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#use_default GoogleCloudRunV2Service#use_default}
+        :param breakglass_justification: If present, indicates to use Breakglass using this justification. If useDefault is False, then it must be empty. For more information on breakglass, see https://cloud.google.com/binary-authorization/docs/using-breakglass Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#breakglass_justification GoogleCloudRunV2Service#breakglass_justification}
+        :param policy: The path to a binary authorization policy. Format: projects/{project}/platforms/cloudRun/{policy-name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#policy GoogleCloudRunV2Service#policy}
+        :param use_default: If True, indicates to use the default project's binary authorization policy. If False, binary authorization will be disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#use_default GoogleCloudRunV2Service#use_default}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9ee5eeefd2186f348b8da7e4bf265e96778ac3b4c7399bdd536fbfc5a271c04)
@@ -955,7 +955,7 @@ class GoogleCloudRunV2ServiceBinaryAuthorization:
 
         If useDefault is False, then it must be empty. For more information on breakglass, see https://cloud.google.com/binary-authorization/docs/using-breakglass
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#breakglass_justification GoogleCloudRunV2Service#breakglass_justification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#breakglass_justification GoogleCloudRunV2Service#breakglass_justification}
         '''
         result = self._values.get("breakglass_justification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -964,7 +964,7 @@ class GoogleCloudRunV2ServiceBinaryAuthorization:
     def policy(self) -> typing.Optional[builtins.str]:
         '''The path to a binary authorization policy. Format: projects/{project}/platforms/cloudRun/{policy-name}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#policy GoogleCloudRunV2Service#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#policy GoogleCloudRunV2Service#policy}
         '''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -975,7 +975,7 @@ class GoogleCloudRunV2ServiceBinaryAuthorization:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If True, indicates to use the default project's binary authorization policy. If False, binary authorization will be disabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#use_default GoogleCloudRunV2Service#use_default}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#use_default GoogleCloudRunV2Service#use_default}
         '''
         result = self._values.get("use_default")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1126,14 +1126,14 @@ class GoogleCloudRunV2ServiceBuildConfig:
         worker_pool: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param base_image: The base image used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#base_image GoogleCloudRunV2Service#base_image}
-        :param enable_automatic_updates: Sets whether the function will receive automatic base image updates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#enable_automatic_updates GoogleCloudRunV2Service#enable_automatic_updates}
-        :param environment_variables: User-provided build-time environment variables for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#environment_variables GoogleCloudRunV2Service#environment_variables}
-        :param function_target: The name of the function (as defined in source code) that will be executed. Defaults to the resource name suffix, if not specified. For backward compatibility, if function with given name is not found, then the system will try to use function named "function". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#function_target GoogleCloudRunV2Service#function_target}
-        :param image_uri: Artifact Registry URI to store the built image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#image_uri GoogleCloudRunV2Service#image_uri}
-        :param service_account: Service account to be used for building the container. The format of this field is 'projects/{projectId}/serviceAccounts/{serviceAccountEmail}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
-        :param source_location: The Cloud Storage bucket URI where the function source code is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#source_location GoogleCloudRunV2Service#source_location}
-        :param worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the Cloud Run function. The format of this field is 'projects/{project}/locations/{region}/workerPools/{workerPool}' where {project} and {region} are the project id and region respectively where the worker pool is defined and {workerPool} is the short name of the worker pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#worker_pool GoogleCloudRunV2Service#worker_pool}
+        :param base_image: The base image used to build the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#base_image GoogleCloudRunV2Service#base_image}
+        :param enable_automatic_updates: Sets whether the function will receive automatic base image updates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#enable_automatic_updates GoogleCloudRunV2Service#enable_automatic_updates}
+        :param environment_variables: User-provided build-time environment variables for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#environment_variables GoogleCloudRunV2Service#environment_variables}
+        :param function_target: The name of the function (as defined in source code) that will be executed. Defaults to the resource name suffix, if not specified. For backward compatibility, if function with given name is not found, then the system will try to use function named "function". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#function_target GoogleCloudRunV2Service#function_target}
+        :param image_uri: Artifact Registry URI to store the built image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#image_uri GoogleCloudRunV2Service#image_uri}
+        :param service_account: Service account to be used for building the container. The format of this field is 'projects/{projectId}/serviceAccounts/{serviceAccountEmail}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
+        :param source_location: The Cloud Storage bucket URI where the function source code is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#source_location GoogleCloudRunV2Service#source_location}
+        :param worker_pool: Name of the Cloud Build Custom Worker Pool that should be used to build the Cloud Run function. The format of this field is 'projects/{project}/locations/{region}/workerPools/{workerPool}' where {project} and {region} are the project id and region respectively where the worker pool is defined and {workerPool} is the short name of the worker pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#worker_pool GoogleCloudRunV2Service#worker_pool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38755c466d623b4a096822fb9a1eb9a0f6ed56c5a21468a9477683ec238f6eb8)
@@ -1167,7 +1167,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
     def base_image(self) -> typing.Optional[builtins.str]:
         '''The base image used to build the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#base_image GoogleCloudRunV2Service#base_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#base_image GoogleCloudRunV2Service#base_image}
         '''
         result = self._values.get("base_image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1178,7 +1178,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Sets whether the function will receive automatic base image updates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#enable_automatic_updates GoogleCloudRunV2Service#enable_automatic_updates}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#enable_automatic_updates GoogleCloudRunV2Service#enable_automatic_updates}
         '''
         result = self._values.get("enable_automatic_updates")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1189,7 +1189,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''User-provided build-time environment variables for the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#environment_variables GoogleCloudRunV2Service#environment_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#environment_variables GoogleCloudRunV2Service#environment_variables}
         '''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1200,7 +1200,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
 
         Defaults to the resource name suffix, if not specified. For backward compatibility, if function with given name is not found, then the system will try to use function named "function".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#function_target GoogleCloudRunV2Service#function_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#function_target GoogleCloudRunV2Service#function_target}
         '''
         result = self._values.get("function_target")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1209,7 +1209,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
     def image_uri(self) -> typing.Optional[builtins.str]:
         '''Artifact Registry URI to store the built image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#image_uri GoogleCloudRunV2Service#image_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#image_uri GoogleCloudRunV2Service#image_uri}
         '''
         result = self._values.get("image_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1218,7 +1218,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''Service account to be used for building the container. The format of this field is 'projects/{projectId}/serviceAccounts/{serviceAccountEmail}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1227,7 +1227,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
     def source_location(self) -> typing.Optional[builtins.str]:
         '''The Cloud Storage bucket URI where the function source code is located.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#source_location GoogleCloudRunV2Service#source_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#source_location GoogleCloudRunV2Service#source_location}
         '''
         result = self._values.get("source_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1238,7 +1238,7 @@ class GoogleCloudRunV2ServiceBuildConfig:
 
         The format of this field is 'projects/{project}/locations/{region}/workerPools/{workerPool}' where {project} and {region} are the project id and region respectively where the worker pool is defined and {workerPool} is the short name of the worker pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#worker_pool GoogleCloudRunV2Service#worker_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#worker_pool GoogleCloudRunV2Service#worker_pool}
         '''
         result = self._values.get("worker_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1732,28 +1732,28 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the cloud run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#location GoogleCloudRunV2Service#location}
-        :param name: Name of the Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#template GoogleCloudRunV2Service#template}
-        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected in new resources. All system annotations in v1 now have a corresponding field in v2 Service. This field follows Kubernetes annotations' namespacing, limits, and rules. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
-        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#binary_authorization GoogleCloudRunV2Service#binary_authorization}
-        :param build_config: build_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#build_config GoogleCloudRunV2Service#build_config}
-        :param client: Arbitrary identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#client GoogleCloudRunV2Service#client}
-        :param client_version: Arbitrary version identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#client_version GoogleCloudRunV2Service#client_version}
-        :param custom_audiences: One or more custom audiences that you want this service to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests. For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#custom_audiences GoogleCloudRunV2Service#custom_audiences}
-        :param default_uri_disabled: Disables public resolution of the default URI of this service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#default_uri_disabled GoogleCloudRunV2Service#default_uri_disabled}
-        :param deletion_protection: Whether Terraform will be prevented from destroying the service. Defaults to true. When a'terraform destroy' or 'terraform apply' would delete the service, the command will fail if this field is not set to false in Terraform state. When the field is set to true or unset in Terraform state, a 'terraform apply' or 'terraform destroy' that would delete the service will fail. When the field is set to false, deleting the service is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#deletion_protection GoogleCloudRunV2Service#deletion_protection}
-        :param description: User-provided description of the Service. This field currently has a 512-character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#description GoogleCloudRunV2Service#description}
-        :param iap_enabled: Used to enable/disable IAP for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#iap_enabled GoogleCloudRunV2Service#iap_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#id GoogleCloudRunV2Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress: Provides the ingress settings for this Service. On output, returns the currently observed ingress settings, or INGRESS_TRAFFIC_UNSPECIFIED if no revision is active. Possible values: ["INGRESS_TRAFFIC_ALL", "INGRESS_TRAFFIC_INTERNAL_ONLY", "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#ingress GoogleCloudRunV2Service#ingress}
-        :param invoker_iam_disabled: Disables IAM permission check for run.routes.invoke for callers of this service. For more information, visit https://cloud.google.com/run/docs/securing/managing-access#invoker_check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#invoker_iam_disabled GoogleCloudRunV2Service#invoker_iam_disabled}
-        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 Service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
-        :param launch_stage: The launch stage as defined by `Google Cloud Platform Launch Stages <https://cloud.google.com/products#product-launch-stages>`_. Cloud Run supports ALPHA, BETA, and GA. If no value is specified, GA is assumed. Set the launch stage to a preview stage on input to allow use of preview features in that stage. On read (or output), describes whether the resource uses preview features. For example, if ALPHA is provided as input, but only BETA and GA-level features are used, this field will be BETA on output. Possible values: ["UNIMPLEMENTED", "PRELAUNCH", "EARLY_ACCESS", "ALPHA", "BETA", "GA", "DEPRECATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#launch_stage GoogleCloudRunV2Service#launch_stage}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#project GoogleCloudRunV2Service#project}.
-        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeouts GoogleCloudRunV2Service#timeouts}
-        :param traffic: traffic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#traffic GoogleCloudRunV2Service#traffic}
+        :param location: The location of the cloud run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#location GoogleCloudRunV2Service#location}
+        :param name: Name of the Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#template GoogleCloudRunV2Service#template}
+        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected in new resources. All system annotations in v1 now have a corresponding field in v2 Service. This field follows Kubernetes annotations' namespacing, limits, and rules. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
+        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#binary_authorization GoogleCloudRunV2Service#binary_authorization}
+        :param build_config: build_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#build_config GoogleCloudRunV2Service#build_config}
+        :param client: Arbitrary identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#client GoogleCloudRunV2Service#client}
+        :param client_version: Arbitrary version identifier for the API client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#client_version GoogleCloudRunV2Service#client_version}
+        :param custom_audiences: One or more custom audiences that you want this service to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests. For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#custom_audiences GoogleCloudRunV2Service#custom_audiences}
+        :param default_uri_disabled: Disables public resolution of the default URI of this service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#default_uri_disabled GoogleCloudRunV2Service#default_uri_disabled}
+        :param deletion_protection: Whether Terraform will be prevented from destroying the service. Defaults to true. When a'terraform destroy' or 'terraform apply' would delete the service, the command will fail if this field is not set to false in Terraform state. When the field is set to true or unset in Terraform state, a 'terraform apply' or 'terraform destroy' that would delete the service will fail. When the field is set to false, deleting the service is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#deletion_protection GoogleCloudRunV2Service#deletion_protection}
+        :param description: User-provided description of the Service. This field currently has a 512-character limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#description GoogleCloudRunV2Service#description}
+        :param iap_enabled: Used to enable/disable IAP for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#iap_enabled GoogleCloudRunV2Service#iap_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#id GoogleCloudRunV2Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress: Provides the ingress settings for this Service. On output, returns the currently observed ingress settings, or INGRESS_TRAFFIC_UNSPECIFIED if no revision is active. Possible values: ["INGRESS_TRAFFIC_ALL", "INGRESS_TRAFFIC_INTERNAL_ONLY", "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#ingress GoogleCloudRunV2Service#ingress}
+        :param invoker_iam_disabled: Disables IAM permission check for run.routes.invoke for callers of this service. For more information, visit https://cloud.google.com/run/docs/securing/managing-access#invoker_check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#invoker_iam_disabled GoogleCloudRunV2Service#invoker_iam_disabled}
+        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 Service. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
+        :param launch_stage: The launch stage as defined by `Google Cloud Platform Launch Stages <https://cloud.google.com/products#product-launch-stages>`_. Cloud Run supports ALPHA, BETA, and GA. If no value is specified, GA is assumed. Set the launch stage to a preview stage on input to allow use of preview features in that stage. On read (or output), describes whether the resource uses preview features. For example, if ALPHA is provided as input, but only BETA and GA-level features are used, this field will be BETA on output. Possible values: ["UNIMPLEMENTED", "PRELAUNCH", "EARLY_ACCESS", "ALPHA", "BETA", "GA", "DEPRECATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#launch_stage GoogleCloudRunV2Service#launch_stage}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#project GoogleCloudRunV2Service#project}.
+        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeouts GoogleCloudRunV2Service#timeouts}
+        :param traffic: traffic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#traffic GoogleCloudRunV2Service#traffic}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1924,7 +1924,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the cloud run service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#location GoogleCloudRunV2Service#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#location GoogleCloudRunV2Service#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1934,7 +1934,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the Service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1944,7 +1944,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template(self) -> "GoogleCloudRunV2ServiceTemplate":
         '''template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#template GoogleCloudRunV2Service#template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#template GoogleCloudRunV2Service#template}
         '''
         result = self._values.get("template")
         assert result is not None, "Required property 'template' is missing"
@@ -1966,7 +1966,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1977,7 +1977,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GoogleCloudRunV2ServiceBinaryAuthorization]:
         '''binary_authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#binary_authorization GoogleCloudRunV2Service#binary_authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#binary_authorization GoogleCloudRunV2Service#binary_authorization}
         '''
         result = self._values.get("binary_authorization")
         return typing.cast(typing.Optional[GoogleCloudRunV2ServiceBinaryAuthorization], result)
@@ -1986,7 +1986,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def build_config(self) -> typing.Optional[GoogleCloudRunV2ServiceBuildConfig]:
         '''build_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#build_config GoogleCloudRunV2Service#build_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#build_config GoogleCloudRunV2Service#build_config}
         '''
         result = self._values.get("build_config")
         return typing.cast(typing.Optional[GoogleCloudRunV2ServiceBuildConfig], result)
@@ -1995,7 +1995,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client(self) -> typing.Optional[builtins.str]:
         '''Arbitrary identifier for the API client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#client GoogleCloudRunV2Service#client}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#client GoogleCloudRunV2Service#client}
         '''
         result = self._values.get("client")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2004,7 +2004,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_version(self) -> typing.Optional[builtins.str]:
         '''Arbitrary version identifier for the API client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#client_version GoogleCloudRunV2Service#client_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#client_version GoogleCloudRunV2Service#client_version}
         '''
         result = self._values.get("client_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2016,7 +2016,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
         For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#custom_audiences GoogleCloudRunV2Service#custom_audiences}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#custom_audiences GoogleCloudRunV2Service#custom_audiences}
         '''
         result = self._values.get("custom_audiences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2027,7 +2027,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Disables public resolution of the default URI of this service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#default_uri_disabled GoogleCloudRunV2Service#default_uri_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#default_uri_disabled GoogleCloudRunV2Service#default_uri_disabled}
         '''
         result = self._values.get("default_uri_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2045,7 +2045,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         or 'terraform destroy' that would delete the service will fail.
         When the field is set to false, deleting the service is allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#deletion_protection GoogleCloudRunV2Service#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#deletion_protection GoogleCloudRunV2Service#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2054,7 +2054,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''User-provided description of the Service. This field currently has a 512-character limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#description GoogleCloudRunV2Service#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#description GoogleCloudRunV2Service#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2065,14 +2065,14 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Used to enable/disable IAP for the service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#iap_enabled GoogleCloudRunV2Service#iap_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#iap_enabled GoogleCloudRunV2Service#iap_enabled}
         '''
         result = self._values.get("iap_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#id GoogleCloudRunV2Service#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#id GoogleCloudRunV2Service#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2086,7 +2086,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         On output, returns the currently observed ingress settings, or INGRESS_TRAFFIC_UNSPECIFIED if no revision is active. Possible values: ["INGRESS_TRAFFIC_ALL", "INGRESS_TRAFFIC_INTERNAL_ONLY", "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#ingress GoogleCloudRunV2Service#ingress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#ingress GoogleCloudRunV2Service#ingress}
         '''
         result = self._values.get("ingress")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2097,7 +2097,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Disables IAM permission check for run.routes.invoke for callers of this service. For more information, visit https://cloud.google.com/run/docs/securing/managing-access#invoker_check.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#invoker_iam_disabled GoogleCloudRunV2Service#invoker_iam_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#invoker_iam_disabled GoogleCloudRunV2Service#invoker_iam_disabled}
         '''
         result = self._values.get("invoker_iam_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2115,7 +2115,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2126,14 +2126,14 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For example, if ALPHA is provided as input, but only BETA and GA-level features are used, this field will be BETA on output. Possible values: ["UNIMPLEMENTED", "PRELAUNCH", "EARLY_ACCESS", "ALPHA", "BETA", "GA", "DEPRECATED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#launch_stage GoogleCloudRunV2Service#launch_stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#launch_stage GoogleCloudRunV2Service#launch_stage}
         '''
         result = self._values.get("launch_stage")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#project GoogleCloudRunV2Service#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#project GoogleCloudRunV2Service#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2141,7 +2141,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scaling(self) -> typing.Optional["GoogleCloudRunV2ServiceScaling"]:
         '''scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
         '''
         result = self._values.get("scaling")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceScaling"], result)
@@ -2150,7 +2150,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleCloudRunV2ServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeouts GoogleCloudRunV2Service#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeouts GoogleCloudRunV2Service#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTimeouts"], result)
@@ -2161,7 +2161,7 @@ class GoogleCloudRunV2ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTraffic"]]]:
         '''traffic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#traffic GoogleCloudRunV2Service#traffic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#traffic GoogleCloudRunV2Service#traffic}
         '''
         result = self._values.get("traffic")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTraffic"]]], result)
@@ -2196,9 +2196,9 @@ class GoogleCloudRunV2ServiceScaling:
         scaling_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param manual_instance_count: Total instance count for the service in manual scaling mode. This number of instances is divided among all revisions with specified traffic based on the percent of traffic they are receiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#manual_instance_count GoogleCloudRunV2Service#manual_instance_count}
-        :param min_instance_count: Minimum number of instances for the service, to be divided among all revisions receiving traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
-        :param scaling_mode: The `scaling mode <https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#scalingmode>`_ for the service. Possible values: ["AUTOMATIC", "MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling_mode GoogleCloudRunV2Service#scaling_mode}
+        :param manual_instance_count: Total instance count for the service in manual scaling mode. This number of instances is divided among all revisions with specified traffic based on the percent of traffic they are receiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#manual_instance_count GoogleCloudRunV2Service#manual_instance_count}
+        :param min_instance_count: Minimum number of instances for the service, to be divided among all revisions receiving traffic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
+        :param scaling_mode: The `scaling mode <https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#scalingmode>`_ for the service. Possible values: ["AUTOMATIC", "MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling_mode GoogleCloudRunV2Service#scaling_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__085dfdb45f7f09b3169b6952d35bad2421a5979cf2ded6b21c6869bd4be2e79f)
@@ -2219,7 +2219,7 @@ class GoogleCloudRunV2ServiceScaling:
 
         This number of instances is divided among all revisions with specified traffic based on the percent of traffic they are receiving.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#manual_instance_count GoogleCloudRunV2Service#manual_instance_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#manual_instance_count GoogleCloudRunV2Service#manual_instance_count}
         '''
         result = self._values.get("manual_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2228,7 +2228,7 @@ class GoogleCloudRunV2ServiceScaling:
     def min_instance_count(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of instances for the service, to be divided among all revisions receiving traffic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
         '''
         result = self._values.get("min_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2237,7 +2237,7 @@ class GoogleCloudRunV2ServiceScaling:
     def scaling_mode(self) -> typing.Optional[builtins.str]:
         '''The `scaling mode <https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#scalingmode>`_ for the service. Possible values: ["AUTOMATIC", "MANUAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling_mode GoogleCloudRunV2Service#scaling_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling_mode GoogleCloudRunV2Service#scaling_mode}
         '''
         result = self._values.get("scaling_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2397,22 +2397,22 @@ class GoogleCloudRunV2ServiceTemplate:
         vpc_access: typing.Optional[typing.Union["GoogleCloudRunV2ServiceTemplateVpcAccess", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system annotations in v1 now have a corresponding field in v2 RevisionTemplate. This field follows Kubernetes annotations' namespacing, limits, and rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
-        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#containers GoogleCloudRunV2Service#containers}
-        :param encryption_key: A reference to a customer managed encryption key (CMEK) to use to encrypt this container image. For more information, go to https://cloud.google.com/run/docs/securing/using-cmek Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#encryption_key GoogleCloudRunV2Service#encryption_key}
-        :param execution_environment: The sandbox environment to host this Revision. Possible values: ["EXECUTION_ENVIRONMENT_GEN1", "EXECUTION_ENVIRONMENT_GEN2"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#execution_environment GoogleCloudRunV2Service#execution_environment}
-        :param gpu_zonal_redundancy_disabled: True if GPU zonal redundancy is disabled on this revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#gpu_zonal_redundancy_disabled GoogleCloudRunV2Service#gpu_zonal_redundancy_disabled}
-        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 RevisionTemplate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
-        :param max_instance_request_concurrency: Sets the maximum number of requests that each serving instance can receive. If not specified or 0, defaults to 80 when requested CPU >= 1 and defaults to 1 when requested CPU < 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#max_instance_request_concurrency GoogleCloudRunV2Service#max_instance_request_concurrency}
-        :param node_selector: node_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#node_selector GoogleCloudRunV2Service#node_selector}
-        :param revision: The unique name for the revision. If this field is omitted, it will be automatically generated based on the Service name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
-        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
-        :param service_account: Email address of the IAM service account associated with the revision of the service. The service account represents the identity of the running revision, and determines what permissions the revision has. If not provided, the revision will use the project's default service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
-        :param service_mesh: service_mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_mesh GoogleCloudRunV2Service#service_mesh}
-        :param session_affinity: Enables session affinity. For more information, go to https://cloud.google.com/run/docs/configuring/session-affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#session_affinity GoogleCloudRunV2Service#session_affinity}
-        :param timeout: Max allowed time for an instance to respond to a request. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout GoogleCloudRunV2Service#timeout}
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#volumes GoogleCloudRunV2Service#volumes}
-        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#vpc_access GoogleCloudRunV2Service#vpc_access}
+        :param annotations: Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects. Cloud Run API v2 does not support annotations with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system annotations in v1 now have a corresponding field in v2 RevisionTemplate. This field follows Kubernetes annotations' namespacing, limits, and rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
+        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#containers GoogleCloudRunV2Service#containers}
+        :param encryption_key: A reference to a customer managed encryption key (CMEK) to use to encrypt this container image. For more information, go to https://cloud.google.com/run/docs/securing/using-cmek Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#encryption_key GoogleCloudRunV2Service#encryption_key}
+        :param execution_environment: The sandbox environment to host this Revision. Possible values: ["EXECUTION_ENVIRONMENT_GEN1", "EXECUTION_ENVIRONMENT_GEN2"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#execution_environment GoogleCloudRunV2Service#execution_environment}
+        :param gpu_zonal_redundancy_disabled: True if GPU zonal redundancy is disabled on this revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#gpu_zonal_redundancy_disabled GoogleCloudRunV2Service#gpu_zonal_redundancy_disabled}
+        :param labels: Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component, environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels. Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected. All system labels in v1 now have a corresponding field in v2 RevisionTemplate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
+        :param max_instance_request_concurrency: Sets the maximum number of requests that each serving instance can receive. If not specified or 0, defaults to 80 when requested CPU >= 1 and defaults to 1 when requested CPU < 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#max_instance_request_concurrency GoogleCloudRunV2Service#max_instance_request_concurrency}
+        :param node_selector: node_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#node_selector GoogleCloudRunV2Service#node_selector}
+        :param revision: The unique name for the revision. If this field is omitted, it will be automatically generated based on the Service name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
+        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
+        :param service_account: Email address of the IAM service account associated with the revision of the service. The service account represents the identity of the running revision, and determines what permissions the revision has. If not provided, the revision will use the project's default service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
+        :param service_mesh: service_mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_mesh GoogleCloudRunV2Service#service_mesh}
+        :param session_affinity: Enables session affinity. For more information, go to https://cloud.google.com/run/docs/configuring/session-affinity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#session_affinity GoogleCloudRunV2Service#session_affinity}
+        :param timeout: Max allowed time for an instance to respond to a request. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout GoogleCloudRunV2Service#timeout}
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#volumes GoogleCloudRunV2Service#volumes}
+        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#vpc_access GoogleCloudRunV2Service#vpc_access}
         '''
         if isinstance(node_selector, dict):
             node_selector = GoogleCloudRunV2ServiceTemplateNodeSelector(**node_selector)
@@ -2487,7 +2487,7 @@ class GoogleCloudRunV2ServiceTemplate:
 
         This field follows Kubernetes annotations' namespacing, limits, and rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#annotations GoogleCloudRunV2Service#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2498,7 +2498,7 @@ class GoogleCloudRunV2ServiceTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainers"]]]:
         '''containers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#containers GoogleCloudRunV2Service#containers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#containers GoogleCloudRunV2Service#containers}
         '''
         result = self._values.get("containers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainers"]]], result)
@@ -2509,7 +2509,7 @@ class GoogleCloudRunV2ServiceTemplate:
 
         For more information, go to https://cloud.google.com/run/docs/securing/using-cmek
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#encryption_key GoogleCloudRunV2Service#encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#encryption_key GoogleCloudRunV2Service#encryption_key}
         '''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2518,7 +2518,7 @@ class GoogleCloudRunV2ServiceTemplate:
     def execution_environment(self) -> typing.Optional[builtins.str]:
         '''The sandbox environment to host this Revision. Possible values: ["EXECUTION_ENVIRONMENT_GEN1", "EXECUTION_ENVIRONMENT_GEN2"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#execution_environment GoogleCloudRunV2Service#execution_environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#execution_environment GoogleCloudRunV2Service#execution_environment}
         '''
         result = self._values.get("execution_environment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2529,7 +2529,7 @@ class GoogleCloudRunV2ServiceTemplate:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''True if GPU zonal redundancy is disabled on this revision.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#gpu_zonal_redundancy_disabled GoogleCloudRunV2Service#gpu_zonal_redundancy_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#gpu_zonal_redundancy_disabled GoogleCloudRunV2Service#gpu_zonal_redundancy_disabled}
         '''
         result = self._values.get("gpu_zonal_redundancy_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2544,7 +2544,7 @@ class GoogleCloudRunV2ServiceTemplate:
         Cloud Run API v2 does not support labels with 'run.googleapis.com', 'cloud.googleapis.com', 'serving.knative.dev', or 'autoscaling.knative.dev' namespaces, and they will be rejected.
         All system labels in v1 now have a corresponding field in v2 RevisionTemplate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#labels GoogleCloudRunV2Service#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2555,7 +2555,7 @@ class GoogleCloudRunV2ServiceTemplate:
 
         If not specified or 0, defaults to 80 when requested CPU >= 1 and defaults to 1 when requested CPU < 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#max_instance_request_concurrency GoogleCloudRunV2Service#max_instance_request_concurrency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#max_instance_request_concurrency GoogleCloudRunV2Service#max_instance_request_concurrency}
         '''
         result = self._values.get("max_instance_request_concurrency")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2566,7 +2566,7 @@ class GoogleCloudRunV2ServiceTemplate:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateNodeSelector"]:
         '''node_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#node_selector GoogleCloudRunV2Service#node_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#node_selector GoogleCloudRunV2Service#node_selector}
         '''
         result = self._values.get("node_selector")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateNodeSelector"], result)
@@ -2577,7 +2577,7 @@ class GoogleCloudRunV2ServiceTemplate:
 
         If this field is omitted, it will be automatically generated based on the Service name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
         '''
         result = self._values.get("revision")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2586,7 +2586,7 @@ class GoogleCloudRunV2ServiceTemplate:
     def scaling(self) -> typing.Optional["GoogleCloudRunV2ServiceTemplateScaling"]:
         '''scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#scaling GoogleCloudRunV2Service#scaling}
         '''
         result = self._values.get("scaling")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateScaling"], result)
@@ -2597,7 +2597,7 @@ class GoogleCloudRunV2ServiceTemplate:
 
         The service account represents the identity of the running revision, and determines what permissions the revision has. If not provided, the revision will use the project's default service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_account GoogleCloudRunV2Service#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2608,7 +2608,7 @@ class GoogleCloudRunV2ServiceTemplate:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateServiceMesh"]:
         '''service_mesh block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service_mesh GoogleCloudRunV2Service#service_mesh}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service_mesh GoogleCloudRunV2Service#service_mesh}
         '''
         result = self._values.get("service_mesh")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateServiceMesh"], result)
@@ -2619,7 +2619,7 @@ class GoogleCloudRunV2ServiceTemplate:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables session affinity. For more information, go to https://cloud.google.com/run/docs/configuring/session-affinity.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#session_affinity GoogleCloudRunV2Service#session_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#session_affinity GoogleCloudRunV2Service#session_affinity}
         '''
         result = self._values.get("session_affinity")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2630,7 +2630,7 @@ class GoogleCloudRunV2ServiceTemplate:
 
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout GoogleCloudRunV2Service#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout GoogleCloudRunV2Service#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2641,7 +2641,7 @@ class GoogleCloudRunV2ServiceTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateVolumes"]]]:
         '''volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#volumes GoogleCloudRunV2Service#volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#volumes GoogleCloudRunV2Service#volumes}
         '''
         result = self._values.get("volumes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateVolumes"]]], result)
@@ -2650,7 +2650,7 @@ class GoogleCloudRunV2ServiceTemplate:
     def vpc_access(self) -> typing.Optional["GoogleCloudRunV2ServiceTemplateVpcAccess"]:
         '''vpc_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#vpc_access GoogleCloudRunV2Service#vpc_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#vpc_access GoogleCloudRunV2Service#vpc_access}
         '''
         result = self._values.get("vpc_access")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateVpcAccess"], result)
@@ -2705,19 +2705,19 @@ class GoogleCloudRunV2ServiceTemplateContainers:
         working_dir: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param image: URL of the Container image in Google Container Registry or Google Artifact Registry. More info: https://kubernetes.io/docs/concepts/containers/images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#image GoogleCloudRunV2Service#image}
-        :param args: Arguments to the entrypoint. The docker image's CMD is used if this is not provided. Variable references are not supported in Cloud Run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#args GoogleCloudRunV2Service#args}
-        :param base_image_uri: Base image for this container. If set, it indicates that the service is enrolled into automatic base image update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#base_image_uri GoogleCloudRunV2Service#base_image_uri}
-        :param command: Entrypoint array. Not executed within a shell. The docker image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#command GoogleCloudRunV2Service#command}
-        :param depends_on: Containers which should be started before this container. If specified the container will wait to start until all containers with the listed names are healthy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#depends_on GoogleCloudRunV2Service#depends_on}
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#env GoogleCloudRunV2Service#env}
-        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#liveness_probe GoogleCloudRunV2Service#liveness_probe}
-        :param name: Name of the container specified as a DNS_LABEL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
-        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#ports GoogleCloudRunV2Service#ports}
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#resources GoogleCloudRunV2Service#resources}
-        :param startup_probe: startup_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#startup_probe GoogleCloudRunV2Service#startup_probe}
-        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#volume_mounts GoogleCloudRunV2Service#volume_mounts}
-        :param working_dir: Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#working_dir GoogleCloudRunV2Service#working_dir}
+        :param image: URL of the Container image in Google Container Registry or Google Artifact Registry. More info: https://kubernetes.io/docs/concepts/containers/images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#image GoogleCloudRunV2Service#image}
+        :param args: Arguments to the entrypoint. The docker image's CMD is used if this is not provided. Variable references are not supported in Cloud Run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#args GoogleCloudRunV2Service#args}
+        :param base_image_uri: Base image for this container. If set, it indicates that the service is enrolled into automatic base image update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#base_image_uri GoogleCloudRunV2Service#base_image_uri}
+        :param command: Entrypoint array. Not executed within a shell. The docker image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#command GoogleCloudRunV2Service#command}
+        :param depends_on: Containers which should be started before this container. If specified the container will wait to start until all containers with the listed names are healthy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#depends_on GoogleCloudRunV2Service#depends_on}
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#env GoogleCloudRunV2Service#env}
+        :param liveness_probe: liveness_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#liveness_probe GoogleCloudRunV2Service#liveness_probe}
+        :param name: Name of the container specified as a DNS_LABEL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#ports GoogleCloudRunV2Service#ports}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#resources GoogleCloudRunV2Service#resources}
+        :param startup_probe: startup_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#startup_probe GoogleCloudRunV2Service#startup_probe}
+        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#volume_mounts GoogleCloudRunV2Service#volume_mounts}
+        :param working_dir: Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#working_dir GoogleCloudRunV2Service#working_dir}
         '''
         if isinstance(liveness_probe, dict):
             liveness_probe = GoogleCloudRunV2ServiceTemplateContainersLivenessProbe(**liveness_probe)
@@ -2774,7 +2774,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     def image(self) -> builtins.str:
         '''URL of the Container image in Google Container Registry or Google Artifact Registry. More info: https://kubernetes.io/docs/concepts/containers/images.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#image GoogleCloudRunV2Service#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#image GoogleCloudRunV2Service#image}
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
@@ -2786,7 +2786,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
 
         The docker image's CMD is used if this is not provided. Variable references are not supported in Cloud Run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#args GoogleCloudRunV2Service#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#args GoogleCloudRunV2Service#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2795,7 +2795,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     def base_image_uri(self) -> typing.Optional[builtins.str]:
         '''Base image for this container. If set, it indicates that the service is enrolled into automatic base image update.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#base_image_uri GoogleCloudRunV2Service#base_image_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#base_image_uri GoogleCloudRunV2Service#base_image_uri}
         '''
         result = self._values.get("base_image_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2806,7 +2806,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
 
         Not executed within a shell. The docker image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. The $(VAR_NAME) syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped references will never be expanded, regardless of whether the variable exists or not. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#command GoogleCloudRunV2Service#command}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#command GoogleCloudRunV2Service#command}
         '''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2817,7 +2817,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
 
         If specified the container will wait to start until all containers with the listed names are healthy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#depends_on GoogleCloudRunV2Service#depends_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#depends_on GoogleCloudRunV2Service#depends_on}
         '''
         result = self._values.get("depends_on")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2828,7 +2828,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#env GoogleCloudRunV2Service#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#env GoogleCloudRunV2Service#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersEnv"]]], result)
@@ -2839,7 +2839,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbe"]:
         '''liveness_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#liveness_probe GoogleCloudRunV2Service#liveness_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#liveness_probe GoogleCloudRunV2Service#liveness_probe}
         '''
         result = self._values.get("liveness_probe")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbe"], result)
@@ -2848,7 +2848,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the container specified as a DNS_LABEL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2859,7 +2859,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersPorts"]:
         '''ports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#ports GoogleCloudRunV2Service#ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#ports GoogleCloudRunV2Service#ports}
         '''
         result = self._values.get("ports")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersPorts"], result)
@@ -2870,7 +2870,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersResources"]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#resources GoogleCloudRunV2Service#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#resources GoogleCloudRunV2Service#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersResources"], result)
@@ -2881,7 +2881,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbe"]:
         '''startup_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#startup_probe GoogleCloudRunV2Service#startup_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#startup_probe GoogleCloudRunV2Service#startup_probe}
         '''
         result = self._values.get("startup_probe")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbe"], result)
@@ -2892,7 +2892,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersVolumeMounts"]]]:
         '''volume_mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#volume_mounts GoogleCloudRunV2Service#volume_mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#volume_mounts GoogleCloudRunV2Service#volume_mounts}
         '''
         result = self._values.get("volume_mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersVolumeMounts"]]], result)
@@ -2903,7 +2903,7 @@ class GoogleCloudRunV2ServiceTemplateContainers:
 
         If not specified, the container runtime's default will be used, which might be configured in the container image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#working_dir GoogleCloudRunV2Service#working_dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#working_dir GoogleCloudRunV2Service#working_dir}
         '''
         result = self._values.get("working_dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3085,9 +3085,9 @@ class GoogleCloudRunV2ServiceTemplateContainersEnv:
         value_source: typing.Optional[typing.Union["GoogleCloudRunV2ServiceTemplateContainersEnvValueSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Name of the environment variable. Must be a C_IDENTIFIER, and may not exceed 32768 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
-        :param value: Literal value of the environment variable. Defaults to "" and the maximum allowed length is 32768 characters. Variable references are not supported in Cloud Run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
-        :param value_source: value_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value_source GoogleCloudRunV2Service#value_source}
+        :param name: Name of the environment variable. Must be a C_IDENTIFIER, and may not exceed 32768 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param value: Literal value of the environment variable. Defaults to "" and the maximum allowed length is 32768 characters. Variable references are not supported in Cloud Run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
+        :param value_source: value_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value_source GoogleCloudRunV2Service#value_source}
         '''
         if isinstance(value_source, dict):
             value_source = GoogleCloudRunV2ServiceTemplateContainersEnvValueSource(**value_source)
@@ -3108,7 +3108,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnv:
     def name(self) -> builtins.str:
         '''Name of the environment variable. Must be a C_IDENTIFIER, and may not exceed 32768 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3120,7 +3120,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnv:
 
         Defaults to "" and the maximum allowed length is 32768 characters. Variable references are not supported in Cloud Run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3131,7 +3131,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnv:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersEnvValueSource"]:
         '''value_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value_source GoogleCloudRunV2Service#value_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value_source GoogleCloudRunV2Service#value_source}
         '''
         result = self._values.get("value_source")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersEnvValueSource"], result)
@@ -3274,7 +3274,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnvOutputReference(
         secret_key_ref: typing.Optional[typing.Union["GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param secret_key_ref: secret_key_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret_key_ref GoogleCloudRunV2Service#secret_key_ref}
+        :param secret_key_ref: secret_key_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret_key_ref GoogleCloudRunV2Service#secret_key_ref}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersEnvValueSource(
             secret_key_ref=secret_key_ref
@@ -3368,7 +3368,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnvValueSource:
         secret_key_ref: typing.Optional[typing.Union["GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param secret_key_ref: secret_key_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret_key_ref GoogleCloudRunV2Service#secret_key_ref}
+        :param secret_key_ref: secret_key_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret_key_ref GoogleCloudRunV2Service#secret_key_ref}
         '''
         if isinstance(secret_key_ref, dict):
             secret_key_ref = GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef(**secret_key_ref)
@@ -3385,7 +3385,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnvValueSource:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef"]:
         '''secret_key_ref block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret_key_ref GoogleCloudRunV2Service#secret_key_ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret_key_ref GoogleCloudRunV2Service#secret_key_ref}
         '''
         result = self._values.get("secret_key_ref")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef"], result)
@@ -3430,8 +3430,8 @@ class GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret: The name of the secret in Cloud Secret Manager. Format: {secretName} if the secret is in the same project. projects/{project}/secrets/{secretName} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
-        :param version: The Cloud Secret Manager secret version. Can be 'latest' for the latest value or an integer for a specific version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
+        :param secret: The name of the secret in Cloud Secret Manager. Format: {secretName} if the secret is in the same project. projects/{project}/secrets/{secretName} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        :param version: The Cloud Secret Manager secret version. Can be 'latest' for the latest value or an integer for a specific version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef(
             secret=secret, version=version
@@ -3488,8 +3488,8 @@ class GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret: The name of the secret in Cloud Secret Manager. Format: {secretName} if the secret is in the same project. projects/{project}/secrets/{secretName} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
-        :param version: The Cloud Secret Manager secret version. Can be 'latest' for the latest value or an integer for a specific version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
+        :param secret: The name of the secret in Cloud Secret Manager. Format: {secretName} if the secret is in the same project. projects/{project}/secrets/{secretName} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        :param version: The Cloud Secret Manager secret version. Can be 'latest' for the latest value or an integer for a specific version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd6bc0d2d1e8c59607a107d6570be76e16dc3b294c695499c0becd1c8f062711)
@@ -3507,7 +3507,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef:
 
         Format: {secretName} if the secret is in the same project. projects/{project}/secrets/{secretName} if the secret is in a different project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
         '''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"
@@ -3519,7 +3519,7 @@ class GoogleCloudRunV2ServiceTemplateContainersEnvValueSourceSecretKeyRef:
 
         Can be 'latest' for the latest value or an integer for a specific version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3731,13 +3731,13 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
-        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
-        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
-        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
-        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
+        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
+        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
+        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
+        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
+        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
         '''
         if isinstance(grpc, dict):
             grpc = GoogleCloudRunV2ServiceTemplateContainersLivenessProbeGrpc(**grpc)
@@ -3776,7 +3776,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
 
         Defaults to 3. Minimum value is 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
         '''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3787,7 +3787,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeGrpc"]:
         '''grpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
         '''
         result = self._values.get("grpc")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeGrpc"], result)
@@ -3798,7 +3798,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGet"]:
         '''http_get block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
         '''
         result = self._values.get("http_get")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGet"], result)
@@ -3809,7 +3809,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
 
         Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
         '''
         result = self._values.get("initial_delay_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3820,7 +3820,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
 
         Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
         '''
         result = self._values.get("period_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3831,7 +3831,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeTcpSocket"]:
         '''tcp_socket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
         '''
         result = self._values.get("tcp_socket")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeTcpSocket"], result)
@@ -3842,7 +3842,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbe:
 
         Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
         '''
         result = self._values.get("timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3872,8 +3872,8 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeGrpc:
         service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
-        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
+        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d136a6daa38a55481b05e524cddd3f094cb45a2d7b524eecd637dc125f296aad)
@@ -3892,7 +3892,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeGrpc:
         Number must be in the range 1 to 65535.
         If not specified, defaults to the same value as container.ports[0].containerPort.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3901,7 +3901,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeGrpc:
     def service(self) -> typing.Optional[builtins.str]:
         '''The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4012,9 +4012,9 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGet:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
-        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
-        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
+        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ade39985521df5ad4a9976489b08c9a5be1c3d0088350c6c8d999d8d4300a0cb)
@@ -4035,7 +4035,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGetHttpHeaders"]]]:
         '''http_headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
         '''
         result = self._values.get("http_headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGetHttpHeaders"]]], result)
@@ -4044,7 +4044,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGet:
     def path(self) -> typing.Optional[builtins.str]:
         '''Path to access on the HTTP server. Defaults to '/'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4056,7 +4056,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGet:
         Number must be in the range 1 to 65535.
         If not specified, defaults to the same value as container.ports[0].containerPort.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4086,8 +4086,8 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGetHttpHeaders:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The header field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
-        :param value: The header field value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
+        :param name: The header field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param value: The header field value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__357f4e74f1f684136d4c93da49994927d1f12374f1285752ad8c7136b7fc43be)
@@ -4103,7 +4103,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGetHttpHeaders:
     def name(self) -> builtins.str:
         '''The header field name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4113,7 +4113,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGetHttpHeaders:
     def value(self) -> typing.Optional[builtins.str]:
         '''The header field value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4444,8 +4444,8 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeOutputReference(
         service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
-        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
+        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersLivenessProbeGrpc(
             port=port, service=service
@@ -4462,9 +4462,9 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
-        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
-        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
+        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersLivenessProbeHttpGet(
             http_headers=http_headers, path=path, port=port
@@ -4475,7 +4475,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeOutputReference(
     @jsii.member(jsii_name="putTcpSocket")
     def put_tcp_socket(self, *, port: jsii.Number) -> None:
         '''
-        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the exposed port of the container, which is the value of container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the exposed port of the container, which is the value of container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersLivenessProbeTcpSocket(
             port=port
@@ -4647,7 +4647,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeOutputReference(
 class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeTcpSocket:
     def __init__(self, *, port: jsii.Number) -> None:
         '''
-        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the exposed port of the container, which is the value of container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the exposed port of the container, which is the value of container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b87cd830581d1ff85a5f95c4c2cbbcffa098131767805fd21c2b16ac6b002e6)
@@ -4664,7 +4664,7 @@ class GoogleCloudRunV2ServiceTemplateContainersLivenessProbeTcpSocket:
         If not specified, defaults to the exposed port of the container, which
         is the value of container.ports[0].containerPort.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -4789,13 +4789,13 @@ class GoogleCloudRunV2ServiceTemplateContainersOutputReference(
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
-        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
-        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
-        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
-        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
+        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
+        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
+        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
+        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
+        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersLivenessProbe(
             failure_threshold=failure_threshold,
@@ -4817,8 +4817,8 @@ class GoogleCloudRunV2ServiceTemplateContainersOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_port: Port number the container listens on. This must be a valid TCP port number, 0 < containerPort < 65536. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#container_port GoogleCloudRunV2Service#container_port}
-        :param name: If specified, used to specify which protocol to use. Allowed values are "http1" and "h2c". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param container_port: Port number the container listens on. This must be a valid TCP port number, 0 < containerPort < 65536. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#container_port GoogleCloudRunV2Service#container_port}
+        :param name: If specified, used to specify which protocol to use. Allowed values are "http1" and "h2c". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersPorts(
             container_port=container_port, name=name
@@ -4835,9 +4835,9 @@ class GoogleCloudRunV2ServiceTemplateContainersOutputReference(
         startup_cpu_boost: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cpu_idle: Determines whether CPU is only allocated during requests. True by default if the parent 'resources' field is not set. However, if 'resources' is set, this field must be explicitly set to true to preserve the default behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#cpu_idle GoogleCloudRunV2Service#cpu_idle}
-        :param limits: Only memory, CPU, and nvidia.com/gpu are supported. Use key 'cpu' for CPU limit, 'memory' for memory limit, 'nvidia.com/gpu' for gpu limit. Note: The only supported values for CPU are '1', '2', '4', and '8'. Setting 4 CPU requires at least 2Gi of memory. The values of the map is string form of the 'quantity' k8s type: https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/api/resource/quantity.go. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#limits GoogleCloudRunV2Service#limits}
-        :param startup_cpu_boost: Determines whether CPU should be boosted on startup of a new container instance above the requested CPU threshold, this can help reduce cold-start latency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#startup_cpu_boost GoogleCloudRunV2Service#startup_cpu_boost}
+        :param cpu_idle: Determines whether CPU is only allocated during requests. True by default if the parent 'resources' field is not set. However, if 'resources' is set, this field must be explicitly set to true to preserve the default behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#cpu_idle GoogleCloudRunV2Service#cpu_idle}
+        :param limits: Only memory, CPU, and nvidia.com/gpu are supported. Use key 'cpu' for CPU limit, 'memory' for memory limit, 'nvidia.com/gpu' for gpu limit. Note: The only supported values for CPU are '1', '2', '4', and '8'. Setting 4 CPU requires at least 2Gi of memory. The values of the map is string form of the 'quantity' k8s type: https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/api/resource/quantity.go. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#limits GoogleCloudRunV2Service#limits}
+        :param startup_cpu_boost: Determines whether CPU should be boosted on startup of a new container instance above the requested CPU threshold, this can help reduce cold-start latency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#startup_cpu_boost GoogleCloudRunV2Service#startup_cpu_boost}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersResources(
             cpu_idle=cpu_idle, limits=limits, startup_cpu_boost=startup_cpu_boost
@@ -4858,13 +4858,13 @@ class GoogleCloudRunV2ServiceTemplateContainersOutputReference(
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
-        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
-        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
-        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
-        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
+        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
+        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
+        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
+        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
+        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersStartupProbe(
             failure_threshold=failure_threshold,
@@ -5174,8 +5174,8 @@ class GoogleCloudRunV2ServiceTemplateContainersPorts:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_port: Port number the container listens on. This must be a valid TCP port number, 0 < containerPort < 65536. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#container_port GoogleCloudRunV2Service#container_port}
-        :param name: If specified, used to specify which protocol to use. Allowed values are "http1" and "h2c". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param container_port: Port number the container listens on. This must be a valid TCP port number, 0 < containerPort < 65536. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#container_port GoogleCloudRunV2Service#container_port}
+        :param name: If specified, used to specify which protocol to use. Allowed values are "http1" and "h2c". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9709001868c215bb3b946b31fd1676bc3b050304995d8638bb112764bc668f0a)
@@ -5191,7 +5191,7 @@ class GoogleCloudRunV2ServiceTemplateContainersPorts:
     def container_port(self) -> typing.Optional[jsii.Number]:
         '''Port number the container listens on. This must be a valid TCP port number, 0 < containerPort < 65536.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#container_port GoogleCloudRunV2Service#container_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#container_port GoogleCloudRunV2Service#container_port}
         '''
         result = self._values.get("container_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5200,7 +5200,7 @@ class GoogleCloudRunV2ServiceTemplateContainersPorts:
     def name(self) -> typing.Optional[builtins.str]:
         '''If specified, used to specify which protocol to use. Allowed values are "http1" and "h2c".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5315,9 +5315,9 @@ class GoogleCloudRunV2ServiceTemplateContainersResources:
         startup_cpu_boost: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cpu_idle: Determines whether CPU is only allocated during requests. True by default if the parent 'resources' field is not set. However, if 'resources' is set, this field must be explicitly set to true to preserve the default behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#cpu_idle GoogleCloudRunV2Service#cpu_idle}
-        :param limits: Only memory, CPU, and nvidia.com/gpu are supported. Use key 'cpu' for CPU limit, 'memory' for memory limit, 'nvidia.com/gpu' for gpu limit. Note: The only supported values for CPU are '1', '2', '4', and '8'. Setting 4 CPU requires at least 2Gi of memory. The values of the map is string form of the 'quantity' k8s type: https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/api/resource/quantity.go. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#limits GoogleCloudRunV2Service#limits}
-        :param startup_cpu_boost: Determines whether CPU should be boosted on startup of a new container instance above the requested CPU threshold, this can help reduce cold-start latency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#startup_cpu_boost GoogleCloudRunV2Service#startup_cpu_boost}
+        :param cpu_idle: Determines whether CPU is only allocated during requests. True by default if the parent 'resources' field is not set. However, if 'resources' is set, this field must be explicitly set to true to preserve the default behavior. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#cpu_idle GoogleCloudRunV2Service#cpu_idle}
+        :param limits: Only memory, CPU, and nvidia.com/gpu are supported. Use key 'cpu' for CPU limit, 'memory' for memory limit, 'nvidia.com/gpu' for gpu limit. Note: The only supported values for CPU are '1', '2', '4', and '8'. Setting 4 CPU requires at least 2Gi of memory. The values of the map is string form of the 'quantity' k8s type: https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/api/resource/quantity.go. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#limits GoogleCloudRunV2Service#limits}
+        :param startup_cpu_boost: Determines whether CPU should be boosted on startup of a new container instance above the requested CPU threshold, this can help reduce cold-start latency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#startup_cpu_boost GoogleCloudRunV2Service#startup_cpu_boost}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a176bb0a0755ed5f290188d5ac6530ea8cfb9f55f0da36eb3c85d355498bb94a)
@@ -5341,7 +5341,7 @@ class GoogleCloudRunV2ServiceTemplateContainersResources:
         True by default if the parent 'resources' field is not set. However, if
         'resources' is set, this field must be explicitly set to true to preserve the default behavior.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#cpu_idle GoogleCloudRunV2Service#cpu_idle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#cpu_idle GoogleCloudRunV2Service#cpu_idle}
         '''
         result = self._values.get("cpu_idle")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5350,7 +5350,7 @@ class GoogleCloudRunV2ServiceTemplateContainersResources:
     def limits(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Only memory, CPU, and nvidia.com/gpu are supported. Use key 'cpu' for CPU limit, 'memory' for memory limit, 'nvidia.com/gpu' for gpu limit. Note: The only supported values for CPU are '1', '2', '4', and '8'. Setting 4 CPU requires at least 2Gi of memory. The values of the map is string form of the 'quantity' k8s type: https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/api/resource/quantity.go.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#limits GoogleCloudRunV2Service#limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#limits GoogleCloudRunV2Service#limits}
         '''
         result = self._values.get("limits")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -5361,7 +5361,7 @@ class GoogleCloudRunV2ServiceTemplateContainersResources:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Determines whether CPU should be boosted on startup of a new container instance above the requested CPU threshold, this can help reduce cold-start latency.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#startup_cpu_boost GoogleCloudRunV2Service#startup_cpu_boost}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#startup_cpu_boost GoogleCloudRunV2Service#startup_cpu_boost}
         '''
         result = self._values.get("startup_cpu_boost")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5519,13 +5519,13 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
-        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
-        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
-        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
-        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
-        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
+        :param failure_threshold: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
+        :param http_get: http_get block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
+        :param initial_delay_seconds: Number of seconds after the container has started before the probe is initiated. Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
+        :param period_seconds: How often (in seconds) to perform the probe. Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
+        :param tcp_socket: tcp_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
+        :param timeout_seconds: Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
         '''
         if isinstance(grpc, dict):
             grpc = GoogleCloudRunV2ServiceTemplateContainersStartupProbeGrpc(**grpc)
@@ -5564,7 +5564,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
 
         Defaults to 3. Minimum value is 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#failure_threshold GoogleCloudRunV2Service#failure_threshold}
         '''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5575,7 +5575,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbeGrpc"]:
         '''grpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#grpc GoogleCloudRunV2Service#grpc}
         '''
         result = self._values.get("grpc")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbeGrpc"], result)
@@ -5586,7 +5586,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGet"]:
         '''http_get block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_get GoogleCloudRunV2Service#http_get}
         '''
         result = self._values.get("http_get")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGet"], result)
@@ -5597,7 +5597,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
 
         Defaults to 0 seconds. Minimum value is 0. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#initial_delay_seconds GoogleCloudRunV2Service#initial_delay_seconds}
         '''
         result = self._values.get("initial_delay_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5608,7 +5608,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
 
         Default to 10 seconds. Minimum value is 1. Maximum value for liveness probe is 3600. Maximum value for startup probe is 240. Must be greater or equal than timeoutSeconds
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#period_seconds GoogleCloudRunV2Service#period_seconds}
         '''
         result = self._values.get("period_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5619,7 +5619,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbeTcpSocket"]:
         '''tcp_socket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tcp_socket GoogleCloudRunV2Service#tcp_socket}
         '''
         result = self._values.get("tcp_socket")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateContainersStartupProbeTcpSocket"], result)
@@ -5630,7 +5630,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbe:
 
         Defaults to 1 second. Minimum value is 1. Maximum value is 3600. Must be smaller than periodSeconds. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#timeout_seconds GoogleCloudRunV2Service#timeout_seconds}
         '''
         result = self._values.get("timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5660,8 +5660,8 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeGrpc:
         service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
-        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
+        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__127403790533d49a3a2402c4bb764e7f9e4a821fe473a2a8fd41bd627af7b343)
@@ -5680,7 +5680,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeGrpc:
         Number must be in the range 1 to 65535.
         If not specified, defaults to the same value as container.ports[0].containerPort.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5689,7 +5689,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeGrpc:
     def service(self) -> typing.Optional[builtins.str]:
         '''The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5800,9 +5800,9 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGet:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
-        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
-        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
+        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__473d22932bec0452abc27340ac4c70748cf0e82497f2b70628e11a52546461e2)
@@ -5823,7 +5823,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGetHttpHeaders"]]]:
         '''http_headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
         '''
         result = self._values.get("http_headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGetHttpHeaders"]]], result)
@@ -5832,7 +5832,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGet:
     def path(self) -> typing.Optional[builtins.str]:
         '''Path to access on the HTTP server. Defaults to '/'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5844,7 +5844,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGet:
         Must be in the range 1 to 65535.
         If not specified, defaults to the same value as container.ports[0].containerPort.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5874,8 +5874,8 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGetHttpHeaders:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The header field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
-        :param value: The header field value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
+        :param name: The header field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param value: The header field value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8eb1e353a9264b66b02283f36065e942a44f796c8155b9675b8c435a404aa48)
@@ -5891,7 +5891,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGetHttpHeaders:
     def name(self) -> builtins.str:
         '''The header field name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5901,7 +5901,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGetHttpHeaders:
     def value(self) -> typing.Optional[builtins.str]:
         '''The header field value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#value GoogleCloudRunV2Service#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6232,8 +6232,8 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeOutputReference(
         service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
-        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
+        :param port: Port number to access on the container. Number must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param service: The name of the service to place in the gRPC HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md). If this is not specified, the default behavior is defined by gRPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#service GoogleCloudRunV2Service#service}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersStartupProbeGrpc(
             port=port, service=service
@@ -6250,9 +6250,9 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
-        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
-        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param http_headers: http_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#http_headers GoogleCloudRunV2Service#http_headers}
+        :param path: Path to access on the HTTP server. Defaults to '/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersStartupProbeHttpGet(
             http_headers=http_headers, path=path, port=port
@@ -6263,7 +6263,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeOutputReference(
     @jsii.member(jsii_name="putTcpSocket")
     def put_tcp_socket(self, *, port: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         value = GoogleCloudRunV2ServiceTemplateContainersStartupProbeTcpSocket(
             port=port
@@ -6435,7 +6435,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeOutputReference(
 class GoogleCloudRunV2ServiceTemplateContainersStartupProbeTcpSocket:
     def __init__(self, *, port: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        :param port: Port number to access on the container. Must be in the range 1 to 65535. If not specified, defaults to the same value as container.ports[0].containerPort. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b78293ddf915c3c892d2b98a92343daaf4f6bf30e7b6b8f364aa80b9ae4b0f4)
@@ -6451,7 +6451,7 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeTcpSocket:
         Must be in the range 1 to 65535.
         If not specified, defaults to the same value as container.ports[0].containerPort.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#port GoogleCloudRunV2Service#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6535,8 +6535,8 @@ class GoogleCloudRunV2ServiceTemplateContainersStartupProbeTcpSocketOutputRefere
 class GoogleCloudRunV2ServiceTemplateContainersVolumeMounts:
     def __init__(self, *, mount_path: builtins.str, name: builtins.str) -> None:
         '''
-        :param mount_path: Path within the container at which the volume should be mounted. Must not contain ':'. For Cloud SQL volumes, it can be left empty, or must otherwise be /cloudsql. All instances defined in the Volume will be available as /cloudsql/[instance]. For more information on Cloud SQL volumes, visit https://cloud.google.com/sql/docs/mysql/connect-run Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mount_path GoogleCloudRunV2Service#mount_path}
-        :param name: This must match the Name of a Volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param mount_path: Path within the container at which the volume should be mounted. Must not contain ':'. For Cloud SQL volumes, it can be left empty, or must otherwise be /cloudsql. All instances defined in the Volume will be available as /cloudsql/[instance]. For more information on Cloud SQL volumes, visit https://cloud.google.com/sql/docs/mysql/connect-run Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mount_path GoogleCloudRunV2Service#mount_path}
+        :param name: This must match the Name of a Volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64cdb074c5c0d0c8582f12d8a1e040e75313bdaa925ac9bd59bf365ee8edeb8b)
@@ -6553,7 +6553,7 @@ class GoogleCloudRunV2ServiceTemplateContainersVolumeMounts:
 
         Must not contain ':'. For Cloud SQL volumes, it can be left empty, or must otherwise be /cloudsql. All instances defined in the Volume will be available as /cloudsql/[instance]. For more information on Cloud SQL volumes, visit https://cloud.google.com/sql/docs/mysql/connect-run
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mount_path GoogleCloudRunV2Service#mount_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mount_path GoogleCloudRunV2Service#mount_path}
         '''
         result = self._values.get("mount_path")
         assert result is not None, "Required property 'mount_path' is missing"
@@ -6563,7 +6563,7 @@ class GoogleCloudRunV2ServiceTemplateContainersVolumeMounts:
     def name(self) -> builtins.str:
         '''This must match the Name of a Volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6760,7 +6760,7 @@ class GoogleCloudRunV2ServiceTemplateContainersVolumeMountsOutputReference(
 class GoogleCloudRunV2ServiceTemplateNodeSelector:
     def __init__(self, *, accelerator: builtins.str) -> None:
         '''
-        :param accelerator: The GPU to attach to an instance. See https://cloud.google.com/run/docs/configuring/services/gpu for configuring GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#accelerator GoogleCloudRunV2Service#accelerator}
+        :param accelerator: The GPU to attach to an instance. See https://cloud.google.com/run/docs/configuring/services/gpu for configuring GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#accelerator GoogleCloudRunV2Service#accelerator}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eac7ca347a2a676eb2e943f196c4191325acfce581e2754e7a2ab59c2e5f5eb6)
@@ -6773,7 +6773,7 @@ class GoogleCloudRunV2ServiceTemplateNodeSelector:
     def accelerator(self) -> builtins.str:
         '''The GPU to attach to an instance. See https://cloud.google.com/run/docs/configuring/services/gpu for configuring GPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#accelerator GoogleCloudRunV2Service#accelerator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#accelerator GoogleCloudRunV2Service#accelerator}
         '''
         result = self._values.get("accelerator")
         assert result is not None, "Required property 'accelerator' is missing"
@@ -6882,7 +6882,7 @@ class GoogleCloudRunV2ServiceTemplateOutputReference(
     @jsii.member(jsii_name="putNodeSelector")
     def put_node_selector(self, *, accelerator: builtins.str) -> None:
         '''
-        :param accelerator: The GPU to attach to an instance. See https://cloud.google.com/run/docs/configuring/services/gpu for configuring GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#accelerator GoogleCloudRunV2Service#accelerator}
+        :param accelerator: The GPU to attach to an instance. See https://cloud.google.com/run/docs/configuring/services/gpu for configuring GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#accelerator GoogleCloudRunV2Service#accelerator}
         '''
         value = GoogleCloudRunV2ServiceTemplateNodeSelector(accelerator=accelerator)
 
@@ -6896,8 +6896,8 @@ class GoogleCloudRunV2ServiceTemplateOutputReference(
         min_instance_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_instance_count: Maximum number of serving instances that this resource should have. Must not be less than minimum instance count. If absent, Cloud Run will calculate a default value based on the project's available container instances quota in the region and specified instance size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#max_instance_count GoogleCloudRunV2Service#max_instance_count}
-        :param min_instance_count: Minimum number of serving instances that this resource should have. Defaults to 0. Must not be greater than maximum instance count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
+        :param max_instance_count: Maximum number of serving instances that this resource should have. Must not be less than minimum instance count. If absent, Cloud Run will calculate a default value based on the project's available container instances quota in the region and specified instance size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#max_instance_count GoogleCloudRunV2Service#max_instance_count}
+        :param min_instance_count: Minimum number of serving instances that this resource should have. Defaults to 0. Must not be greater than maximum instance count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
         '''
         value = GoogleCloudRunV2ServiceTemplateScaling(
             max_instance_count=max_instance_count,
@@ -6909,7 +6909,7 @@ class GoogleCloudRunV2ServiceTemplateOutputReference(
     @jsii.member(jsii_name="putServiceMesh")
     def put_service_mesh(self, *, mesh: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mesh: The Mesh resource name. For more information see https://cloud.google.com/service-mesh/docs/reference/network-services/rest/v1/projects.locations.meshes#resource:-mesh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mesh GoogleCloudRunV2Service#mesh}
+        :param mesh: The Mesh resource name. For more information see https://cloud.google.com/service-mesh/docs/reference/network-services/rest/v1/projects.locations.meshes#resource:-mesh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mesh GoogleCloudRunV2Service#mesh}
         '''
         value = GoogleCloudRunV2ServiceTemplateServiceMesh(mesh=mesh)
 
@@ -6937,9 +6937,9 @@ class GoogleCloudRunV2ServiceTemplateOutputReference(
         network_interfaces: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param connector: VPC Access connector name. Format: projects/{project}/locations/{location}/connectors/{connector}, where {project} can be project id or number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#connector GoogleCloudRunV2Service#connector}
-        :param egress: Traffic VPC egress settings. Possible values: ["ALL_TRAFFIC", "PRIVATE_RANGES_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#egress GoogleCloudRunV2Service#egress}
-        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#network_interfaces GoogleCloudRunV2Service#network_interfaces}
+        :param connector: VPC Access connector name. Format: projects/{project}/locations/{location}/connectors/{connector}, where {project} can be project id or number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#connector GoogleCloudRunV2Service#connector}
+        :param egress: Traffic VPC egress settings. Possible values: ["ALL_TRAFFIC", "PRIVATE_RANGES_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#egress GoogleCloudRunV2Service#egress}
+        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#network_interfaces GoogleCloudRunV2Service#network_interfaces}
         '''
         value = GoogleCloudRunV2ServiceTemplateVpcAccess(
             connector=connector, egress=egress, network_interfaces=network_interfaces
@@ -7307,8 +7307,8 @@ class GoogleCloudRunV2ServiceTemplateScaling:
         min_instance_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_instance_count: Maximum number of serving instances that this resource should have. Must not be less than minimum instance count. If absent, Cloud Run will calculate a default value based on the project's available container instances quota in the region and specified instance size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#max_instance_count GoogleCloudRunV2Service#max_instance_count}
-        :param min_instance_count: Minimum number of serving instances that this resource should have. Defaults to 0. Must not be greater than maximum instance count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
+        :param max_instance_count: Maximum number of serving instances that this resource should have. Must not be less than minimum instance count. If absent, Cloud Run will calculate a default value based on the project's available container instances quota in the region and specified instance size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#max_instance_count GoogleCloudRunV2Service#max_instance_count}
+        :param min_instance_count: Minimum number of serving instances that this resource should have. Defaults to 0. Must not be greater than maximum instance count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7652748c35392c2910afa2118d854e0d4aa31344e8ff898031a7610f664a6081)
@@ -7327,7 +7327,7 @@ class GoogleCloudRunV2ServiceTemplateScaling:
         Must not be less than minimum instance count. If absent, Cloud Run will calculate
         a default value based on the project's available container instances quota in the region and specified instance size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#max_instance_count GoogleCloudRunV2Service#max_instance_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#max_instance_count GoogleCloudRunV2Service#max_instance_count}
         '''
         result = self._values.get("max_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7338,7 +7338,7 @@ class GoogleCloudRunV2ServiceTemplateScaling:
 
         Defaults to 0. Must not be greater than maximum instance count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#min_instance_count GoogleCloudRunV2Service#min_instance_count}
         '''
         result = self._values.get("min_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7441,7 +7441,7 @@ class GoogleCloudRunV2ServiceTemplateScalingOutputReference(
 class GoogleCloudRunV2ServiceTemplateServiceMesh:
     def __init__(self, *, mesh: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mesh: The Mesh resource name. For more information see https://cloud.google.com/service-mesh/docs/reference/network-services/rest/v1/projects.locations.meshes#resource:-mesh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mesh GoogleCloudRunV2Service#mesh}
+        :param mesh: The Mesh resource name. For more information see https://cloud.google.com/service-mesh/docs/reference/network-services/rest/v1/projects.locations.meshes#resource:-mesh. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mesh GoogleCloudRunV2Service#mesh}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db25562cd4aad377dbd0f769f49c4613b1cb1b0c86d28af990cc831c9f9e45dd)
@@ -7454,7 +7454,7 @@ class GoogleCloudRunV2ServiceTemplateServiceMesh:
     def mesh(self) -> typing.Optional[builtins.str]:
         '''The Mesh resource name. For more information see https://cloud.google.com/service-mesh/docs/reference/network-services/rest/v1/projects.locations.meshes#resource:-mesh.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mesh GoogleCloudRunV2Service#mesh}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mesh GoogleCloudRunV2Service#mesh}
         '''
         result = self._values.get("mesh")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7554,12 +7554,12 @@ class GoogleCloudRunV2ServiceTemplateVolumes:
         secret: typing.Optional[typing.Union["GoogleCloudRunV2ServiceTemplateVolumesSecret", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Volume's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
-        :param cloud_sql_instance: cloud_sql_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#cloud_sql_instance GoogleCloudRunV2Service#cloud_sql_instance}
-        :param empty_dir: empty_dir block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#empty_dir GoogleCloudRunV2Service#empty_dir}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#gcs GoogleCloudRunV2Service#gcs}
-        :param nfs: nfs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#nfs GoogleCloudRunV2Service#nfs}
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        :param name: Volume's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        :param cloud_sql_instance: cloud_sql_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#cloud_sql_instance GoogleCloudRunV2Service#cloud_sql_instance}
+        :param empty_dir: empty_dir block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#empty_dir GoogleCloudRunV2Service#empty_dir}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#gcs GoogleCloudRunV2Service#gcs}
+        :param nfs: nfs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#nfs GoogleCloudRunV2Service#nfs}
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
         '''
         if isinstance(cloud_sql_instance, dict):
             cloud_sql_instance = GoogleCloudRunV2ServiceTemplateVolumesCloudSqlInstance(**cloud_sql_instance)
@@ -7597,7 +7597,7 @@ class GoogleCloudRunV2ServiceTemplateVolumes:
     def name(self) -> builtins.str:
         '''Volume's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#name GoogleCloudRunV2Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -7609,7 +7609,7 @@ class GoogleCloudRunV2ServiceTemplateVolumes:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesCloudSqlInstance"]:
         '''cloud_sql_instance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#cloud_sql_instance GoogleCloudRunV2Service#cloud_sql_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#cloud_sql_instance GoogleCloudRunV2Service#cloud_sql_instance}
         '''
         result = self._values.get("cloud_sql_instance")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesCloudSqlInstance"], result)
@@ -7620,7 +7620,7 @@ class GoogleCloudRunV2ServiceTemplateVolumes:
     ) -> typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesEmptyDir"]:
         '''empty_dir block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#empty_dir GoogleCloudRunV2Service#empty_dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#empty_dir GoogleCloudRunV2Service#empty_dir}
         '''
         result = self._values.get("empty_dir")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesEmptyDir"], result)
@@ -7629,7 +7629,7 @@ class GoogleCloudRunV2ServiceTemplateVolumes:
     def gcs(self) -> typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#gcs GoogleCloudRunV2Service#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#gcs GoogleCloudRunV2Service#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesGcs"], result)
@@ -7638,7 +7638,7 @@ class GoogleCloudRunV2ServiceTemplateVolumes:
     def nfs(self) -> typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesNfs"]:
         '''nfs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#nfs GoogleCloudRunV2Service#nfs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#nfs GoogleCloudRunV2Service#nfs}
         '''
         result = self._values.get("nfs")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesNfs"], result)
@@ -7647,7 +7647,7 @@ class GoogleCloudRunV2ServiceTemplateVolumes:
     def secret(self) -> typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesSecret"]:
         '''secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional["GoogleCloudRunV2ServiceTemplateVolumesSecret"], result)
@@ -7676,7 +7676,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesCloudSqlInstance:
         instances: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param instances: The Cloud SQL instance connection names, as can be found in https://console.cloud.google.com/sql/instances. Visit https://cloud.google.com/sql/docs/mysql/connect-run for more information on how to connect Cloud SQL and Cloud Run. Format: {project}:{location}:{instance}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#instances GoogleCloudRunV2Service#instances}
+        :param instances: The Cloud SQL instance connection names, as can be found in https://console.cloud.google.com/sql/instances. Visit https://cloud.google.com/sql/docs/mysql/connect-run for more information on how to connect Cloud SQL and Cloud Run. Format: {project}:{location}:{instance}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#instances GoogleCloudRunV2Service#instances}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64d3c77999ae9ea213f032cf54069d9bfb15848925fb4acd1064d19472a75494)
@@ -7689,7 +7689,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesCloudSqlInstance:
     def instances(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Cloud SQL instance connection names, as can be found in https://console.cloud.google.com/sql/instances. Visit https://cloud.google.com/sql/docs/mysql/connect-run for more information on how to connect Cloud SQL and Cloud Run. Format: {project}:{location}:{instance}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#instances GoogleCloudRunV2Service#instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#instances GoogleCloudRunV2Service#instances}
         '''
         result = self._values.get("instances")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7778,8 +7778,8 @@ class GoogleCloudRunV2ServiceTemplateVolumesEmptyDir:
         size_limit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param medium: The different types of medium supported for EmptyDir. Default value: "MEMORY" Possible values: ["MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#medium GoogleCloudRunV2Service#medium}
-        :param size_limit: Limit on the storage usable by this EmptyDir volume. The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. This field's values are of the 'Quantity' k8s type: https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/. The default is nil which means that the limit is undefined. More info: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#size_limit GoogleCloudRunV2Service#size_limit}
+        :param medium: The different types of medium supported for EmptyDir. Default value: "MEMORY" Possible values: ["MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#medium GoogleCloudRunV2Service#medium}
+        :param size_limit: Limit on the storage usable by this EmptyDir volume. The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. This field's values are of the 'Quantity' k8s type: https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/. The default is nil which means that the limit is undefined. More info: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#size_limit GoogleCloudRunV2Service#size_limit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36e63deec4188b2112489ec70ff1a0a227c611d4fc30d9ec52b1088cc83b7f89)
@@ -7795,7 +7795,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesEmptyDir:
     def medium(self) -> typing.Optional[builtins.str]:
         '''The different types of medium supported for EmptyDir. Default value: "MEMORY" Possible values: ["MEMORY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#medium GoogleCloudRunV2Service#medium}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#medium GoogleCloudRunV2Service#medium}
         '''
         result = self._values.get("medium")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7806,7 +7806,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesEmptyDir:
 
         The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. This field's values are of the 'Quantity' k8s type: https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/. The default is nil which means that the limit is undefined. More info: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#size_limit GoogleCloudRunV2Service#size_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#size_limit GoogleCloudRunV2Service#size_limit}
         '''
         result = self._values.get("size_limit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7921,9 +7921,9 @@ class GoogleCloudRunV2ServiceTemplateVolumesGcs:
         read_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket: GCS Bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#bucket GoogleCloudRunV2Service#bucket}
-        :param mount_options: A list of flags to pass to the gcsfuse command for configuring this volume. Flags should be passed without leading dashes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mount_options GoogleCloudRunV2Service#mount_options}
-        :param read_only: If true, mount the GCS bucket as read-only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
+        :param bucket: GCS Bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#bucket GoogleCloudRunV2Service#bucket}
+        :param mount_options: A list of flags to pass to the gcsfuse command for configuring this volume. Flags should be passed without leading dashes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mount_options GoogleCloudRunV2Service#mount_options}
+        :param read_only: If true, mount the GCS bucket as read-only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce3047b64510cde95cc6010a61b8309364c6a06e621204cee2f304658b9173ba)
@@ -7942,7 +7942,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesGcs:
     def bucket(self) -> builtins.str:
         '''GCS Bucket name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#bucket GoogleCloudRunV2Service#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#bucket GoogleCloudRunV2Service#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -7954,7 +7954,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesGcs:
 
         Flags should be passed without leading dashes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mount_options GoogleCloudRunV2Service#mount_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mount_options GoogleCloudRunV2Service#mount_options}
         '''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7965,7 +7965,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesGcs:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, mount the GCS bucket as read-only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
         '''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8191,9 +8191,9 @@ class GoogleCloudRunV2ServiceTemplateVolumesNfs:
         read_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param path: Path that is exported by the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
-        :param server: Hostname or IP address of the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#server GoogleCloudRunV2Service#server}
-        :param read_only: If true, mount the NFS volume as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
+        :param path: Path that is exported by the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        :param server: Hostname or IP address of the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#server GoogleCloudRunV2Service#server}
+        :param read_only: If true, mount the NFS volume as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01c5846f8fb0277692947a23a93ae3a4c9d5fe979cd5a4055c49181228bbf1a6)
@@ -8211,7 +8211,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesNfs:
     def path(self) -> builtins.str:
         '''Path that is exported by the NFS server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -8221,7 +8221,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesNfs:
     def server(self) -> builtins.str:
         '''Hostname or IP address of the NFS server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#server GoogleCloudRunV2Service#server}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#server GoogleCloudRunV2Service#server}
         '''
         result = self._values.get("server")
         assert result is not None, "Required property 'server' is missing"
@@ -8233,7 +8233,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesNfs:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, mount the NFS volume as read only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
         '''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8381,7 +8381,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesOutputReference(
         instances: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param instances: The Cloud SQL instance connection names, as can be found in https://console.cloud.google.com/sql/instances. Visit https://cloud.google.com/sql/docs/mysql/connect-run for more information on how to connect Cloud SQL and Cloud Run. Format: {project}:{location}:{instance}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#instances GoogleCloudRunV2Service#instances}
+        :param instances: The Cloud SQL instance connection names, as can be found in https://console.cloud.google.com/sql/instances. Visit https://cloud.google.com/sql/docs/mysql/connect-run for more information on how to connect Cloud SQL and Cloud Run. Format: {project}:{location}:{instance}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#instances GoogleCloudRunV2Service#instances}
         '''
         value = GoogleCloudRunV2ServiceTemplateVolumesCloudSqlInstance(
             instances=instances
@@ -8397,8 +8397,8 @@ class GoogleCloudRunV2ServiceTemplateVolumesOutputReference(
         size_limit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param medium: The different types of medium supported for EmptyDir. Default value: "MEMORY" Possible values: ["MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#medium GoogleCloudRunV2Service#medium}
-        :param size_limit: Limit on the storage usable by this EmptyDir volume. The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. This field's values are of the 'Quantity' k8s type: https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/. The default is nil which means that the limit is undefined. More info: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#size_limit GoogleCloudRunV2Service#size_limit}
+        :param medium: The different types of medium supported for EmptyDir. Default value: "MEMORY" Possible values: ["MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#medium GoogleCloudRunV2Service#medium}
+        :param size_limit: Limit on the storage usable by this EmptyDir volume. The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. This field's values are of the 'Quantity' k8s type: https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/. The default is nil which means that the limit is undefined. More info: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#size_limit GoogleCloudRunV2Service#size_limit}
         '''
         value = GoogleCloudRunV2ServiceTemplateVolumesEmptyDir(
             medium=medium, size_limit=size_limit
@@ -8415,9 +8415,9 @@ class GoogleCloudRunV2ServiceTemplateVolumesOutputReference(
         read_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket: GCS Bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#bucket GoogleCloudRunV2Service#bucket}
-        :param mount_options: A list of flags to pass to the gcsfuse command for configuring this volume. Flags should be passed without leading dashes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mount_options GoogleCloudRunV2Service#mount_options}
-        :param read_only: If true, mount the GCS bucket as read-only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
+        :param bucket: GCS Bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#bucket GoogleCloudRunV2Service#bucket}
+        :param mount_options: A list of flags to pass to the gcsfuse command for configuring this volume. Flags should be passed without leading dashes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mount_options GoogleCloudRunV2Service#mount_options}
+        :param read_only: If true, mount the GCS bucket as read-only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
         '''
         value = GoogleCloudRunV2ServiceTemplateVolumesGcs(
             bucket=bucket, mount_options=mount_options, read_only=read_only
@@ -8434,9 +8434,9 @@ class GoogleCloudRunV2ServiceTemplateVolumesOutputReference(
         read_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param path: Path that is exported by the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
-        :param server: Hostname or IP address of the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#server GoogleCloudRunV2Service#server}
-        :param read_only: If true, mount the NFS volume as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
+        :param path: Path that is exported by the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        :param server: Hostname or IP address of the NFS server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#server GoogleCloudRunV2Service#server}
+        :param read_only: If true, mount the NFS volume as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#read_only GoogleCloudRunV2Service#read_only}
         '''
         value = GoogleCloudRunV2ServiceTemplateVolumesNfs(
             path=path, server=server, read_only=read_only
@@ -8453,9 +8453,9 @@ class GoogleCloudRunV2ServiceTemplateVolumesOutputReference(
         items: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleCloudRunV2ServiceTemplateVolumesSecretItems", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param secret: The name of the secret in Cloud Secret Manager. Format: {secret} if the secret is in the same project. projects/{project}/secrets/{secret} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
-        :param default_mode: Integer representation of mode bits to use on created files by default. Must be a value between 0000 and 0777 (octal), defaulting to 0444. Directories within the path are not affected by this setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#default_mode GoogleCloudRunV2Service#default_mode}
-        :param items: items block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#items GoogleCloudRunV2Service#items}
+        :param secret: The name of the secret in Cloud Secret Manager. Format: {secret} if the secret is in the same project. projects/{project}/secrets/{secret} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        :param default_mode: Integer representation of mode bits to use on created files by default. Must be a value between 0000 and 0777 (octal), defaulting to 0444. Directories within the path are not affected by this setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#default_mode GoogleCloudRunV2Service#default_mode}
+        :param items: items block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#items GoogleCloudRunV2Service#items}
         '''
         value = GoogleCloudRunV2ServiceTemplateVolumesSecret(
             secret=secret, default_mode=default_mode, items=items
@@ -8592,9 +8592,9 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecret:
         items: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleCloudRunV2ServiceTemplateVolumesSecretItems", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param secret: The name of the secret in Cloud Secret Manager. Format: {secret} if the secret is in the same project. projects/{project}/secrets/{secret} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
-        :param default_mode: Integer representation of mode bits to use on created files by default. Must be a value between 0000 and 0777 (octal), defaulting to 0444. Directories within the path are not affected by this setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#default_mode GoogleCloudRunV2Service#default_mode}
-        :param items: items block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#items GoogleCloudRunV2Service#items}
+        :param secret: The name of the secret in Cloud Secret Manager. Format: {secret} if the secret is in the same project. projects/{project}/secrets/{secret} if the secret is in a different project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        :param default_mode: Integer representation of mode bits to use on created files by default. Must be a value between 0000 and 0777 (octal), defaulting to 0444. Directories within the path are not affected by this setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#default_mode GoogleCloudRunV2Service#default_mode}
+        :param items: items block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#items GoogleCloudRunV2Service#items}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f61bf26e62188aac61e3d39d4ed88eb87c22561423d94eb769871a5ad0132f6)
@@ -8615,7 +8615,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecret:
 
         Format: {secret} if the secret is in the same project. projects/{project}/secrets/{secret} if the secret is in a different project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#secret GoogleCloudRunV2Service#secret}
         '''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"
@@ -8627,7 +8627,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecret:
 
         Must be a value between 0000 and 0777 (octal), defaulting to 0444. Directories within the path are not affected by this setting.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#default_mode GoogleCloudRunV2Service#default_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#default_mode GoogleCloudRunV2Service#default_mode}
         '''
         result = self._values.get("default_mode")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8638,7 +8638,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecret:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateVolumesSecretItems"]]]:
         '''items block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#items GoogleCloudRunV2Service#items}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#items GoogleCloudRunV2Service#items}
         '''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateVolumesSecretItems"]]], result)
@@ -8669,9 +8669,9 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecretItems:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The relative path of the secret in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
-        :param mode: Integer octal mode bits to use on this file, must be a value between 01 and 0777 (octal). If 0 or not set, the Volume's default mode will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mode GoogleCloudRunV2Service#mode}
-        :param version: The Cloud Secret Manager secret version. Can be 'latest' for the latest value or an integer for a specific version Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
+        :param path: The relative path of the secret in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        :param mode: Integer octal mode bits to use on this file, must be a value between 01 and 0777 (octal). If 0 or not set, the Volume's default mode will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mode GoogleCloudRunV2Service#mode}
+        :param version: The Cloud Secret Manager secret version. Can be 'latest' for the latest value or an integer for a specific version Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf71c7a55b91c82c807522a274294475db22a1dc6ed4dd317a5872d71087099a)
@@ -8690,7 +8690,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecretItems:
     def path(self) -> builtins.str:
         '''The relative path of the secret in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#path GoogleCloudRunV2Service#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -8702,7 +8702,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecretItems:
 
         If 0 or not set, the Volume's default mode will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#mode GoogleCloudRunV2Service#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#mode GoogleCloudRunV2Service#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8713,7 +8713,7 @@ class GoogleCloudRunV2ServiceTemplateVolumesSecretItems:
 
         Can be 'latest' for the latest value or an integer for a specific version
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#version GoogleCloudRunV2Service#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9049,9 +9049,9 @@ class GoogleCloudRunV2ServiceTemplateVpcAccess:
         network_interfaces: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param connector: VPC Access connector name. Format: projects/{project}/locations/{location}/connectors/{connector}, where {project} can be project id or number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#connector GoogleCloudRunV2Service#connector}
-        :param egress: Traffic VPC egress settings. Possible values: ["ALL_TRAFFIC", "PRIVATE_RANGES_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#egress GoogleCloudRunV2Service#egress}
-        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#network_interfaces GoogleCloudRunV2Service#network_interfaces}
+        :param connector: VPC Access connector name. Format: projects/{project}/locations/{location}/connectors/{connector}, where {project} can be project id or number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#connector GoogleCloudRunV2Service#connector}
+        :param egress: Traffic VPC egress settings. Possible values: ["ALL_TRAFFIC", "PRIVATE_RANGES_ONLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#egress GoogleCloudRunV2Service#egress}
+        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#network_interfaces GoogleCloudRunV2Service#network_interfaces}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88845b8aff8ce8c286e0cf2aae786f1bfa67389b40f7210ddc8eb5e6c75f0a13)
@@ -9070,7 +9070,7 @@ class GoogleCloudRunV2ServiceTemplateVpcAccess:
     def connector(self) -> typing.Optional[builtins.str]:
         '''VPC Access connector name. Format: projects/{project}/locations/{location}/connectors/{connector}, where {project} can be project id or number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#connector GoogleCloudRunV2Service#connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#connector GoogleCloudRunV2Service#connector}
         '''
         result = self._values.get("connector")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9079,7 +9079,7 @@ class GoogleCloudRunV2ServiceTemplateVpcAccess:
     def egress(self) -> typing.Optional[builtins.str]:
         '''Traffic VPC egress settings. Possible values: ["ALL_TRAFFIC", "PRIVATE_RANGES_ONLY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#egress GoogleCloudRunV2Service#egress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#egress GoogleCloudRunV2Service#egress}
         '''
         result = self._values.get("egress")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9090,7 +9090,7 @@ class GoogleCloudRunV2ServiceTemplateVpcAccess:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces"]]]:
         '''network_interfaces block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#network_interfaces GoogleCloudRunV2Service#network_interfaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#network_interfaces GoogleCloudRunV2Service#network_interfaces}
         '''
         result = self._values.get("network_interfaces")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces"]]], result)
@@ -9121,9 +9121,9 @@ class GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces:
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param network: The VPC network that the Cloud Run resource will be able to send traffic to. At least one of network or subnetwork must be specified. If both network and subnetwork are specified, the given VPC subnetwork must belong to the given VPC network. If network is not specified, it will be looked up from the subnetwork. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#network GoogleCloudRunV2Service#network}
-        :param subnetwork: The VPC subnetwork that the Cloud Run resource will get IPs from. At least one of network or subnetwork must be specified. If both network and subnetwork are specified, the given VPC subnetwork must belong to the given VPC network. If subnetwork is not specified, the subnetwork with the same name with the network will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#subnetwork GoogleCloudRunV2Service#subnetwork}
-        :param tags: Network tags applied to this Cloud Run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tags GoogleCloudRunV2Service#tags}
+        :param network: The VPC network that the Cloud Run resource will be able to send traffic to. At least one of network or subnetwork must be specified. If both network and subnetwork are specified, the given VPC subnetwork must belong to the given VPC network. If network is not specified, it will be looked up from the subnetwork. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#network GoogleCloudRunV2Service#network}
+        :param subnetwork: The VPC subnetwork that the Cloud Run resource will get IPs from. At least one of network or subnetwork must be specified. If both network and subnetwork are specified, the given VPC subnetwork must belong to the given VPC network. If subnetwork is not specified, the subnetwork with the same name with the network will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#subnetwork GoogleCloudRunV2Service#subnetwork}
+        :param tags: Network tags applied to this Cloud Run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tags GoogleCloudRunV2Service#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a3af53fc971a66530b652c6752c923b69eec67de9c43bb62535fafe3a0793f3)
@@ -9146,7 +9146,7 @@ class GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces:
         network and subnetwork are specified, the given VPC subnetwork must belong to the given VPC network. If network is not specified, it will be
         looked up from the subnetwork.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#network GoogleCloudRunV2Service#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#network GoogleCloudRunV2Service#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9159,7 +9159,7 @@ class GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces:
         network and subnetwork are specified, the given VPC subnetwork must belong to the given VPC network. If subnetwork is not specified, the
         subnetwork with the same name with the network will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#subnetwork GoogleCloudRunV2Service#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#subnetwork GoogleCloudRunV2Service#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9168,7 +9168,7 @@ class GoogleCloudRunV2ServiceTemplateVpcAccessNetworkInterfaces:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Network tags applied to this Cloud Run service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tags GoogleCloudRunV2Service#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tags GoogleCloudRunV2Service#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9691,9 +9691,9 @@ class GoogleCloudRunV2ServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#create GoogleCloudRunV2Service#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#delete GoogleCloudRunV2Service#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#update GoogleCloudRunV2Service#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#create GoogleCloudRunV2Service#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#delete GoogleCloudRunV2Service#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#update GoogleCloudRunV2Service#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__643087fe7320138e0cf04b2e351f4422fac75a183bb1abdbd1b100008a4bdf27)
@@ -9710,19 +9710,19 @@ class GoogleCloudRunV2ServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#create GoogleCloudRunV2Service#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#create GoogleCloudRunV2Service#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#delete GoogleCloudRunV2Service#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#delete GoogleCloudRunV2Service#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#update GoogleCloudRunV2Service#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#update GoogleCloudRunV2Service#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9859,10 +9859,10 @@ class GoogleCloudRunV2ServiceTraffic:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param percent: Specifies percent of the traffic to this Revision. This defaults to zero if unspecified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#percent GoogleCloudRunV2Service#percent}
-        :param revision: Revision to which to send this portion of traffic, if traffic allocation is by revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
-        :param tag: Indicates a string to be part of the URI to exclusively reference this target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tag GoogleCloudRunV2Service#tag}
-        :param type: The allocation type for this traffic target. Possible values: ["TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#type GoogleCloudRunV2Service#type}
+        :param percent: Specifies percent of the traffic to this Revision. This defaults to zero if unspecified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#percent GoogleCloudRunV2Service#percent}
+        :param revision: Revision to which to send this portion of traffic, if traffic allocation is by revision. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
+        :param tag: Indicates a string to be part of the URI to exclusively reference this target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tag GoogleCloudRunV2Service#tag}
+        :param type: The allocation type for this traffic target. Possible values: ["TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#type GoogleCloudRunV2Service#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__985b988927366cda2b9672749e23a5a49d3e0888f4ca97eae5214696b65d3d30)
@@ -9884,7 +9884,7 @@ class GoogleCloudRunV2ServiceTraffic:
     def percent(self) -> typing.Optional[jsii.Number]:
         '''Specifies percent of the traffic to this Revision. This defaults to zero if unspecified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#percent GoogleCloudRunV2Service#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#percent GoogleCloudRunV2Service#percent}
         '''
         result = self._values.get("percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9893,7 +9893,7 @@ class GoogleCloudRunV2ServiceTraffic:
     def revision(self) -> typing.Optional[builtins.str]:
         '''Revision to which to send this portion of traffic, if traffic allocation is by revision.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#revision GoogleCloudRunV2Service#revision}
         '''
         result = self._values.get("revision")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9902,7 +9902,7 @@ class GoogleCloudRunV2ServiceTraffic:
     def tag(self) -> typing.Optional[builtins.str]:
         '''Indicates a string to be part of the URI to exclusively reference this target.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#tag GoogleCloudRunV2Service#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#tag GoogleCloudRunV2Service#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9911,7 +9911,7 @@ class GoogleCloudRunV2ServiceTraffic:
     def type(self) -> typing.Optional[builtins.str]:
         '''The allocation type for this traffic target. Possible values: ["TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_cloud_run_v2_service#type GoogleCloudRunV2Service#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_cloud_run_v2_service#type GoogleCloudRunV2Service#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)

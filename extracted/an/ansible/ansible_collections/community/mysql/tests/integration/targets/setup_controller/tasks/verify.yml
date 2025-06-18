@@ -42,8 +42,8 @@
         - connector_name == 'mysqlclient'
 
     - name: Get the python version in use
-      ansible.builtin.command:
-        cmd: python -V
+      ansible.builtin.shell:
+        cmd: echo $( $(command -v python || command -v python3) -V )
       changed_when: false
       failed_when: false
       register: python_version_in_use
@@ -52,7 +52,7 @@
       ansible.builtin.debug:
         msg: >
           Python in use inside the test container:
-          ${{ python_version_in_use }}
+          {{ python_version_in_use.stdout }}
       when:
         - python_version_in_use is defined
 

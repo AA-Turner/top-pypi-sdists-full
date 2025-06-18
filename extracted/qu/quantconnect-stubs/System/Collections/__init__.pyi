@@ -410,6 +410,238 @@ class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Se
         ...
 
 
+class BitArray(System.Object, System.Collections.ICollection, System.ICloneable, System.Runtime.Serialization.ISerializable):
+    """
+    Manages a compact array of bit values, which are represented as bool, where
+    true indicates that the bit is on (1) and false indicates
+    the bit is off (0).
+    """
+
+    @property
+    def length(self) -> int:
+        """Gets or sets the number of elements in the BitArray."""
+        ...
+
+    @length.setter
+    def length(self, value: int) -> None:
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the number of elements contained in the BitArray."""
+        ...
+
+    @property
+    def sync_root(self) -> System.Object:
+        """Gets an object that can be used to synchronize access to the BitArray."""
+        ...
+
+    @property
+    def is_synchronized(self) -> bool:
+        """Gets a value indicating whether access to the BitArray is synchronized (thread safe)."""
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        """Gets a value indicating whether the BitArray is read-only."""
+        ...
+
+    def __getitem__(self, index: int) -> bool:
+        """
+        Gets or sets the value of the bit at a specific position in the BitArray.
+        
+        :param index: The zero-based index of the value to get or set.
+        :returns: The value of the bit at position .
+        """
+        ...
+
+    @overload
+    def __init__(self, length: int) -> None:
+        """
+        Initializes a new instance of the BitArray class that can hold the specified
+        number of bit values, which are initially set to false.
+        
+        :param length: The number of bit values in the new BitArray.
+        """
+        ...
+
+    @overload
+    def __init__(self, length: int, default_value: bool) -> None:
+        """
+        Initializes a new instance of the BitArray class that can hold the specified number of
+        bit values, which are initially set to the specified value.
+        
+        :param length: The number of bit values in the new BitArray.
+        :param default_value: The Boolean value to assign to each bit.
+        """
+        ...
+
+    @overload
+    def __init__(self, bytes: typing.List[int]) -> None:
+        """
+        Initializes a new instance of the BitArray class that contains bit values copied
+        from the specified array of bytes.
+        
+        :param bytes: An array of bytes containing the values to copy, where each byte represents eight consecutive bits.
+        """
+        ...
+
+    @overload
+    def __init__(self, values: typing.List[bool]) -> None:
+        """
+        Initializes a new instance of the BitArray class that contains bit values
+        copied from the specified array of Booleans.
+        
+        :param values: An array of Booleans to copy.
+        """
+        ...
+
+    @overload
+    def __init__(self, values: typing.List[int]) -> None:
+        """
+        Initializes a new instance of the BitArray class that contains bit values
+        copied from the specified array of 32-bit integers.
+        
+        :param values: An array of integers containing the values to copy, where each integer represents 32 consecutive bits.
+        """
+        ...
+
+    @overload
+    def __init__(self, bits: System.Collections.BitArray) -> None:
+        """
+        Initializes a new instance of the BitArray class that contains bit values copied from the specified BitArray.
+        
+        :param bits: The BitArray to copy.
+        """
+        ...
+
+    def __setitem__(self, index: int, value: bool) -> None:
+        """
+        Gets or sets the value of the bit at a specific position in the BitArray.
+        
+        :param index: The zero-based index of the value to get or set.
+        :returns: The value of the bit at position .
+        """
+        ...
+
+    def And(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+        """
+        Performs the bitwise AND operation between the elements of the current BitArray object and the
+        corresponding elements in the specified array. The current BitArray object will be modified to
+        store the result of the bitwise AND operation.
+        
+        :param value: The array with which to perform the bitwise AND operation.
+        :returns: An array containing the result of the bitwise AND operation, which is a reference to the current BitArray object.
+        """
+        ...
+
+    def clone(self) -> System.Object:
+        """Creates a shallow copy of the BitArray."""
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def get(self, index: int) -> bool:
+        """
+        Gets the value of the bit at a specific position in the BitArray.
+        
+        :param index: The zero-based index of the value to get.
+        :returns: The value of the bit at position .
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        """
+        Returns an enumerator that iterates through the BitArray.
+        
+        :returns: An IEnumerator for the entire BitArray.
+        """
+        ...
+
+    def has_all_set(self) -> bool:
+        """
+        Determines whether all bits in the BitArray are set to true.
+        
+        :returns: true if every bit in the BitArray is set to true, or if BitArray is empty; otherwise, false.
+        """
+        ...
+
+    def has_any_set(self) -> bool:
+        """
+        Determines whether any bit in the BitArray is set to true.
+        
+        :returns: true if BitArray is not empty and at least one of its bit is set to true; otherwise, false.
+        """
+        ...
+
+    def left_shift(self, count: int) -> System.Collections.BitArray:
+        """
+        Shifts all the bit values of the current BitArray to the left on  bits.
+        
+        :param count: The number of shifts to make for each bit.
+        :returns: The current BitArray.
+        """
+        ...
+
+    def Not(self) -> System.Collections.BitArray:
+        """
+        Inverts all the bit values in the current BitArray, so that elements set to true are changed to false,
+        and elements set to false are changed to true.
+        
+        :returns: The current instance with inverted bit values.
+        """
+        ...
+
+    def Or(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+        """
+        Performs the bitwise OR operation between the elements of the current BitArray object and the
+        corresponding elements in the specified array. The current BitArray object will be modified to
+        store the result of the bitwise OR operation.
+        
+        :param value: The array with which to perform the bitwise OR operation.
+        :returns: An array containing the result of the bitwise OR operation, which is a reference to the current BitArray object.
+        """
+        ...
+
+    def right_shift(self, count: int) -> System.Collections.BitArray:
+        """
+        Shifts all the bit values of the current BitArray to the right on  bits.
+        
+        :param count: The number of shifts to make for each bit.
+        :returns: The current BitArray.
+        """
+        ...
+
+    def set(self, index: int, value: bool) -> None:
+        """
+        Sets the value of the bit at a specific position in the BitArray.
+        
+        :param index: The zero-based index of the value to get.
+        :param value: The Boolean value to assign to the bit.
+        """
+        ...
+
+    def set_all(self, value: bool) -> None:
+        """
+        Sets all bits in the BitArray to the specified value.
+        
+        :param value: The Boolean value to assign to all bits.
+        """
+        ...
+
+    def xor(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+        """
+        Performs the bitwise XOR operation between the elements of the current BitArray object and the
+        corresponding elements in the specified array. The current BitArray object will be modified to
+        store the result of the bitwise XOR operation.
+        
+        :param value: The array with which to perform the bitwise XOR operation.
+        :returns: An array containing the result of the bitwise XOR operation, which is a reference to the current BitArray object.
+        """
+        ...
+
+
 class ArrayList(System.Object, System.Collections.IList, System.ICloneable):
     """Implements the IList interface using an array whose size is dynamically increased as required."""
 
@@ -715,116 +947,6 @@ class IStructuralComparable(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def compare_to(self, other: typing.Any, comparer: System.Collections.IComparer) -> int:
-        ...
-
-
-class BitArray(System.Object, System.Collections.ICollection, System.ICloneable):
-    """This class has no documentation."""
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @length.setter
-    def length(self, value: int) -> None:
-        ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def sync_root(self) -> System.Object:
-        ...
-
-    @property
-    def is_synchronized(self) -> bool:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> bool:
-        ...
-
-    @overload
-    def __init__(self, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, length: int, default_value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, bytes: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: typing.List[bool]) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, bits: System.Collections.BitArray) -> None:
-        ...
-
-    def __setitem__(self, index: int, value: bool) -> None:
-        ...
-
-    def And(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def get(self, index: int) -> bool:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-    def has_all_set(self) -> bool:
-        """
-        Determines whether all bits in the BitArray are set to true.
-        
-        :returns: true if every bit in the BitArray is set to true, or if BitArray is empty; otherwise, false.
-        """
-        ...
-
-    def has_any_set(self) -> bool:
-        """
-        Determines whether any bit in the BitArray is set to true.
-        
-        :returns: true if BitArray is not empty and at least one of its bit is set to true; otherwise, false.
-        """
-        ...
-
-    def left_shift(self, count: int) -> System.Collections.BitArray:
-        ...
-
-    def Not(self) -> System.Collections.BitArray:
-        ...
-
-    def Or(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
-        ...
-
-    def right_shift(self, count: int) -> System.Collections.BitArray:
-        ...
-
-    def set(self, index: int, value: bool) -> None:
-        ...
-
-    def set_all(self, value: bool) -> None:
-        ...
-
-    def xor(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
         ...
 
 

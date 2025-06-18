@@ -1633,19 +1633,36 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
             await handle_api_exception(response)
         return await response.json()
 
-    def _sync_request(self, route, method: str = "GET", json_result: bool = False, **kwargs):
+    def _sync_request(
+        self, route, method: str = "GET", handle_confirm: bool = False, json_result: bool = False, **kwargs
+    ):
         url = f"{self.server}{route}"
-        response = self._sync(self._do_request, url=url, method=method, **kwargs)
-        if response.status >= 400:
-            raise ServerError(f"{url} returned {response.status}")
+        response = self._sync(
+            self._do_request_with_confirmation if handle_confirm else self._do_request,
+            url=url,
+            method=method,
+            **kwargs,
+        )
 
         async def get_result(r):
-            return await (r.json() if json_result else r.text())
+            return await (r.json() if (json_result or response.status == 409) else r.text())
 
-        return self._sync(
+        result = self._sync(
             get_result,
             response,
         )
+
+        if response.status >= 400:
+            if isinstance(result, dict):
+                if "message" in result:
+                    message = result["message"]
+                else:
+                    message = json.dumps(result)
+            else:
+                message = result
+            raise ServerError(f"{url} returned {response.status}: {message}")
+
+        return result
 
 
 Cloud = CloudV2

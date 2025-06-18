@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_compile_multi
-Version: 3.1.0
+Version: 3.2.0
 Summary: Compile multiple requirements files to lock dependency versions
 Home-page: https://github.com/peterdemin/pip-compile-multi
 Author: Peter Demin

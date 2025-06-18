@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BoschMiniRpa
-Version: 0.1.92
+Version: 0.1.93
 Summary: This package is used for building low code or no code RPA solutions within Bosch.
 Author-email: LV Zhichao <zhichao.lv@cn.bosch.com>
 License-Expression: MIT

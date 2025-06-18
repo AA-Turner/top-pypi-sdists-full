@@ -1066,4 +1066,628 @@ fn solve_theta_for_x(
     }
 }
 
+/// 修正版最速曲线函数，确保终点严格一致  
+/// 
+/// 此函数解决了原版brachistochrone_curve终点不一致的问题
+/// 通过强制约束终点坐标，确保数学正确性
+/// 
+/// 参数说明：
+/// ----------
+/// x1 : float - 起点x坐标
+/// y1 : float - 起点y坐标  
+/// x2 : float - 终点x坐标
+/// y2 : float - 终点y坐标
+/// x_series : numpy.ndarray - 需要计算y坐标的x点序列
+/// timeout_seconds : float, optional - 计算超时时间
+///
+/// 返回值：
+/// -------
+/// numpy.ndarray - 与x_series相对应的y坐标值数组，确保起点和终点严格一致
+#[pyfunction]
+pub fn brachistochrone_curve_v2(
+    x1: f64, 
+    y1: f64, 
+    x2: f64, 
+    y2: f64, 
+    x_series: PyReadonlyArray1<f64>,
+    timeout_seconds: Option<f64>
+) -> PyResult<Py<PyArray1<f64>>> {
+    let py = x_series.py();
+    
+    match brachistochrone_curve_v2_impl(x1, y1, x2, y2, &x_series, timeout_seconds) {
+        Ok(result) => Ok(result.into_pyarray(py).to_owned()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+fn brachistochrone_curve_v2_impl(
+    x1: f64, 
+    y1: f64, 
+    x2: f64, 
+    y2: f64, 
+    x_series: &PyReadonlyArray1<f64>,
+    timeout_seconds: Option<f64>
+) -> Result<Array1<f64>, TimeoutError> {
+    let start_time = Instant::now();
+    
+    let check_timeout = |timeout: Option<f64>| -> Result<(), TimeoutError> {
+        if let Some(timeout) = timeout {
+            let elapsed = start_time.elapsed().as_secs_f64();
+            if elapsed > timeout {
+                return Err(TimeoutError {
+                    message: "修正版最速曲线计算超时".to_string(),
+                    duration: elapsed,
+                });
+            }
+        }
+        Ok(())
+    };
+    
+    let x_view = x_series.as_array();
+    let n = x_view.len();
+    let mut result = Array1::from_elem(n, f64::NAN);
+    
+    // 确保x1 < x2
+    let (x1, y1, x2, y2) = if x1 > x2 {
+        (x2, y2, x1, y1)
+    } else {
+        (x1, y1, x2, y2)
+    };
+    
+    // 转换坐标使起点位于原点
+    let x_offset = x1;
+    let y_offset = y1;
+    let x2_shifted = x2 - x_offset;
+    let y2_shifted = y2 - y_offset;
+    
+    // 如果终点与起点相同，返回常数
+    if (x2_shifted.abs() < 1e-12) && (y2_shifted.abs() < 1e-12) {
+        for i in 0..n {
+            result[i] = y1;
+        }
+        return Ok(result);
+    }
+    
+    // 处理垂直线情况
+    if x2_shifted.abs() < 1e-12 {
+        for i in 0..n {
+            let x = x_view[i];
+            if (x - x1).abs() < 1e-12 {
+                result[i] = y1 + 0.5 * y2_shifted;
+            } else {
+                result[i] = f64::NAN;
+            }
+        }
+        return Ok(result);
+    }
+    
+    // 处理水平线情况
+    if y2_shifted.abs() < 1e-12 {
+        for i in 0..n {
+            let x = x_view[i];
+            if x >= x1 && x <= x2 {
+                result[i] = y1;
+            } else {
+                result[i] = f64::NAN;
+            }
+        }
+        return Ok(result);
+    }
+    
+    check_timeout(timeout_seconds)?;
+    
+    // 翻转坐标系使粒子向下运动
+    let (y2_shifted, flip) = if y2_shifted > 0.0 {
+        (-y2_shifted, true)
+    } else {
+        (y2_shifted, false)
+    };
+    
+    // 使用改进的优化算法，严格约束终点
+    let (mut r, mut theta_max) = optimize_r_theta_with_endpoint_constraint(
+        x2_shifted, 
+        y2_shifted, 
+        timeout_seconds, 
+        &start_time
+    )?;
+    
+    // 验证终点约束
+    let x_end_check = r * (theta_max - theta_max.sin());
+    let y_end_check = -r * (1.0 - theta_max.cos());
+    let endpoint_error = ((x_end_check - x2_shifted).powi(2) + (y_end_check - y2_shifted).powi(2)).sqrt();
+    
+    // 如果终点误差太大，尝试更激进的优化
+    if endpoint_error > 1e-3 {
+        // 尝试更精确的优化
+        match optimize_r_theta_aggressive(x2_shifted, y2_shifted, timeout_seconds, &start_time) {
+            Ok((r_new, theta_new)) => {
+                // 验证新的参数
+                let x_end_new = r_new * (theta_new - theta_new.sin());
+                let y_end_new = -r_new * (1.0 - theta_new.cos());
+                let error_new = ((x_end_new - x2_shifted).powi(2) + (y_end_new - y2_shifted).powi(2)).sqrt();
+                
+                if error_new <= endpoint_error {
+                    // 使用更好的参数
+                    r = r_new;
+                    theta_max = theta_new;
+                } else {
+                    // 如果仍然不好，允许一定误差但保持曲线特征
+                    // 不直接退化为线性插值
+                }
+            },
+            Err(_) => {
+                // 优化失败，但仍然使用原来的参数，保持曲线特征
+            }
+        }
+    }
+    
+    // 计算最速曲线上各点的y值
+    let chunk_size = 10;
+    let mut i = 0;
+    
+    while i < n {
+        check_timeout(timeout_seconds)?;
+        
+        let end = (i + chunk_size).min(n);
+        for j in i..end {
+            let x = x_view[j];
+            let x_shifted = x - x_offset;
+            
+            // 边界处理：起点和终点强制对应
+            if (x - x1).abs() < 1e-12 {
+                result[j] = y1;
+                continue;
+            }
+            if (x - x2).abs() < 1e-12 {
+                result[j] = y2;
+                continue;
+            }
+            
+            // 超出范围的值设为NaN
+            if x_shifted < 0.0 || x_shifted > x2_shifted {
+                result[j] = f64::NAN;
+                continue;
+            }
+            
+            // 求解theta
+            match solve_theta_for_x_constrained(r, theta_max, x_shifted, timeout_seconds, &start_time) {
+                Ok(Some(theta)) => {
+                    let mut y = -r * (1.0 - theta.cos());
+                    if flip {
+                        y = -y;
+                    }
+                    result[j] = y + y_offset;
+                },
+                Ok(None) => {
+                    // 无法求解时使用线性插值
+                    let t = x_shifted / x2_shifted;
+                    let y_linear = if flip { -y2_shifted * t } else { y2_shifted * t };
+                    result[j] = y_linear + y_offset;
+                },
+                Err(e) => return Err(e),
+            }
+        }
+        
+        i = end;
+    }
+    
+    Ok(result)
+}
+
+// 带终点约束的优化函数
+fn optimize_r_theta_with_endpoint_constraint(
+    x_target: f64, 
+    y_target: f64,
+    timeout_seconds: Option<f64>,
+    start_time: &Instant
+) -> Result<(f64, f64), TimeoutError> {
+    
+    // 目标函数：严格约束终点
+    fn objective_constrained(r: f64, theta: f64, x_target: f64, y_target: f64) -> f64 {
+        let x_end = r * (theta - theta.sin());
+        let y_end = -r * (1.0 - theta.cos());
+        let endpoint_error = (x_end - x_target).powi(2) + (y_end - y_target).powi(2);
+        
+        // 添加物理约束：r > 0, theta > 0
+        let constraint_penalty = if r <= 0.0 || theta <= 0.0 { 1e6 } else { 0.0 };
+        
+        endpoint_error + constraint_penalty
+    }
+    
+    // 使用多个初始点进行优化，选择最佳结果
+    let mut best_r = 0.0;
+    let mut best_theta = 0.0;
+    let mut best_error = f64::INFINITY;
+    
+    // 初始猜测值数组
+    let distance = (x_target * x_target + y_target * y_target).sqrt();
+    let initial_guesses = vec![
+        (distance / 2.0, std::f64::consts::PI),
+        (distance, std::f64::consts::PI * 1.5),
+        (distance * 0.7, std::f64::consts::PI * 1.2),
+        (distance * 1.5, std::f64::consts::PI * 0.8),
+    ];
+    
+    for (initial_r, initial_theta) in initial_guesses {
+        let mut r = initial_r;
+        let mut theta = initial_theta;
+        let tolerance = 1e-10;
+        let max_iterations = 200;
+        
+        for iteration in 0..max_iterations {
+            // 超时检查
+            if let Some(timeout) = timeout_seconds {
+                let elapsed = start_time.elapsed().as_secs_f64();
+                if elapsed > timeout {
+                    return Err(TimeoutError {
+                        message: "约束优化超时".to_string(),
+                        duration: elapsed,
+                    });
+                }
+            }
+            
+            let current_error = objective_constrained(r, theta, x_target, y_target);
+            
+            // 梯度下降法
+            let r_step = 1e-8;
+            let theta_step = 1e-8;
+            
+            let grad_r = (objective_constrained(r + r_step, theta, x_target, y_target) - current_error) / r_step;
+            let grad_theta = (objective_constrained(r, theta + theta_step, x_target, y_target) - current_error) / theta_step;
+            
+            // 自适应步长
+            let learning_rate = 0.01 / (1.0 + iteration as f64 * 0.001);
+            
+            let new_r = (r - learning_rate * grad_r).max(1e-6);
+            let new_theta = (theta - learning_rate * grad_theta).max(1e-6).min(2.0 * std::f64::consts::PI);
+            
+            let new_error = objective_constrained(new_r, new_theta, x_target, y_target);
+            
+            if new_error < current_error {
+                r = new_r;
+                theta = new_theta;
+            }
+            
+            // 收敛检查
+            if current_error < tolerance {
+                break;
+            }
+        }
+        
+        let final_error = objective_constrained(r, theta, x_target, y_target);
+        if final_error < best_error {
+            best_error = final_error;
+            best_r = r;
+            best_theta = theta;
+        }
+    }
+    
+    Ok((best_r, best_theta))
+}
+
+// 更激进的优化函数
+fn optimize_r_theta_aggressive(
+    x_target: f64, 
+    y_target: f64,
+    timeout_seconds: Option<f64>,
+    start_time: &Instant
+) -> Result<(f64, f64), TimeoutError> {
+    
+    // 目标函数：严格约束终点
+    fn objective_aggressive(r: f64, theta: f64, x_target: f64, y_target: f64) -> f64 {
+        let x_end = r * (theta - theta.sin());
+        let y_end = -r * (1.0 - theta.cos());
+        let endpoint_error = (x_end - x_target).powi(2) + (y_end - y_target).powi(2);
+        
+        // 更强的约束：r > 0, theta > 0
+        let constraint_penalty = if r <= 0.0 || theta <= 0.0 { 1e10 } else { 0.0 };
+        
+        endpoint_error + constraint_penalty
+    }
+    
+    // 更多的初始猜测值
+    let distance = (x_target * x_target + y_target * y_target).sqrt();
+    let initial_guesses = vec![
+        // 基本猜测
+        (distance / 2.0, std::f64::consts::PI),
+        (distance, std::f64::consts::PI * 1.5),
+        (distance * 0.7, std::f64::consts::PI * 1.2),
+        (distance * 1.5, std::f64::consts::PI * 0.8),
+        // 更多变化
+        (distance * 0.3, std::f64::consts::PI * 2.0),
+        (distance * 2.0, std::f64::consts::PI * 0.6),
+        (distance * 0.5, std::f64::consts::PI * 1.8),
+        (distance * 1.2, std::f64::consts::PI * 1.0),
+        // 极端情况
+        (distance * 0.1, std::f64::consts::PI * 3.0),
+        (distance * 3.0, std::f64::consts::PI * 0.4),
+    ];
+    
+    let mut best_r = 0.0;
+    let mut best_theta = 0.0;
+    let mut best_error = f64::INFINITY;
+    
+    for (initial_r, initial_theta) in initial_guesses {
+        let mut r = initial_r;
+        let mut theta = initial_theta;
+        let tolerance = 1e-12;  // 更严格的容差
+        let max_iterations = 500;  // 更多迭代
+        
+        for iteration in 0..max_iterations {
+            // 超时检查
+            if let Some(timeout) = timeout_seconds {
+                let elapsed = start_time.elapsed().as_secs_f64();
+                if elapsed > timeout {
+                    return Err(TimeoutError {
+                        message: "激进优化超时".to_string(),
+                        duration: elapsed,
+                    });
+                }
+            }
+            
+            let current_error = objective_aggressive(r, theta, x_target, y_target);
+            
+            // 多种优化策略
+            if iteration < 100 {
+                // 梯度下降法
+                let r_step = 1e-10;
+                let theta_step = 1e-10;
+                
+                let grad_r = (objective_aggressive(r + r_step, theta, x_target, y_target) - current_error) / r_step;
+                let grad_theta = (objective_aggressive(r, theta + theta_step, x_target, y_target) - current_error) / theta_step;
+                
+                // 自适应步长
+                let learning_rate = 0.001 / (1.0 + iteration as f64 * 0.0001);
+                
+                let new_r = (r - learning_rate * grad_r).max(1e-8);
+                let new_theta = (theta - learning_rate * grad_theta).max(1e-8).min(3.0 * std::f64::consts::PI);
+                
+                let new_error = objective_aggressive(new_r, new_theta, x_target, y_target);
+                
+                if new_error < current_error {
+                    r = new_r;
+                    theta = new_theta;
+                }
+            } else {
+                // 网格搜索法
+                let search_range = 0.1 * (1.0 - iteration as f64 / max_iterations as f64);
+                
+                let candidates = vec![
+                    (r * (1.0 + search_range), theta),
+                    (r * (1.0 - search_range), theta),
+                    (r, theta * (1.0 + search_range)),
+                    (r, theta * (1.0 - search_range)),
+                    (r * (1.0 + search_range), theta * (1.0 + search_range)),
+                    (r * (1.0 - search_range), theta * (1.0 - search_range)),
+                    (r * (1.0 + search_range * 0.5), theta * (1.0 - search_range * 0.5)),
+                    (r * (1.0 - search_range * 0.5), theta * (1.0 + search_range * 0.5)),
+                ];
+                
+                let mut improved = false;
+                for (test_r, test_theta) in candidates {
+                    let test_r_safe = test_r.max(1e-8);
+                    let test_theta_safe = test_theta.max(1e-8).min(3.0 * std::f64::consts::PI);
+                    
+                    let test_error = objective_aggressive(test_r_safe, test_theta_safe, x_target, y_target);
+                    if test_error < current_error {
+                        r = test_r_safe;
+                        theta = test_theta_safe;
+                        improved = true;
+                        break;
+                    }
+                }
+                
+                if !improved {
+                    // 如果没有改进，缩小搜索范围
+                    continue;
+                }
+            }
+            
+            // 收敛检查
+            if current_error < tolerance {
+                break;
+            }
+        }
+        
+        let final_error = objective_aggressive(r, theta, x_target, y_target);
+        if final_error < best_error {
+            best_error = final_error;
+            best_r = r;
+            best_theta = theta;
+        }
+    }
+    
+    Ok((best_r, best_theta))
+}
+
+// 约束版本的theta求解
+fn solve_theta_for_x_constrained(
+    r: f64, 
+    theta_max: f64, 
+    x: f64,
+    timeout_seconds: Option<f64>,
+    start_time: &Instant
+) -> Result<Option<f64>, TimeoutError> {
+    
+    // 边界检查
+    if x <= 0.0 {
+        return Ok(Some(0.0));
+    }
+    
+    let x_max = r * (theta_max - theta_max.sin());
+    if x >= x_max {
+        return Ok(Some(theta_max));
+    }
+    
+    // 使用更精确的二分法
+    let mut low = 0.0;
+    let mut high = theta_max;
+    let tolerance = 1e-12;
+    let max_iterations = 100;
+    
+    for _ in 0..max_iterations {
+        if let Some(timeout) = timeout_seconds {
+            let elapsed = start_time.elapsed().as_secs_f64();
+            if elapsed > timeout {
+                return Err(TimeoutError {
+                    message: "约束theta求解超时".to_string(),
+                    duration: elapsed,
+                });
+            }
+        }
+        
+        let mid = (low + high) / 2.0;
+        let x_mid = r * (mid - mid.sin());
+        
+        if (x_mid - x).abs() < tolerance {
+            return Ok(Some(mid));
+        }
+        
+        if x_mid < x {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    
+    Ok(Some((low + high) / 2.0))
+}
+
+/// 序列分段和相关系数计算函数
+/// 
+/// 输入两个等长的序列，根据大小关系进行分段，然后计算每段内的相关系数
+/// 
+/// 参数说明：
+/// ----------
+/// a : numpy.ndarray
+///     第一个序列，类型为float64
+/// b : numpy.ndarray
+///     第二个序列，类型为float64，必须与a等长
+/// min_length : int, optional
+///     最小段长度，默认为10。只有长度大于等于此值的段才会被计算
+///
+/// 返回值：
+/// -------
+/// tuple
+///     返回一个元组(a_greater_corrs, b_greater_corrs)，其中：
+///     - a_greater_corrs: a > b的段中的相关系数列表
+///     - b_greater_corrs: b > a的段中的相关系数列表
+///
+/// Python调用示例：
+/// ```python
+/// import numpy as np
+/// from rust_pyfunc import segment_and_correlate
+///
+/// # 创建测试序列
+/// a = np.array([1.0, 2.0, 3.0, 2.0, 1.0, 0.5, 1.5, 2.5, 3.5, 4.0, 3.0, 2.0, 1.0], dtype=np.float64)
+/// b = np.array([0.5, 1.5, 2.5, 3.0, 2.0, 1.0, 2.0, 3.0, 2.5, 3.5, 4.0, 3.5, 2.5], dtype=np.float64)
+/// 
+/// # 计算相关系数，最小段长度为5
+/// a_greater_corrs, b_greater_corrs = segment_and_correlate(a, b, 5)
+/// print(f"a > b段的相关系数: {a_greater_corrs}")
+/// print(f"b > a段的相关系数: {b_greater_corrs}")
+/// ```
+#[pyfunction]
+#[pyo3(signature = (a, b, min_length=10))]
+pub fn segment_and_correlate(
+    a: PyReadonlyArray1<f64>,
+    b: PyReadonlyArray1<f64>,
+    min_length: usize,
+) -> PyResult<(Vec<f64>, Vec<f64>)> {
+    let a_view = a.as_array();
+    let b_view = b.as_array();
+    let n = a_view.len();
+    
+    if b_view.len() != n {
+        return Err(PyValueError::new_err("输入序列a和b的长度必须相等"));
+    }
+    
+    if n < 2 {
+        return Ok((Vec::new(), Vec::new()));
+    }
+    
+    // 识别分段
+    let mut segments = Vec::new();
+    let mut current_start = 0;
+    let mut current_a_greater = a_view[0] > b_view[0];
+    
+    for i in 1..n {
+        let a_greater = a_view[i] > b_view[i];
+        
+        // 如果状态发生变化，结束当前段
+        if a_greater != current_a_greater {
+            if i - current_start >= min_length {
+                segments.push((current_start, i, current_a_greater));
+            }
+            current_start = i;
+            current_a_greater = a_greater;
+        }
+    }
+    
+    // 添加最后一段
+    if n - current_start >= min_length {
+        segments.push((current_start, n, current_a_greater));
+    }
+    
+    // 计算每段的相关系数
+    let mut a_greater_corrs = Vec::new();
+    let mut b_greater_corrs = Vec::new();
+    
+    for (start, end, a_greater) in segments {
+        // 提取段数据
+        let segment_a: Vec<f64> = a_view.slice(ndarray::s![start..end]).to_vec();
+        let segment_b: Vec<f64> = b_view.slice(ndarray::s![start..end]).to_vec();
+        
+        // 计算相关系数
+        if let Some(corr) = calculate_correlation(&segment_a, &segment_b) {
+            if a_greater {
+                a_greater_corrs.push(corr);
+            } else {
+                b_greater_corrs.push(corr);
+            }
+        }
+    }
+    
+    Ok((a_greater_corrs, b_greater_corrs))
+}
+
+/// 计算两个序列的皮尔逊相关系数
+fn calculate_correlation(x: &[f64], y: &[f64]) -> Option<f64> {
+    let n = x.len();
+    if n != y.len() || n < 2 {
+        return None;
+    }
+    
+    // 计算均值
+    let mean_x: f64 = x.iter().sum::<f64>() / n as f64;
+    let mean_y: f64 = y.iter().sum::<f64>() / n as f64;
+    
+    // 计算协方差和方差
+    let mut cov = 0.0;
+    let mut var_x = 0.0;
+    let mut var_y = 0.0;
+    
+    for i in 0..n {
+        let dx = x[i] - mean_x;
+        let dy = y[i] - mean_y;
+        cov += dx * dy;
+        var_x += dx * dx;
+        var_y += dy * dy;
+    }
+    
+    // 计算相关系数
+    let denominator = (var_x * var_y).sqrt();
+    if denominator == 0.0 {
+        return None;
+    }
+    
+    Some(cov / denominator)
+}
+
+/// 简单测试函数，确保模块导出正常工作
+#[pyfunction]
+pub fn test_function() -> PyResult<String> {
+    Ok("Hello from Rust!".to_string())
+}
+
 

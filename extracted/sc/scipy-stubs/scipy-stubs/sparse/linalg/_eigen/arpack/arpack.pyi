@@ -3,6 +3,7 @@ from typing import Any, Final, Literal, TypeAlias, TypeVar, overload
 
 import numpy as np
 import optype.numpy as onp
+
 from scipy._typing import Falsy, Truthy
 from scipy.sparse._base import _spbase
 from scipy.sparse.linalg import LinearOperator
@@ -14,7 +15,8 @@ _KT = TypeVar("_KT")
 _ToRealMatrix: TypeAlias = onp.ToFloat2D | LinearOperator[np.floating[Any] | np.integer[Any]] | _spbase
 _ToComplexMatrix: TypeAlias = onp.ToComplex2D | LinearOperator | _spbase
 
-_Which: TypeAlias = Literal["LM", "SM", "LR", "SR", "LI", "SI"]
+_Which_eigs: TypeAlias = Literal["LM", "SM", "LR", "SR", "LI", "SI"]
+_Which_eigsh: TypeAlias = Literal["LM", "SM", "LA", "SA", "BE"]
 _OPpart: TypeAlias = Literal["r", "i"]
 _Mode: TypeAlias = Literal["normal", "buckling", "cayley"]
 
@@ -27,11 +29,7 @@ class ArpackNoConvergence(ArpackError):
     eigenvalues: Final[onp.Array1D[np.float64 | np.complex128]]
     eigenvectors: Final[onp.Array2D[np.float64]]
     def __init__(
-        self,
-        /,
-        msg: str,
-        eigenvalues: onp.Array1D[np.float64 | np.complex128],
-        eigenvectors: onp.Array2D[np.float64],
+        self, /, msg: str, eigenvalues: onp.Array1D[np.float64 | np.complex128], eigenvectors: onp.Array2D[np.float64]
     ) -> None: ...
 
 #
@@ -41,7 +39,7 @@ def eigs(
     k: int = 6,
     M: _ToRealMatrix | None = None,
     sigma: onp.ToComplex | None = None,
-    which: _Which = "LM",
+    which: _Which_eigs = "LM",
     v0: onp.ToFloat1D | None = None,
     ncv: int | None = None,
     maxiter: int | None = None,
@@ -57,7 +55,7 @@ def eigs(
     k: int,
     M: _ToRealMatrix | None,
     sigma: onp.ToComplex | None,
-    which: _Which,
+    which: _Which_eigs,
     v0: onp.ToFloat1D | None,
     ncv: int | None,
     maxiter: int | None,
@@ -73,7 +71,7 @@ def eigs(
     k: int = 6,
     M: _ToRealMatrix | None = None,
     sigma: onp.ToComplex | None = None,
-    which: _Which = "LM",
+    which: _Which_eigs = "LM",
     v0: onp.ToFloat1D | None = None,
     ncv: int | None = None,
     maxiter: int | None = None,
@@ -92,7 +90,7 @@ def eigsh(
     k: int = 6,
     M: _ToRealMatrix | None = None,
     sigma: onp.ToComplex | None = None,
-    which: _Which = "LM",
+    which: _Which_eigsh = "LM",
     v0: onp.ToFloat1D | None = None,
     ncv: int | None = None,
     maxiter: int | None = None,
@@ -108,7 +106,7 @@ def eigsh(
     k: int,
     M: _ToRealMatrix | None,
     sigma: onp.ToComplex | None,
-    which: _Which,
+    which: _Which_eigsh,
     v0: onp.ToFloat1D | None,
     ncv: int | None,
     maxiter: int | None,
@@ -124,7 +122,7 @@ def eigsh(
     k: int = 6,
     M: _ToRealMatrix | None = None,
     sigma: onp.ToComplex | None = None,
-    which: _Which = "LM",
+    which: _Which_eigsh = "LM",
     v0: onp.ToFloat1D | None = None,
     ncv: int | None = None,
     maxiter: int | None = None,

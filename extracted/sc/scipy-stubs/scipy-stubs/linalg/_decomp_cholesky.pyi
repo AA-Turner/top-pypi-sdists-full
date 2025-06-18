@@ -14,79 +14,105 @@ _ComplexND: TypeAlias = onp.ArrayND[np.inexact[Any]]
 
 @overload
 def cholesky(
-    a: onp.ToFloat2D,
-    lower: onp.ToBool = False,
-    overwrite_a: onp.ToBool = False,
-    check_finite: onp.ToBool = True,
+    a: onp.ToFloatStrict2D, lower: onp.ToBool = False, overwrite_a: onp.ToBool = False, check_finite: onp.ToBool = True
 ) -> _Float2D: ...
 @overload
 def cholesky(
-    a: onp.ToComplex2D,
-    lower: onp.ToBool = False,
-    overwrite_a: onp.ToBool = False,
-    check_finite: onp.ToBool = True,
+    a: onp.ToFloatND, lower: onp.ToBool = False, overwrite_a: onp.ToBool = False, check_finite: onp.ToBool = True
+) -> _FloatND: ...
+@overload
+def cholesky(
+    a: onp.ToComplexStrict2D, lower: onp.ToBool = False, overwrite_a: onp.ToBool = False, check_finite: onp.ToBool = True
 ) -> _Complex2D: ...
+@overload
+def cholesky(
+    a: onp.ToComplexND, lower: onp.ToBool = False, overwrite_a: onp.ToBool = False, check_finite: onp.ToBool = True
+) -> _ComplexND: ...
 
 #
 @overload
 def cho_factor(
-    a: onp.ToFloat2D,
-    lower: onp.ToBool = False,
-    overwrite_a: onp.ToBool = False,
-    check_finite: onp.ToBool = True,
+    a: onp.ToFloatND, lower: onp.ToBool = False, overwrite_a: onp.ToBool = False, check_finite: onp.ToBool = True
 ) -> tuple[_FloatND, bool]: ...
 @overload
 def cho_factor(
-    a: onp.ToComplex2D,
-    lower: onp.ToBool = False,
-    overwrite_a: onp.ToBool = False,
-    check_finite: onp.ToBool = True,
+    a: onp.ToComplexND, lower: onp.ToBool = False, overwrite_a: onp.ToBool = False, check_finite: onp.ToBool = True
 ) -> tuple[_ComplexND, bool]: ...
 
 #
 @overload
 def cho_solve(
-    c_and_lower: tuple[onp.ToFloat2D, onp.ToBool],
-    b: onp.ToFloat1D,
+    c_and_lower: tuple[onp.ToFloatStrict2D, onp.ToBool],
+    b: onp.ToFloatStrict1D,
     overwrite_b: onp.ToBool = False,
     check_finite: onp.ToBool = True,
 ) -> _Float2D: ...
 @overload
 def cho_solve(
-    c_and_lower: tuple[onp.ToComplex2D, onp.ToBool],
-    b: onp.ToComplex1D,
+    c_and_lower: tuple[onp.ToFloatND, onp.ToBool],
+    b: onp.ToFloatND,
+    overwrite_b: onp.ToBool = False,
+    check_finite: onp.ToBool = True,
+) -> _FloatND: ...
+@overload
+def cho_solve(
+    c_and_lower: tuple[onp.ToComplexStrict2D, onp.ToBool],
+    b: onp.ToComplexStrict1D,
     overwrite_b: onp.ToBool = False,
     check_finite: onp.ToBool = True,
 ) -> _Complex2D: ...
+@overload
+def cho_solve(
+    c_and_lower: tuple[onp.ToComplexND, onp.ToBool],
+    b: onp.ToComplexND,
+    overwrite_b: onp.ToBool = False,
+    check_finite: onp.ToBool = True,
+) -> _ComplexND: ...
 
 #
 @overload
 def cholesky_banded(
-    ab: onp.ToFloat2D,
-    overwrite_ab: onp.ToBool = False,
-    lower: onp.ToBool = False,
-    check_finite: onp.ToBool = True,
+    ab: onp.ToFloatStrict2D, overwrite_ab: onp.ToBool = False, lower: onp.ToBool = False, check_finite: onp.ToBool = True
 ) -> _Float2D: ...
 @overload
 def cholesky_banded(
-    ab: onp.ToComplex2D,
-    overwrite_ab: onp.ToBool = False,
-    lower: onp.ToBool = False,
-    check_finite: onp.ToBool = True,
+    ab: onp.ToFloatND, overwrite_ab: onp.ToBool = False, lower: onp.ToBool = False, check_finite: onp.ToBool = True
+) -> _FloatND: ...
+@overload
+def cholesky_banded(
+    ab: onp.ToComplexStrict2D, overwrite_ab: onp.ToBool = False, lower: onp.ToBool = False, check_finite: onp.ToBool = True
 ) -> _Complex2D: ...
+@overload
+def cholesky_banded(
+    ab: onp.ToComplexND, overwrite_ab: onp.ToBool = False, lower: onp.ToBool = False, check_finite: onp.ToBool = True
+) -> _ComplexND: ...
 
 #
 @overload
 def cho_solve_banded(
-    cb_and_lower: tuple[onp.ToFloat2D, onp.ToBool],
-    b: onp.ToComplex1D,
+    cb_and_lower: tuple[onp.ToFloatStrict2D, onp.ToBool],
+    b: onp.ToComplexStrict1D,
     overwrite_b: onp.ToBool = False,
     check_finite: onp.ToBool = True,
 ) -> _Complex2D: ...
 @overload
 def cho_solve_banded(
-    cb_and_lower: tuple[onp.ToComplex2D, onp.ToBool],
-    b: onp.ToComplex1D,
+    cb_and_lower: tuple[onp.ToFloatND, onp.ToBool],
+    b: onp.ToComplexND,
+    overwrite_b: onp.ToBool = False,
+    check_finite: onp.ToBool = True,
+) -> _ComplexND: ...
+@overload
+def cho_solve_banded(
+    cb_and_lower: tuple[onp.ToComplexStrict2D, onp.ToBool],
+    b: onp.ToComplexStrict1D,
     overwrite_b: onp.ToBool = False,
     check_finite: onp.ToBool = True,
 ) -> _Complex2D: ...
+@overload
+def cho_solve_banded(
+    cb_and_lower: tuple[onp.ToComplexND, onp.ToBool],
+    b: onp.ToComplexND,
+    overwrite_b: onp.ToBool = False,
+    check_finite: onp.ToBool = True,
+) -> _ComplexND: ...

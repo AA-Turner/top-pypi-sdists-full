@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "playwright-stealth"
+version = "2.0.0"
+description = "Make your playwright instance stealthy"
+authors = [
+    "AtuboDad <lcjasas@sina.com>",
+    "Mattwmaster58 <mattwmaster58@gmail.com>"
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+playwright = "^1.0.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+pytest = "^8.4.0"
+pytest-asyncio = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode="auto"
+asyncio_default_fixture_loop_scope="function"
+log_cli=true
+
+[tool.black]
+line-length=120

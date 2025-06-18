@@ -1,7 +1,7 @@
 r'''
 # `google_compute_vpn_tunnel`
 
-Refer to the Terraform Registry for docs: [`google_compute_vpn_tunnel`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel).
+Refer to the Terraform Registry for docs: [`google_compute_vpn_tunnel`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeVpnTunnel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel google_compute_vpn_tunnel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel google_compute_vpn_tunnel}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class GoogleComputeVpnTunnel(
         *,
         name: builtins.str,
         shared_secret: builtins.str,
+        cipher_suite: typing.Optional[typing.Union["GoogleComputeVpnTunnelCipherSuite", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         ike_version: typing.Optional[jsii.Number] = None,
@@ -78,29 +79,30 @@ class GoogleComputeVpnTunnel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel google_compute_vpn_tunnel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel google_compute_vpn_tunnel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#name GoogleComputeVpnTunnel#name}
-        :param shared_secret: Shared secret used to set the secure session between the Cloud VPN gateway and the peer VPN gateway. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#shared_secret GoogleComputeVpnTunnel#shared_secret}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#description GoogleComputeVpnTunnel#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#id GoogleComputeVpnTunnel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ike_version: IKE protocol version to use when establishing the VPN tunnel with peer VPN gateway. Acceptable IKE versions are 1 or 2. Default version is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#ike_version GoogleComputeVpnTunnel#ike_version}
-        :param labels: Labels to apply to this VpnTunnel. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#labels GoogleComputeVpnTunnel#labels}
-        :param local_traffic_selector: Local traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#local_traffic_selector GoogleComputeVpnTunnel#local_traffic_selector}
-        :param peer_external_gateway: URL of the peer side external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway GoogleComputeVpnTunnel#peer_external_gateway}
-        :param peer_external_gateway_interface: The interface ID of the external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway_interface GoogleComputeVpnTunnel#peer_external_gateway_interface}
-        :param peer_gcp_gateway: URL of the peer side HA GCP VPN gateway to which this VPN tunnel is connected. If provided, the VPN tunnel will automatically use the same vpn_gateway_interface ID in the peer GCP VPN gateway. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_gcp_gateway GoogleComputeVpnTunnel#peer_gcp_gateway}
-        :param peer_ip: IP address of the peer VPN gateway. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_ip GoogleComputeVpnTunnel#peer_ip}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#project GoogleComputeVpnTunnel#project}.
-        :param region: The region where the tunnel is located. If unset, is set to the region of 'target_vpn_gateway'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#region GoogleComputeVpnTunnel#region}
-        :param remote_traffic_selector: Remote traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#remote_traffic_selector GoogleComputeVpnTunnel#remote_traffic_selector}
-        :param router: URL of router resource to be used for dynamic routing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#router GoogleComputeVpnTunnel#router}
-        :param target_vpn_gateway: URL of the Target VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#target_vpn_gateway GoogleComputeVpnTunnel#target_vpn_gateway}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#timeouts GoogleComputeVpnTunnel#timeouts}
-        :param vpn_gateway: URL of the VPN gateway with which this VPN tunnel is associated. This must be used if a High Availability VPN gateway resource is created. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway GoogleComputeVpnTunnel#vpn_gateway}
-        :param vpn_gateway_interface: The interface ID of the VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway_interface GoogleComputeVpnTunnel#vpn_gateway_interface}
+        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#name GoogleComputeVpnTunnel#name}
+        :param shared_secret: Shared secret used to set the secure session between the Cloud VPN gateway and the peer VPN gateway. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#shared_secret GoogleComputeVpnTunnel#shared_secret}
+        :param cipher_suite: cipher_suite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#cipher_suite GoogleComputeVpnTunnel#cipher_suite}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#description GoogleComputeVpnTunnel#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#id GoogleComputeVpnTunnel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ike_version: IKE protocol version to use when establishing the VPN tunnel with peer VPN gateway. Acceptable IKE versions are 1 or 2. Default version is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#ike_version GoogleComputeVpnTunnel#ike_version}
+        :param labels: Labels to apply to this VpnTunnel. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#labels GoogleComputeVpnTunnel#labels}
+        :param local_traffic_selector: Local traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#local_traffic_selector GoogleComputeVpnTunnel#local_traffic_selector}
+        :param peer_external_gateway: URL of the peer side external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway GoogleComputeVpnTunnel#peer_external_gateway}
+        :param peer_external_gateway_interface: The interface ID of the external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway_interface GoogleComputeVpnTunnel#peer_external_gateway_interface}
+        :param peer_gcp_gateway: URL of the peer side HA GCP VPN gateway to which this VPN tunnel is connected. If provided, the VPN tunnel will automatically use the same vpn_gateway_interface ID in the peer GCP VPN gateway. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_gcp_gateway GoogleComputeVpnTunnel#peer_gcp_gateway}
+        :param peer_ip: IP address of the peer VPN gateway. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_ip GoogleComputeVpnTunnel#peer_ip}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#project GoogleComputeVpnTunnel#project}.
+        :param region: The region where the tunnel is located. If unset, is set to the region of 'target_vpn_gateway'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#region GoogleComputeVpnTunnel#region}
+        :param remote_traffic_selector: Remote traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#remote_traffic_selector GoogleComputeVpnTunnel#remote_traffic_selector}
+        :param router: URL of router resource to be used for dynamic routing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#router GoogleComputeVpnTunnel#router}
+        :param target_vpn_gateway: URL of the Target VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#target_vpn_gateway GoogleComputeVpnTunnel#target_vpn_gateway}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#timeouts GoogleComputeVpnTunnel#timeouts}
+        :param vpn_gateway: URL of the VPN gateway with which this VPN tunnel is associated. This must be used if a High Availability VPN gateway resource is created. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway GoogleComputeVpnTunnel#vpn_gateway}
+        :param vpn_gateway_interface: The interface ID of the VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway_interface GoogleComputeVpnTunnel#vpn_gateway_interface}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -116,6 +118,7 @@ class GoogleComputeVpnTunnel(
         config = GoogleComputeVpnTunnelConfig(
             name=name,
             shared_secret=shared_secret,
+            cipher_suite=cipher_suite,
             description=description,
             id=id,
             ike_version=ike_version,
@@ -157,7 +160,7 @@ class GoogleComputeVpnTunnel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeVpnTunnel to import.
-        :param import_from_id: The id of the existing GoogleComputeVpnTunnel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeVpnTunnel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeVpnTunnel to import is found.
         '''
         if __debug__:
@@ -168,6 +171,21 @@ class GoogleComputeVpnTunnel(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
+    @jsii.member(jsii_name="putCipherSuite")
+    def put_cipher_suite(
+        self,
+        *,
+        phase1: typing.Optional[typing.Union["GoogleComputeVpnTunnelCipherSuitePhase1", typing.Dict[builtins.str, typing.Any]]] = None,
+        phase2: typing.Optional[typing.Union["GoogleComputeVpnTunnelCipherSuitePhase2", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param phase1: phase1 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#phase1 GoogleComputeVpnTunnel#phase1}
+        :param phase2: phase2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#phase2 GoogleComputeVpnTunnel#phase2}
+        '''
+        value = GoogleComputeVpnTunnelCipherSuite(phase1=phase1, phase2=phase2)
+
+        return typing.cast(None, jsii.invoke(self, "putCipherSuite", [value]))
+
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(
         self,
@@ -177,15 +195,19 @@ class GoogleComputeVpnTunnel(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#create GoogleComputeVpnTunnel#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#delete GoogleComputeVpnTunnel#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#update GoogleComputeVpnTunnel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#create GoogleComputeVpnTunnel#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#delete GoogleComputeVpnTunnel#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#update GoogleComputeVpnTunnel#update}.
         '''
         value = GoogleComputeVpnTunnelTimeouts(
             create=create, delete=delete, update=update
         )
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="resetCipherSuite")
+    def reset_cipher_suite(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCipherSuite", []))
 
     @jsii.member(jsii_name="resetDescription")
     def reset_description(self) -> None:
@@ -269,6 +291,11 @@ class GoogleComputeVpnTunnel(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
+    @jsii.member(jsii_name="cipherSuite")
+    def cipher_suite(self) -> "GoogleComputeVpnTunnelCipherSuiteOutputReference":
+        return typing.cast("GoogleComputeVpnTunnelCipherSuiteOutputReference", jsii.get(self, "cipherSuite"))
+
+    @builtins.property
     @jsii.member(jsii_name="creationTimestamp")
     def creation_timestamp(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "creationTimestamp"))
@@ -312,6 +339,13 @@ class GoogleComputeVpnTunnel(
     @jsii.member(jsii_name="tunnelId")
     def tunnel_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "tunnelId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cipherSuiteInput")
+    def cipher_suite_input(
+        self,
+    ) -> typing.Optional["GoogleComputeVpnTunnelCipherSuite"]:
+        return typing.cast(typing.Optional["GoogleComputeVpnTunnelCipherSuite"], jsii.get(self, "cipherSuiteInput"))
 
     @builtins.property
     @jsii.member(jsii_name="descriptionInput")
@@ -634,6 +668,556 @@ class GoogleComputeVpnTunnel(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnelCipherSuite",
+    jsii_struct_bases=[],
+    name_mapping={"phase1": "phase1", "phase2": "phase2"},
+)
+class GoogleComputeVpnTunnelCipherSuite:
+    def __init__(
+        self,
+        *,
+        phase1: typing.Optional[typing.Union["GoogleComputeVpnTunnelCipherSuitePhase1", typing.Dict[builtins.str, typing.Any]]] = None,
+        phase2: typing.Optional[typing.Union["GoogleComputeVpnTunnelCipherSuitePhase2", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param phase1: phase1 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#phase1 GoogleComputeVpnTunnel#phase1}
+        :param phase2: phase2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#phase2 GoogleComputeVpnTunnel#phase2}
+        '''
+        if isinstance(phase1, dict):
+            phase1 = GoogleComputeVpnTunnelCipherSuitePhase1(**phase1)
+        if isinstance(phase2, dict):
+            phase2 = GoogleComputeVpnTunnelCipherSuitePhase2(**phase2)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__348cfe7f1db6a027f79104f72f64c0c6f74df6a3bb25bc0eb48d2dfabebcde15)
+            check_type(argname="argument phase1", value=phase1, expected_type=type_hints["phase1"])
+            check_type(argname="argument phase2", value=phase2, expected_type=type_hints["phase2"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if phase1 is not None:
+            self._values["phase1"] = phase1
+        if phase2 is not None:
+            self._values["phase2"] = phase2
+
+    @builtins.property
+    def phase1(self) -> typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase1"]:
+        '''phase1 block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#phase1 GoogleComputeVpnTunnel#phase1}
+        '''
+        result = self._values.get("phase1")
+        return typing.cast(typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase1"], result)
+
+    @builtins.property
+    def phase2(self) -> typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase2"]:
+        '''phase2 block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#phase2 GoogleComputeVpnTunnel#phase2}
+        '''
+        result = self._values.get("phase2")
+        return typing.cast(typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase2"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GoogleComputeVpnTunnelCipherSuite(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class GoogleComputeVpnTunnelCipherSuiteOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnelCipherSuiteOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__72f17ffe7b04c7a064e3195826e0d09f711b97468ae88c2ef622402a83ca4600)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putPhase1")
+    def put_phase1(
+        self,
+        *,
+        dh: typing.Optional[typing.Sequence[builtins.str]] = None,
+        encryption: typing.Optional[typing.Sequence[builtins.str]] = None,
+        integrity: typing.Optional[typing.Sequence[builtins.str]] = None,
+        prf: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param dh: Diffie-Hellman groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#dh GoogleComputeVpnTunnel#dh}
+        :param encryption: Encryption algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#encryption GoogleComputeVpnTunnel#encryption}
+        :param integrity: Integrity algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#integrity GoogleComputeVpnTunnel#integrity}
+        :param prf: Pseudo-random functions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#prf GoogleComputeVpnTunnel#prf}
+        '''
+        value = GoogleComputeVpnTunnelCipherSuitePhase1(
+            dh=dh, encryption=encryption, integrity=integrity, prf=prf
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putPhase1", [value]))
+
+    @jsii.member(jsii_name="putPhase2")
+    def put_phase2(
+        self,
+        *,
+        encryption: typing.Optional[typing.Sequence[builtins.str]] = None,
+        integrity: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pfs: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param encryption: Encryption algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#encryption GoogleComputeVpnTunnel#encryption}
+        :param integrity: Integrity algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#integrity GoogleComputeVpnTunnel#integrity}
+        :param pfs: Perfect forward secrecy groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#pfs GoogleComputeVpnTunnel#pfs}
+        '''
+        value = GoogleComputeVpnTunnelCipherSuitePhase2(
+            encryption=encryption, integrity=integrity, pfs=pfs
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putPhase2", [value]))
+
+    @jsii.member(jsii_name="resetPhase1")
+    def reset_phase1(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPhase1", []))
+
+    @jsii.member(jsii_name="resetPhase2")
+    def reset_phase2(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPhase2", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="phase1")
+    def phase1(self) -> "GoogleComputeVpnTunnelCipherSuitePhase1OutputReference":
+        return typing.cast("GoogleComputeVpnTunnelCipherSuitePhase1OutputReference", jsii.get(self, "phase1"))
+
+    @builtins.property
+    @jsii.member(jsii_name="phase2")
+    def phase2(self) -> "GoogleComputeVpnTunnelCipherSuitePhase2OutputReference":
+        return typing.cast("GoogleComputeVpnTunnelCipherSuitePhase2OutputReference", jsii.get(self, "phase2"))
+
+    @builtins.property
+    @jsii.member(jsii_name="phase1Input")
+    def phase1_input(
+        self,
+    ) -> typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase1"]:
+        return typing.cast(typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase1"], jsii.get(self, "phase1Input"))
+
+    @builtins.property
+    @jsii.member(jsii_name="phase2Input")
+    def phase2_input(
+        self,
+    ) -> typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase2"]:
+        return typing.cast(typing.Optional["GoogleComputeVpnTunnelCipherSuitePhase2"], jsii.get(self, "phase2Input"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[GoogleComputeVpnTunnelCipherSuite]:
+        return typing.cast(typing.Optional[GoogleComputeVpnTunnelCipherSuite], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[GoogleComputeVpnTunnelCipherSuite],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af7b804f333b51ac914b2cca60ec6fb635b3f65efb0a3eaf480f686b20ce33d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnelCipherSuitePhase1",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dh": "dh",
+        "encryption": "encryption",
+        "integrity": "integrity",
+        "prf": "prf",
+    },
+)
+class GoogleComputeVpnTunnelCipherSuitePhase1:
+    def __init__(
+        self,
+        *,
+        dh: typing.Optional[typing.Sequence[builtins.str]] = None,
+        encryption: typing.Optional[typing.Sequence[builtins.str]] = None,
+        integrity: typing.Optional[typing.Sequence[builtins.str]] = None,
+        prf: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param dh: Diffie-Hellman groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#dh GoogleComputeVpnTunnel#dh}
+        :param encryption: Encryption algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#encryption GoogleComputeVpnTunnel#encryption}
+        :param integrity: Integrity algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#integrity GoogleComputeVpnTunnel#integrity}
+        :param prf: Pseudo-random functions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#prf GoogleComputeVpnTunnel#prf}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6dfe0c785e10aa3729f55a5fad522c0602d6eea268c154e2ffd747ad4632fd0b)
+            check_type(argname="argument dh", value=dh, expected_type=type_hints["dh"])
+            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
+            check_type(argname="argument integrity", value=integrity, expected_type=type_hints["integrity"])
+            check_type(argname="argument prf", value=prf, expected_type=type_hints["prf"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dh is not None:
+            self._values["dh"] = dh
+        if encryption is not None:
+            self._values["encryption"] = encryption
+        if integrity is not None:
+            self._values["integrity"] = integrity
+        if prf is not None:
+            self._values["prf"] = prf
+
+    @builtins.property
+    def dh(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Diffie-Hellman groups.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#dh GoogleComputeVpnTunnel#dh}
+        '''
+        result = self._values.get("dh")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def encryption(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Encryption algorithms.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#encryption GoogleComputeVpnTunnel#encryption}
+        '''
+        result = self._values.get("encryption")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def integrity(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Integrity algorithms.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#integrity GoogleComputeVpnTunnel#integrity}
+        '''
+        result = self._values.get("integrity")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def prf(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Pseudo-random functions.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#prf GoogleComputeVpnTunnel#prf}
+        '''
+        result = self._values.get("prf")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GoogleComputeVpnTunnelCipherSuitePhase1(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class GoogleComputeVpnTunnelCipherSuitePhase1OutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnelCipherSuitePhase1OutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86f782082f67593cd476187b2bd1f440fd428fffa2430bda61a57524b0011825)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetDh")
+    def reset_dh(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDh", []))
+
+    @jsii.member(jsii_name="resetEncryption")
+    def reset_encryption(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEncryption", []))
+
+    @jsii.member(jsii_name="resetIntegrity")
+    def reset_integrity(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetIntegrity", []))
+
+    @jsii.member(jsii_name="resetPrf")
+    def reset_prf(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPrf", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="dhInput")
+    def dh_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "dhInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionInput")
+    def encryption_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "encryptionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="integrityInput")
+    def integrity_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "integrityInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="prfInput")
+    def prf_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "prfInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dh")
+    def dh(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "dh"))
+
+    @dh.setter
+    def dh(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__105a095b6d00d73ccffa6da998d0a477695b4aa5910261e640015c7d71c1359c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dh", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryption")
+    def encryption(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "encryption"))
+
+    @encryption.setter
+    def encryption(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02d4eaf1c7e4d20f75288ab89c9e4e27b51dc04e8c0618c7b0bc2c939be07ea4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="integrity")
+    def integrity(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "integrity"))
+
+    @integrity.setter
+    def integrity(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a8e705bfd26ab7227fa5ce5b921c7ede592bf2e45d2f35786957718797e8a93)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "integrity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="prf")
+    def prf(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "prf"))
+
+    @prf.setter
+    def prf(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__877810b018f2cca1f0ec0079d85baa7287ce7f42fed00150fac43a4b9aa4a4ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "prf", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase1]:
+        return typing.cast(typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase1], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase1],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e07173391d14f12f93a9fd7d58cd61b0cf3a56311684074d6dd704714e4ba85)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnelCipherSuitePhase2",
+    jsii_struct_bases=[],
+    name_mapping={"encryption": "encryption", "integrity": "integrity", "pfs": "pfs"},
+)
+class GoogleComputeVpnTunnelCipherSuitePhase2:
+    def __init__(
+        self,
+        *,
+        encryption: typing.Optional[typing.Sequence[builtins.str]] = None,
+        integrity: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pfs: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param encryption: Encryption algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#encryption GoogleComputeVpnTunnel#encryption}
+        :param integrity: Integrity algorithms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#integrity GoogleComputeVpnTunnel#integrity}
+        :param pfs: Perfect forward secrecy groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#pfs GoogleComputeVpnTunnel#pfs}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d96c83b2179d06e917fd693993be6a164ef61cbf4339b9e4527be4ce2ccaa58a)
+            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
+            check_type(argname="argument integrity", value=integrity, expected_type=type_hints["integrity"])
+            check_type(argname="argument pfs", value=pfs, expected_type=type_hints["pfs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if encryption is not None:
+            self._values["encryption"] = encryption
+        if integrity is not None:
+            self._values["integrity"] = integrity
+        if pfs is not None:
+            self._values["pfs"] = pfs
+
+    @builtins.property
+    def encryption(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Encryption algorithms.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#encryption GoogleComputeVpnTunnel#encryption}
+        '''
+        result = self._values.get("encryption")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def integrity(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Integrity algorithms.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#integrity GoogleComputeVpnTunnel#integrity}
+        '''
+        result = self._values.get("integrity")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def pfs(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Perfect forward secrecy groups.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#pfs GoogleComputeVpnTunnel#pfs}
+        '''
+        result = self._values.get("pfs")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GoogleComputeVpnTunnelCipherSuitePhase2(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class GoogleComputeVpnTunnelCipherSuitePhase2OutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnelCipherSuitePhase2OutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b147c437f8ee48db00c894c582be521f4e43c549186eae0bcf54bf106250f556)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetEncryption")
+    def reset_encryption(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEncryption", []))
+
+    @jsii.member(jsii_name="resetIntegrity")
+    def reset_integrity(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetIntegrity", []))
+
+    @jsii.member(jsii_name="resetPfs")
+    def reset_pfs(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPfs", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionInput")
+    def encryption_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "encryptionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="integrityInput")
+    def integrity_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "integrityInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pfsInput")
+    def pfs_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "pfsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryption")
+    def encryption(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "encryption"))
+
+    @encryption.setter
+    def encryption(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3cd07755ab192f3cc73d14c8d2a4d185cfa658cc649a505b51dbba6052c1c540)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="integrity")
+    def integrity(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "integrity"))
+
+    @integrity.setter
+    def integrity(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cef103d27bd5a846b6e083c9d4d552ce5895cf429a925886c54a2233fa3dd517)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "integrity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pfs")
+    def pfs(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "pfs"))
+
+    @pfs.setter
+    def pfs(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a5ad3b7f293f9a0face97b7635b08b987f0f388b354ebc40ca4f5a41dfa315f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pfs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase2]:
+        return typing.cast(typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase2], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase2],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9fd42b3cc4bc7d70c0e52cd61da264ea618bc460d485315b47cb8d1e128358d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-google-beta.googleComputeVpnTunnel.GoogleComputeVpnTunnelConfig",
     jsii_struct_bases=[_cdktf_9a9027ec.TerraformMetaArguments],
     name_mapping={
@@ -646,6 +1230,7 @@ class GoogleComputeVpnTunnel(
         "provisioners": "provisioners",
         "name": "name",
         "shared_secret": "sharedSecret",
+        "cipher_suite": "cipherSuite",
         "description": "description",
         "id": "id",
         "ike_version": "ikeVersion",
@@ -678,6 +1263,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         name: builtins.str,
         shared_secret: builtins.str,
+        cipher_suite: typing.Optional[typing.Union[GoogleComputeVpnTunnelCipherSuite, typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         ike_version: typing.Optional[jsii.Number] = None,
@@ -704,28 +1290,31 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#name GoogleComputeVpnTunnel#name}
-        :param shared_secret: Shared secret used to set the secure session between the Cloud VPN gateway and the peer VPN gateway. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#shared_secret GoogleComputeVpnTunnel#shared_secret}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#description GoogleComputeVpnTunnel#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#id GoogleComputeVpnTunnel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ike_version: IKE protocol version to use when establishing the VPN tunnel with peer VPN gateway. Acceptable IKE versions are 1 or 2. Default version is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#ike_version GoogleComputeVpnTunnel#ike_version}
-        :param labels: Labels to apply to this VpnTunnel. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#labels GoogleComputeVpnTunnel#labels}
-        :param local_traffic_selector: Local traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#local_traffic_selector GoogleComputeVpnTunnel#local_traffic_selector}
-        :param peer_external_gateway: URL of the peer side external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway GoogleComputeVpnTunnel#peer_external_gateway}
-        :param peer_external_gateway_interface: The interface ID of the external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway_interface GoogleComputeVpnTunnel#peer_external_gateway_interface}
-        :param peer_gcp_gateway: URL of the peer side HA GCP VPN gateway to which this VPN tunnel is connected. If provided, the VPN tunnel will automatically use the same vpn_gateway_interface ID in the peer GCP VPN gateway. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_gcp_gateway GoogleComputeVpnTunnel#peer_gcp_gateway}
-        :param peer_ip: IP address of the peer VPN gateway. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_ip GoogleComputeVpnTunnel#peer_ip}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#project GoogleComputeVpnTunnel#project}.
-        :param region: The region where the tunnel is located. If unset, is set to the region of 'target_vpn_gateway'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#region GoogleComputeVpnTunnel#region}
-        :param remote_traffic_selector: Remote traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#remote_traffic_selector GoogleComputeVpnTunnel#remote_traffic_selector}
-        :param router: URL of router resource to be used for dynamic routing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#router GoogleComputeVpnTunnel#router}
-        :param target_vpn_gateway: URL of the Target VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#target_vpn_gateway GoogleComputeVpnTunnel#target_vpn_gateway}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#timeouts GoogleComputeVpnTunnel#timeouts}
-        :param vpn_gateway: URL of the VPN gateway with which this VPN tunnel is associated. This must be used if a High Availability VPN gateway resource is created. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway GoogleComputeVpnTunnel#vpn_gateway}
-        :param vpn_gateway_interface: The interface ID of the VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway_interface GoogleComputeVpnTunnel#vpn_gateway_interface}
+        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#name GoogleComputeVpnTunnel#name}
+        :param shared_secret: Shared secret used to set the secure session between the Cloud VPN gateway and the peer VPN gateway. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#shared_secret GoogleComputeVpnTunnel#shared_secret}
+        :param cipher_suite: cipher_suite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#cipher_suite GoogleComputeVpnTunnel#cipher_suite}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#description GoogleComputeVpnTunnel#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#id GoogleComputeVpnTunnel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ike_version: IKE protocol version to use when establishing the VPN tunnel with peer VPN gateway. Acceptable IKE versions are 1 or 2. Default version is 2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#ike_version GoogleComputeVpnTunnel#ike_version}
+        :param labels: Labels to apply to this VpnTunnel. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#labels GoogleComputeVpnTunnel#labels}
+        :param local_traffic_selector: Local traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#local_traffic_selector GoogleComputeVpnTunnel#local_traffic_selector}
+        :param peer_external_gateway: URL of the peer side external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway GoogleComputeVpnTunnel#peer_external_gateway}
+        :param peer_external_gateway_interface: The interface ID of the external VPN gateway to which this VPN tunnel is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway_interface GoogleComputeVpnTunnel#peer_external_gateway_interface}
+        :param peer_gcp_gateway: URL of the peer side HA GCP VPN gateway to which this VPN tunnel is connected. If provided, the VPN tunnel will automatically use the same vpn_gateway_interface ID in the peer GCP VPN gateway. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_gcp_gateway GoogleComputeVpnTunnel#peer_gcp_gateway}
+        :param peer_ip: IP address of the peer VPN gateway. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_ip GoogleComputeVpnTunnel#peer_ip}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#project GoogleComputeVpnTunnel#project}.
+        :param region: The region where the tunnel is located. If unset, is set to the region of 'target_vpn_gateway'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#region GoogleComputeVpnTunnel#region}
+        :param remote_traffic_selector: Remote traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example '192.168.0.0/16'. The ranges should be disjoint. Only IPv4 is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#remote_traffic_selector GoogleComputeVpnTunnel#remote_traffic_selector}
+        :param router: URL of router resource to be used for dynamic routing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#router GoogleComputeVpnTunnel#router}
+        :param target_vpn_gateway: URL of the Target VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#target_vpn_gateway GoogleComputeVpnTunnel#target_vpn_gateway}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#timeouts GoogleComputeVpnTunnel#timeouts}
+        :param vpn_gateway: URL of the VPN gateway with which this VPN tunnel is associated. This must be used if a High Availability VPN gateway resource is created. This field must reference a 'google_compute_ha_vpn_gateway' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway GoogleComputeVpnTunnel#vpn_gateway}
+        :param vpn_gateway_interface: The interface ID of the VPN gateway with which this VPN tunnel is associated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway_interface GoogleComputeVpnTunnel#vpn_gateway_interface}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
+        if isinstance(cipher_suite, dict):
+            cipher_suite = GoogleComputeVpnTunnelCipherSuite(**cipher_suite)
         if isinstance(timeouts, dict):
             timeouts = GoogleComputeVpnTunnelTimeouts(**timeouts)
         if __debug__:
@@ -739,6 +1328,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument shared_secret", value=shared_secret, expected_type=type_hints["shared_secret"])
+            check_type(argname="argument cipher_suite", value=cipher_suite, expected_type=type_hints["cipher_suite"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ike_version", value=ike_version, expected_type=type_hints["ike_version"])
@@ -774,6 +1364,8 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if cipher_suite is not None:
+            self._values["cipher_suite"] = cipher_suite
         if description is not None:
             self._values["description"] = description
         if id is not None:
@@ -885,7 +1477,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         be a dash, lowercase letter, or digit,
         except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#name GoogleComputeVpnTunnel#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#name GoogleComputeVpnTunnel#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -895,24 +1487,33 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def shared_secret(self) -> builtins.str:
         '''Shared secret used to set the secure session between the Cloud VPN gateway and the peer VPN gateway.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#shared_secret GoogleComputeVpnTunnel#shared_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#shared_secret GoogleComputeVpnTunnel#shared_secret}
         '''
         result = self._values.get("shared_secret")
         assert result is not None, "Required property 'shared_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def cipher_suite(self) -> typing.Optional[GoogleComputeVpnTunnelCipherSuite]:
+        '''cipher_suite block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#cipher_suite GoogleComputeVpnTunnel#cipher_suite}
+        '''
+        result = self._values.get("cipher_suite")
+        return typing.cast(typing.Optional[GoogleComputeVpnTunnelCipherSuite], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#description GoogleComputeVpnTunnel#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#description GoogleComputeVpnTunnel#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#id GoogleComputeVpnTunnel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#id GoogleComputeVpnTunnel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -926,7 +1527,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Acceptable IKE versions are 1 or 2. Default version is 2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#ike_version GoogleComputeVpnTunnel#ike_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#ike_version GoogleComputeVpnTunnel#ike_version}
         '''
         result = self._values.get("ike_version")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -938,7 +1539,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#labels GoogleComputeVpnTunnel#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#labels GoogleComputeVpnTunnel#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -951,7 +1552,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         for example '192.168.0.0/16'. The ranges should be disjoint.
         Only IPv4 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#local_traffic_selector GoogleComputeVpnTunnel#local_traffic_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#local_traffic_selector GoogleComputeVpnTunnel#local_traffic_selector}
         '''
         result = self._values.get("local_traffic_selector")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -960,7 +1561,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peer_external_gateway(self) -> typing.Optional[builtins.str]:
         '''URL of the peer side external VPN gateway to which this VPN tunnel is connected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway GoogleComputeVpnTunnel#peer_external_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway GoogleComputeVpnTunnel#peer_external_gateway}
         '''
         result = self._values.get("peer_external_gateway")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -969,7 +1570,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peer_external_gateway_interface(self) -> typing.Optional[jsii.Number]:
         '''The interface ID of the external VPN gateway to which this VPN tunnel is connected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway_interface GoogleComputeVpnTunnel#peer_external_gateway_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_external_gateway_interface GoogleComputeVpnTunnel#peer_external_gateway_interface}
         '''
         result = self._values.get("peer_external_gateway_interface")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -982,7 +1583,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         ID in the peer GCP VPN gateway.
         This field must reference a 'google_compute_ha_vpn_gateway' resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_gcp_gateway GoogleComputeVpnTunnel#peer_gcp_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_gcp_gateway GoogleComputeVpnTunnel#peer_gcp_gateway}
         '''
         result = self._values.get("peer_gcp_gateway")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -991,14 +1592,14 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def peer_ip(self) -> typing.Optional[builtins.str]:
         '''IP address of the peer VPN gateway. Only IPv4 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#peer_ip GoogleComputeVpnTunnel#peer_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#peer_ip GoogleComputeVpnTunnel#peer_ip}
         '''
         result = self._values.get("peer_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#project GoogleComputeVpnTunnel#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#project GoogleComputeVpnTunnel#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1006,7 +1607,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region where the tunnel is located. If unset, is set to the region of 'target_vpn_gateway'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#region GoogleComputeVpnTunnel#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#region GoogleComputeVpnTunnel#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1019,7 +1620,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         for example '192.168.0.0/16'. The ranges should be disjoint.
         Only IPv4 is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#remote_traffic_selector GoogleComputeVpnTunnel#remote_traffic_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#remote_traffic_selector GoogleComputeVpnTunnel#remote_traffic_selector}
         '''
         result = self._values.get("remote_traffic_selector")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1028,7 +1629,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def router(self) -> typing.Optional[builtins.str]:
         '''URL of router resource to be used for dynamic routing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#router GoogleComputeVpnTunnel#router}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#router GoogleComputeVpnTunnel#router}
         '''
         result = self._values.get("router")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1037,7 +1638,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_vpn_gateway(self) -> typing.Optional[builtins.str]:
         '''URL of the Target VPN gateway with which this VPN tunnel is associated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#target_vpn_gateway GoogleComputeVpnTunnel#target_vpn_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#target_vpn_gateway GoogleComputeVpnTunnel#target_vpn_gateway}
         '''
         result = self._values.get("target_vpn_gateway")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1046,7 +1647,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeVpnTunnelTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#timeouts GoogleComputeVpnTunnel#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#timeouts GoogleComputeVpnTunnel#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeVpnTunnelTimeouts"], result)
@@ -1058,7 +1659,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This must be used if a High Availability VPN gateway resource is created.
         This field must reference a 'google_compute_ha_vpn_gateway' resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway GoogleComputeVpnTunnel#vpn_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway GoogleComputeVpnTunnel#vpn_gateway}
         '''
         result = self._values.get("vpn_gateway")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1067,7 +1668,7 @@ class GoogleComputeVpnTunnelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpn_gateway_interface(self) -> typing.Optional[jsii.Number]:
         '''The interface ID of the VPN gateway with which this VPN tunnel is associated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway_interface GoogleComputeVpnTunnel#vpn_gateway_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#vpn_gateway_interface GoogleComputeVpnTunnel#vpn_gateway_interface}
         '''
         result = self._values.get("vpn_gateway_interface")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1098,9 +1699,9 @@ class GoogleComputeVpnTunnelTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#create GoogleComputeVpnTunnel#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#delete GoogleComputeVpnTunnel#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#update GoogleComputeVpnTunnel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#create GoogleComputeVpnTunnel#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#delete GoogleComputeVpnTunnel#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#update GoogleComputeVpnTunnel#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26e6d235e8089419c4158154e9e80fa3181ea5462bc8da7b6c752adc39b80c37)
@@ -1117,19 +1718,19 @@ class GoogleComputeVpnTunnelTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#create GoogleComputeVpnTunnel#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#create GoogleComputeVpnTunnel#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#delete GoogleComputeVpnTunnel#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#delete GoogleComputeVpnTunnel#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_compute_vpn_tunnel#update GoogleComputeVpnTunnel#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_compute_vpn_tunnel#update GoogleComputeVpnTunnel#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1248,6 +1849,12 @@ class GoogleComputeVpnTunnelTimeoutsOutputReference(
 
 __all__ = [
     "GoogleComputeVpnTunnel",
+    "GoogleComputeVpnTunnelCipherSuite",
+    "GoogleComputeVpnTunnelCipherSuiteOutputReference",
+    "GoogleComputeVpnTunnelCipherSuitePhase1",
+    "GoogleComputeVpnTunnelCipherSuitePhase1OutputReference",
+    "GoogleComputeVpnTunnelCipherSuitePhase2",
+    "GoogleComputeVpnTunnelCipherSuitePhase2OutputReference",
     "GoogleComputeVpnTunnelConfig",
     "GoogleComputeVpnTunnelTimeouts",
     "GoogleComputeVpnTunnelTimeoutsOutputReference",
@@ -1261,6 +1868,7 @@ def _typecheckingstub__285d96dfb7c138d4ebaaa1a135188ff25c4a99da29ddcbd9429a62fa9
     *,
     name: builtins.str,
     shared_secret: builtins.str,
+    cipher_suite: typing.Optional[typing.Union[GoogleComputeVpnTunnelCipherSuite, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     ike_version: typing.Optional[jsii.Number] = None,
@@ -1406,6 +2014,114 @@ def _typecheckingstub__58bba7fee1d9567bb0ce86bed8d90e6aa0b28772c93f06f35833a9678
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__348cfe7f1db6a027f79104f72f64c0c6f74df6a3bb25bc0eb48d2dfabebcde15(
+    *,
+    phase1: typing.Optional[typing.Union[GoogleComputeVpnTunnelCipherSuitePhase1, typing.Dict[builtins.str, typing.Any]]] = None,
+    phase2: typing.Optional[typing.Union[GoogleComputeVpnTunnelCipherSuitePhase2, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72f17ffe7b04c7a064e3195826e0d09f711b97468ae88c2ef622402a83ca4600(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af7b804f333b51ac914b2cca60ec6fb635b3f65efb0a3eaf480f686b20ce33d5(
+    value: typing.Optional[GoogleComputeVpnTunnelCipherSuite],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6dfe0c785e10aa3729f55a5fad522c0602d6eea268c154e2ffd747ad4632fd0b(
+    *,
+    dh: typing.Optional[typing.Sequence[builtins.str]] = None,
+    encryption: typing.Optional[typing.Sequence[builtins.str]] = None,
+    integrity: typing.Optional[typing.Sequence[builtins.str]] = None,
+    prf: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86f782082f67593cd476187b2bd1f440fd428fffa2430bda61a57524b0011825(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__105a095b6d00d73ccffa6da998d0a477695b4aa5910261e640015c7d71c1359c(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02d4eaf1c7e4d20f75288ab89c9e4e27b51dc04e8c0618c7b0bc2c939be07ea4(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a8e705bfd26ab7227fa5ce5b921c7ede592bf2e45d2f35786957718797e8a93(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__877810b018f2cca1f0ec0079d85baa7287ce7f42fed00150fac43a4b9aa4a4ff(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e07173391d14f12f93a9fd7d58cd61b0cf3a56311684074d6dd704714e4ba85(
+    value: typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase1],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d96c83b2179d06e917fd693993be6a164ef61cbf4339b9e4527be4ce2ccaa58a(
+    *,
+    encryption: typing.Optional[typing.Sequence[builtins.str]] = None,
+    integrity: typing.Optional[typing.Sequence[builtins.str]] = None,
+    pfs: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b147c437f8ee48db00c894c582be521f4e43c549186eae0bcf54bf106250f556(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3cd07755ab192f3cc73d14c8d2a4d185cfa658cc649a505b51dbba6052c1c540(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cef103d27bd5a846b6e083c9d4d552ce5895cf429a925886c54a2233fa3dd517(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a5ad3b7f293f9a0face97b7635b08b987f0f388b354ebc40ca4f5a41dfa315f(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fd42b3cc4bc7d70c0e52cd61da264ea618bc460d485315b47cb8d1e128358d2(
+    value: typing.Optional[GoogleComputeVpnTunnelCipherSuitePhase2],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__63692b35e16bcd79b08720b98c0430a53a44cbfc5ffd55c7326db184a4c495b4(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1417,6 +2133,7 @@ def _typecheckingstub__63692b35e16bcd79b08720b98c0430a53a44cbfc5ffd55c7326db184a
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     name: builtins.str,
     shared_secret: builtins.str,
+    cipher_suite: typing.Optional[typing.Union[GoogleComputeVpnTunnelCipherSuite, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     ike_version: typing.Optional[jsii.Number] = None,

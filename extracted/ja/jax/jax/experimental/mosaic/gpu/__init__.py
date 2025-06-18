@@ -58,6 +58,9 @@ from .transform_inference import (
 from .fragmented_array import (
     FragmentedArray as FragmentedArray,
     FragmentedLayout as FragmentedLayout,
+    TCGEN05_LAYOUT as TCGEN05_LAYOUT,
+    TCGEN05_ROW_LAYOUT as TCGEN05_ROW_LAYOUT,
+    TCGEN05_COL_LAYOUT as TCGEN05_COL_LAYOUT,
     TiledLayout as TiledLayout,
     WGMMA_LAYOUT as WGMMA_LAYOUT,
     WGMMA_ROW_LAYOUT as WGMMA_ROW_LAYOUT,
@@ -74,6 +77,7 @@ from .utils import (
     DynamicSlice as DynamicSlice,
     Partition as Partition,
     Partition1D as Partition1D,
+    SemaphoreRef as SemaphoreRef,
     ThreadSubset as ThreadSubset,
     bitwidth as bitwidth,
     bytewidth as bytewidth,
@@ -82,6 +86,7 @@ from .utils import (
     debug_print as debug_print,
     ds as ds,
     fori as fori,
+    is_known_divisible as is_known_divisible,
     memref_fold as memref_fold,
     memref_slice as memref_slice,
     memref_reshape as memref_reshape,
@@ -100,8 +105,4 @@ from .utils import (
 from .wgmma import (
     WGMMAAccumulator as WGMMAAccumulator,
     wgmma as wgmma,
-)
-
-from .tcgen05 import (
-  LAYOUT as TCGEN05_LAYOUT,  # noqa: F401
 )

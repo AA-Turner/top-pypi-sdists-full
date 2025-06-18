@@ -1,7 +1,7 @@
 r'''
 # `google_storage_transfer_agent_pool`
 
-Refer to the Terraform Registry for docs: [`google_storage_transfer_agent_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool).
+Refer to the Terraform Registry for docs: [`google_storage_transfer_agent_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleStorageTransferAgentPool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleStorageTransferAgentPool.GoogleStorageTransferAgentPool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool google_storage_transfer_agent_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool google_storage_transfer_agent_pool}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleStorageTransferAgentPool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool google_storage_transfer_agent_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool google_storage_transfer_agent_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The ID of the agent pool to create. The agentPoolId must meet the following requirements: - Length of 128 characters or less. - Not start with the string goog. - Start with a lowercase ASCII character, followed by: - Zero or more: lowercase Latin alphabet characters, numerals, hyphens (-), periods (.), underscores (_), or tildes (~). - One or more numerals or lowercase ASCII characters. As expressed by the regular expression: ^(?!goog)`a-z <%5Ba-z0-9-._~%5D*%5Ba-z0-9%5D>`_?$. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#name GoogleStorageTransferAgentPool#name}
-        :param bandwidth_limit: bandwidth_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#bandwidth_limit GoogleStorageTransferAgentPool#bandwidth_limit}
-        :param display_name: Specifies the client-specified AgentPool description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#display_name GoogleStorageTransferAgentPool#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#id GoogleStorageTransferAgentPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#project GoogleStorageTransferAgentPool#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#timeouts GoogleStorageTransferAgentPool#timeouts}
+        :param name: The ID of the agent pool to create. The agentPoolId must meet the following requirements: - Length of 128 characters or less. - Not start with the string goog. - Start with a lowercase ASCII character, followed by: - Zero or more: lowercase Latin alphabet characters, numerals, hyphens (-), periods (.), underscores (_), or tildes (~). - One or more numerals or lowercase ASCII characters. As expressed by the regular expression: ^(?!goog)`a-z <%5Ba-z0-9-._~%5D*%5Ba-z0-9%5D>`_?$. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#name GoogleStorageTransferAgentPool#name}
+        :param bandwidth_limit: bandwidth_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#bandwidth_limit GoogleStorageTransferAgentPool#bandwidth_limit}
+        :param display_name: Specifies the client-specified AgentPool description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#display_name GoogleStorageTransferAgentPool#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#id GoogleStorageTransferAgentPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#project GoogleStorageTransferAgentPool#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#timeouts GoogleStorageTransferAgentPool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleStorageTransferAgentPool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleStorageTransferAgentPool to import.
-        :param import_from_id: The id of the existing GoogleStorageTransferAgentPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleStorageTransferAgentPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleStorageTransferAgentPool to import is found.
         '''
         if __debug__:
@@ -132,7 +132,7 @@ class GoogleStorageTransferAgentPool(
     @jsii.member(jsii_name="putBandwidthLimit")
     def put_bandwidth_limit(self, *, limit_mbps: builtins.str) -> None:
         '''
-        :param limit_mbps: Bandwidth rate in megabytes per second, distributed across all the agents in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#limit_mbps GoogleStorageTransferAgentPool#limit_mbps}
+        :param limit_mbps: Bandwidth rate in megabytes per second, distributed across all the agents in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#limit_mbps GoogleStorageTransferAgentPool#limit_mbps}
         '''
         value = GoogleStorageTransferAgentPoolBandwidthLimit(limit_mbps=limit_mbps)
 
@@ -147,9 +147,9 @@ class GoogleStorageTransferAgentPool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#create GoogleStorageTransferAgentPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#delete GoogleStorageTransferAgentPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#update GoogleStorageTransferAgentPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#create GoogleStorageTransferAgentPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#delete GoogleStorageTransferAgentPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#update GoogleStorageTransferAgentPool#update}.
         '''
         value = GoogleStorageTransferAgentPoolTimeouts(
             create=create, delete=delete, update=update
@@ -298,7 +298,7 @@ class GoogleStorageTransferAgentPool(
 class GoogleStorageTransferAgentPoolBandwidthLimit:
     def __init__(self, *, limit_mbps: builtins.str) -> None:
         '''
-        :param limit_mbps: Bandwidth rate in megabytes per second, distributed across all the agents in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#limit_mbps GoogleStorageTransferAgentPool#limit_mbps}
+        :param limit_mbps: Bandwidth rate in megabytes per second, distributed across all the agents in the pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#limit_mbps GoogleStorageTransferAgentPool#limit_mbps}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__163f16780f52f16347d9839856fb3fcb28e9518578fcab463758593d657b3ce9)
@@ -311,7 +311,7 @@ class GoogleStorageTransferAgentPoolBandwidthLimit:
     def limit_mbps(self) -> builtins.str:
         '''Bandwidth rate in megabytes per second, distributed across all the agents in the pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#limit_mbps GoogleStorageTransferAgentPool#limit_mbps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#limit_mbps GoogleStorageTransferAgentPool#limit_mbps}
         '''
         result = self._values.get("limit_mbps")
         assert result is not None, "Required property 'limit_mbps' is missing"
@@ -429,12 +429,12 @@ class GoogleStorageTransferAgentPoolConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The ID of the agent pool to create. The agentPoolId must meet the following requirements: - Length of 128 characters or less. - Not start with the string goog. - Start with a lowercase ASCII character, followed by: - Zero or more: lowercase Latin alphabet characters, numerals, hyphens (-), periods (.), underscores (_), or tildes (~). - One or more numerals or lowercase ASCII characters. As expressed by the regular expression: ^(?!goog)`a-z <%5Ba-z0-9-._~%5D*%5Ba-z0-9%5D>`_?$. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#name GoogleStorageTransferAgentPool#name}
-        :param bandwidth_limit: bandwidth_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#bandwidth_limit GoogleStorageTransferAgentPool#bandwidth_limit}
-        :param display_name: Specifies the client-specified AgentPool description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#display_name GoogleStorageTransferAgentPool#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#id GoogleStorageTransferAgentPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#project GoogleStorageTransferAgentPool#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#timeouts GoogleStorageTransferAgentPool#timeouts}
+        :param name: The ID of the agent pool to create. The agentPoolId must meet the following requirements: - Length of 128 characters or less. - Not start with the string goog. - Start with a lowercase ASCII character, followed by: - Zero or more: lowercase Latin alphabet characters, numerals, hyphens (-), periods (.), underscores (_), or tildes (~). - One or more numerals or lowercase ASCII characters. As expressed by the regular expression: ^(?!goog)`a-z <%5Ba-z0-9-._~%5D*%5Ba-z0-9%5D>`_?$. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#name GoogleStorageTransferAgentPool#name}
+        :param bandwidth_limit: bandwidth_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#bandwidth_limit GoogleStorageTransferAgentPool#bandwidth_limit}
+        :param display_name: Specifies the client-specified AgentPool description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#display_name GoogleStorageTransferAgentPool#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#id GoogleStorageTransferAgentPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#project GoogleStorageTransferAgentPool#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#timeouts GoogleStorageTransferAgentPool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -564,7 +564,7 @@ class GoogleStorageTransferAgentPoolConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         As expressed by the regular expression: ^(?!goog)`a-z <%5Ba-z0-9-._~%5D*%5Ba-z0-9%5D>`_?$.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#name GoogleStorageTransferAgentPool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#name GoogleStorageTransferAgentPool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -576,7 +576,7 @@ class GoogleStorageTransferAgentPoolConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[GoogleStorageTransferAgentPoolBandwidthLimit]:
         '''bandwidth_limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#bandwidth_limit GoogleStorageTransferAgentPool#bandwidth_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#bandwidth_limit GoogleStorageTransferAgentPool#bandwidth_limit}
         '''
         result = self._values.get("bandwidth_limit")
         return typing.cast(typing.Optional[GoogleStorageTransferAgentPoolBandwidthLimit], result)
@@ -585,14 +585,14 @@ class GoogleStorageTransferAgentPoolConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Specifies the client-specified AgentPool description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#display_name GoogleStorageTransferAgentPool#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#display_name GoogleStorageTransferAgentPool#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#id GoogleStorageTransferAgentPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#id GoogleStorageTransferAgentPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -602,7 +602,7 @@ class GoogleStorageTransferAgentPoolConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#project GoogleStorageTransferAgentPool#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#project GoogleStorageTransferAgentPool#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -610,7 +610,7 @@ class GoogleStorageTransferAgentPoolConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleStorageTransferAgentPoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#timeouts GoogleStorageTransferAgentPool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#timeouts GoogleStorageTransferAgentPool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleStorageTransferAgentPoolTimeouts"], result)
@@ -641,9 +641,9 @@ class GoogleStorageTransferAgentPoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#create GoogleStorageTransferAgentPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#delete GoogleStorageTransferAgentPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#update GoogleStorageTransferAgentPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#create GoogleStorageTransferAgentPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#delete GoogleStorageTransferAgentPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#update GoogleStorageTransferAgentPool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd9e84163b9ad08043650eaf7e58ce73c44abdcb55c88c4a833cdb6f81804903)
@@ -660,19 +660,19 @@ class GoogleStorageTransferAgentPoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#create GoogleStorageTransferAgentPool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#create GoogleStorageTransferAgentPool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#delete GoogleStorageTransferAgentPool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#delete GoogleStorageTransferAgentPool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_storage_transfer_agent_pool#update GoogleStorageTransferAgentPool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_storage_transfer_agent_pool#update GoogleStorageTransferAgentPool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

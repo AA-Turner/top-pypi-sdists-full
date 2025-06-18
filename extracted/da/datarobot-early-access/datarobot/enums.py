@@ -1853,6 +1853,6 @@ class ChunkingPartitionMethod(StrEnum):
     DATE = "date"
 
 
-class PlaygroundType(StrEnum):  # pylint: disable=missing-class-docstring
+class PlaygroundType(StrEnum):
     RAG = "rag"
     AGENTIC = "agentic"

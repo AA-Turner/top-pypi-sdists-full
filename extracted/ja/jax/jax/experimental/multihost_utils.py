@@ -39,8 +39,8 @@ from jax._src.lib import xla_client
 import numpy as np
 
 
-def _psum(x: Any) -> Any:
-  return jax.tree.map(partial(jnp.sum, axis=0), x)
+def _psum(xs: Any) -> Any:
+  return jax.tree.map(lambda x: jnp.sum(x, dtype=x.dtype, axis=0), xs)
 
 
 def broadcast_one_to_all(in_tree: Any, is_source: bool | None = None) -> Any:
@@ -100,7 +100,7 @@ def _identity_fn(x):
 def _handle_array_process_allgather(inp, tiled):
   if isinstance(inp, array.ArrayImpl) and not inp.is_fully_addressable:
     if isinstance(inp.sharding, sharding_impls.NamedSharding):
-      reps = inp.sharding.with_spec(P())
+      reps = inp.sharding.update(spec=P())
     else:
       reps = sharding_impls.GSPMDSharding.get_replicated(
           inp.sharding._device_assignment, memory_kind=inp.sharding.memory_kind)
@@ -203,7 +203,7 @@ def reached_preemption_sync_point(step_id: int) -> bool:
     after some hosts are preempted.
 
   Raises:
-    RuntimeError: if preemption sync manager has not been inititialized.
+    RuntimeError: if preemption sync manager has not been initialized.
   """
   if distributed.global_state.client is None:
     return False
@@ -328,7 +328,7 @@ def host_local_array_to_global_array(
   >>>
   >>> host_local_output = multihost_utils.global_array_to_host_local_array(global_out, mesh, out_pspecs) # doctest: +SKIP
 
-  Please note ths function requires global mesh to be a continuous mesh, meaning
+  Please note this function requires global mesh to be a continuous mesh, meaning
   that  devices that belong to each host should form a subcube in this mesh.
   To move local data to global array with non-continuous mesh use
   jax.make_array_from_callback or jax.make_array_from_single_device_arrays

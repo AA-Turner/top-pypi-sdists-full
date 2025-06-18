@@ -662,7 +662,7 @@ def privileges_get(cursor, user, host, maria_role=False):
         if not maria_role:
             res = re.match("""GRANT (.+) ON (.+) TO (['`"]).*\\3@(['`"]).*\\4( IDENTIFIED BY PASSWORD (['`"]).+\\6)? ?(.*)""", grant[0])
         else:
-            res = re.match("""GRANT (.+) ON (.+) TO (['`"]).*\\3""", grant[0])
+            res = re.match("""GRANT (.+) ON (.+) TO .*""", grant[0])
 
         if res is None:
             # If a user has roles assigned, we'll have one of priv tuples looking like

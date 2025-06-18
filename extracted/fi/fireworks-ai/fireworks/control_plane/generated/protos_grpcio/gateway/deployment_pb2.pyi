@@ -36,6 +36,14 @@ class Region(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     EU_ICELAND_2: _ClassVar[Region]
     US_WASHINGTON_1: _ClassVar[Region]
     US_WASHINGTON_2: _ClassVar[Region]
+    EU_ICELAND_DEV_1: _ClassVar[Region]
+    US_WASHINGTON_3: _ClassVar[Region]
+
+class MultiRegion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MULTI_REGION_UNSPECIFIED: _ClassVar[MultiRegion]
+    GLOBAL: _ClassVar[MultiRegion]
+    US: _ClassVar[MultiRegion]
 
 class AcceleratorType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -55,6 +63,34 @@ class DirectRouteType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INTERNET: _ClassVar[DirectRouteType]
     GCP_PRIVATE_SERVICE_CONNECT: _ClassVar[DirectRouteType]
     AWS_PRIVATELINK: _ClassVar[DirectRouteType]
+
+class Metrics(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    METRICS_UNSPECIFIED: _ClassVar[Metrics]
+    REPLICA_COUNT: _ClassVar[Metrics]
+    LOAD: _ClassVar[Metrics]
+    CONCURRENT_REQUESTS: _ClassVar[Metrics]
+    PROMPT_CACHE_HIT_RATE: _ClassVar[Metrics]
+    REQUESTS_TOTAL: _ClassVar[Metrics]
+    REQUESTS_ERROR_RATE: _ClassVar[Metrics]
+    TOKENS_PROMPT_PER_REQUEST: _ClassVar[Metrics]
+    TOKENS_GENERATED_PER_REQUEST: _ClassVar[Metrics]
+    SPECULATIVE_HIT_TOTAL: _ClassVar[Metrics]
+    SPECULATIVE_HIT_USER: _ClassVar[Metrics]
+    REQUESTS_PER_SECOND: _ClassVar[Metrics]
+    TOKENS_PER_SECOND: _ClassVar[Metrics]
+    LATENCY: _ClassVar[Metrics]
+    GENERATION_QUEUE_LATENCY: _ClassVar[Metrics]
+    PREFILL_QUEUE_LATENCY: _ClassVar[Metrics]
+    FIRST_TOKEN_LATENCY: _ClassVar[Metrics]
+    GENERATION_PER_TOKEN_LATENCY: _ClassVar[Metrics]
+    SERVERLESS_REQUESTS_TOTAL: _ClassVar[Metrics]
+    SERVERLESS_REQUESTS_RATE_MIRROR_PER_ACCOUNT: _ClassVar[Metrics]
+    SERVERLESS_REQUESTS_LIMIT_PER_ACCOUNT: _ClassVar[Metrics]
+    SERVERLESS_TOKENS_PROMPT_LIMIT_PER_ACCOUNT: _ClassVar[Metrics]
+    SERVERLESS_TOKENS_PROMPT_RATE_MIRROR_PER_ACCOUNT: _ClassVar[Metrics]
+    SERVERLESS_TOKENS_GENERATED_LIMIT_PER_ACCOUNT: _ClassVar[Metrics]
+    SERVERLESS_TOKENS_GENERATED_RATE_MIRROR_PER_ACCOUNT: _ClassVar[Metrics]
 REGION_UNSPECIFIED: Region
 US_IOWA_1: Region
 US_VIRGINIA_1: Region
@@ -74,6 +110,11 @@ EU_ICELAND_1: Region
 EU_ICELAND_2: Region
 US_WASHINGTON_1: Region
 US_WASHINGTON_2: Region
+EU_ICELAND_DEV_1: Region
+US_WASHINGTON_3: Region
+MULTI_REGION_UNSPECIFIED: MultiRegion
+GLOBAL: MultiRegion
+US: MultiRegion
 ACCELERATOR_TYPE_UNSPECIFIED: AcceleratorType
 NVIDIA_A100_80GB: AcceleratorType
 NVIDIA_H100_80GB: AcceleratorType
@@ -87,9 +128,34 @@ DIRECT_ROUTE_TYPE_UNSPECIFIED: DirectRouteType
 INTERNET: DirectRouteType
 GCP_PRIVATE_SERVICE_CONNECT: DirectRouteType
 AWS_PRIVATELINK: DirectRouteType
+METRICS_UNSPECIFIED: Metrics
+REPLICA_COUNT: Metrics
+LOAD: Metrics
+CONCURRENT_REQUESTS: Metrics
+PROMPT_CACHE_HIT_RATE: Metrics
+REQUESTS_TOTAL: Metrics
+REQUESTS_ERROR_RATE: Metrics
+TOKENS_PROMPT_PER_REQUEST: Metrics
+TOKENS_GENERATED_PER_REQUEST: Metrics
+SPECULATIVE_HIT_TOTAL: Metrics
+SPECULATIVE_HIT_USER: Metrics
+REQUESTS_PER_SECOND: Metrics
+TOKENS_PER_SECOND: Metrics
+LATENCY: Metrics
+GENERATION_QUEUE_LATENCY: Metrics
+PREFILL_QUEUE_LATENCY: Metrics
+FIRST_TOKEN_LATENCY: Metrics
+GENERATION_PER_TOKEN_LATENCY: Metrics
+SERVERLESS_REQUESTS_TOTAL: Metrics
+SERVERLESS_REQUESTS_RATE_MIRROR_PER_ACCOUNT: Metrics
+SERVERLESS_REQUESTS_LIMIT_PER_ACCOUNT: Metrics
+SERVERLESS_TOKENS_PROMPT_LIMIT_PER_ACCOUNT: Metrics
+SERVERLESS_TOKENS_PROMPT_RATE_MIRROR_PER_ACCOUNT: Metrics
+SERVERLESS_TOKENS_GENERATED_LIMIT_PER_ACCOUNT: Metrics
+SERVERLESS_TOKENS_GENERATED_RATE_MIRROR_PER_ACCOUNT: Metrics
 
 class Deployment(_message.Message):
-    __slots__ = ("name", "display_name", "description", "create_time", "expire_time", "purge_time", "delete_time", "created_by", "state", "status", "annotations", "min_replica_count", "max_replica_count", "replica_count", "autoscaling_policy", "base_model", "accelerator_count", "accelerator_type", "precision", "world_size", "generator_count", "disaggregated_prefill_count", "disaggregated_prefill_world_size", "max_batch_size", "cluster", "enable_addons", "live_merge", "draft_token_count", "draft_model", "ngram_speculation_length", "max_peft_batch_size", "kv_cache_memory_pct", "enable_session_affinity", "direct_route_api_keys", "image_tag", "num_peft_device_cached", "direct_route_type", "direct_route_handle", "deployment_template", "auto_tune", "region", "disable_accounting", "extra_args", "max_context_length", "extra_values", "engine", "update_time", "for_training")
+    __slots__ = ("name", "display_name", "description", "create_time", "expire_time", "purge_time", "delete_time", "created_by", "state", "status", "annotations", "min_replica_count", "max_replica_count", "replica_count", "autoscaling_policy", "base_model", "accelerator_count", "accelerator_type", "precision", "world_size", "generator_count", "disaggregated_prefill_count", "disaggregated_prefill_world_size", "max_batch_size", "cluster", "enable_addons", "live_merge", "draft_token_count", "draft_model", "ngram_speculation_length", "max_peft_batch_size", "kv_cache_memory_pct", "enable_session_affinity", "direct_route_api_keys", "image_tag", "num_peft_device_cached", "direct_route_type", "direct_route_handle", "deployment_template", "auto_tune", "placement", "region", "disable_accounting", "extra_args", "max_context_length", "extra_values", "engine", "update_time", "for_training", "disable_deployment_size_validation")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[Deployment.State]
@@ -119,6 +185,8 @@ class Deployment(_message.Message):
         FP8_V2: _ClassVar[Deployment.Precision]
         FP8_MM_KV_ATTN_V2: _ClassVar[Deployment.Precision]
         NF4: _ClassVar[Deployment.Precision]
+        FP4: _ClassVar[Deployment.Precision]
+        BFP16: _ClassVar[Deployment.Precision]
     PRECISION_UNSPECIFIED: Deployment.Precision
     FP16: Deployment.Precision
     FP8: Deployment.Precision
@@ -130,6 +198,8 @@ class Deployment(_message.Message):
     FP8_V2: Deployment.Precision
     FP8_MM_KV_ATTN_V2: Deployment.Precision
     NF4: Deployment.Precision
+    FP4: Deployment.Precision
+    BFP16: Deployment.Precision
     class Engine(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         ENGINE_UNSPECIFIED: _ClassVar[Deployment.Engine]
@@ -194,6 +264,7 @@ class Deployment(_message.Message):
     DIRECT_ROUTE_HANDLE_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_TEMPLATE_FIELD_NUMBER: _ClassVar[int]
     AUTO_TUNE_FIELD_NUMBER: _ClassVar[int]
+    PLACEMENT_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
     DISABLE_ACCOUNTING_FIELD_NUMBER: _ClassVar[int]
     EXTRA_ARGS_FIELD_NUMBER: _ClassVar[int]
@@ -202,6 +273,7 @@ class Deployment(_message.Message):
     ENGINE_FIELD_NUMBER: _ClassVar[int]
     UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     FOR_TRAINING_FIELD_NUMBER: _ClassVar[int]
+    DISABLE_DEPLOYMENT_SIZE_VALIDATION_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     description: str
@@ -242,6 +314,7 @@ class Deployment(_message.Message):
     direct_route_handle: str
     deployment_template: str
     auto_tune: AutoTune
+    placement: Placement
     region: Region
     disable_accounting: bool
     extra_args: _containers.RepeatedScalarFieldContainer[str]
@@ -250,7 +323,18 @@ class Deployment(_message.Message):
     engine: Deployment.Engine
     update_time: _timestamp_pb2.Timestamp
     for_training: bool
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., purge_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., delete_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Deployment.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., annotations: _Optional[_Mapping[str, str]] = ..., min_replica_count: _Optional[int] = ..., max_replica_count: _Optional[int] = ..., replica_count: _Optional[int] = ..., autoscaling_policy: _Optional[_Union[AutoscalingPolicy, _Mapping]] = ..., base_model: _Optional[str] = ..., accelerator_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[AcceleratorType, str]] = ..., precision: _Optional[_Union[Deployment.Precision, str]] = ..., world_size: _Optional[int] = ..., generator_count: _Optional[int] = ..., disaggregated_prefill_count: _Optional[int] = ..., disaggregated_prefill_world_size: _Optional[int] = ..., max_batch_size: _Optional[int] = ..., cluster: _Optional[str] = ..., enable_addons: bool = ..., live_merge: bool = ..., draft_token_count: _Optional[int] = ..., draft_model: _Optional[str] = ..., ngram_speculation_length: _Optional[int] = ..., max_peft_batch_size: _Optional[int] = ..., kv_cache_memory_pct: _Optional[int] = ..., enable_session_affinity: bool = ..., direct_route_api_keys: _Optional[_Iterable[str]] = ..., image_tag: _Optional[str] = ..., num_peft_device_cached: _Optional[int] = ..., direct_route_type: _Optional[_Union[DirectRouteType, str]] = ..., direct_route_handle: _Optional[str] = ..., deployment_template: _Optional[str] = ..., auto_tune: _Optional[_Union[AutoTune, _Mapping]] = ..., region: _Optional[_Union[Region, str]] = ..., disable_accounting: bool = ..., extra_args: _Optional[_Iterable[str]] = ..., max_context_length: _Optional[int] = ..., extra_values: _Optional[_Mapping[str, str]] = ..., engine: _Optional[_Union[Deployment.Engine, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., for_training: bool = ...) -> None: ...
+    disable_deployment_size_validation: bool
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., purge_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., delete_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Deployment.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., annotations: _Optional[_Mapping[str, str]] = ..., min_replica_count: _Optional[int] = ..., max_replica_count: _Optional[int] = ..., replica_count: _Optional[int] = ..., autoscaling_policy: _Optional[_Union[AutoscalingPolicy, _Mapping]] = ..., base_model: _Optional[str] = ..., accelerator_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[AcceleratorType, str]] = ..., precision: _Optional[_Union[Deployment.Precision, str]] = ..., world_size: _Optional[int] = ..., generator_count: _Optional[int] = ..., disaggregated_prefill_count: _Optional[int] = ..., disaggregated_prefill_world_size: _Optional[int] = ..., max_batch_size: _Optional[int] = ..., cluster: _Optional[str] = ..., enable_addons: bool = ..., live_merge: bool = ..., draft_token_count: _Optional[int] = ..., draft_model: _Optional[str] = ..., ngram_speculation_length: _Optional[int] = ..., max_peft_batch_size: _Optional[int] = ..., kv_cache_memory_pct: _Optional[int] = ..., enable_session_affinity: bool = ..., direct_route_api_keys: _Optional[_Iterable[str]] = ..., image_tag: _Optional[str] = ..., num_peft_device_cached: _Optional[int] = ..., direct_route_type: _Optional[_Union[DirectRouteType, str]] = ..., direct_route_handle: _Optional[str] = ..., deployment_template: _Optional[str] = ..., auto_tune: _Optional[_Union[AutoTune, _Mapping]] = ..., placement: _Optional[_Union[Placement, _Mapping]] = ..., region: _Optional[_Union[Region, str]] = ..., disable_accounting: bool = ..., extra_args: _Optional[_Iterable[str]] = ..., max_context_length: _Optional[int] = ..., extra_values: _Optional[_Mapping[str, str]] = ..., engine: _Optional[_Union[Deployment.Engine, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., for_training: bool = ..., disable_deployment_size_validation: bool = ...) -> None: ...
+
+class Placement(_message.Message):
+    __slots__ = ("region", "multi_region", "regions")
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    MULTI_REGION_FIELD_NUMBER: _ClassVar[int]
+    REGIONS_FIELD_NUMBER: _ClassVar[int]
+    region: Region
+    multi_region: MultiRegion
+    regions: _containers.RepeatedScalarFieldContainer[Region]
+    def __init__(self, region: _Optional[_Union[Region, str]] = ..., multi_region: _Optional[_Union[MultiRegion, str]] = ..., regions: _Optional[_Iterable[_Union[Region, str]]] = ...) -> None: ...
 
 class AutoTune(_message.Message):
     __slots__ = ("long_prompt",)
@@ -411,3 +495,54 @@ class DeploymentAcceleratorConfig(_message.Message):
     min_accelerator_count: int
     regions: _containers.RepeatedScalarFieldContainer[Region]
     def __init__(self, accelerator_type: _Optional[_Union[AcceleratorType, str]] = ..., precision: _Optional[_Union[Deployment.Precision, str]] = ..., min_accelerator_count: _Optional[int] = ..., regions: _Optional[_Iterable[_Union[Region, str]]] = ...) -> None: ...
+
+class ListDeploymentMetricsRequest(_message.Message):
+    __slots__ = ("parent", "account", "model", "metric", "start", "end", "interval", "group_by", "percentiles")
+    PARENT_FIELD_NUMBER: _ClassVar[int]
+    ACCOUNT_FIELD_NUMBER: _ClassVar[int]
+    MODEL_FIELD_NUMBER: _ClassVar[int]
+    METRIC_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    GROUP_BY_FIELD_NUMBER: _ClassVar[int]
+    PERCENTILES_FIELD_NUMBER: _ClassVar[int]
+    parent: str
+    account: str
+    model: str
+    metric: Metrics
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    interval: _duration_pb2.Duration
+    group_by: str
+    percentiles: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, parent: _Optional[str] = ..., account: _Optional[str] = ..., model: _Optional[str] = ..., metric: _Optional[_Union[Metrics, str]] = ..., start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., group_by: _Optional[str] = ..., percentiles: _Optional[_Iterable[float]] = ...) -> None: ...
+
+class TimeSeriesPoint(_message.Message):
+    __slots__ = ("timestamp", "value")
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    timestamp: int
+    value: str
+    def __init__(self, timestamp: _Optional[int] = ..., value: _Optional[str] = ...) -> None: ...
+
+class TimeSeries(_message.Message):
+    __slots__ = ("labels", "values")
+    class LabelsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    labels: _containers.ScalarMap[str, str]
+    values: _containers.RepeatedCompositeFieldContainer[TimeSeriesPoint]
+    def __init__(self, labels: _Optional[_Mapping[str, str]] = ..., values: _Optional[_Iterable[_Union[TimeSeriesPoint, _Mapping]]] = ...) -> None: ...
+
+class ListDeploymentMetricsResponse(_message.Message):
+    __slots__ = ("series",)
+    SERIES_FIELD_NUMBER: _ClassVar[int]
+    series: _containers.RepeatedCompositeFieldContainer[TimeSeries]
+    def __init__(self, series: _Optional[_Iterable[_Union[TimeSeries, _Mapping]]] = ...) -> None: ...

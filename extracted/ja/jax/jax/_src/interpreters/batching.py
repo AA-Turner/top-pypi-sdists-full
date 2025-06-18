@@ -21,7 +21,6 @@ from typing import Any, Union
 
 import numpy as np
 
-import jax
 from jax._src import config
 from jax._src import core
 from jax._src import source_info_util
@@ -112,7 +111,7 @@ def _jumble_unflatten(aval, x):
 register_pytree_node(Jumble, _jumble_flatten, _jumble_unflatten)
 
 def _jumble_result(axis_size, stacked_axis, ragged_axes, x):
-  binder = core.Var('', core.ShapedArray((), np.dtype('int32')))
+  binder = core.Var(core.ShapedArray((), np.dtype('int32')))
   if stacked_axis != 0:
     raise NotImplementedError  # TODO Transpose x so the stacked axis is axis 0
   shape = list(x.shape)
@@ -176,7 +175,7 @@ def bdim_as_shape(
     bdim: int | RaggedAxis, data_shape: core.Shape) -> core.Shape:
   if isinstance(bdim, RaggedAxis):
     result = list(data_shape)
-    binder = core.Var('', core.ShapedArray((), np.dtype('int32')))
+    binder = core.Var(core.ShapedArray((), np.dtype('int32')))
     for ragged_axis, segment_lens in bdim.ragged_axes:
       result[ragged_axis] = IndexedAxisSize(binder, segment_lens)
     return tuple(result)
@@ -301,11 +300,14 @@ def from_elt(trace: BatchTrace, axis_size: AxisSize, mesh_axis: MeshAxis,
 from_elt_handlers: dict[type, FromEltHandler] = {}
 
 def make_iota(axis_size: AxisSize) -> Array:
+  # Callers of this utility, via batch() or vtile(), must be in a context
+  # where lax is importable.
+  from jax import lax  # pytype: disable=import-error
   handler = make_iota_handlers.get(type(axis_size))
   if handler:
     return handler(axis_size)
   else:
-    return jax.lax.iota('int32', int(axis_size))
+    return lax.iota('int32', int(axis_size))
 make_iota_handlers: dict[type, MakeIotaHandler] = {}
 
 def register_vmappable(data_type: type, spec_type: type, axis_size_type: type,
@@ -459,7 +461,7 @@ class AxisData:
 def get_sharding_for_vmap(axis_data, orig_sharding, axis):
   val = axis_data.explicit_mesh_axis
   # TODO(yashkatariya): Preserve unreduced here using
-  # `orig_sharding.spec.with_partitions`
+  # `orig_sharding.spec.update`
   new_spec = P(*tuple_insert(orig_sharding.spec, axis, val))
   return NamedSharding(orig_sharding.mesh, new_spec)
 
@@ -583,14 +585,21 @@ class BatchTrace(Trace):
     fun, out_dims1 = batch_subtrace(fun, self.tag, self.axis_data, in_dims)
     fwd, out_dims2 = batch_subtrace(fwd, self.tag, self.axis_data, fwd_in_dims)
 
-    bwd = batch_custom_vjp_bwd(bwd, self.tag, self.axis_data, out_dims2, in_dims)
+    def bwd_in_dims():
+      _, _, input_fwds = out_trees()
+      pruned_dims = iter(out_dims2())
+      full_dims = [next(pruned_dims) if f is None else in_dims[f] for f in input_fwds]
+      return [*full_dims, *pruned_dims]
+
+    bwd = batch_custom_vjp_bwd(bwd, self.tag, self.axis_data, bwd_in_dims, in_dims)
     out_vals = prim.bind_with_trace(self.parent_trace,
                                     (fun, fwd, bwd) + tuple(in_vals),
                                     dict(out_trees=out_trees, symbolic_zeros=symbolic_zeros))
     fst, out_dims = lu.merge_linear_aux(out_dims1, out_dims2)
     if not fst:
-      _, res_tree = out_trees()
-      _, out_dims = split_list(out_dims, [res_tree.num_leaves])
+      _, res_tree, input_fwds = out_trees()
+      num_res = res_tree.num_leaves - sum(f is not None for f in input_fwds)
+      _, out_dims = split_list(out_dims, [num_res])
     src = source_info_util.current()
     return [BatchTracer(self, v, d, src) for v, d in zip(out_vals, out_dims)]
 
@@ -1019,10 +1028,13 @@ def broadcast_batcher(prim, args, dims, **params):
     return (out, (0,) * len(out)) if prim.multiple_results else (out, 0)
 
 def _handle_scalar_broadcasting(nd, x, d):
+  # Callers of this utility, via broadcast_batcher() or defbroadcasting(),
+  # must be in a context where lax is importable.
+  from jax import lax  # pytype: disable=import-error
   if d is not_mapped or nd == np.ndim(x):
     return x
   else:
-    return jax.lax.expand_dims(x, tuple(range(np.ndim(x), nd)))
+    return lax.expand_dims(x, tuple(range(np.ndim(x), nd)))
 
 def defreducer(prim, ident):
   primitive_batchers[prim] = partial(reducer_batcher, prim, ident)
@@ -1078,17 +1090,20 @@ def mask_ragged_axes(operand: Array, ident, axis_spec: RaggedAxis) -> Array:
 
 def _mask_one_ragged_axis(
     operand: Array, ident, axis_spec: RaggedAxis) -> Array:
+  # Callers of this utility, via reducer_batcher() or defreducer(),
+  # must be in a context where lax is importable.
+  from jax import lax  # pytype: disable=import-error
   assert len(axis_spec.ragged_axes) == 1, "Mask just one ragged axis at a time"
   ragged_axis, segment_lengths = axis_spec.ragged_axes[0]
   value = ident(operand.dtype)
-  positions = jax.lax.broadcasted_iota('int32', operand.shape, ragged_axis)
+  positions = lax.broadcasted_iota('int32', operand.shape, ragged_axis)
   # TODO(mattjj, axch) can't get ._data, need to convert it
-  # lengths = jax.lax.convert_element_type(segment_lengths._data, 'int32')
-  lengths = jax.lax.convert_element_type(segment_lengths, 'int32')
-  limits = jax.lax.broadcast_in_dim(
+  # lengths = lax.convert_element_type(segment_lengths._data, 'int32')
+  lengths = lax.convert_element_type(segment_lengths, 'int32')
+  limits = lax.broadcast_in_dim(
       lengths, operand.shape, [axis_spec.stacked_axis])
   mask = positions < limits
-  return jax.lax.select(mask, operand, jax.lax.broadcast(value, operand.shape))
+  return lax.select(mask, operand, lax.broadcast(value, operand.shape))
 
 def move_stacked_axis(operand, bdim, dst):
   dst = canonicalize_axis(dst, operand.ndim)
@@ -1103,6 +1118,8 @@ def move_stacked_axis(operand, bdim, dst):
 ### general utilities for manipulating axes on jaxpr types (not vmappables)
 
 def broadcast(x, sz, axis, mesh_axis=None):
+  # Callers of this utility must be in a context where lax is importable.
+  from jax import lax  # pytype: disable=import-error
   shape = list(np.shape(x))
   shape.insert(axis, sz)
   broadcast_dims = tuple(np.delete(np.arange(len(shape)), axis))
@@ -1110,11 +1127,11 @@ def broadcast(x, sz, axis, mesh_axis=None):
   if x_aval.sharding.mesh.empty:
     mesh_axis = None
   new_spec = P(*tuple_insert(x_aval.sharding.spec, axis, mesh_axis))
-  sharding = x_aval.sharding.with_spec(new_spec)
+  sharding = x_aval.sharding.update(spec=new_spec)
   # TODO(dougalm, yashkatariya): Delete this context manager once we figure
   # out how to ensure jaxpr arguments always have the context mesh.
   with mesh_lib.use_abstract_mesh(sharding.mesh):
-    x = jax.lax.broadcast_in_dim(x, shape, broadcast_dims, out_sharding=sharding)
+    x = lax.broadcast_in_dim(x, shape, broadcast_dims, out_sharding=sharding)
     if config._check_vma.value:
       # TODO(yashkatariya,parkers): don't do this, fix during fixit week 2026
       spmd_names = core.get_axis_env().spmd_axis_names
@@ -1128,7 +1145,7 @@ def matchaxis(axis_name, sz, mesh_axis, src, dst, x, sum_match=False):
   if dst == jumble_axis:
     x = bdim_at_front(x, src, sz)
     elt_ty = x.aval.update(shape=x.shape[1:])
-    aval = JumbleTy(core.Var('', core.ShapedArray((), np.dtype('int32'))),
+    aval = JumbleTy(core.Var(core.ShapedArray((), np.dtype('int32'))),
                     x.shape[0], elt_ty)
     return Jumble(aval, x)
   try:

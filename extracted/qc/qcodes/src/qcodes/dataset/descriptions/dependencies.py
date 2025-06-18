@@ -10,6 +10,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 from .param_spec import ParamSpec, ParamSpecBase
 
@@ -228,7 +229,7 @@ class InterDependencies_:
             ps: the parameter to look up
 
         Raises:
-            ValueError if the parameter is not part of this object
+            ValueError: If the parameter is not part of this object
 
         """
         if ps not in self:
@@ -245,7 +246,7 @@ class InterDependencies_:
             ps: the parameter to look up
 
         Raises:
-            ValueError if the parameter is not part of this object
+            ValueError: If the parameter is not part of this object
 
         """
         if ps not in self:
@@ -270,7 +271,7 @@ class InterDependencies_:
         }
         return output
 
-    def _empty_data_dict(self) -> dict[str, dict[str, np.ndarray]]:
+    def _empty_data_dict(self) -> dict[str, dict[str, npt.NDArray]]:
         """
         Create an dictionary with empty numpy arrays as values
         matching the expected output of ``DataSet``'s ``get_parameter_data`` /
@@ -279,7 +280,7 @@ class InterDependencies_:
         in this class.
         """
 
-        output: dict[str, dict[str, np.ndarray]] = {}
+        output: dict[str, dict[str, npt.NDArray]] = {}
         for dependent, independents in self.dependencies.items():
             dependent_name = dependent.name
             output[dependent_name] = {dependent_name: np.array([])}
@@ -480,8 +481,8 @@ class InterDependencies_:
             parameters: The collection of ParamSpecBases to validate
 
         Raises:
-            DependencyError, if a dependency is missing
-            InferenceError, if an inference is missing
+            DependencyError: If a dependency is missing
+            InferenceError: If an inference is missing
 
         """
         params = {p.name for p in parameters}

@@ -52,10 +52,6 @@ def get_boto3_session(role_arn=None, session_vars=None):
 
     token_info = get_token("/generate/aws")
 
-    # Check if the assume_role decorator has set a role ARN via environment variable
-    # This takes precedence over CSPR role
-    decorator_role_arn = os.environ.get(OBP_ASSUME_ROLE_ARN_ENV_VAR)
-
     # Write token to a file. The file name is derived from the user name
     # so it works with multiple users on the same machine.
     #
@@ -76,13 +72,18 @@ def get_boto3_session(role_arn=None, session_vars=None):
     if token_info.get("cspr_role_arn"):
         cspr_role = token_info["cspr_role_arn"]
 
-    # If assume_role decorator is used, prioritize it over CSPR role
-    effective_role = decorator_role_arn or cspr_role
-    if effective_role:
-        # If we have either a decorator role or CSPR role, set up AWS config
+    # Check if the assume_role decorator has set a CSPR ARN via environment variable
+    # This takes precedence over CSPR role that comes from the token_info response
+    decorator_role_arn = os.environ.get(OBP_ASSUME_ROLE_ARN_ENV_VAR)
+    if decorator_role_arn:
+        cspr_role = decorator_role_arn
+
+    if cspr_role:
+        # If CSPR role is set, we set it as the default role to assume
+        # for the AWS SDK. We do this by writing an AWS config file
         # with two profiles. One to get credentials for the task role
         # in exchange for the OIDC token, and second to assume the
-        # effective role using the task role credentials.
+        # CSPR role using the task role credentials.
         import configparser
         from io import StringIO
 
@@ -94,9 +95,9 @@ def get_boto3_session(role_arn=None, session_vars=None):
             "web_identity_token_file": token_file,
         }
 
-        # Effective role profile (decorator role or CSPR role)
-        aws_config["profile effective"] = {
-            "role_arn": effective_role,
+        # CSPR role profile (default)
+        aws_config["profile cspr"] = {
+            "role_arn": cspr_role,
             "source_profile": "task",
         }
 
@@ -112,7 +113,7 @@ def get_boto3_session(role_arn=None, session_vars=None):
             tmp_aws_config_file = f.name
         os.rename(tmp_aws_config_file, aws_config_file)
         os.environ["AWS_CONFIG_FILE"] = aws_config_file
-        os.environ["AWS_PROFILE"] = "effective"
+        os.environ["AWS_PROFILE"] = "cspr"
     else:
         os.environ["AWS_WEB_IDENTITY_TOKEN_FILE"] = token_file
         os.environ["AWS_ROLE_ARN"] = token_info["role_arn"]
@@ -124,29 +125,21 @@ def get_boto3_session(role_arn=None, session_vars=None):
     if token_info.get("region"):
         os.environ["AWS_DEFAULT_REGION"] = token_info["region"]
 
-    if effective_role:
-        if role_arn == decorator_role_arn or role_arn == USE_CSPR_ROLE_ARN_IF_SET:
-            # We have either a decorator role or CSPR role, use the effective profile
-            # The generated AWS config will be used here since we set the
-            # AWS_CONFIG_FILE environment variable above.
-            session = boto3.session.Session(profile_name="effective")
+    if cspr_role:
+        #  The generated AWS config will be used here since we set the
+        #  AWS_CONFIG_FILE environment variable above.
+        if role_arn == USE_CSPR_ROLE_ARN_IF_SET:
+            # Otherwise start from the default profile, assuming CSPR role
+            session = boto3.session.Session(profile_name="cspr")
         else:
             session = boto3.session.Session(profile_name="task")
     else:
-        # No decorator role or CSPR role, use default session
         # Not using AWS config, just AWS_WEB_IDENTITY_TOKEN_FILE + AWS_ROLE_ARN
         session = boto3.session.Session()
 
-    if (
-        role_arn
-        and role_arn != USE_CSPR_ROLE_ARN_IF_SET
-        and role_arn != decorator_role_arn
-    ):
-        # If the user provided a role_arn that's different from the decorator role,
-        # we assume that role using the current session credentials.
-        # This works for both cases:
-        # 1. No decorator role: Task role -> Secrets role
-        # 2. With decorator role: Decorator role -> Secrets role
+    if role_arn and role_arn != USE_CSPR_ROLE_ARN_IF_SET:
+        # If the user provided a role_arn, we assume that role
+        # using the task role credentials. CSPR role is not used.
         fetcher = botocore.credentials.AssumeRoleCredentialFetcher(
             client_creator=session._session.create_client,
             source_credentials=session._session.get_credentials(),
@@ -162,8 +155,8 @@ def get_boto3_session(role_arn=None, session_vars=None):
     else:
         # If the user didn't provide a role_arn, or if the role_arn
         # is set to USE_CSPR_ROLE_ARN_IF_SET, we return the default
-        # session which would use the effective role (decorator or CSPR) if set,
-        # or the task role otherwise.
+        # session which would use the CSPR role if it is set on the
+        # server, and the task role otherwise.
         return session
 
 

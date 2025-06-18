@@ -1,11 +1,12 @@
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, TypedDict, type_check_only
-from typing_extensions import Self, TypeVar
+from typing import Any, Self, TypedDict, type_check_only
+from typing_extensions import TypeVar
 
 import numpy as np
 import optype.numpy as onp
-from scipy._typing import ToRNG
+
 from ._typing import BaseBunch
+from scipy._typing import ToRNG
 
 __all__ = ["multiscale_graphcorr"]
 

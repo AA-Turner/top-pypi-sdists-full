@@ -34,7 +34,10 @@ RegionLiteral = Literal[
     "EU_ICELAND_2",
     "US_WASHINGTON_1",
     "US_WASHINGTON_2",
+    "EU_ICELAND_DEV_1",
 ]
+
+MultiRegionLiteral = Literal["MULTI_REGION_UNSPECIFIED", "GLOBAL", "US"]
 
 
 ReasoningEffort = Literal["low", "medium", "high"]
@@ -64,3 +67,6 @@ PrecisionLiteral = Literal[
 ]
 
 DirectRouteTypeLiteral = Literal["INTERNET", "GCP_PRIVATE_SERVICE_CONNECT", "AWS_PRIVATELINK"]
+
+
+WeightPrecisionLiteral = Literal["WEIGHT_PRECISION_UNSPECIFIED", "BFLOAT16", "INT8", "NF4"]

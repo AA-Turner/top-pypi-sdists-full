@@ -7,6 +7,35 @@ import requests
 import wandb
 import torch
 
+class InvalidLossBackoff:
+    def __init__(self, max_backoffs=10, mode="consecutive"):
+        """
+        modes: ["consecutive", "cumulative"]
+            * consecutive: triggered if loss is invalid for max_backoffs consecutive steps
+            * cumulative: triggered if loss is invalid for max_backoffs steps in total
+        """
+        self.mode = mode
+        self.max_backoffs = max_backoffs
+        self.backoff_count = 0
+    
+    def step(self, loss):
+        invalid_loss = False
+        if self.mode == "consecutive":
+            if torch.isnan(loss).any() or torch.isinf(loss).any():
+                invalid_loss = True
+                self.backoff_count += 1
+            else:
+                self.backoff_count = 0
+        elif self.mode == "cumulative":
+            if torch.isnan(loss).any() or torch.isinf(loss).any():
+                invalid_loss = True
+                self.backoff_count += 1
+        
+        if self.backoff_count >= self.max_backoffs:
+            raise ValueError("Invalid loss backoff limit reached.")
+
+        return invalid_loss
+
 class NoEcho:
     _og_attrs = None
 
@@ -54,11 +83,15 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def report_bad_params(model):
+    any_bad_params = False
     for name, param in model.named_parameters():
         if torch.isnan(param).any():
+            any_bad_params = True
             print(f"Parameter {name}:\n{param.data}\n")
         elif torch.isinf(param).any():
+            any_bad_params = True
             print(f"Parameter {name}:\n{param.data}\n")
+    return any_bad_params
 
 def log_info(log_path, model, model_name, configs, train_accuracies=None, test_accuracies=None):
     logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%m-%d-%Y %H:%M')
@@ -109,7 +142,7 @@ def checkpoint(model_name, output_dir, model, optimizer=None, scheduler=None):
     if optimizer: torch.save(optimizer.state_dict(), optimizer_path)
     if scheduler: torch.save(scheduler.state_dict(), scheduler_path)
 
-def load_checkpoint(model_name, output_dir, model, optimizer=None, scheduler=None, device=torch.device('cpu')):
+def load_checkpoint(model_name, output_dir, model, optimizer=None, scheduler=None, device="cpu"):
     model_dir = f'{output_dir}/{model_name}'
     model_path = f'{model_dir}/{model_name}.pt'
     optimizer_path = f'{model_dir}/{model_name}_opt.pt'
@@ -134,14 +167,30 @@ def load_checkpoint(model_name, output_dir, model, optimizer=None, scheduler=Non
         if scheduler: output += (scheduler,)
     return output
 
-def allocate_dynamic_memory(model, bsz, min_len, max_len, device=torch.device('cpu')):
+def allocate_dynamic_memory(model, bsz, min_len, max_len, device="cpu"):
     """
     Allocate dynamic memory on the specified device.
     """
-    temp = torch.zeros(bsz, max_len, dtype=torch.long, device=device)
+    input_dim = getattr(model, 'input_dim', 1)
+    use_embedding = getattr(model, 'use_embedding', input_dim == 1)
+    if use_embedding and input_dim == 1:
+        shape = (bsz, max_len)
+    else:
+        shape = (bsz, max_len, input_dim)
+    temp = torch.zeros(shape, device=device)
+    
     torch._dynamo.mark_dynamic(temp, 1, min=min_len, max=max_len)
-    model = torch.compile(model, dynamic=True, backend="eager")
-    with torch.no_grad(): model(temp)
+    
+    backends = ["inductor", "aot_eager", "eager"]
+    for backend in backends:
+        try:
+            compiled_model = torch.compile(model, dynamic=True, backend=backend)
+            with torch.no_grad(): compiled_model(temp)
+            model = compiled_model
+            break
+        except:
+            pass
+    
     return model
 
 def try_to_float(dictionary):

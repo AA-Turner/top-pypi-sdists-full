@@ -59,7 +59,6 @@
         node_labels: {"release":"stable"}
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     enable_rbac: true
@@ -101,7 +100,6 @@
         node_labels: {"release":"stable"}
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     enable_rbac: true
@@ -126,7 +124,7 @@
     that:
       - "fact.aks | length == 1"
       - fact.aks[0].id == output.id
-      - fact.aks[0].agent_pool_profiles[0].availability_zones == ["1", "2"]
+      - fact.aks[0].agent_pool_profiles[0].availability_zones == ["2"]
       - fact.aks[0].agent_pool_profiles[0].mode == "System"
       - fact.aks[0].agent_pool_profiles[0].node_labels | length == 1
 
@@ -153,7 +151,6 @@
         node_labels: {"release":"stable", "environment":"dev"}
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     enable_rbac: true
@@ -212,7 +209,6 @@
         mode: System
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     enable_rbac: true
@@ -252,13 +248,13 @@
         mode: System
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     addon:
-      http_application_routing: {}
+      http_application_routing:
+        enabled: false
     network_profile:
-      network_plugin: kubenet
+      network_plugin: azure
       load_balancer_sku: standard
     enable_rbac: true
   register: output
@@ -268,9 +264,9 @@
     that:
       - output.changed
       - output.kubernetes_version == version1.azure_aks_versions[0]
-      - output.addon.httpApplicationRouting.enabled ==  True
+      - output.addon.httpApplicationRouting.enabled ==  False
       - output.agent_pool_profiles[0].count == 1
-      - output.network_profile.network_plugin == 'kubenet'
+      - output.network_profile.network_plugin == 'azure'
 
 - name: Upgrade the AKS instance with addon (idempontent)
   azure_rm_aks:
@@ -293,13 +289,13 @@
         mode: System
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     addon:
-      http_application_routing: {}
+      http_application_routing:
+        enabled: false
     network_profile:
-      network_plugin: kubenet
+      network_plugin: azure
       load_balancer_sku: standard
     enable_rbac: true
   register: output
@@ -334,7 +330,6 @@
         min_count: 1
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     enable_rbac: true
@@ -376,7 +371,6 @@
         min_count: 1
         max_pods: 42
         availability_zones:
-          - 1
           - 2
     node_resource_group: "node{{ noderpfx }}"
     enable_rbac: true
@@ -414,7 +408,6 @@
         min_count: 1
         max_pods: 42
         availability_zones:
-          - 1
           - 2
       - name: default2
         count: 1
@@ -462,7 +455,6 @@
         min_count: 1
         max_pods: 42
         availability_zones:
-          - 1
           - 2
       - name: default2
         count: 1
@@ -505,7 +497,6 @@
         min_count: 1
         max_pods: 42
         availability_zones:
-          - 1
           - 2
       - name: default2
         count: 1
@@ -553,7 +544,6 @@
         min_count: 1
         max_pods: 42
         availability_zones:
-          - 1
           - 2
       - name: default2
         count: 1

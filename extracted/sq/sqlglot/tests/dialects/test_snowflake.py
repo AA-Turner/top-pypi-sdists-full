@@ -287,6 +287,14 @@ class TestSnowflake(Validator):
             "CREATE TEMPORARY TABLE x (y DECIMAL(38, 0) AUTOINCREMENT START 0 INCREMENT 1)",
         )
         self.validate_identity(
+            "CREATE OR REPLACE TABLE x (y NUMBER(38, 0) NOT NULL AUTOINCREMENT START 1 INCREMENT 1 ORDER)",
+            "CREATE OR REPLACE TABLE x (y DECIMAL(38, 0) NOT NULL AUTOINCREMENT START 1 INCREMENT 1 ORDER)",
+        )
+        self.validate_identity(
+            "CREATE OR REPLACE TABLE x (y NUMBER(38, 0) NOT NULL AUTOINCREMENT START 1 INCREMENT 1 NOORDER)",
+            "CREATE OR REPLACE TABLE x (y DECIMAL(38, 0) NOT NULL AUTOINCREMENT START 1 INCREMENT 1 NOORDER)",
+        )
+        self.validate_identity(
             "CREATE TABLE x (y NUMBER IDENTITY START 0 INCREMENT 1)",
             "CREATE TABLE x (y DECIMAL(38, 0) AUTOINCREMENT START 0 INCREMENT 1)",
         )
@@ -326,12 +334,30 @@ class TestSnowflake(Validator):
         )
 
         self.validate_all(
+            "SELECT _u['foo'], bar, baz FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('foo', 'x', 'bars', ['y', 'z'], 'bazs', ['w'])])) AS _t0(seq, key, path, index, _u, this), TABLE(FLATTEN(INPUT => _u['bars'])) AS _t1(seq, key, path, index, bar, this), TABLE(FLATTEN(INPUT => _u['bazs'])) AS _t2(seq, key, path, index, baz, this)",
+            read={
+                "bigquery": "SELECT _u.foo, bar, baz FROM UNNEST([struct('x' AS foo, ['y', 'z'] AS bars, ['w'] AS bazs)]) AS _u, UNNEST(_u.bars) AS bar, UNNEST(_u.bazs) AS baz",
+            },
+        )
+        self.validate_all(
+            "SELECT _u, _u['foo'], _u['bar'] FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('foo', 'x', 'bar', 'y')])) AS _t0(seq, key, path, index, _u, this)",
+            read={
+                "bigquery": "select _u, _u.foo, _u.bar from unnest([struct('x' as foo, 'y' AS bar)]) as _u",
+            },
+        )
+        self.validate_all(
+            "SELECT _u['foo'][0].bar FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('foo', [OBJECT_CONSTRUCT('bar', 1)])])) AS _t0(seq, key, path, index, _u, this)",
+            read={
+                "bigquery": "select _u.foo[0].bar from unnest([struct([struct(1 as bar)] as foo)]) as _u",
+            },
+        )
+        self.validate_all(
             "SELECT ARRAY_INTERSECTION([1, 2], [2, 3])",
             write={
+                "snowflake": "SELECT ARRAY_INTERSECTION([1, 2], [2, 3])",
                 "starrocks": "SELECT ARRAY_INTERSECT([1, 2], [2, 3])",
             },
         )
-
         self.validate_all(
             "CREATE TABLE test_table (id NUMERIC NOT NULL AUTOINCREMENT)",
             write={
@@ -1106,6 +1132,17 @@ class TestSnowflake(Validator):
             write={
                 "snowflake": "SELECT ST_DISTANCE(a, b)",
                 "starrocks": "SELECT ST_DISTANCE_SPHERE(ST_X(a), ST_Y(a), ST_X(b), ST_Y(b))",
+            },
+        )
+
+        self.validate_all(
+            "SELECT DATE_PART(DAYOFWEEKISO, foo)",
+            read={
+                "snowflake": "SELECT DATE_PART(WEEKDAY_ISO, foo)",
+            },
+            write={
+                "snowflake": "SELECT DATE_PART(DAYOFWEEKISO, foo)",
+                "duckdb": "SELECT EXTRACT(ISODOW FROM foo)",
             },
         )
 

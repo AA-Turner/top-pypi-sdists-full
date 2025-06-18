@@ -17,7 +17,9 @@ from rich.prompt import Confirm
 from rich.table import Table
 
 import coiled
-from coiled.utils import get_temp_dir
+from coiled.core import _parse_gcp_creds
+from coiled.errors import ServerError
+from coiled.utils import get_temp_dir, parse_gcp_region_zone
 
 from ...auth import get_local_user
 from ..utils import CONTEXT_SETTINGS
@@ -415,6 +417,54 @@ def gcloud_wait_for_repo(region: str, key_path: str) -> bool:
     return success
 
 
+def wait_on_component_ready(*, route: str, component_name: str, create_json: dict, cloud: "coiled.Cloud") -> bool:
+    print(f"Waiting for {component_name.lower()} to be created (this may take a while)...")
+    try:
+        infra = cloud._sync_request(
+            route,
+            method="POST",
+            json=create_json,
+            json_result=True,
+        )
+        component = infra.get("component", {})
+        while component.get("state") != "created":
+            time.sleep(2)
+            infra = cloud._sync_request(
+                route,
+                method="GET",
+                json_result=True,
+            )
+            if isinstance(infra, list):
+                component = next(
+                    (
+                        inf.get("component", {})
+                        for inf in infra
+                        # Compare all non-list keys in create_json. We skip list keys,
+                        # because they can be different in the response (e.g., subnet CIDRs).
+                        if all(
+                            inf[key] == create_json[key] or isinstance(create_json[key], list) for key in create_json
+                        )
+                    ),
+                    {},
+                )
+            else:
+                component = infra.get("component", {})
+            if component.get("state") == "error":
+                reason = component.get("reason", "")
+                print(f"[red]Error creating {component_name.lower()}.\n{reason}[/red]")
+                setup_failure(
+                    f"{component_name} creation failed {reason}",
+                    backend="gcp",
+                )
+                return False
+    except ServerError as e:
+        print(f"[red]Error creating {component_name.lower()}: {e}[/red]")
+        setup_failure(f"{component_name} creation failed {e}", backend="gcp")
+        return False
+
+    return True
+
+
 @click.option(
     "--region",
     default="us-east1",
@@ -778,14 +828,88 @@ def do_setup(
                 )
 
             print("Setting up Coiled to use your Google Cloud account...")
-            coiled.set_backend_options(
-                backend="gcp",
-                registry_type="gar" if enable_gar else "ecr",
-                gcp_region=region,
-                gcp_service_creds_file=key_path,
-                instance_service_account=data_email,
-                account=account,
-            )
+            with coiled.Cloud(workspace=coiled_account) as cloud:
+                parsed_gcp_credentials = _parse_gcp_creds(
+                    gcp_service_creds_dict=None,
+                    gcp_service_creds_file=key_path,
+                )
+                gcp_region, gcp_zone = parse_gcp_region_zone(region=region)
+                # Set GCP credentials for the Coiled account
+                print("Sending GCP credentials to Coiled...")
+                cloud._sync_request(
+                    f"/api/v2/cloud-credentials/{coiled_account}/gcp",
+                    method="POST",
+                    json_result=True,
+                    handle_confirm=True,
+                    json={
+                        "credentials": parsed_gcp_credentials,
+                        "instance_service_account": data_email,
+                    },
+                )
+
+                # Update GCP account settings
+                print("Updating Coiled GCP account settings...")
+                cloud._sync_request(
+                    f"/api/v2/setup/account/{coiled_account}/gcp/settings",
+                    method="PATCH",
+                    json={
+                        "auto_setup": True,
+                        "give_workers_public_ip": True,
+                        "give_scheduler_public_ip": True,
+                        "scheduler_firewall": None,
+                        "custom_software_bucket_prefix": None,
+                        "use_self_hosted_bucket": None,
+                    },
+                    json_result=True,
+                )
+
+                # Abandon existing GCP infra if it exists
+                print("Cleaning up existing Coiled GCP infra (if any)...")
+                cloud._sync_request(
+                    f"/api/v2/setup/account/{coiled_account}/gcp",
+                    method="DELETE",
+                )
+                time.sleep(5)  # give it a moment to clean up
+
+                # Create global infrastructure
+                if not wait_on_component_ready(
+                    route=f"/api/v2/setup/account/{coiled_account}/gcp/global",
+                    component_name="Global Infrastructure",
+                    create_json={
+                        "managed": True,
+                        "network": None,
+                        "scheduler_network_tags": None,
+                        "cluster_network_tags": None,
+                    },
+                    cloud=cloud,
+                ):
+                    return False
+
+                # Create regional infrastructure
+                if not wait_on_component_ready(
+                    route=f"/api/v2/setup/account/{coiled_account}/gcp/regions",
+                    component_name="Regional Infrastructure",
+                    create_json={
+                        "default": True,
+                        "region": gcp_region,
+                        "managed": True,
+                        "subnets": [{"link": None, "name": None, "for_workers": True, "for_schedulers": True}],
+                    },
+                    cloud=cloud,
+                ):
+                    return False
+                print("Coiled account setup complete.")
+
+                # Set registry to GAR if enabled, otherwise ECR
+                cloud._sync_request(
+                    f"/api/v2/user/account/{coiled_account}/registry",
+                    method="POST",
+                    json_result=True,
+                    json={
+                        "type": "gar" if enable_gar else "ecr",
+                    },
+                )
+
             coiled.add_interaction(action="CoiledSetup", success=True)
 
             if got_existing_constraint and reset_to_constraint is not None:

@@ -125,6 +125,7 @@ from ..integrations.humanloop import HumanloopLogger
 from ..integrations.lago import LagoLogger
 from ..integrations.langfuse.langfuse import LangFuseLogger
 from ..integrations.langfuse.langfuse_handler import LangFuseHandler
+from ..integrations.langfuse.langfuse_otel import LangfuseOtelLogger
 from ..integrations.langfuse.langfuse_prompt_management import LangfusePromptManagement
 from ..integrations.langsmith import LangsmithLogger
 from ..integrations.literal_ai import LiteralAILogger
@@ -3146,6 +3147,30 @@ def _init_custom_logger_compatible_class(  # noqa: PLR0915
             langfuse_logger = LangfusePromptManagement()
             _in_memory_loggers.append(langfuse_logger)
             return langfuse_logger  # type: ignore
+        elif logging_integration == "langfuse_otel":
+            from litellm.integrations.opentelemetry import (
+                OpenTelemetry,
+                OpenTelemetryConfig,
+            )
+
+            langfuse_otel_config = LangfuseOtelLogger.get_langfuse_otel_config()
+            
+            # The endpoint and headers are now set as environment variables by get_langfuse_otel_config()
+            otel_config = OpenTelemetryConfig(
+                exporter=langfuse_otel_config.protocol,
+            )
+
+            for callback in _in_memory_loggers:
+                if (
+                    isinstance(callback, OpenTelemetry)
+                    and callback.callback_name == "langfuse_otel"
+                ):
+                    return callback  # type: ignore
+            _otel_logger = OpenTelemetry(
+                config=otel_config, callback_name="langfuse_otel"
+            )
+            _in_memory_loggers.append(_otel_logger)
+            return _otel_logger  # type: ignore
         elif logging_integration == "pagerduty":
             for callback in _in_memory_loggers:
                 if isinstance(callback, PagerDutyAlerting):
@@ -3519,6 +3544,7 @@ class StandardLoggingPayloadSetup:
             vector_store_request_metadata=vector_store_request_metadata,
             usage_object=usage_object,
             requester_custom_headers=None,
+            user_api_key_request_route=None,
         )
         if isinstance(metadata, dict):
             # Filter the metadata dictionary to include only the specified keys
@@ -3942,7 +3968,7 @@ def get_standard_logging_object_payload(
         if (
             kwargs.get("complete_streaming_response") is not None
             or kwargs.get("async_complete_streaming_response") is not None
-        ):
+        ) and kwargs.get("stream") is True:
             stream = True
 
         payload: StandardLoggingPayload = StandardLoggingPayload(
@@ -4044,6 +4070,7 @@ def get_standard_logging_metadata(
         vector_store_request_metadata=None,
         usage_object=None,
         requester_custom_headers=None,
+        user_api_key_request_route=None,
     )
     if isinstance(metadata, dict):
         # Filter the metadata dictionary to include only the specified keys

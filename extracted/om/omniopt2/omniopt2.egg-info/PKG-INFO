@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omniopt2
-Version: 7281
+Version: 7310
 Summary: Automatic highly parallelized hyperparameter optimizer based on Ax/Botorch
 Home-page: https://scads.ai/transfer-2/verfuegbare-software-dienste-en/omniopt/
 Author: Norman Koch
@@ -8,13 +8,14 @@ Author-email: norman.koch@tu-dresden.de
 Platform: Linux
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sqlalchemy<2.0
+Requires-Dist: pymysql
+Requires-Dist: sqlalchemy
 Requires-Dist: setuptools
 Requires-Dist: wheel
 Requires-Dist: multidict
 Requires-Dist: numpy
 Requires-Dist: python-dateutil
-Requires-Dist: ax-platform
+Requires-Dist: ax-platform[mysql]
 Requires-Dist: art
 Requires-Dist: tzlocal
 Requires-Dist: Rich
@@ -43,6 +44,7 @@ Requires-Dist: pyright
 Requires-Dist: qrcode
 Requires-Dist: tabulate
 Requires-Dist: optuna
+Requires-Dist: sqlalchemy
 Requires-Dist: shellcheck-py
 Requires-Dist: vulture
 Requires-Dist: flake8

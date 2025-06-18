@@ -22,7 +22,7 @@ from .helper import concat_chunks
 from ..cookies import get_cookies_dir
 from ..errors import ModelNotFoundError, ResponseError, MissingAuthError, NoValidHarFileError, PaymentRequiredError
 
-DEFAULT_TIMEOUT = 180
+DEFAULT_TIMEOUT = 600
 
 SAFE_PARAMETERS = [
     "model", "messages", "stream", "timeout",
@@ -35,7 +35,7 @@ SAFE_PARAMETERS = [
     "api_key", "api_base", "seed", "width", "height",
     "max_retries", "web_search",
     "guidance_scale", "num_inference_steps", "randomize_seed",
-    "safe", "enhance", "private", "aspect_ratio", "n",
+    "safe", "enhance", "private", "aspect_ratio", "n", "transparent"
 ]
 
 BASIC_PARAMETERS = {

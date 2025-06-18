@@ -84,9 +84,9 @@ P = typing_extensions.ParamSpec("P")
 
 R = typing.TypeVar("R")
 
-R_INNER = typing.TypeVar("R_INNER", covariant=True)
-
 P_INNER = typing_extensions.ParamSpec("P_INNER")
+
+R_INNER = typing.TypeVar("R_INNER", covariant=True)
 
 class CallableWrapper(typing.Generic[P, R]):
     """Abstract base class for generic types.
@@ -112,14 +112,14 @@ class CallableWrapper(typing.Generic[P, R]):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
-    class __func_spec(typing_extensions.Protocol[R_INNER, P_INNER, SUPERSELF]):
+    class __func_spec(typing_extensions.Protocol[P_INNER, R_INNER, SUPERSELF]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> R_INNER:
             ...
 
         async def aio(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> R_INNER:
             ...
 
-    func: __func_spec[R, P, typing_extensions.Self]
+    func: __func_spec[P, R, typing_extensions.Self]
 
 
 def wrap_callable(c: collections.abc.Callable[P, R]) -> CallableWrapper[P, R]:

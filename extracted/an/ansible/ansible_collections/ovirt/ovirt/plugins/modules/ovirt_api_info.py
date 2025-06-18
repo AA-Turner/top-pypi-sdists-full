@@ -11,8 +11,7 @@ DOCUMENTATION = '''
 module: ovirt_api_info
 short_description: Retrieve information about the oVirt/RHV API
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about the oVirt/RHV API."
     - This module was called C(ovirt_api_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -27,6 +26,7 @@ options:
       version_added: 1.5.0
       elements: str
       aliases: ['follows']
+      default: []
 notes:
     - "This module returns a variable C(ovirt_api),
        which contains a information about oVirt/RHV API. You need to register the result with

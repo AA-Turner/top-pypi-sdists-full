@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_environment_addons_config`
 
-Refer to the Terraform Registry for docs: [`google_apigee_environment_addons_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config).
+Refer to the Terraform Registry for docs: [`google_apigee_environment_addons_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleApigeeEnvironmentAddonsConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleApigeeEnvironmentAddonsConfig.GoogleApigeeEnvironmentAddonsConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config google_apigee_environment_addons_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config google_apigee_environment_addons_config}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GoogleApigeeEnvironmentAddonsConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config google_apigee_environment_addons_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config google_apigee_environment_addons_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#env_id GoogleApigeeEnvironmentAddonsConfig#env_id}
-        :param analytics_enabled: Flag to enable/disable Analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#analytics_enabled GoogleApigeeEnvironmentAddonsConfig#analytics_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#id GoogleApigeeEnvironmentAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#timeouts GoogleApigeeEnvironmentAddonsConfig#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#env_id GoogleApigeeEnvironmentAddonsConfig#env_id}
+        :param analytics_enabled: Flag to enable/disable Analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#analytics_enabled GoogleApigeeEnvironmentAddonsConfig#analytics_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#id GoogleApigeeEnvironmentAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#timeouts GoogleApigeeEnvironmentAddonsConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GoogleApigeeEnvironmentAddonsConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleApigeeEnvironmentAddonsConfig to import.
-        :param import_from_id: The id of the existing GoogleApigeeEnvironmentAddonsConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleApigeeEnvironmentAddonsConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleApigeeEnvironmentAddonsConfig to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class GoogleApigeeEnvironmentAddonsConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#create GoogleApigeeEnvironmentAddonsConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#delete GoogleApigeeEnvironmentAddonsConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#update GoogleApigeeEnvironmentAddonsConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#create GoogleApigeeEnvironmentAddonsConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#delete GoogleApigeeEnvironmentAddonsConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#update GoogleApigeeEnvironmentAddonsConfig#update}.
         '''
         value = GoogleApigeeEnvironmentAddonsConfigTimeouts(
             create=create, delete=delete, update=update
@@ -279,10 +279,10 @@ class GoogleApigeeEnvironmentAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#env_id GoogleApigeeEnvironmentAddonsConfig#env_id}
-        :param analytics_enabled: Flag to enable/disable Analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#analytics_enabled GoogleApigeeEnvironmentAddonsConfig#analytics_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#id GoogleApigeeEnvironmentAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#timeouts GoogleApigeeEnvironmentAddonsConfig#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#env_id GoogleApigeeEnvironmentAddonsConfig#env_id}
+        :param analytics_enabled: Flag to enable/disable Analytics. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#analytics_enabled GoogleApigeeEnvironmentAddonsConfig#analytics_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#id GoogleApigeeEnvironmentAddonsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#timeouts GoogleApigeeEnvironmentAddonsConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -393,7 +393,7 @@ class GoogleApigeeEnvironmentAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArg
     def env_id(self) -> builtins.str:
         '''The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#env_id GoogleApigeeEnvironmentAddonsConfig#env_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#env_id GoogleApigeeEnvironmentAddonsConfig#env_id}
         '''
         result = self._values.get("env_id")
         assert result is not None, "Required property 'env_id' is missing"
@@ -405,14 +405,14 @@ class GoogleApigeeEnvironmentAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag to enable/disable Analytics.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#analytics_enabled GoogleApigeeEnvironmentAddonsConfig#analytics_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#analytics_enabled GoogleApigeeEnvironmentAddonsConfig#analytics_enabled}
         '''
         result = self._values.get("analytics_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#id GoogleApigeeEnvironmentAddonsConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#id GoogleApigeeEnvironmentAddonsConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -426,7 +426,7 @@ class GoogleApigeeEnvironmentAddonsConfigConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional["GoogleApigeeEnvironmentAddonsConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#timeouts GoogleApigeeEnvironmentAddonsConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#timeouts GoogleApigeeEnvironmentAddonsConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleApigeeEnvironmentAddonsConfigTimeouts"], result)
@@ -457,9 +457,9 @@ class GoogleApigeeEnvironmentAddonsConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#create GoogleApigeeEnvironmentAddonsConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#delete GoogleApigeeEnvironmentAddonsConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#update GoogleApigeeEnvironmentAddonsConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#create GoogleApigeeEnvironmentAddonsConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#delete GoogleApigeeEnvironmentAddonsConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#update GoogleApigeeEnvironmentAddonsConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53dcf53e99a9b1825ba3db24ad326c24a8bdf96020d2b69eede8d048faa11ace)
@@ -476,19 +476,19 @@ class GoogleApigeeEnvironmentAddonsConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#create GoogleApigeeEnvironmentAddonsConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#create GoogleApigeeEnvironmentAddonsConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#delete GoogleApigeeEnvironmentAddonsConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#delete GoogleApigeeEnvironmentAddonsConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_apigee_environment_addons_config#update GoogleApigeeEnvironmentAddonsConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_apigee_environment_addons_config#update GoogleApigeeEnvironmentAddonsConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

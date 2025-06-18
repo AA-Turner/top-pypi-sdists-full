@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blacksheep
-Version: 2.3.1
+Version: 2.3.2
 Summary: Fast web framework for Python asyncio
 Author-email: Roberto Prevato <roberto.prevato@gmail.com>
 License: MIT License
@@ -128,8 +128,8 @@ it is recommended to install `httptools`.
 
 > [!TIP]
 >
-> The best performance can be achieved using `PyPy` and
-> [`Socketify`](https://docs.socketify.dev/cli.html) (see
+> The best performance can be achieved using `PyPy` runtime, and
+> [`Socketify`](https://docs.socketify.dev/cli.html) or [`Granian`](https://github.com/emmett-framework/granian), (see
 > [#539](https://github.com/Neoteroi/BlackSheep/issues/539) for more information).
 
 ## Getting started with the documentation
@@ -161,9 +161,10 @@ classifiers. The current list is:
 
 BlackSheep belongs to the category of
 [ASGI](https://asgi.readthedocs.io/en/latest/) web frameworks, so it requires
-an ASGI HTTP server to run, such as [uvicorn](http://www.uvicorn.org/), or
-[hypercorn](https://pgjones.gitlab.io/hypercorn/). For example, to use it with
-uvicorn:
+an ASGI HTTP server to run, such as [uvicorn](https://www.uvicorn.org/),
+[hypercorn](https://pgjones.gitlab.io/hypercorn/) or
+[granian](https://github.com/emmett-framework/granian).
+For example, to use it with uvicorn:
 
 ```bash
 $ pip install uvicorn

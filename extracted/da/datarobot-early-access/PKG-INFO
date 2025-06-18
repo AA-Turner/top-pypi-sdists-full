@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: datarobot_early_access
-Version: 3.8.0.2025.6.9
+Version: 3.8.0.2025.6.17
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -32,6 +32,8 @@ Provides-Extra: docs
 Provides-Extra: images
 Provides-Extra: test
 Provides-Extra: databricks
+Provides-Extra: auth
+Provides-Extra: auth-authlib
 License-File: LICENSE.txt
 
 
@@ -81,6 +83,23 @@ Alternatively environment variables can be used.
    export DATAROBOT_ENDPOINT='https://app.datarobot.com/api/v2'
 
 See `documentation`_ for example usage after configuring.
+
+Extra
+=========================
+
+datarobot_early_access has the following optional groups:
+
+- `auth` (requires Python 3.9+): Provides an abstraction to handle OAuth2 authentication with DataRobot API (11.1+).
+    This can be used in DataRobot Custom Applications and on its own.
+- `auth-authlib` (requires Python 3.9+): OAuth2 authentication handling via Authlib.
+    This can be used in DataRobot Custom Applications and on its own.
+
+You can install these optional groups by specifying them in the pip command, for example:
+
+::
+
+    $ pip install datarobot_early_access[auth]
+
 
 Helpful links
 =========================

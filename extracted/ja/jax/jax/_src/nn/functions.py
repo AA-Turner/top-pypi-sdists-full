@@ -633,12 +633,38 @@ def _softmax_deprecated(
 
 @partial(jax.jit, static_argnames=("axis",))
 def standardize(x: ArrayLike,
-              axis: int | tuple[int, ...] | None = -1,
-              mean: ArrayLike | None = None,
-              variance: ArrayLike | None = None,
-              epsilon: ArrayLike = 1e-5,
-              where: ArrayLike | None = None) -> Array:
-  r"""Normalizes an array by subtracting ``mean`` and dividing by :math:`\sqrt{\mathrm{variance}}`."""
+                axis: int | tuple[int, ...] | None = -1,
+                mean: ArrayLike | None = None,
+                variance: ArrayLike | None = None,
+                epsilon: ArrayLike = 1e-5,
+                where: ArrayLike | None = None) -> Array:
+  r"""Standardizes input to zero mean and unit variance.
+
+  The standardization is given by:
+
+  .. math::
+
+     x_{std} = \frac{x - \langle x\rangle}{\sqrt{\langle(x - \langle x\rangle)^2\rangle + \epsilon}}
+
+  where :math:`\langle x\rangle` indicates the mean of :math:`x`, and :math:`\epsilon` is
+  a small correction factor introduced to avoid division by zero.
+
+  Args:
+    x: input array to be standardized.
+    axis: integer or tuple of integers representing the axes along which
+      to standardize. Defaults to the last axis (``-1``).
+    mean: optionally specify the mean used for standardization. If not specified,
+      then ``x.mean(axis, where=where)`` will be used.
+    variance: optionally specify the variance used for standardization. If not
+      specified, then ``x.var(axis, where=where)`` will be used.
+    epsilon: correction factor added to variance to avoid division by zero; defaults
+      to ``1E-5``.
+    where: optional boolean mask specifying which elements to use when computing
+      the mean and variance.
+
+  Returns:
+    An array of the same shape as ``x`` containing the standardized input.
+  """
   numpy_util.check_arraylike("standardize", x)
   numpy_util.check_arraylike_or_none("standardize", mean, variance, where)
   if mean is None:
@@ -1077,7 +1103,7 @@ def dot_product_attention(
       token's local window. If set, this specifies the (left_window_size,
       right_window_size) for each token. E.g., if local_window_size == (3, 2)
       and the sequence is [0, 1, 2, 3, 4, 5, c, 7, 8, 9], token `c` can attend
-      to [3, 4, 5, c, 7, 8]. If a single int is given, it will be intepreted as
+      to [3, 4, 5, c, 7, 8]. If a single int is given, it will be interpreted as
       a symmetric window (window_size, window_size).
     implementation: A string to control which implementation backend to use.
       Supported strings are `xla`, `cudnn` (cuDNN flash attention). It defaults

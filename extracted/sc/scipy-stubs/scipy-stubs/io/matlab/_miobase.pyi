@@ -5,9 +5,10 @@ from typing import IO, Final, Literal, Protocol, TypeVar, type_check_only
 import numpy as np
 import numpy.typing as npt
 import optype.numpy as onp
+
 from scipy._typing import ByteOrder, FileName
 
-__all__ = ["MatReadError", "MatReadWarning", "MatWriteError"]
+__all__ = ["MatReadError", "MatReadWarning", "MatWriteError", "MatWriteWarning"]
 
 _FT = TypeVar("_FT", bound=Callable[..., object])
 
@@ -23,6 +24,7 @@ docfiller: Final[_Decorator] = ...
 class MatReadError(Exception): ...
 class MatWriteError(Exception): ...
 class MatReadWarning(UserWarning): ...
+class MatWriteWarning(UserWarning): ...
 
 class MatVarReader:
     def __init__(self, /, file_reader: MatFileReader) -> None: ...

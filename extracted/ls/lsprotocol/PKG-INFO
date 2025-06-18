@@ -1,15 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lsprotocol
-Version: 2023.0.1
-Summary: Python implementation of the Language Server Protocol.
+Version: 2025.0.0
+Summary: Python types for Language Server Protocol.
 Author-email: Microsoft Corporation <lsprotocol-help@microsoft.com>
 Maintainer-email: Brett Cannon <brett@python.org>, Karthik Nadig <kanadig@microsoft.com>
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -17,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: cattrs!=23.2.1
 Project-URL: Issues, https://github.com/microsoft/lsprotocol/issues
@@ -24,7 +24,7 @@ Project-URL: Source, https://github.com/microsoft/lsprotocol
 
 # Language Server Protocol Types implementation for Python
 
-`lsprotocol` is a python implementation of object types used in the Language Server Protocol (LSP). This repository contains the code generator and the generated types for LSP.
+`lsprotocol` is a Python implementation of object types used in the Language Server Protocol (LSP). This repository contains the code generator and the generated types for LSP.
 
 ## Overview
 

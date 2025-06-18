@@ -1,4 +1,3 @@
-import os
 import pendulum
 from weread2notionpro.notion_helper import NotionHelper
 from weread2notionpro.weread_api import WeReadApi
@@ -56,6 +55,7 @@ def insert_book_to_notion(books, index, bookId):
     cover = book.get("cover").replace("/s_", "/t7_")
     if not cover or not cover.strip() or not cover.startswith("http"):
         cover = BOOK_ICON_URL
+    book["封面"] = cover
     if bookId not in notion_books:
         book["书名"] = book.get("title")
         book["BookId"] = book.get("bookId")
@@ -81,7 +81,6 @@ def insert_book_to_notion(books, index, bookId):
             properties,
             pendulum.from_timestamp(book.get("时间"), tz="Asia/Shanghai"),
         )
-    book["封面"] = book.get("cover")
     print(
         f"正在插入《{book.get('title')}》,一共{len(books)}本，当前是第{index+1}本。"
     )

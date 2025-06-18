@@ -1,7 +1,7 @@
 r'''
 # `google_backup_dr_management_server`
 
-Refer to the Terraform Registry for docs: [`google_backup_dr_management_server`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server).
+Refer to the Terraform Registry for docs: [`google_backup_dr_management_server`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleBackupDrManagementServer(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleBackupDrManagementServer.GoogleBackupDrManagementServer",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server google_backup_dr_management_server}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server google_backup_dr_management_server}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleBackupDrManagementServer(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server google_backup_dr_management_server} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server google_backup_dr_management_server} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#location GoogleBackupDrManagementServer#location}
-        :param name: The name of management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#name GoogleBackupDrManagementServer#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#id GoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#networks GoogleBackupDrManagementServer#networks}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#project GoogleBackupDrManagementServer#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#timeouts GoogleBackupDrManagementServer#timeouts}
-        :param type: The type of management server (management console). Default value: "BACKUP_RESTORE" Possible values: ["BACKUP_RESTORE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#type GoogleBackupDrManagementServer#type}
+        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#location GoogleBackupDrManagementServer#location}
+        :param name: The name of management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#name GoogleBackupDrManagementServer#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#id GoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#networks GoogleBackupDrManagementServer#networks}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#project GoogleBackupDrManagementServer#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#timeouts GoogleBackupDrManagementServer#timeouts}
+        :param type: The type of management server (management console). Default value: "BACKUP_RESTORE" Possible values: ["BACKUP_RESTORE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#type GoogleBackupDrManagementServer#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleBackupDrManagementServer(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleBackupDrManagementServer to import.
-        :param import_from_id: The id of the existing GoogleBackupDrManagementServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleBackupDrManagementServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleBackupDrManagementServer to import is found.
         '''
         if __debug__:
@@ -153,8 +153,8 @@ class GoogleBackupDrManagementServer(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#create GoogleBackupDrManagementServer#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#delete GoogleBackupDrManagementServer#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#create GoogleBackupDrManagementServer#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#delete GoogleBackupDrManagementServer#delete}.
         '''
         value = GoogleBackupDrManagementServerTimeouts(create=create, delete=delete)
 
@@ -360,13 +360,13 @@ class GoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#location GoogleBackupDrManagementServer#location}
-        :param name: The name of management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#name GoogleBackupDrManagementServer#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#id GoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#networks GoogleBackupDrManagementServer#networks}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#project GoogleBackupDrManagementServer#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#timeouts GoogleBackupDrManagementServer#timeouts}
-        :param type: The type of management server (management console). Default value: "BACKUP_RESTORE" Possible values: ["BACKUP_RESTORE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#type GoogleBackupDrManagementServer#type}
+        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#location GoogleBackupDrManagementServer#location}
+        :param name: The name of management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#name GoogleBackupDrManagementServer#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#id GoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#networks GoogleBackupDrManagementServer#networks}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#project GoogleBackupDrManagementServer#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#timeouts GoogleBackupDrManagementServer#timeouts}
+        :param type: The type of management server (management console). Default value: "BACKUP_RESTORE" Possible values: ["BACKUP_RESTORE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#type GoogleBackupDrManagementServer#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -485,7 +485,7 @@ class GoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def location(self) -> builtins.str:
         '''The location for the management server (management console).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#location GoogleBackupDrManagementServer#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#location GoogleBackupDrManagementServer#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -495,7 +495,7 @@ class GoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def name(self) -> builtins.str:
         '''The name of management server (management console).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#name GoogleBackupDrManagementServer#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#name GoogleBackupDrManagementServer#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -503,7 +503,7 @@ class GoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#id GoogleBackupDrManagementServer#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#id GoogleBackupDrManagementServer#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -517,14 +517,14 @@ class GoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBackupDrManagementServerNetworks"]]]:
         '''networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#networks GoogleBackupDrManagementServer#networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#networks GoogleBackupDrManagementServer#networks}
         '''
         result = self._values.get("networks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBackupDrManagementServerNetworks"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#project GoogleBackupDrManagementServer#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#project GoogleBackupDrManagementServer#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -532,7 +532,7 @@ class GoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleBackupDrManagementServerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#timeouts GoogleBackupDrManagementServer#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#timeouts GoogleBackupDrManagementServer#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleBackupDrManagementServerTimeouts"], result)
@@ -541,7 +541,7 @@ class GoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of management server (management console). Default value: "BACKUP_RESTORE" Possible values: ["BACKUP_RESTORE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#type GoogleBackupDrManagementServer#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#type GoogleBackupDrManagementServer#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -722,8 +722,8 @@ class GoogleBackupDrManagementServerNetworks:
         peering_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param network: Network with format 'projects/{{project_id}}/global/networks/{{network_id}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#network GoogleBackupDrManagementServer#network}
-        :param peering_mode: Type of Network peeringMode Default value: "PRIVATE_SERVICE_ACCESS" Possible values: ["PRIVATE_SERVICE_ACCESS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#peering_mode GoogleBackupDrManagementServer#peering_mode}
+        :param network: Network with format 'projects/{{project_id}}/global/networks/{{network_id}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#network GoogleBackupDrManagementServer#network}
+        :param peering_mode: Type of Network peeringMode Default value: "PRIVATE_SERVICE_ACCESS" Possible values: ["PRIVATE_SERVICE_ACCESS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#peering_mode GoogleBackupDrManagementServer#peering_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11de02e91990f4c00e78ffb1265656016ce2ac5701c3955c3a57197f7b0c5cff)
@@ -739,7 +739,7 @@ class GoogleBackupDrManagementServerNetworks:
     def network(self) -> builtins.str:
         '''Network with format 'projects/{{project_id}}/global/networks/{{network_id}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#network GoogleBackupDrManagementServer#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#network GoogleBackupDrManagementServer#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -749,7 +749,7 @@ class GoogleBackupDrManagementServerNetworks:
     def peering_mode(self) -> typing.Optional[builtins.str]:
         '''Type of Network peeringMode Default value: "PRIVATE_SERVICE_ACCESS" Possible values: ["PRIVATE_SERVICE_ACCESS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#peering_mode GoogleBackupDrManagementServer#peering_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#peering_mode GoogleBackupDrManagementServer#peering_mode}
         '''
         result = self._values.get("peering_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -954,8 +954,8 @@ class GoogleBackupDrManagementServerTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#create GoogleBackupDrManagementServer#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#delete GoogleBackupDrManagementServer#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#create GoogleBackupDrManagementServer#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#delete GoogleBackupDrManagementServer#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fca37a4db949f59a5fe2030e1ad8feed9cf6f28845f14668b8d9400933c54ce1)
@@ -969,13 +969,13 @@ class GoogleBackupDrManagementServerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#create GoogleBackupDrManagementServer#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#create GoogleBackupDrManagementServer#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_backup_dr_management_server#delete GoogleBackupDrManagementServer#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_backup_dr_management_server#delete GoogleBackupDrManagementServer#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

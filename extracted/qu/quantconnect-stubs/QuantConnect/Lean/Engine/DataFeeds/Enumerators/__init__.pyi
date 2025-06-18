@@ -57,6 +57,19 @@ class StrictDailyEndTimesEnumerator(System.Object, System.Collections.Generic.IE
         ...
 
 
+class LastPointTracker(System.Object):
+    """Tracks the last data point received by an enumerator."""
+
+    @property
+    def last_data_point(self) -> QuantConnect.Data.BaseData:
+        """Tracks the last data point received by the enumerator."""
+        ...
+
+    @last_data_point.setter
+    def last_data_point(self, value: QuantConnect.Data.BaseData) -> None:
+        ...
+
+
 class EnqueueableEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_EnqueueableEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_EnqueueableEnumerator_T]):
     """
     An implementation of IEnumerator{T} that relies on the
@@ -733,7 +746,7 @@ class FillForwardEnumerator(System.Object, System.Collections.Generic.IEnumerato
         """Gets the element in the collection at the current position of the enumerator."""
         ...
 
-    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], exchange: QuantConnect.Securities.SecurityExchange, fill_forward_resolution: QuantConnect.Util.IReadOnlyRef[datetime.timedelta], is_extended_market_hours: bool, subscription_end_time: typing.Union[datetime.datetime, datetime.date], data_resolution: datetime.timedelta, data_time_zone: typing.Any, daily_strict_end_time_enabled: bool, data_type: typing.Type = None) -> None:
+    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], exchange: QuantConnect.Securities.SecurityExchange, fill_forward_resolution: QuantConnect.Util.IReadOnlyRef[datetime.timedelta], is_extended_market_hours: bool, subscription_start_time: typing.Union[datetime.datetime, datetime.date], subscription_end_time: typing.Union[datetime.datetime, datetime.date], data_resolution: datetime.timedelta, data_time_zone: typing.Any, daily_strict_end_time_enabled: bool, data_type: typing.Type = None, last_point_tracker: QuantConnect.Lean.Engine.DataFeeds.Enumerators.LastPointTracker = None) -> None:
         """
         Initializes a new instance of the FillForwardEnumerator class that accepts
         a reference to the fill forward resolution, useful if the fill forward resolution is dynamic
@@ -743,11 +756,13 @@ class FillForwardEnumerator(System.Object, System.Collections.Generic.IEnumerato
         :param exchange: The exchange used to determine when to insert fill forward data
         :param fill_forward_resolution: The resolution we'd like to receive data on
         :param is_extended_market_hours: True to use the exchange's extended market hours, false to use the regular market hours
+        :param subscription_start_time: The start time of the subscription
         :param subscription_end_time: The end time of the subscription, once passing this date the enumerator will stop
         :param data_resolution: The source enumerator's data resolution
         :param data_time_zone: The time zone of the underlying source data. This is used for rounding calculations and is NOT the time zone on the BaseData instances (unless of course data time zone equals the exchange time zone)
         :param daily_strict_end_time_enabled: True if daily strict end times are enabled
         :param data_type: The configuration data type this enumerator is for
+        :param last_point_tracker: A reference to the last point emitted before this enumerator is first enumerated
         """
         ...
 
@@ -787,7 +802,7 @@ class LiveFillForwardEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.F
     to determine if a fill forward bar needs to be emitted
     """
 
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], exchange: QuantConnect.Securities.SecurityExchange, fill_forward_resolution: QuantConnect.Util.IReadOnlyRef[datetime.timedelta], is_extended_market_hours: bool, subscription_end_time: typing.Union[datetime.datetime, datetime.date], data_resolution: QuantConnect.Resolution, data_time_zone: typing.Any, daily_strict_end_time_enabled: bool, data_type: typing.Type = None) -> None:
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], exchange: QuantConnect.Securities.SecurityExchange, fill_forward_resolution: QuantConnect.Util.IReadOnlyRef[datetime.timedelta], is_extended_market_hours: bool, subscription_start_time: typing.Union[datetime.datetime, datetime.date], subscription_end_time: typing.Union[datetime.datetime, datetime.date], data_resolution: QuantConnect.Resolution, data_time_zone: typing.Any, daily_strict_end_time_enabled: bool, data_type: typing.Type = None, last_point_tracker: QuantConnect.Lean.Engine.DataFeeds.Enumerators.LastPointTracker = None) -> None:
         """
         Initializes a new instance of the LiveFillForwardEnumerator class that accepts
         a reference to the fill forward resolution, useful if the fill forward resolution is dynamic
@@ -798,11 +813,13 @@ class LiveFillForwardEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.F
         :param exchange: The exchange used to determine when to insert fill forward data
         :param fill_forward_resolution: The resolution we'd like to receive data on
         :param is_extended_market_hours: True to use the exchange's extended market hours, false to use the regular market hours
+        :param subscription_start_time: The start time of the subscription
         :param subscription_end_time: The end time of the subscription, once passing this date the enumerator will stop
         :param data_resolution: The source enumerator's data resolution
         :param data_time_zone: Time zone of the underlying source data
         :param daily_strict_end_time_enabled: True if daily strict end times are enabled
         :param data_type: The configuration data type this enumerator is for
+        :param last_point_tracker: A reference to the last point emitted before this enumerator is first enumerated
         """
         ...
 

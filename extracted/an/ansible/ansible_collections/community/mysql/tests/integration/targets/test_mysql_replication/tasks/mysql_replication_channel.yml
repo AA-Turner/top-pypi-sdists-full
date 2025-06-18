@@ -75,7 +75,7 @@
     - assert:
         that:
           - result is changed
-          - result.queries == result_query or result_query2
+          - result.queries in [result_query, result_query2]
       vars:
         result_query: ["START SLAVE FOR CHANNEL '{{ test_channel }}'"]
         result_query2: ["START REPLICA FOR CHANNEL '{{ test_channel }}'"]

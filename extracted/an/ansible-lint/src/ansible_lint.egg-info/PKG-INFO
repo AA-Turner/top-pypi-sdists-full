@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: ansible-lint
-Version: 25.5.0
+Version: 25.6.0
 Summary: Checks playbooks for practices and behavior that could potentially be improved
 Author-email: Will Thames <will@thames.id.au>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
-License: GPLv3+
+License-Expression: GPL-3.0-or-later
 Project-URL: changelog, https://github.com/ansible/ansible-lint/releases
 Project-URL: documentation, https://ansible.readthedocs.io/projects/lint/
 Project-URL: homepage, https://github.com/ansible/ansible-lint
@@ -15,10 +15,8 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -42,7 +40,7 @@ Requires-Dist: jsonschema>=4.10.0
 Requires-Dist: packaging>=22.0
 Requires-Dist: pathspec>=0.10.3
 Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: ruamel.yaml!=0.18.7,!=0.18.8,>=0.18.5
+Requires-Dist: ruamel.yaml>=0.18.11
 Requires-Dist: referencing>=0.36.2
 Requires-Dist: subprocess-tee>=0.4.1
 Requires-Dist: yamllint>=1.34.0
@@ -70,7 +68,7 @@ Requires-Dist: pytest-plus>=0.6; extra == "test"
 Requires-Dist: pytest-sugar; extra == "test"
 Requires-Dist: pytest-xdist[psutil,setproctitle]>=2.1.0; extra == "test"
 Requires-Dist: ruamel-yaml-clib; extra == "test"
-Requires-Dist: ruamel.yaml>=0.17.31; extra == "test"
+Requires-Dist: ruamel.yaml>=0.18.11; extra == "test"
 Requires-Dist: tox>=4.0.0; extra == "test"
 Requires-Dist: tox-extra>=2.1; extra == "test"
 Requires-Dist: tox-uv>=1.25; extra == "test"

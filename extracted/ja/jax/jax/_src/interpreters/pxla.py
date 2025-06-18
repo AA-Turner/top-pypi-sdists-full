@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import enum
 import collections
 from collections import namedtuple
 from collections.abc import Callable, Sequence, Iterable
@@ -30,9 +29,8 @@ import warnings
 
 import numpy as np
 
-import jax
-
 from jax._src import api
+from jax._src import array
 from jax._src import compiler
 from jax._src import config
 from jax._src import core
@@ -42,11 +40,13 @@ from jax._src import effects
 from jax._src import linear_util as lu
 from jax._src import op_shardings
 from jax._src import sharding_specs
+from jax._src import pjit
 from jax._src import profiler
 from jax._src import sharding_impls
 from jax._src import source_info_util
 from jax._src import stages
 from jax._src import tree_util
+from jax._src import typing
 from jax._src import util
 from jax._src import xla_bridge as xb
 from jax._src.abstract_arrays import array_types
@@ -57,7 +57,7 @@ from jax._src.interpreters import batching
 from jax._src.interpreters import partial_eval as pe
 from jax._src.interpreters import mlir
 from jax._src.interpreters import xla
-from jax._src.layout import DeviceLocalLayout, AutoLayout, Layout
+from jax._src.layout import DeviceLocalLayout, AutoLayout, Format
 from jax._src.lib import xla_client as xc
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import hlo
@@ -155,7 +155,7 @@ def shard_args(shardings: Sequence[JSharding], layouts, copy_semantics,
   # from each call in the same order as `args`. Since `batches` is grouped by
   # types, we cannot simply flatten the results and we have to use the original
   # indices to put each array back to its original position.
-  results: list[jax.Array | None] = [None] * len(args)
+  results: list[typing.Array | None] = [None] * len(args)
   for t, (indices, a, s, l, cs) in batches.items():
     outs = shard_arg_handlers[t](a, s, l, cs)
     for i, out in safe_zip(indices, outs):
@@ -209,7 +209,7 @@ def _shard_np_array(xs, shardings, layouts, copy_semantics):
       x = np.zeros(x.shape, dtype=np.dtype(bool))
     aval = core.shaped_abstractify(x)
     if layout is not None:
-      results.append(api.device_put(x, Layout(layout, sharding)))
+      results.append(api.device_put(x, Format(layout, sharding)))
     else:
       if sharding.is_fully_replicated:
         shards = [x] * len(devices)
@@ -231,11 +231,9 @@ shard_arg_handlers[core.MutableArray] = _shard_mutable_array
 
 def batched_device_put(aval: core.ShapedArray,
                        sharding: JSharding, xs: Sequence[Any],
-                       devices: Sequence[jax.Device], committed: bool = True):
+                       devices: Sequence[xc.Device], committed: bool = True):
   util.test_event("batched_device_put_start")
   try:
-    from jax._src import array
-
     bufs = [x for x, d in safe_zip(xs, devices)
             if (isinstance(x, array.ArrayImpl) and
                 dispatch.is_single_device_sharding(x.sharding) and
@@ -386,7 +384,6 @@ def _emap_impl(fun: lu.WrappedFun, *args,
                donated_invars: Sequence[bool],
                is_explicit_global_axis_size: bool,
                ):
-  from jax._src import array
   # TODO(sharadmv,mattjj): implement these cases
   if any(d for d in donated_invars):
     raise NotImplementedError("Buffer donation not supported in eager pmap.")
@@ -411,12 +408,12 @@ def _emap_impl(fun: lu.WrappedFun, *args,
   donate_argnums = (1,) if platform in {"cuda", "rocm", "tpu"} else ()
   new_outvals = []
   for out_axis_src, out_axis, outval in zip(out_axes_src, out_axes, outvals):
-    with jax.disable_jit(False):
+    with api.disable_jit(False):
       donate_argnums_ = donate_argnums
       if isinstance(outval, array.ArrayImpl):
         # We don't want to donate if it's already sharded.
         donate_argnums_ = ()
-      out = jax.pmap(
+      out = api.pmap(
           lambda _, x: x,
           in_axes=(0, out_axis_src.get(axis_name)),
           out_axes=out_axis,
@@ -449,7 +446,7 @@ def _multi_pmap(f: Callable, info: EmapInfo, names: list[core.AxisName],
   for i, name in reversed(list(enumerate(names))):
     in_axes = tuple(arg_axis[i] for arg_axis in all_axes)
     if any(in_axis is not None for in_axis in in_axes):
-      f = jax.pmap(
+      f = api.pmap(
           f,
           in_axes=in_axes,
           axis_name=name,
@@ -477,11 +474,12 @@ class MapTrace(core.Trace):
       return MapTracer(self, val, {})
 
   def process_primitive(self, primitive, tracers, params):
-    if primitive is jax._src.lax.parallel.axis_index_p:
-      return self.process_axis_index(**params)
-    if primitive is jax._src.lax.parallel.psum_p:
+    from jax._src.lax import parallel  # pytype: disable=import-error
+    if primitive is parallel.axis_index_p:
+      return self.process_axis_index(**params)  # pytype: disable=missing-parameter
+    if primitive is parallel.psum_p:
       f = HashableFunction(
-          lambda *xs: jax._src.lax.parallel.psum(
+          lambda *xs: parallel.psum(
             xs, axis_name=params['axes'], axis_index_groups=params['axis_index_groups']),
           (primitive, tuple(params.items())))
     else:
@@ -493,7 +491,7 @@ class MapTrace(core.Trace):
     names = core.get_axis_env().axis_names()
     all_axes = tuple(_map_schedule(map(s.get, names)) for s in shard_axes)  # pytype: disable=wrong-arg-types  # always-use-return-annotations
     f_mapped, out_shard_axes = _multi_pmap(f, self.emap_info, names, all_axes)
-    with core.eval_context(), jax.disable_jit(False):
+    with core.eval_context(), api.disable_jit(False):
       outvals = f_mapped(*vals)
     if primitive.multiple_results:
       return [MapTracer(self, val, out_shard_axes) for val in outvals]
@@ -547,11 +545,12 @@ class MapTrace(core.Trace):
       return fun.call_wrapped(*tracers)
 
   def process_axis_index(self, axis_name):
+    from jax._src.lax import lax, parallel  # pytype: disable=import-error
     bind = HashableFunction(
-        lambda _: jax.lax.axis_index(axis_name),
-        (jax.lax.axis_index, axis_name))
+        lambda _: parallel.axis_index(axis_name),
+        (parallel.axis_index, axis_name))
     fake_primitive = FakePrimitive(multiple_results=False, bind=bind)
-    range = jax.lax.iota(np.int32, core.get_axis_env().axis_size(axis_name))
+    range = lax.iota(np.int32, core.get_axis_env().axis_size(axis_name))
     dummy_tracer = MapTracer(self, range, {axis_name: 0})
     return self.process_primitive(fake_primitive, (dummy_tracer,), {})
 
@@ -696,14 +695,15 @@ def find_replicas(
 
 @lu.transformation2
 def _change_argument_ranks(f, in_axes, out_axes_thunk, *args):
+  from jax._src.lax import lax  # pytype: disable=import-error
   args = tuple(
-      arg if in_axis is None else jax.lax.squeeze(arg, dimensions=(in_axis,))
+      arg if in_axis is None else lax.squeeze(arg, dimensions=(in_axis,))
       for in_axis, arg in zip(in_axes, args)
   )
   results = f(*args)
   out_axes = out_axes_thunk()
   return tuple(
-      x if axis is None else jax.lax.expand_dims(x, dimensions=(axis,))
+      x if axis is None else lax.expand_dims(x, dimensions=(axis,))
       for x, axis in zip(results, out_axes)
   )
 
@@ -1277,7 +1277,7 @@ class ExecuteReplicated:
           assert isinstance(token.sharding, sharding_impls.SingleDeviceSharding)
           token_devices.append(token.sharding._device_assignment[0])
         s = NamedSharding(Mesh(token_devices, 'x'), P('x'))
-        global_token_array = jax.make_array_from_single_device_arrays(
+        global_token_array = array.make_array_from_single_device_arrays(
             (0,), s, token_buf
         )
         dispatch.runtime_tokens.set_token_result(
@@ -1660,67 +1660,10 @@ def check_if_any_auto(
       return True
   return False
 
-class MismatchType(enum.Enum):
-  ARG_SHARDING = 0
-  OUT_SHARDING = 1
-  SHARDING_INSIDE_COMPUTATION = 2
-  CONTEXT_DEVICES = 3
-  IN_SHARDING = 4
-
-  def __str__(self):
-    if self.name == 'IN_SHARDING':
-      return 'explicit input sharding'
-    elif self.name == 'OUT_SHARDING':
-      return 'explicit output sharding'
-    elif self.name == 'CONTEXT_DEVICES':
-      return 'context mesh'
-    return f'{self.name}'
-
-
-@dataclasses.dataclass
-class DeviceAssignmentMismatch:
-  da: Sequence[xc.Device]
-  m_type: MismatchType
-  source_info: dispatch.SourceInfo | None
-
-  @property
-  def device_ids(self) -> Sequence[int]:
-    return [d.id for d in self.da]
-
-  @property
-  def platform(self) -> str:
-    return self.da[0].platform.upper()
-
-  def _maybe_api_name(self, api_name) -> str:
-    return f" {api_name}'s" if self.m_type == MismatchType.CONTEXT_DEVICES else ""
-
-  @property
-  def source_info_str(self):
-    return (
-        "" if self.source_info is None
-        else f" at {source_info_util.summarize(self.source_info.source_info)}"
-    )
-
-  @property
-  def _dev_ids_plat_str(self):
-    return f"device ids {self.device_ids} on platform {self.platform}"
-
-  def m_type_str(self, api_name):
-    return (f'{self.source_info and self.source_info.eqn_name} inside {api_name}'
-            if self.m_type == MismatchType.SHARDING_INSIDE_COMPUTATION else self.m_type)
-
-  def _str(self, api_name):
-    return (f"{self._maybe_api_name(api_name)} {self.m_type_str(api_name)} with "
-            f"{self._dev_ids_plat_str}{self.source_info_str}")
-
-
-class DeviceAssignmentMismatchError(Exception):
-  pass
-
 
 ShardingInfo = tuple[
     Union[JSharding, UnspecifiedValue, AUTO],
-    MismatchType,
+    stages.MismatchType,
     Union[Any, None],  # Any is dispatch.SourceInfo to avoid circular imports
 ]
 
@@ -1752,14 +1695,14 @@ def _get_and_check_device_assignment(
                              else sh._device_assignment)
     if not devices:
       if first_sharding_info[0] != arr_device_assignment:
-        raise DeviceAssignmentMismatchError([
-            DeviceAssignmentMismatch(*first_sharding_info),
-            DeviceAssignmentMismatch(arr_device_assignment, s_type, source_info)])
+        raise stages.DeviceAssignmentMismatchError([
+            stages.DeviceAssignmentMismatch(*first_sharding_info),
+            stages.DeviceAssignmentMismatch(arr_device_assignment, s_type, source_info)])
     else:
       if devices != arr_device_assignment:
-        raise DeviceAssignmentMismatchError([
-            DeviceAssignmentMismatch(devices, MismatchType.CONTEXT_DEVICES, None),
-            DeviceAssignmentMismatch(arr_device_assignment, s_type, source_info)])
+        raise stages.DeviceAssignmentMismatchError([
+            stages.DeviceAssignmentMismatch(devices, stages.MismatchType.CONTEXT_DEVICES, None),
+            stages.DeviceAssignmentMismatch(arr_device_assignment, s_type, source_info)])
   if first_sharding_info is None and devices:
     final_device_assignment = devices
   elif first_sharding_info is None:
@@ -1812,7 +1755,7 @@ class MutationData(NamedTuple):
 def _discharge_refs(
     jaxpr: core.ClosedJaxpr
 ) -> tuple[core.ClosedJaxpr, Sequence[int | None], MutationData]:
-  from jax._src.state.discharge import discharge_state
+  from jax._src.state.discharge import discharge_state  # pytype: disable=import-error
   jaxpr, in_mut = _move_mutable_consts(jaxpr)
   new_jaxpr = core.ClosedJaxpr(*discharge_state(jaxpr.jaxpr, jaxpr.consts))
   count = it.count(len(jaxpr.out_avals))  # new outputs are appended to the end
@@ -1833,13 +1776,14 @@ def _move_mutable_consts(
   constvars, mutvars = partition_list(hoist, jaxpr.constvars)
   invars = (*jaxpr.invars, *mutvars)
   effects = pe.make_jaxpr_effects(constvars, invars, jaxpr.outvars, jaxpr.eqns)
+  # TODO(mattjj): debug_info must be updated...
   jaxpr = core.Jaxpr(constvars, invars, jaxpr.outvars, jaxpr.eqns,
                      effects, closed_jaxpr.jaxpr.debug_info)
   return core.ClosedJaxpr(jaxpr, consts), in_mut
 
 @weakref_lru_cache
 def _discharge_internal_refs(jaxpr: core.ClosedJaxpr) -> core.ClosedJaxpr:
-  from jax._src.state.discharge import discharge_state
+  from jax._src.state.discharge import discharge_state  # pytype: disable=import-error
   jaxpr_, consts = discharge_state(jaxpr.jaxpr, jaxpr.consts)
   jaxpr_._debug_info = jaxpr.jaxpr._debug_info
   return core.ClosedJaxpr(jaxpr_, consts)
@@ -2073,8 +2017,6 @@ def get_out_memory_kinds_via_propagation(closed_jaxpr: core.ClosedJaxpr,
 @weakref_lru_cache
 def get_out_layouts_via_propagation(closed_jaxpr: core.ClosedJaxpr
                                     ) -> tuple[None | DeviceLocalLayout]:
-  from jax._src import pjit
-
   env = {}  # type: ignore
   jaxpr = closed_jaxpr.jaxpr
 
@@ -2152,8 +2094,10 @@ def _discharge_refs_jaxpr(closed_jaxpr, in_shardings, in_layouts,
                           donated_invars, out_shardings, out_layouts):
   if any(isinstance(e, RefEffect) for e in closed_jaxpr.effects):
     closed_jaxpr, inout_aliases, mut = _discharge_refs(closed_jaxpr)
-    in_shardings = (*in_shardings, *(c.sharding for c in mut.in_mut))
-    in_layouts = (*in_layouts,) + (None,) * len(mut.in_mut)  # TODO(mattjj)
+    in_shardings = (*in_shardings, *(
+        pjit.finalize_arg_sharding(c.sharding, c.committed) for c in mut.in_mut))
+    in_layouts = (*in_layouts, *(c.format.dll if hasattr(c, 'format') else None
+                                 for c in mut.in_mut))
     donated_invars = (*donated_invars,) + (False,) * len(mut.in_mut)
     out_layouts_ = iter(zip(out_shardings, out_layouts))
     out_shardings, out_layouts = unzip2(
@@ -2239,8 +2183,7 @@ def lower_sharding_computation(
   The caller of this code can pass in a singleton UNSPECIFIED because the
   number of out_avals might not be known at that time and
   lower_sharding_computation calculates the number of out_avals so it can apply
-  the singleton UNSPECIFIED to all out_avals.
-  """
+  the singleton UNSPECIFIED to all out_avals."""
   auto_spmd_lowering = check_if_any_auto(
       it.chain.from_iterable([in_shardings, out_shardings]))
 
@@ -2283,9 +2226,9 @@ def lower_sharding_computation(
   unique_out_shardings = util.stable_unique(out_shardings)
   backend, device_assignment = _get_and_check_device_assignment(
       it.chain(
-          ((i, MismatchType.ARG_SHARDING, None) for i in unique_in_shardings),
-          ((o, MismatchType.OUT_SHARDING, None) for o in unique_out_shardings),
-          ((js, MismatchType.SHARDING_INSIDE_COMPUTATION, source_info)
+          ((i, stages.MismatchType.ARG_SHARDING, None) for i in unique_in_shardings),
+          ((o, stages.MismatchType.OUT_SHARDING, None) for o in unique_out_shardings),
+          ((js, stages.MismatchType.SHARDING_INSIDE_COMPUTATION, source_info)
            for js, source_info in unique_intermediate_shardings)),
       devices_from_context)
   unique_intermediate_shardings = [js for js, _ in unique_intermediate_shardings]
@@ -3034,7 +2977,7 @@ class UnloadedMeshExecutable:
             xla_executable.local_devices(), len(in_shardings), len(out_shardings))
 
     # xla_in_layouts are all either None or DeviceLocalLayout. Even default
-    # layout are concrete layouts and they are used in `compiled.input_layouts`
+    # layout are concrete layouts and they are used in `compiled.input_formats`
     # to return concrete layouts to users.
     # `dispatch_in_layouts` replaces default layouts with `None` to simplify
     # dispatch logic downstream.
@@ -3287,7 +3230,6 @@ def check_array_xla_sharding_layout_match(
     in_xla_layouts: Sequence[DeviceLocalLayout],
     jaxpr_debug_info: core.DebugInfo,
     kept_var_idx: set[int]) -> None:
-  from jax._src.array import ArrayImpl
   # jaxpr_debug_info.arg_names are before DCE, so need to DCE them.
   arg_names = (
       [a for i, a in enumerate(jaxpr_debug_info.arg_names)
@@ -3297,7 +3239,7 @@ def check_array_xla_sharding_layout_match(
   num_errors = 5
   for arg, xs, xl, name in safe_zip(
       args_after_dce, in_xla_shardings, in_xla_layouts, arg_names):
-    if not isinstance(arg, ArrayImpl):
+    if not isinstance(arg, array.ArrayImpl):
       continue
     if isinstance(xs, (UnspecifiedValue, AUTO)):
       continue
@@ -3313,11 +3255,11 @@ def check_array_xla_sharding_layout_match(
           'sharding'))
 
     if (not db_xs and arg._committed and
-        arg.layout.device_local_layout is not None and xl is not None and
-        arg.layout.device_local_layout != xl):
+        arg.format.device_local_layout is not None and xl is not None and
+        arg.format.device_local_layout != xl):
       errors.append(
           ("Got input layout(s) that compiled object was called with: "
-          f"{arg.layout.device_local_layout} and layout(s) the computation was "
+          f"{arg.format.device_local_layout} and layout(s) the computation was "
           f"compiled with: {xl} for arg {name} with "
           f"shape: {arg.aval.str_short()}",
           'layout'))

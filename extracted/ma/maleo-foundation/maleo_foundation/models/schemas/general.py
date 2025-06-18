@@ -24,13 +24,20 @@ class BaseGeneralSchemas:
         id:int = Field(..., ge=1, description="Data's ID, must be >= 1.")
         uuid:UUID = Field(..., description="Data's UUID.")
 
-    class Timestamps(BaseModel):
+    class EssentialTimestamps(BaseModel):
         created_at:datetime = Field(..., description="Data's created_at timestamp")
         updated_at:datetime = Field(..., description="Data's updated_at timestamp")
+
+    class StatusTimestamps(BaseModel):
         deleted_at:BaseTypes.OptionalDatetime = Field(..., description="Data's deleted_at timestamp")
         restored_at:BaseTypes.OptionalDatetime = Field(..., description="Data's restored_at timestamp")
         deactivated_at:BaseTypes.OptionalDatetime = Field(..., description="Data's deactivated_at timestamp")
         activated_at:datetime = Field(..., description="Data's activated_at timestamp")
+
+    class Timestamps(
+        StatusTimestamps,
+        EssentialTimestamps
+    ): pass
 
     class Status(BaseModel):
         status:BaseEnums.StatusType = Field(..., description="Data's status")

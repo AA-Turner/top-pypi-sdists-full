@@ -27,7 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_user_info
 short_description: Retrieve information about one or more oVirt/RHV users
 version_added: "1.0.0"
-author: "Ondra Machacek (@machacekondra)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Retrieve information about one or more oVirt/RHV users."
     - This module was called C(ovirt_user_facts) before Ansible 2.9, returning C(ansible_facts).
@@ -42,6 +42,7 @@ options:
             - "Search term which is accepted by oVirt/RHV search backend."
             - "For example to search user X use following pattern: name=X"
         type: str
+        default: ''
     follow:
         description:
             - List of linked entities, which should be fetched along with the main entity.
@@ -51,6 +52,7 @@ options:
         version_added: 1.5.0
         elements: str
         aliases: ['follows']
+        default: []
 extends_documentation_fragment: ovirt.ovirt.ovirt_info
 '''
 

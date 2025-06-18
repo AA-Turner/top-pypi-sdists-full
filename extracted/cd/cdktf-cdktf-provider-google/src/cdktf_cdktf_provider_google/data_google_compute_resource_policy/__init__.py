@@ -1,7 +1,7 @@
 r'''
 # `data_google_compute_resource_policy`
 
-Refer to the Terraform Registry for docs: [`data_google_compute_resource_policy`](https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy).
+Refer to the Terraform Registry for docs: [`data_google_compute_resource_policy`](https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleComputeResourcePolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleComputeResourcePolicy.DataGoogleComputeResourcePolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy google_compute_resource_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy google_compute_resource_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleComputeResourcePolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy google_compute_resource_policy} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy google_compute_resource_policy} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#name DataGoogleComputeResourcePolicy#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#id DataGoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#project DataGoogleComputeResourcePolicy#project}.
-        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#region DataGoogleComputeResourcePolicy#region}
+        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#name DataGoogleComputeResourcePolicy#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#id DataGoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#project DataGoogleComputeResourcePolicy#project}.
+        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#region DataGoogleComputeResourcePolicy#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleComputeResourcePolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleComputeResourcePolicy to import.
-        :param import_from_id: The id of the existing DataGoogleComputeResourcePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleComputeResourcePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleComputeResourcePolicy to import is found.
         '''
         if __debug__:
@@ -185,6 +185,11 @@ class DataGoogleComputeResourcePolicy(
         self,
     ) -> "DataGoogleComputeResourcePolicySnapshotSchedulePolicyList":
         return typing.cast("DataGoogleComputeResourcePolicySnapshotSchedulePolicyList", jsii.get(self, "snapshotSchedulePolicy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workloadPolicy")
+    def workload_policy(self) -> "DataGoogleComputeResourcePolicyWorkloadPolicyList":
+        return typing.cast("DataGoogleComputeResourcePolicyWorkloadPolicyList", jsii.get(self, "workloadPolicy"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -296,10 +301,10 @@ class DataGoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#name DataGoogleComputeResourcePolicy#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#id DataGoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#project DataGoogleComputeResourcePolicy#project}.
-        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#region DataGoogleComputeResourcePolicy#region}
+        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#name DataGoogleComputeResourcePolicy#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#id DataGoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#project DataGoogleComputeResourcePolicy#project}.
+        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#region DataGoogleComputeResourcePolicy#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -415,7 +420,7 @@ class DataGoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         must be a dash, lowercase letter, or digit, except the last character,
         which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#name DataGoogleComputeResourcePolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#name DataGoogleComputeResourcePolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -423,7 +428,7 @@ class DataGoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#id DataGoogleComputeResourcePolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#id DataGoogleComputeResourcePolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -433,7 +438,7 @@ class DataGoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#project DataGoogleComputeResourcePolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#project DataGoogleComputeResourcePolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -441,7 +446,7 @@ class DataGoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where resource policy resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs/data-sources/compute_resource_policy#region DataGoogleComputeResourcePolicy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs/data-sources/compute_resource_policy#region DataGoogleComputeResourcePolicy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -736,6 +741,11 @@ class DataGoogleComputeResourcePolicyGroupPlacementPolicyOutputReference(
     @jsii.member(jsii_name="collocation")
     def collocation(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "collocation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gpuTopology")
+    def gpu_topology(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "gpuTopology"))
 
     @builtins.property
     @jsii.member(jsii_name="vmCount")
@@ -2459,6 +2469,162 @@ class DataGoogleComputeResourcePolicySnapshotSchedulePolicySnapshotPropertiesOut
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleComputeResourcePolicy.DataGoogleComputeResourcePolicyWorkloadPolicy",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleComputeResourcePolicyWorkloadPolicy:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleComputeResourcePolicyWorkloadPolicy(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleComputeResourcePolicyWorkloadPolicyList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeResourcePolicy.DataGoogleComputeResourcePolicyWorkloadPolicyList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd310474a6162ddf59f848ff0488fd79bcf20d3584a85719b4e4a25ddfcf41d4)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleComputeResourcePolicyWorkloadPolicyOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__382eb1159cbef14c2d72043ed13d4bb9835acf71fda1db9c2e345ddb451bd9c5)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleComputeResourcePolicyWorkloadPolicyOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f78b0d29392f5e87c23ce6040d7f6e0cac748771725e1bcbab9363a6f84ce09)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__261e9ef9c28290d9cc54c35e52a6e8b9c6190f64db1f3f8e72de5bbccca43011)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a9f0e903514c18a86842c6da9c54da038966bdddc2056e4381d202595edc44b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleComputeResourcePolicyWorkloadPolicyOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeResourcePolicy.DataGoogleComputeResourcePolicyWorkloadPolicyOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2381b3593b09bfd8d670908bad1fff5fa515a2ed0a4dd42793c09442cd3df3a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="acceleratorTopology")
+    def accelerator_topology(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "acceleratorTopology"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxTopologyDistance")
+    def max_topology_distance(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "maxTopologyDistance"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleComputeResourcePolicyWorkloadPolicy]:
+        return typing.cast(typing.Optional[DataGoogleComputeResourcePolicyWorkloadPolicy], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleComputeResourcePolicyWorkloadPolicy],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__447de048cdf70cb9d9cb8e634b6425afe2f2b9545ad6bb9635ec67bf4b58ec5b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "DataGoogleComputeResourcePolicy",
     "DataGoogleComputeResourcePolicyConfig",
@@ -2501,6 +2667,9 @@ __all__ = [
     "DataGoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties",
     "DataGoogleComputeResourcePolicySnapshotSchedulePolicySnapshotPropertiesList",
     "DataGoogleComputeResourcePolicySnapshotSchedulePolicySnapshotPropertiesOutputReference",
+    "DataGoogleComputeResourcePolicyWorkloadPolicy",
+    "DataGoogleComputeResourcePolicyWorkloadPolicyList",
+    "DataGoogleComputeResourcePolicyWorkloadPolicyOutputReference",
 ]
 
 publication.publish()
@@ -3181,6 +3350,53 @@ def _typecheckingstub__5f809f3cb618a8c33746dbb435b7ac5b3cb1851092093afdb41fa3afa
 
 def _typecheckingstub__21e5a7ccb7b93fdb1f299b9743d288b1f3f86b723fbcdf76d11492a5cb0837e9(
     value: typing.Optional[DataGoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd310474a6162ddf59f848ff0488fd79bcf20d3584a85719b4e4a25ddfcf41d4(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__382eb1159cbef14c2d72043ed13d4bb9835acf71fda1db9c2e345ddb451bd9c5(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f78b0d29392f5e87c23ce6040d7f6e0cac748771725e1bcbab9363a6f84ce09(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__261e9ef9c28290d9cc54c35e52a6e8b9c6190f64db1f3f8e72de5bbccca43011(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a9f0e903514c18a86842c6da9c54da038966bdddc2056e4381d202595edc44b(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2381b3593b09bfd8d670908bad1fff5fa515a2ed0a4dd42793c09442cd3df3a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__447de048cdf70cb9d9cb8e634b6425afe2f2b9545ad6bb9635ec67bf4b58ec5b(
+    value: typing.Optional[DataGoogleComputeResourcePolicyWorkloadPolicy],
 ) -> None:
     """Type checking stubs"""
     pass

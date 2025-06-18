@@ -27,9 +27,7 @@ DOCUMENTATION = '''
 module: ovirt_network
 short_description: Module to manage logical networks in oVirt/RHV
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage logical networks in oVirt/RHV"
 options:
@@ -185,7 +183,6 @@ from ansible_collections.ovirt.ovirt.plugins.module_utils.ovirt import (
     ovirt_full_argument_spec,
     search_by_name,
     get_id_by_name,
-    get_dict_of_struct,
     get_entity
 )
 

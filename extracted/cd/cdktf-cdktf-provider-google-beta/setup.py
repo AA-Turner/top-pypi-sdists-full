@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google_beta",
-    "version": "16.1.0",
+    "version": "16.2.0",
     "description": "Prebuilt google-beta Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-googlebeta.git",
@@ -190,6 +190,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.data_google_dataform_repository_iam_policy",
         "cdktf_cdktf_provider_google_beta.data_google_dataplex_aspect_type_iam_policy",
         "cdktf_cdktf_provider_google_beta.data_google_dataplex_asset_iam_policy",
+        "cdktf_cdktf_provider_google_beta.data_google_dataplex_data_quality_rules",
         "cdktf_cdktf_provider_google_beta.data_google_dataplex_datascan_iam_policy",
         "cdktf_cdktf_provider_google_beta.data_google_dataplex_entry_group_iam_policy",
         "cdktf_cdktf_provider_google_beta.data_google_dataplex_entry_type_iam_policy",
@@ -977,6 +978,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_page",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_security_settings",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_test_case",
+        "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_tool",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_version",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_webhook",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_entity_type",
@@ -1604,7 +1606,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google_beta._jsii": [
-            "provider-google-beta@16.1.0.jsii.tgz"
+            "provider-google-beta@16.2.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google_beta": [
             "py.typed"

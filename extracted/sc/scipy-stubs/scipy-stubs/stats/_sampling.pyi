@@ -5,13 +5,14 @@ from typing_extensions import TypeVar
 import numpy as np
 import optype as op
 import optype.numpy as onp
-from scipy._typing import AnyShape, ToRNG
+
 from ._distn_infrastructure import rv_frozen
 from .qmc import QMCEngine
+from scipy._typing import AnyShape, ToRNG
 
 __all__ = ["FastGeneratorInversion", "RatioUniforms"]
 
-_RT_co = TypeVar("_RT_co", covariant=True, bound=onp.ToFloat, default=onp.ToFloat)
+_RT_co = TypeVar("_RT_co", bound=onp.ToFloat, default=float, covariant=True)
 
 ###
 
@@ -63,30 +64,18 @@ class FastGeneratorInversion:
     def rvs(self, /, size: AnyShape) -> onp.ArrayND[np.float64]: ...
     @overload
     def qrvs(
-        self,
-        /,
-        size: tuple[Literal[1]] | None = None,
-        d: int | None = None,
-        qmc_engine: QMCEngine | None = None,
+        self, /, size: tuple[Literal[1]] | None = None, d: int | None = None, qmc_engine: QMCEngine | None = None
     ) -> np.float64: ...
     @overload
     def qrvs(
-        self,
-        /,
-        size: AnyShape,
-        d: int | None = None,
-        qmc_engine: QMCEngine | None = None,
+        self, /, size: AnyShape, d: int | None = None, qmc_engine: QMCEngine | None = None
     ) -> np.float64 | onp.ArrayND[np.float64]: ...
     @overload
     def ppf(self, /, q: onp.ToFloat) -> np.float64: ...
     @overload
     def ppf(self, /, q: onp.ToFloatND) -> onp.ArrayND[np.float64]: ...
     def evaluate_error(
-        self,
-        /,
-        size: int = 100_000,
-        random_state: ToRNG = None,
-        x_error: bool = False,
+        self, /, size: int = 100_000, random_state: ToRNG = None, x_error: bool = False
     ) -> tuple[np.float64, np.float64]: ...
     def support(self, /) -> tuple[float, float] | tuple[np.float64, np.float64]: ...
 

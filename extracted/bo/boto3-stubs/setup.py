@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs",
-    version="1.38.37",
+    version="1.38.38",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.38.37 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.38.38 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.38.0, <1.39.0"],
-        "boto3": ["boto3==1.38.37"],
+        "boto3": ["boto3==1.38.38"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.38.0, <1.39.0",
             "mypy-boto3-account>=1.38.0, <1.39.0",
@@ -314,6 +314,7 @@ setup(
             "mypy-boto3-migrationhub-config>=1.38.0, <1.39.0",
             "mypy-boto3-migrationhuborchestrator>=1.38.0, <1.39.0",
             "mypy-boto3-migrationhubstrategy>=1.38.0, <1.39.0",
+            "mypy-boto3-mpa>=1.38.0, <1.39.0",
             "mypy-boto3-mq>=1.38.0, <1.39.0",
             "mypy-boto3-mturk>=1.38.0, <1.39.0",
             "mypy-boto3-mwaa>=1.38.0, <1.39.0",
@@ -742,6 +743,7 @@ setup(
         "migrationhub-config": ["mypy-boto3-migrationhub-config>=1.38.0, <1.39.0"],
         "migrationhuborchestrator": ["mypy-boto3-migrationhuborchestrator>=1.38.0, <1.39.0"],
         "migrationhubstrategy": ["mypy-boto3-migrationhubstrategy>=1.38.0, <1.39.0"],
+        "mpa": ["mypy-boto3-mpa>=1.38.0, <1.39.0"],
         "mq": ["mypy-boto3-mq>=1.38.0, <1.39.0"],
         "mturk": ["mypy-boto3-mturk>=1.38.0, <1.39.0"],
         "mwaa": ["mypy-boto3-mwaa>=1.38.0, <1.39.0"],

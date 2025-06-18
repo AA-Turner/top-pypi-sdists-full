@@ -10,6 +10,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np
+import numpy.typing as npt
 from typing_extensions import Unpack, deprecated
 
 from qcodes.instrument import (
@@ -73,11 +74,27 @@ class TektronixDPO7000xx(VisaInstrument):
     ) -> None:
         super().__init__(name, address, **kwargs)
 
-        self.add_submodule("horizontal", TektronixDPOHorizontal(self, "horizontal"))
-
-        self.add_submodule("data", TektronixDPOData(self, "data"))
-
-        self.add_submodule("waveform", TektronixDPOWaveformFormat(self, "waveform"))
+        self.horizontal: TektronixDPOHorizontal = self.add_submodule(
+            "horizontal", TektronixDPOHorizontal(self, "horizontal")
+        )
+        """Instrument module horizontal"""
+        self.data: TektronixDPOData = self.add_submodule(
+            "data", TektronixDPOData(self, "data")
+        )
+        """Instrument module data"""
+        self.waveform: TektronixDPOWaveformFormat = self.add_submodule(
+            "waveform", TektronixDPOWaveformFormat(self, "waveform")
+        )
+        """Instrument module waveform"""
+        self.trigger: TektronixDPOTrigger = self.add_submodule(
+            "trigger", TektronixDPOTrigger(self, "trigger")
+        )
+        """Instrument module trigger"""
+        self.delayed_trigger: TektronixDPOTrigger = self.add_submodule(
+            "delayed_trigger",
+            TektronixDPOTrigger(self, "delayed_trigger", delayed_trigger=True),
+        )
+        """Instrument module delayed_trigger"""
 
         measurement_list = ChannelList(self, "measurement", TektronixDPOMeasurement)
         for measurement_number in range(1, self.number_of_measurements):
@@ -107,13 +124,6 @@ class TektronixDPO7000xx(VisaInstrument):
             channel_list.append(channel_module)
 
         self.add_submodule("channel", channel_list)
-
-        self.add_submodule("trigger", TektronixDPOTrigger(self, "trigger"))
-
-        self.add_submodule(
-            "delayed_trigger",
-            TektronixDPOTrigger(self, "delayed_trigger", delayed_trigger=True),
-        )
 
         self.connect_message()
 
@@ -324,7 +334,7 @@ class TektronixDPOWaveform(InstrumentChannel):
 
         return inner
 
-    def _get_trace_data(self) -> np.ndarray:
+    def _get_trace_data(self) -> npt.NDArray:
         self.root_instrument.data.source(self._identifier)
         waveform = self.root_instrument.waveform
 
@@ -350,7 +360,7 @@ class TektronixDPOWaveform(InstrumentChannel):
 
         return (raw_data - self.raw_data_offset()) * self.scale() + self.offset()
 
-    def _get_trace_setpoints(self) -> np.ndarray:
+    def _get_trace_setpoints(self) -> npt.NDArray:
         """
         Infer the set points of the waveform
         """

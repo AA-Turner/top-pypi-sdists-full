@@ -3729,8 +3729,7 @@ def build_from_scratch(context: CertoraContext,
 
 def build_from_cache_or_scratch(context: CertoraContext,
                                 certora_build_generator: CertoraBuildGenerator,
-                                certora_verify_generator: CertoraVerifyGenerator,
-                                certora_build_cache_manager: CertoraBuildCacheManager) \
+                                certora_verify_generator: CertoraVerifyGenerator) \
         -> Tuple[bool, bool, CachedFiles]:
     """
     Builds either from cache (fast path) or from scratch (slow path)
@@ -3747,10 +3746,10 @@ def build_from_cache_or_scratch(context: CertoraContext,
                                           False)
         return cache_hit, False, cached_files
 
-    build_cache_applicable = certora_build_cache_manager.cache_is_applicable(context)
+    build_cache_applicable = CertoraBuildCacheManager.cache_is_applicable(context)
 
     if not build_cache_applicable:
-        build_cache_disabling_options = certora_build_cache_manager.cache_disabling_options(context)
+        build_cache_disabling_options = CertoraBuildCacheManager.cache_disabling_options(context)
         build_logger.warning("Requested to enable the build cache, but the build cache is not applicable "
                              f"to this run because of the given options: {build_cache_disabling_options}")
         cached_files = build_from_scratch(context, certora_build_generator,
@@ -3758,7 +3757,7 @@ def build_from_cache_or_scratch(context: CertoraContext,
                                           False)
         return cache_hit, False, cached_files
 
-    cached_files = certora_build_cache_manager.build_from_cache(context)
+    cached_files = CertoraBuildCacheManager.build_from_cache(context)
     # if no match, will rebuild from scratch
     if cached_files is not None:
         # write to .certora_build.json
@@ -3797,7 +3796,7 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
 
     try:
         input_config = InputConfig(context)
-
+        context.main_cache_key = CertoraBuildCacheManager.get_main_cache_key(context)
         # Create generators
         certora_build_generator = CertoraBuildGenerator(input_config, context)
 
@@ -3813,12 +3812,9 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
             else:
                 Ctx.run_local_spec_check(False, context)
 
-        certora_build_cache_manager = CertoraBuildCacheManager()
-
         cache_hit, build_cache_enabled, cached_files = build_from_cache_or_scratch(context,
                                                                                    certora_build_generator,
-                                                                                   certora_verify_generator,
-                                                                                   certora_build_cache_manager)
+                                                                                   certora_verify_generator)
 
         # avoid running the same test over and over again for each split run, context.split_rules is true only for
         # the first run and is set to [] for split runs
@@ -3838,7 +3834,7 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
 
         # save in build cache
         if not cache_hit and build_cache_enabled and cached_files.may_store_in_build_cache:
-            certora_build_cache_manager.save_build_cache(context, cached_files)
+            CertoraBuildCacheManager.save_build_cache(context, cached_files)
 
         certora_verify_generator.update_certora_verify_struct(True)
         certora_verify_generator.dump()  # second dump with properly rooted specs

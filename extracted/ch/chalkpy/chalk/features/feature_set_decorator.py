@@ -1370,7 +1370,13 @@ def _class_setattr(
                 cls
             ) and key not in FeatureSetBase.__chalk_notebook_defined_feature_fields__.get(cls.namespace, set()):
                 if existing_feature is not None:
-                    raise ValueError(f"Can't overwrite feature '{cls.namespace}.{key}' because it already exists in the deployment source.")
+                    raise ValueError(
+                        f"Can't overwrite feature '{cls.namespace}.{key}' because it already exists in the deployment source."
+                    )
+            if hasattr(f, "max_staleness") and f.max_staleness.total_seconds() > 0:
+                raise ValueError(
+                    "Cannot set `max_staleness` on a notebook defined feature: persistence is not supported for notebook defined features"
+                )
             # Get the type annotation
             parsed_annotation: Optional[ParsedAnnotation] = None
             if existing_feature is not None:

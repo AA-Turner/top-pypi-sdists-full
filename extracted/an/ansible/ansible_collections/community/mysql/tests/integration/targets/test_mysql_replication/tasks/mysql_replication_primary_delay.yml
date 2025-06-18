@@ -55,5 +55,5 @@
 
     - assert:
         that:
-        - replica_status.SQL_Delay == {{ test_primary_delay }}
+        - replica_status.SQL_Delay == test_primary_delay
         - replica_status is not changed

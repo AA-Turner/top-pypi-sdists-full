@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from mypy_extensions import TypedDict
 import trafaret as t
@@ -24,14 +24,10 @@ from datarobot.enums import (
     InsightTypes,
 )
 from datarobot.models.api_object import APIObject
-from datarobot.models.genai.comparison_chat import get_entity_id
-from datarobot.models.genai.playground import Playground
 from datarobot.models.genai.playground_moderation_configuration import (
     moderation_configuration_with_id,
     moderation_configuration_without_id,
 )
-from datarobot.models.use_cases.use_case import UseCase
-from datarobot.models.use_cases.utils import get_use_case_id
 
 
 class InsightsConfigurationDict(TypedDict):
@@ -275,137 +271,3 @@ class InsightsConfiguration(APIObject):
             guard_configuration_id=self.guard_configuration_id,
             model_package_registered_model_id=self.model_package_registered_model_id,
         )
-
-
-class SupportedInsights(InsightsConfiguration):
-    """Supported insights configurations for a given use case."""
-
-    _path = "api/v2/genai/insights/supportedInsights/"
-
-    @classmethod
-    def list(cls, use_case_id: str) -> List[InsightsConfiguration]:
-        """Get a list of all supported insights that can be used within a given Use Case.
-
-        Parameters
-        ----------
-        use_case_id: str
-            The ID of the Use Case to list supported insights for.
-
-        Returns
-        -------
-        insights: list[InsightsConfiguration]
-            A list of supported insights.
-        """
-        response_data = cls._client.get(
-            url=f"{cls._client.domain}/{cls._path}", params={"use_case_id": use_case_id}
-        )
-        return [
-            cls.from_server_data(insight)
-            for insight in response_data.json()["insightsConfiguration"]
-        ]
-
-
-class Insights(APIObject):
-    """
-    The insights configured for a playground.
-
-    Attributes
-    ----------
-    playground_id : str
-        The ID of the playground the insights are configured for.
-    insights_configuration : list[InsightsConfiguration]
-        The insights configuration for the playground.
-    creation_date : str
-        The date the insights were configured.
-    creation_user_id : str
-        The ID of the user who created the insights.
-    last_update_date : str
-        The date the insights were last updated.
-    last_update_user_id : str
-        The ID of the user who last updated the insights.
-    tenant_id : str
-        The tenant ID that applies to the record.
-
-    """
-
-    _path = "api/v2/genai/insights"
-
-    _converter = insights_trafaret
-
-    def __init__(
-        self,
-        playground_id: str,
-        insights_configuration: List[Dict[str, Any]],
-        creation_date: str,
-        creation_user_id: str,
-        last_update_date: str,
-        last_update_user_id: str,
-        tenant_id: str,
-    ):
-        self.playground_id = playground_id
-        self.insights_configuration = [
-            InsightsConfiguration.from_server_data(config) for config in insights_configuration
-        ]
-        self.creation_date = creation_date
-        self.creation_user_Id = creation_user_id
-        self.last_update_date = last_update_date
-        self.last_update_user_id = last_update_user_id
-        self.tenant_id = tenant_id
-
-    @classmethod
-    def get(
-        cls, playground: Union[str, Playground], with_aggregation_types_only: bool = False
-    ) -> Insights:
-        """Get the insights configuration for a given playground.
-
-        Parameters
-        ----------
-        playground: str|Playground
-            The ID of the playground to get insights for.
-        with_aggregation_types_only: Optional[bool]
-            If True, only return the aggregation types for the insights.
-
-        Returns
-        -------
-        insights: Insights
-            The insights configuration for the playground.
-        """
-        playground_id = get_entity_id(playground)
-        response_data = cls._client.get(
-            url=f"{cls._client.domain}/{cls._path}/{playground_id}/",
-            params={"with_aggreation_types_only": with_aggregation_types_only},
-        )
-        return cls.from_server_data(response_data.json())
-
-    @classmethod
-    def create(
-        cls,
-        playground: Union[str, Playground],
-        insights_configuration: List[InsightsConfiguration],
-        use_case: Union[UseCase, str],
-    ) -> Insights:
-        """Create a new insights configuration for a given playground.
-
-        Parameters
-        ----------
-        playground: str
-            The ID of the playground to create insights for.
-        insights_configuration: list[InsightsConfiguration]
-            The insights configuration for the playground.
-        use_case_id: str
-            The Use Case ID to the playground is a part of.
-
-        Returns
-        -------
-        insights: Insights
-            The created insights configuration.
-        """
-        playground_id = get_entity_id(playground)
-        payload = {
-            "playground_id": playground_id,
-            "insights_configuration": [config.to_dict() for config in insights_configuration],
-            "use_case_id": get_use_case_id(use_case, is_required=True),
-        }
-
-        response_data = cls._client.post(url=f"{cls._client.domain}/{cls._path}/", json=payload)
-        return cls.from_server_data(response_data.json())

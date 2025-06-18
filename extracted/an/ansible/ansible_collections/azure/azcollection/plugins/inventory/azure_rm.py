@@ -10,11 +10,11 @@ DOCUMENTATION = r'''
     options:
         batch_fetch_interval:
             description: Interval with which to check if the batched requests are completed
-            default: 30
+            default: 3
             type: int
         batch_fetch_timeout:
             description: The timeout to use when polling for batched requests
-            default: 600
+            default: 5
             type: int
     extends_documentation_fragment:
       - azure.azcollection.azure
@@ -163,6 +163,10 @@ from ansible.module_utils.parsing.convert_bool import boolean
 from ansible.module_utils._text import to_native, to_bytes, to_text
 from itertools import chain
 from os import environ
+try:
+    from ansible.template import trust_as_template
+except ImportError:
+    trust_as_template = None
 
 try:
     from azure.core._pipeline_client import PipelineClient
@@ -214,8 +218,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         self._filters = None
 
         # FUTURE: use API profiles with defaults
-        self._compute_api_version = '2021-11-01'
-        self._network_api_version = '2015-06-15'
+        self._compute_api_version = '2024-07-01'
+        self._network_api_version = '2024-05-01'
         self._hybridcompute_api_version = '2024-05-20-preview'
         self._stackhci_api_version = '2024-01-01'
 
@@ -440,7 +444,9 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
 
         for condition in filter:
             # FUTURE: should warn/fail if conditional doesn't return True or False
-            conditional = "{{% if {0} %}} True {{% else %}} False {{% endif %}}".format(condition)
+            conditional = "{{% if {0} %}}true{{% else %}}false{{% endif %}}".format(condition)
+            if trust_as_template:
+                conditional = trust_as_template(conditional)
             try:
                 if boolean(self.templar.template(conditional)):
                     return True
@@ -637,7 +643,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
 
     def get_poller_result(self, poller, timeout):
         try:
-            poller.wait(timeout=timeout)
+            while not poller.done():
+                poller.wait(timeout=timeout)
             return poller.result()
         except Exception as exc:
             raise

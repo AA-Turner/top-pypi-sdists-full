@@ -1,11 +1,11 @@
 from collections.abc import Callable
-from typing import Final, TypeAlias
-from typing_extensions import Never
+from typing import Final, Never, TypeAlias
 
 import numpy as np
 import optype.numpy as onp
-from scipy.sparse import sparray, spmatrix
+
 from .base import DenseOutput, OdeSolver
+from scipy.sparse import sparray, spmatrix
 
 _LU: TypeAlias = tuple[onp.ArrayND[np.float64], onp.ArrayND[np.intp]]
 _FuncSolveLU: TypeAlias = Callable[[_LU, onp.ArrayND[np.float64]], onp.ArrayND[np.float64]]
@@ -90,8 +90,5 @@ def solve_collocation_system(
     solve_lu: _FuncSolveLU,
 ) -> tuple[bool, int, onp.Array2D[np.float64], float | None]: ...
 def predict_factor(
-    h_abs: onp.ToFloat,
-    h_abs_old: onp.ToFloat,
-    error_norm: onp.ToFloat,
-    error_norm_old: onp.ToFloat,
+    h_abs: onp.ToFloat, h_abs_old: onp.ToFloat, error_norm: onp.ToFloat, error_norm_old: onp.ToFloat
 ) -> onp.ToFloat: ...

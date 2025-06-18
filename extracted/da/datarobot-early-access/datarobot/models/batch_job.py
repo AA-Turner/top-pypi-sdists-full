@@ -276,9 +276,10 @@ class AbstractBatchJob(AbstractSpecificJob):
             intake_settings["type"] = IntakeAdapters.DATASET
 
             dataset = intake_settings["dataset"]
-            intake_settings["dataset_id"] = dataset.id  # type: ignore[union-attr]
+            intake_settings["dataset_id"] = dataset.id
+
             if "dataset_version_id" not in intake_settings:
-                intake_settings["dataset_version_id"] = dataset.version_id  # type: ignore[union-attr]
+                intake_settings["dataset_version_id"] = dataset.version_id
 
             del intake_settings["dataset"]
 
@@ -492,7 +493,7 @@ class AbstractBatchJob(AbstractSpecificJob):
             # concurrently
 
             upload_thread = threading.Thread(target=_uploader)
-            upload_thread.setDaemon(True)
+            upload_thread.daemon = True
             upload_thread.start()
 
         else:

@@ -377,7 +377,7 @@ def hrs_send_anniversary_email(card_type, anniversary_year_column, email_to_colu
                     )
 
 
-def hrs_merge_weekly_rehiring_data(username, password, server_name, share_name, rehiring_folder_path, rehiring_sheet_name, save_folder_path, port=445):
+def hrs_merge_weekly_rehiring_data(username, password, server_name, share_name, rehiring_folder_path, rehiring_sheet_name, save_folder_path, port=445, text_column_names=''):
     """ This function merges weekly rehiring data from a specified SMB share into a single output file.
 
     Args:
@@ -389,19 +389,28 @@ def hrs_merge_weekly_rehiring_data(username, password, server_name, share_name, 
         rehiring_sheet_name(str): The name of the sheet in the rehiring Excel files to be merged.
         save_folder_path(str): The path to the save folder on the SMB share.
         port(int): The port number for the SMB connection.
+        text_column_names(list, optional): A list of column names that should be treated as text in the merged DataFrame. Defaults to None.
     """
     current_date = datetime.datetime.now().date()
     str_date_list = [str((current_date - relativedelta(days=i)).strftime('%Y%m%d')) for i in range(7)]
     rehiring_name_list = [f'Rehiring_{str_date}' for str_date in str_date_list]
     rehiring_file_list = smb_traverse_remote_folder(username, password, server_name, share_name, rehiring_folder_path, port)
     rehiring_data_list = []
+
+    text_column_name_list = text_column_names.replace('，', ',').split(',')
+    text_column_name_list = [column_name.strip() for column_name in text_column_name_list if column_name.strip()]
+    text_column_name_dict = {column_name: str for column_name in text_column_name_list}
     for file_dict in rehiring_file_list:
         if file_dict['is_file']:
             file_name = file_dict['name']
             if str(file_name).startswith(tuple(rehiring_name_list)):
                 file_path = rehiring_folder_path + os.sep + file_name
                 file_obj = smb_load_file_obj(username, password, server_name, share_name, file_path, port)
-                rehiring_data = pd.read_excel(file_obj, header=3, sheet_name=rehiring_sheet_name)
+                if text_column_name_dict:
+                    rehiring_data = pd.read_excel(file_obj, header=3, sheet_name=rehiring_sheet_name, dtype=text_column_name_dict)
+                else:
+                    rehiring_data = pd.read_excel(file_obj, header=3, sheet_name=rehiring_sheet_name)
+
                 rehiring_data['Rehiring File Name'] = file_name
                 if not rehiring_data.empty:
                     rehiring_data_list.append(rehiring_data)
@@ -531,4 +540,8 @@ def hrs_compare_excel_data(username, password, server_name, share_name, from_dat
                             check_result_list.append(check_result)
 
     check_result_df = pd.DataFrame(check_result_list)
+    for column_name in check_result_df.columns:
+        if column_name not in ['源数据报错信息栏位', '对比数据报错信息栏位', '源数据', '对比数据']:
+            check_result_df[column_name] = check_result_df[column_name].astype(str).str.strip()
+
     return check_result_df

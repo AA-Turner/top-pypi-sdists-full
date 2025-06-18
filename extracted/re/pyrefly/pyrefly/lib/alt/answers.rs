@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -32,6 +33,7 @@ use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
 use crate::alt::traits::Solve;
 use crate::alt::traits::SolveRecursive;
+use crate::binding::binding::AnyIdx;
 use crate::binding::binding::Binding;
 use crate::binding::binding::Exported;
 use crate::binding::binding::Key;
@@ -324,10 +326,41 @@ impl Solutions {
     }
 }
 
-#[derive(Clone)]
+/// Represent a stack of in-progress calculations in an `AnswersSolver`.
+///
+/// This is useful for debugging, particularly for debugging cycle handling.
+///
+/// The stack is per-thread; we create a new `AnswersSolver` every time
+/// we change modules when resolving exports, but the stack is passed
+/// down because cycles can cross module boundaries.
+pub struct CalculationStack(RefCell<Vec<(ModuleInfo, AnyIdx)>>);
+
+impl CalculationStack {
+    pub fn new() -> Self {
+        Self(RefCell::new(Vec::new()))
+    }
+
+    fn push(&self, module_info: ModuleInfo, idx: AnyIdx) {
+        self.0.borrow_mut().push((module_info, idx));
+    }
+
+    fn pop(&self) -> Option<(ModuleInfo, AnyIdx)> {
+        self.0.borrow_mut().pop()
+    }
+
+    pub fn peek(&self) -> Option<(ModuleInfo, AnyIdx)> {
+        self.0.borrow().last().cloned()
+    }
+
+    pub fn into_vec(&self) -> Vec<(ModuleInfo, AnyIdx)> {
+        self.0.borrow().clone()
+    }
+}
+
 pub struct AnswersSolver<'a, Ans: LookupAnswer> {
     answers: &'a Ans,
     current: &'a Answers,
+    stack: &'a CalculationStack,
     // The base solver is only used to reset the error collector at binding
     // boundaries. Answers code should generally use the error collector passed
     // along the call stack instead.
@@ -345,6 +378,7 @@ pub trait LookupAnswer: Sized {
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
+        stack: &CalculationStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -442,6 +476,7 @@ impl Answers {
         let answers_solver = AnswersSolver {
             stdlib,
             answers,
+            stack: &CalculationStack::new(),
             bindings,
             base_errors: errors,
             exports,
@@ -509,6 +544,7 @@ impl Answers {
         stdlib: &Stdlib,
         uniques: &UniqueFactory,
         key: Hashed<&K>,
+        stack: &CalculationStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -523,6 +559,7 @@ impl Answers {
             exports,
             recurser: &Recurser::new(),
             current: self,
+            stack,
         };
         let v = solver.get_hashed(key);
         let mut vv = (*v).clone();
@@ -592,6 +629,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         uniques: &'a UniqueFactory,
         recurser: &'a Recurser<Var>,
         stdlib: &'a Stdlib,
+        stack: &'a CalculationStack,
     ) -> AnswersSolver<'a, Ans> {
         AnswersSolver {
             stdlib,
@@ -602,6 +640,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             exports,
             recurser,
             current,
+            stack,
         }
     }
 
@@ -615,6 +654,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn solver(&self) -> &Solver {
         &self.current.solver
+    }
+
+    pub fn stack(&self) -> &CalculationStack {
+        self.stack
     }
 
     pub fn for_display(&self, t: Type) -> Type {
@@ -637,7 +680,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.get(k)
         } else {
-            self.answers.get(module, path, k)
+            self.answers.get(module, path, k, self.stack)
         }
     }
 
@@ -680,6 +723,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         let calculation = self.get_calculation(idx);
+        self.stack
+            .push(self.module_info().dupe(), K::to_anyidx(idx));
         let result = calculation.calculate_with_recursive(
             || {
                 let binding = self.bindings().get(idx);
@@ -694,6 +739,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let k = self.bindings().idx_to_key(idx).range();
             K::record_recursive(self, k, v, r, self.base_errors);
         }
+        self.stack.pop();
         match result {
             Ok((v, _)) => v,
             Err(r) => Arc::new(K::promote_recursive(r)),

@@ -1,7 +1,7 @@
 r'''
 # `google_project_organization_policy`
 
-Refer to the Terraform Registry for docs: [`google_project_organization_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy).
+Refer to the Terraform Registry for docs: [`google_project_organization_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleProjectOrganizationPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleProjectOrganizationPolicy.GoogleProjectOrganizationPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy google_project_organization_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy google_project_organization_policy}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleProjectOrganizationPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy google_project_organization_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy google_project_organization_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param constraint: The name of the Constraint the Policy is configuring, for example, serviceuser.services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#constraint GoogleProjectOrganizationPolicy#constraint}
-        :param project: The project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#project GoogleProjectOrganizationPolicy#project}
-        :param boolean_policy: boolean_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#boolean_policy GoogleProjectOrganizationPolicy#boolean_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#id GoogleProjectOrganizationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param list_policy: list_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#list_policy GoogleProjectOrganizationPolicy#list_policy}
-        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#restore_policy GoogleProjectOrganizationPolicy#restore_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#timeouts GoogleProjectOrganizationPolicy#timeouts}
-        :param version: Version of the Policy. Default version is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#version GoogleProjectOrganizationPolicy#version}
+        :param constraint: The name of the Constraint the Policy is configuring, for example, serviceuser.services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#constraint GoogleProjectOrganizationPolicy#constraint}
+        :param project: The project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#project GoogleProjectOrganizationPolicy#project}
+        :param boolean_policy: boolean_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#boolean_policy GoogleProjectOrganizationPolicy#boolean_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#id GoogleProjectOrganizationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param list_policy: list_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#list_policy GoogleProjectOrganizationPolicy#list_policy}
+        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#restore_policy GoogleProjectOrganizationPolicy#restore_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#timeouts GoogleProjectOrganizationPolicy#timeouts}
+        :param version: Version of the Policy. Default version is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#version GoogleProjectOrganizationPolicy#version}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleProjectOrganizationPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleProjectOrganizationPolicy to import.
-        :param import_from_id: The id of the existing GoogleProjectOrganizationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleProjectOrganizationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleProjectOrganizationPolicy to import is found.
         '''
         if __debug__:
@@ -142,7 +142,7 @@ class GoogleProjectOrganizationPolicy(
         enforced: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enforced: If true, then the Policy is enforced. If false, then any configuration is acceptable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#enforced GoogleProjectOrganizationPolicy#enforced}
+        :param enforced: If true, then the Policy is enforced. If false, then any configuration is acceptable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#enforced GoogleProjectOrganizationPolicy#enforced}
         '''
         value = GoogleProjectOrganizationPolicyBooleanPolicy(enforced=enforced)
 
@@ -158,10 +158,10 @@ class GoogleProjectOrganizationPolicy(
         suggested_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#allow GoogleProjectOrganizationPolicy#allow}
-        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#deny GoogleProjectOrganizationPolicy#deny}
-        :param inherit_from_parent: If set to true, the values from the effective Policy of the parent resource are inherited, meaning the values set in this Policy are added to the values inherited up the hierarchy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#inherit_from_parent GoogleProjectOrganizationPolicy#inherit_from_parent}
-        :param suggested_value: The Google Cloud Console will try to default to a configuration that matches the value specified in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#suggested_value GoogleProjectOrganizationPolicy#suggested_value}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#allow GoogleProjectOrganizationPolicy#allow}
+        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#deny GoogleProjectOrganizationPolicy#deny}
+        :param inherit_from_parent: If set to true, the values from the effective Policy of the parent resource are inherited, meaning the values set in this Policy are added to the values inherited up the hierarchy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#inherit_from_parent GoogleProjectOrganizationPolicy#inherit_from_parent}
+        :param suggested_value: The Google Cloud Console will try to default to a configuration that matches the value specified in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#suggested_value GoogleProjectOrganizationPolicy#suggested_value}
         '''
         value = GoogleProjectOrganizationPolicyListPolicy(
             allow=allow,
@@ -179,7 +179,7 @@ class GoogleProjectOrganizationPolicy(
         default: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param default: May only be set to true. If set, then the default Policy is restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#default GoogleProjectOrganizationPolicy#default}
+        :param default: May only be set to true. If set, then the default Policy is restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#default GoogleProjectOrganizationPolicy#default}
         '''
         value = GoogleProjectOrganizationPolicyRestorePolicy(default=default)
 
@@ -195,10 +195,10 @@ class GoogleProjectOrganizationPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#create GoogleProjectOrganizationPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#delete GoogleProjectOrganizationPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#read GoogleProjectOrganizationPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#update GoogleProjectOrganizationPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#create GoogleProjectOrganizationPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#delete GoogleProjectOrganizationPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#read GoogleProjectOrganizationPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#update GoogleProjectOrganizationPolicy#update}.
         '''
         value = GoogleProjectOrganizationPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -386,7 +386,7 @@ class GoogleProjectOrganizationPolicyBooleanPolicy:
         enforced: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enforced: If true, then the Policy is enforced. If false, then any configuration is acceptable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#enforced GoogleProjectOrganizationPolicy#enforced}
+        :param enforced: If true, then the Policy is enforced. If false, then any configuration is acceptable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#enforced GoogleProjectOrganizationPolicy#enforced}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebb54904238efbb393ac34b097c7b3c7b09e2ed78fa6c74057266418d8b99ffc)
@@ -399,7 +399,7 @@ class GoogleProjectOrganizationPolicyBooleanPolicy:
     def enforced(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If true, then the Policy is enforced. If false, then any configuration is acceptable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#enforced GoogleProjectOrganizationPolicy#enforced}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#enforced GoogleProjectOrganizationPolicy#enforced}
         '''
         result = self._values.get("enforced")
         assert result is not None, "Required property 'enforced' is missing"
@@ -526,14 +526,14 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param constraint: The name of the Constraint the Policy is configuring, for example, serviceuser.services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#constraint GoogleProjectOrganizationPolicy#constraint}
-        :param project: The project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#project GoogleProjectOrganizationPolicy#project}
-        :param boolean_policy: boolean_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#boolean_policy GoogleProjectOrganizationPolicy#boolean_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#id GoogleProjectOrganizationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param list_policy: list_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#list_policy GoogleProjectOrganizationPolicy#list_policy}
-        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#restore_policy GoogleProjectOrganizationPolicy#restore_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#timeouts GoogleProjectOrganizationPolicy#timeouts}
-        :param version: Version of the Policy. Default version is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#version GoogleProjectOrganizationPolicy#version}
+        :param constraint: The name of the Constraint the Policy is configuring, for example, serviceuser.services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#constraint GoogleProjectOrganizationPolicy#constraint}
+        :param project: The project ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#project GoogleProjectOrganizationPolicy#project}
+        :param boolean_policy: boolean_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#boolean_policy GoogleProjectOrganizationPolicy#boolean_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#id GoogleProjectOrganizationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param list_policy: list_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#list_policy GoogleProjectOrganizationPolicy#list_policy}
+        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#restore_policy GoogleProjectOrganizationPolicy#restore_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#timeouts GoogleProjectOrganizationPolicy#timeouts}
+        :param version: Version of the Policy. Default version is 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#version GoogleProjectOrganizationPolicy#version}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -661,7 +661,7 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def constraint(self) -> builtins.str:
         '''The name of the Constraint the Policy is configuring, for example, serviceuser.services.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#constraint GoogleProjectOrganizationPolicy#constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#constraint GoogleProjectOrganizationPolicy#constraint}
         '''
         result = self._values.get("constraint")
         assert result is not None, "Required property 'constraint' is missing"
@@ -671,7 +671,7 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def project(self) -> builtins.str:
         '''The project ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#project GoogleProjectOrganizationPolicy#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#project GoogleProjectOrganizationPolicy#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -683,14 +683,14 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[GoogleProjectOrganizationPolicyBooleanPolicy]:
         '''boolean_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#boolean_policy GoogleProjectOrganizationPolicy#boolean_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#boolean_policy GoogleProjectOrganizationPolicy#boolean_policy}
         '''
         result = self._values.get("boolean_policy")
         return typing.cast(typing.Optional[GoogleProjectOrganizationPolicyBooleanPolicy], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#id GoogleProjectOrganizationPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#id GoogleProjectOrganizationPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -704,7 +704,7 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["GoogleProjectOrganizationPolicyListPolicy"]:
         '''list_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#list_policy GoogleProjectOrganizationPolicy#list_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#list_policy GoogleProjectOrganizationPolicy#list_policy}
         '''
         result = self._values.get("list_policy")
         return typing.cast(typing.Optional["GoogleProjectOrganizationPolicyListPolicy"], result)
@@ -715,7 +715,7 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["GoogleProjectOrganizationPolicyRestorePolicy"]:
         '''restore_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#restore_policy GoogleProjectOrganizationPolicy#restore_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#restore_policy GoogleProjectOrganizationPolicy#restore_policy}
         '''
         result = self._values.get("restore_policy")
         return typing.cast(typing.Optional["GoogleProjectOrganizationPolicyRestorePolicy"], result)
@@ -724,7 +724,7 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["GoogleProjectOrganizationPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#timeouts GoogleProjectOrganizationPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#timeouts GoogleProjectOrganizationPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleProjectOrganizationPolicyTimeouts"], result)
@@ -733,7 +733,7 @@ class GoogleProjectOrganizationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def version(self) -> typing.Optional[jsii.Number]:
         '''Version of the Policy. Default version is 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#version GoogleProjectOrganizationPolicy#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#version GoogleProjectOrganizationPolicy#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -770,10 +770,10 @@ class GoogleProjectOrganizationPolicyListPolicy:
         suggested_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#allow GoogleProjectOrganizationPolicy#allow}
-        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#deny GoogleProjectOrganizationPolicy#deny}
-        :param inherit_from_parent: If set to true, the values from the effective Policy of the parent resource are inherited, meaning the values set in this Policy are added to the values inherited up the hierarchy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#inherit_from_parent GoogleProjectOrganizationPolicy#inherit_from_parent}
-        :param suggested_value: The Google Cloud Console will try to default to a configuration that matches the value specified in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#suggested_value GoogleProjectOrganizationPolicy#suggested_value}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#allow GoogleProjectOrganizationPolicy#allow}
+        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#deny GoogleProjectOrganizationPolicy#deny}
+        :param inherit_from_parent: If set to true, the values from the effective Policy of the parent resource are inherited, meaning the values set in this Policy are added to the values inherited up the hierarchy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#inherit_from_parent GoogleProjectOrganizationPolicy#inherit_from_parent}
+        :param suggested_value: The Google Cloud Console will try to default to a configuration that matches the value specified in this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#suggested_value GoogleProjectOrganizationPolicy#suggested_value}
         '''
         if isinstance(allow, dict):
             allow = GoogleProjectOrganizationPolicyListPolicyAllow(**allow)
@@ -801,7 +801,7 @@ class GoogleProjectOrganizationPolicyListPolicy:
     ) -> typing.Optional["GoogleProjectOrganizationPolicyListPolicyAllow"]:
         '''allow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#allow GoogleProjectOrganizationPolicy#allow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#allow GoogleProjectOrganizationPolicy#allow}
         '''
         result = self._values.get("allow")
         return typing.cast(typing.Optional["GoogleProjectOrganizationPolicyListPolicyAllow"], result)
@@ -810,7 +810,7 @@ class GoogleProjectOrganizationPolicyListPolicy:
     def deny(self) -> typing.Optional["GoogleProjectOrganizationPolicyListPolicyDeny"]:
         '''deny block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#deny GoogleProjectOrganizationPolicy#deny}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#deny GoogleProjectOrganizationPolicy#deny}
         '''
         result = self._values.get("deny")
         return typing.cast(typing.Optional["GoogleProjectOrganizationPolicyListPolicyDeny"], result)
@@ -821,7 +821,7 @@ class GoogleProjectOrganizationPolicyListPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, the values from the effective Policy of the parent resource are inherited, meaning the values set in this Policy are added to the values inherited up the hierarchy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#inherit_from_parent GoogleProjectOrganizationPolicy#inherit_from_parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#inherit_from_parent GoogleProjectOrganizationPolicy#inherit_from_parent}
         '''
         result = self._values.get("inherit_from_parent")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -830,7 +830,7 @@ class GoogleProjectOrganizationPolicyListPolicy:
     def suggested_value(self) -> typing.Optional[builtins.str]:
         '''The Google Cloud Console will try to default to a configuration that matches the value specified in this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#suggested_value GoogleProjectOrganizationPolicy#suggested_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#suggested_value GoogleProjectOrganizationPolicy#suggested_value}
         '''
         result = self._values.get("suggested_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -860,8 +860,8 @@ class GoogleProjectOrganizationPolicyListPolicyAllow:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
-        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
+        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
+        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__615ce03e69c55f2b4b3b90c9d80016a98134f04bfe6fbadda6201646686cf41c)
@@ -879,7 +879,7 @@ class GoogleProjectOrganizationPolicyListPolicyAllow:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The policy allows or denies all values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
         '''
         result = self._values.get("all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -888,7 +888,7 @@ class GoogleProjectOrganizationPolicyListPolicyAllow:
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The policy can define specific values that are allowed or denied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1003,8 +1003,8 @@ class GoogleProjectOrganizationPolicyListPolicyDeny:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
-        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
+        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
+        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30216bd3a9c0f387d2c8865155cf050b728261bfed4d0b7e1350b78ce8c21a56)
@@ -1022,7 +1022,7 @@ class GoogleProjectOrganizationPolicyListPolicyDeny:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The policy allows or denies all values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
         '''
         result = self._values.get("all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1031,7 +1031,7 @@ class GoogleProjectOrganizationPolicyListPolicyDeny:
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The policy can define specific values that are allowed or denied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1161,8 +1161,8 @@ class GoogleProjectOrganizationPolicyListPolicyOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
-        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
+        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
+        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
         '''
         value = GoogleProjectOrganizationPolicyListPolicyAllow(all=all, values=values)
 
@@ -1176,8 +1176,8 @@ class GoogleProjectOrganizationPolicyListPolicyOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
-        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
+        :param all: The policy allows or denies all values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#all GoogleProjectOrganizationPolicy#all}
+        :param values: The policy can define specific values that are allowed or denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#values GoogleProjectOrganizationPolicy#values}
         '''
         value = GoogleProjectOrganizationPolicyListPolicyDeny(all=all, values=values)
 
@@ -1294,7 +1294,7 @@ class GoogleProjectOrganizationPolicyRestorePolicy:
         default: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param default: May only be set to true. If set, then the default Policy is restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#default GoogleProjectOrganizationPolicy#default}
+        :param default: May only be set to true. If set, then the default Policy is restored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#default GoogleProjectOrganizationPolicy#default}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90031378d49d6afa6a237984a5d90725be11946dc3cfe0d9415156432d942443)
@@ -1307,7 +1307,7 @@ class GoogleProjectOrganizationPolicyRestorePolicy:
     def default(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''May only be set to true. If set, then the default Policy is restored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#default GoogleProjectOrganizationPolicy#default}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#default GoogleProjectOrganizationPolicy#default}
         '''
         result = self._values.get("default")
         assert result is not None, "Required property 'default' is missing"
@@ -1405,10 +1405,10 @@ class GoogleProjectOrganizationPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#create GoogleProjectOrganizationPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#delete GoogleProjectOrganizationPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#read GoogleProjectOrganizationPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#update GoogleProjectOrganizationPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#create GoogleProjectOrganizationPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#delete GoogleProjectOrganizationPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#read GoogleProjectOrganizationPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#update GoogleProjectOrganizationPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21c506c508b2881598ab31f4b6a7c2b47b892a20e9afaa4252ae43465e45d8e9)
@@ -1428,25 +1428,25 @@ class GoogleProjectOrganizationPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#create GoogleProjectOrganizationPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#create GoogleProjectOrganizationPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#delete GoogleProjectOrganizationPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#delete GoogleProjectOrganizationPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#read GoogleProjectOrganizationPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#read GoogleProjectOrganizationPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_project_organization_policy#update GoogleProjectOrganizationPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_project_organization_policy#update GoogleProjectOrganizationPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

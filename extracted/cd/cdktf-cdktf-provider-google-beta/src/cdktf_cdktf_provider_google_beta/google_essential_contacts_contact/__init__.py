@@ -1,7 +1,7 @@
 r'''
 # `google_essential_contacts_contact`
 
-Refer to the Terraform Registry for docs: [`google_essential_contacts_contact`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact).
+Refer to the Terraform Registry for docs: [`google_essential_contacts_contact`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleEssentialContactsContact(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleEssentialContactsContact.GoogleEssentialContactsContact",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact google_essential_contacts_contact}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact google_essential_contacts_contact}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleEssentialContactsContact(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact google_essential_contacts_contact} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact google_essential_contacts_contact} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param email: The email address to send notifications to. This does not need to be a Google account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#email GoogleEssentialContactsContact#email}
-        :param language_tag: The preferred language for notifications, as a ISO 639-1 language code. See Supported languages for a list of supported languages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#language_tag GoogleEssentialContactsContact#language_tag}
-        :param notification_category_subscriptions: The categories of notifications that the contact will receive communications for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#notification_category_subscriptions GoogleEssentialContactsContact#notification_category_subscriptions}
-        :param parent: The resource to save this contact for. Format: organizations/{organization_id}, folders/{folder_id} or projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#parent GoogleEssentialContactsContact#parent}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#id GoogleEssentialContactsContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#timeouts GoogleEssentialContactsContact#timeouts}
+        :param email: The email address to send notifications to. This does not need to be a Google account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#email GoogleEssentialContactsContact#email}
+        :param language_tag: The preferred language for notifications, as a ISO 639-1 language code. See Supported languages for a list of supported languages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#language_tag GoogleEssentialContactsContact#language_tag}
+        :param notification_category_subscriptions: The categories of notifications that the contact will receive communications for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#notification_category_subscriptions GoogleEssentialContactsContact#notification_category_subscriptions}
+        :param parent: The resource to save this contact for. Format: organizations/{organization_id}, folders/{folder_id} or projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#parent GoogleEssentialContactsContact#parent}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#id GoogleEssentialContactsContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#timeouts GoogleEssentialContactsContact#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleEssentialContactsContact(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleEssentialContactsContact to import.
-        :param import_from_id: The id of the existing GoogleEssentialContactsContact that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleEssentialContactsContact that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleEssentialContactsContact to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GoogleEssentialContactsContact(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#create GoogleEssentialContactsContact#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#delete GoogleEssentialContactsContact#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#update GoogleEssentialContactsContact#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#create GoogleEssentialContactsContact#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#delete GoogleEssentialContactsContact#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#update GoogleEssentialContactsContact#update}.
         '''
         value = GoogleEssentialContactsContactTimeouts(
             create=create, delete=delete, update=update
@@ -322,12 +322,12 @@ class GoogleEssentialContactsContactConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param email: The email address to send notifications to. This does not need to be a Google account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#email GoogleEssentialContactsContact#email}
-        :param language_tag: The preferred language for notifications, as a ISO 639-1 language code. See Supported languages for a list of supported languages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#language_tag GoogleEssentialContactsContact#language_tag}
-        :param notification_category_subscriptions: The categories of notifications that the contact will receive communications for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#notification_category_subscriptions GoogleEssentialContactsContact#notification_category_subscriptions}
-        :param parent: The resource to save this contact for. Format: organizations/{organization_id}, folders/{folder_id} or projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#parent GoogleEssentialContactsContact#parent}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#id GoogleEssentialContactsContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#timeouts GoogleEssentialContactsContact#timeouts}
+        :param email: The email address to send notifications to. This does not need to be a Google account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#email GoogleEssentialContactsContact#email}
+        :param language_tag: The preferred language for notifications, as a ISO 639-1 language code. See Supported languages for a list of supported languages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#language_tag GoogleEssentialContactsContact#language_tag}
+        :param notification_category_subscriptions: The categories of notifications that the contact will receive communications for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#notification_category_subscriptions GoogleEssentialContactsContact#notification_category_subscriptions}
+        :param parent: The resource to save this contact for. Format: organizations/{organization_id}, folders/{folder_id} or projects/{project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#parent GoogleEssentialContactsContact#parent}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#id GoogleEssentialContactsContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#timeouts GoogleEssentialContactsContact#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -441,7 +441,7 @@ class GoogleEssentialContactsContactConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def email(self) -> builtins.str:
         '''The email address to send notifications to. This does not need to be a Google account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#email GoogleEssentialContactsContact#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#email GoogleEssentialContactsContact#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -453,7 +453,7 @@ class GoogleEssentialContactsContactConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         See Supported languages for a list of supported languages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#language_tag GoogleEssentialContactsContact#language_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#language_tag GoogleEssentialContactsContact#language_tag}
         '''
         result = self._values.get("language_tag")
         assert result is not None, "Required property 'language_tag' is missing"
@@ -463,7 +463,7 @@ class GoogleEssentialContactsContactConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def notification_category_subscriptions(self) -> typing.List[builtins.str]:
         '''The categories of notifications that the contact will receive communications for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#notification_category_subscriptions GoogleEssentialContactsContact#notification_category_subscriptions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#notification_category_subscriptions GoogleEssentialContactsContact#notification_category_subscriptions}
         '''
         result = self._values.get("notification_category_subscriptions")
         assert result is not None, "Required property 'notification_category_subscriptions' is missing"
@@ -473,7 +473,7 @@ class GoogleEssentialContactsContactConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def parent(self) -> builtins.str:
         '''The resource to save this contact for. Format: organizations/{organization_id}, folders/{folder_id} or projects/{project_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#parent GoogleEssentialContactsContact#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#parent GoogleEssentialContactsContact#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -481,7 +481,7 @@ class GoogleEssentialContactsContactConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#id GoogleEssentialContactsContact#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#id GoogleEssentialContactsContact#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -493,7 +493,7 @@ class GoogleEssentialContactsContactConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["GoogleEssentialContactsContactTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#timeouts GoogleEssentialContactsContact#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#timeouts GoogleEssentialContactsContact#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleEssentialContactsContactTimeouts"], result)
@@ -524,9 +524,9 @@ class GoogleEssentialContactsContactTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#create GoogleEssentialContactsContact#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#delete GoogleEssentialContactsContact#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#update GoogleEssentialContactsContact#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#create GoogleEssentialContactsContact#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#delete GoogleEssentialContactsContact#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#update GoogleEssentialContactsContact#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b881a965fdae978582e76e33869503a95ca95f072e31dc29c60fb28a55c09d0)
@@ -543,19 +543,19 @@ class GoogleEssentialContactsContactTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#create GoogleEssentialContactsContact#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#create GoogleEssentialContactsContact#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#delete GoogleEssentialContactsContact#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#delete GoogleEssentialContactsContact#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_essential_contacts_contact#update GoogleEssentialContactsContact#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_essential_contacts_contact#update GoogleEssentialContactsContact#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

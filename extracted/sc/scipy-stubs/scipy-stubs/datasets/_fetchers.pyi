@@ -1,5 +1,4 @@
-from typing import Final, Literal as L, overload
-from typing_extensions import LiteralString
+from typing import Final, Literal as L, LiteralString, overload
 
 from ._typing import AscentDataset, CanFetch, ECGDataset, Face2Dataset, Face3Dataset
 
@@ -8,8 +7,7 @@ from ._typing import AscentDataset, CanFetch, ECGDataset, Face2Dataset, Face3Dat
 data_fetcher: Final[CanFetch | None] = ...  # undocumented
 
 def fetch_data(
-    dataset_name: L["ascent.dat", "ecg.dat", "face.dat"],
-    data_fetcher: CanFetch | None = None,
+    dataset_name: L["ascent.dat", "ecg.dat", "face.dat"], data_fetcher: CanFetch | None = None
 ) -> LiteralString: ...  # undocumented
 
 #

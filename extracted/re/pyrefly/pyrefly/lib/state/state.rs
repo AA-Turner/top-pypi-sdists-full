@@ -59,6 +59,7 @@ use crate::alt::answers::AnswerEntry;
 use crate::alt::answers::AnswerTable;
 use crate::alt::answers::Answers;
 use crate::alt::answers::AnswersSolver;
+use crate::alt::answers::CalculationStack;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers::Solutions;
 use crate::alt::answers::SolutionsEntry;
@@ -838,7 +839,12 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn lookup_stdlib(&self, handle: &Handle, name: &Name) -> Option<Class> {
+    fn lookup_stdlib(
+        &self,
+        handle: &Handle,
+        name: &Name,
+        stack: &CalculationStack,
+    ) -> Option<Class> {
         let module_data = self.get_module(handle);
         if !self
             .lookup_export(&module_data)
@@ -857,7 +863,7 @@ impl<'a> Transaction<'a> {
             return None;
         }
 
-        let t = self.lookup_answer(module_data.dupe(), &KeyExport(name.clone()));
+        let t = self.lookup_answer(module_data.dupe(), &KeyExport(name.clone()), stack);
         match t.arc_clone() {
             Type::ClassDef(cls) => Some(cls),
             ty => {
@@ -885,6 +891,7 @@ impl<'a> Transaction<'a> {
         &'b self,
         module_data: ArcId<ModuleDataMut>,
         key: &K,
+        stack: &CalculationStack,
     ) -> Arc<<K as Keyed>::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -913,6 +920,7 @@ impl<'a> Transaction<'a> {
                     &stdlib,
                     &self.data.state.uniques,
                     key,
+                    stack,
                 );
             }
             drop(lock);
@@ -946,13 +954,14 @@ impl<'a> Transaction<'a> {
 
     fn compute_stdlib(&mut self, sys_infos: SmallSet<SysInfo>) {
         let loader = self.get_cached_loader(&BundledTypeshed::config());
+        let stack = CalculationStack::new();
         for k in sys_infos.into_iter_hashed() {
             self.data
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
             let v = Arc::new(Stdlib::new(k.version(), &|module, name| {
                 let path = loader.find_import(module, None).ok()?;
-                self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name)
+                self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name, &stack)
             }));
             self.data.stdlib.insert_hashed(k, v);
         }
@@ -1115,6 +1124,7 @@ impl<'a> Transaction<'a> {
         let (bindings, answers) = steps.answers.as_deref().as_ref()?;
         let stdlib = self.get_stdlib(handle);
         let recurser = Recurser::new();
+        let stack = CalculationStack::new();
         let solver = AnswersSolver::new(
             &lookup,
             answers,
@@ -1124,6 +1134,7 @@ impl<'a> Transaction<'a> {
             &self.data.state.uniques,
             &recurser,
             &stdlib,
+            &stack,
         );
         let result = solve(solver);
         Some(result)
@@ -1419,6 +1430,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
+        stack: &CalculationStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -1428,7 +1440,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
         // The unwrap is safe because we must have said there were no exports,
         // so no one can be trying to get at them
         let module_data = self.get_module(module, path).unwrap();
-        self.transaction.lookup_answer(module_data, k)
+        self.transaction.lookup_answer(module_data, k, stack)
     }
 }
 

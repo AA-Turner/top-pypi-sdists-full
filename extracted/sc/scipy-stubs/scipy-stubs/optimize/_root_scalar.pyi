@@ -4,9 +4,10 @@ from typing_extensions import TypeVar
 
 import numpy as np
 import optype.numpy as onp
-from scipy._typing import Falsy, Truthy
+
 from ._typing import MethodRootScalar
 from ._zeros_py import RootResults
+from scipy._typing import Falsy, Truthy
 
 __all__ = ["root_scalar"]
 

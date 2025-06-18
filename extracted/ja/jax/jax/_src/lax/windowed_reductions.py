@@ -79,7 +79,7 @@ def _reduce_window(
     padding = tuple(lax.padtype_to_pads(
         flat_operands[0].shape, dilated_window_dims, window_strides, padding))
   else:
-    padding = tuple(padding)
+    padding = tuple((x, y) for x, y in padding)
   if base_dilation is None:
     base_dilation = (1,) * len(window_dimensions)
   if window_dilation is None:
@@ -630,7 +630,7 @@ def _reduce_window_lower(
 
   operand_aval, = ctx.avals_in
   scalar_aval = operand_aval.update(
-      shape=(), sharding=operand_aval.sharding.with_spec(()))
+      shape=(), sharding=operand_aval.sharding.update(spec=()))
 
   return mlir.reduce_window(
       ctx,
@@ -687,7 +687,7 @@ def _select_and_scatter_lower(
   operand_aval, source_aval, init_value_aval = ctx.avals_in
   aval_out, = ctx.avals_out
   scalar_aval = operand_aval.update(
-      shape=(), sharding=operand_aval.sharding.with_spec(()))
+      shape=(), sharding=operand_aval.sharding.update(spec=()))
   scalar_type = mlir.aval_to_ir_type(scalar_aval)
   op = hlo.SelectAndScatterOp(
       mlir.aval_to_ir_type(aval_out),

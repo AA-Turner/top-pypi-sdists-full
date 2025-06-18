@@ -1,7 +1,7 @@
 r'''
 # `google_iam_workload_identity_pool`
 
-Refer to the Terraform Registry for docs: [`google_iam_workload_identity_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool).
+Refer to the Terraform Registry for docs: [`google_iam_workload_identity_pool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleIamWorkloadIdentityPool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleIamWorkloadIdentityPool.GoogleIamWorkloadIdentityPool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool google_iam_workload_identity_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool google_iam_workload_identity_pool}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleIamWorkloadIdentityPool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool google_iam_workload_identity_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool google_iam_workload_identity_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param workload_identity_pool_id: The ID to use for the pool, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#workload_identity_pool_id GoogleIamWorkloadIdentityPool#workload_identity_pool_id}
-        :param description: A description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#description GoogleIamWorkloadIdentityPool#description}
-        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#disabled GoogleIamWorkloadIdentityPool#disabled}
-        :param display_name: A display name for the pool. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#display_name GoogleIamWorkloadIdentityPool#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#id GoogleIamWorkloadIdentityPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inline_certificate_issuance_config: inline_certificate_issuance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#inline_certificate_issuance_config GoogleIamWorkloadIdentityPool#inline_certificate_issuance_config}
-        :param inline_trust_config: inline_trust_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#inline_trust_config GoogleIamWorkloadIdentityPool#inline_trust_config}
-        :param mode: The mode for the pool is operating in. Pools with an unspecified mode will operate as if they are in 'FEDERATION_ONLY' mode. ~> **Note** This field cannot be changed after the Workload Identity Pool is created. While 'terraform plan' may show an update if you change this field's value, 'terraform apply' **will fail with an API error** (such as 'Error 400: Attempted to update an immutable field.'). To specify a different 'mode', please create a new Workload Identity Pool resource. - 'FEDERATION_ONLY': Pools can only be used for federating external workload identities into Google Cloud. Unless otherwise noted, no structure or format constraints are applied to workload identities in a 'FEDERATION_ONLY' mode pool, and you may not create any resources within the pool besides providers. - 'TRUST_DOMAIN': Pools can be used to assign identities to Google Cloud workloads. All identities within a 'TRUST_DOMAIN' mode pool must consist of a single namespace and individual workload identifier. The subject identifier for all identities must conform to the following format: 'ns//sa/<workload_identifier>'. 'google_iam_workload_identity_pool_provider's cannot be created within 'TRUST_DOMAIN' mode pools. Possible values: ["FEDERATION_ONLY", "TRUST_DOMAIN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#mode GoogleIamWorkloadIdentityPool#mode}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#project GoogleIamWorkloadIdentityPool#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#timeouts GoogleIamWorkloadIdentityPool#timeouts}
+        :param workload_identity_pool_id: The ID to use for the pool, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#workload_identity_pool_id GoogleIamWorkloadIdentityPool#workload_identity_pool_id}
+        :param description: A description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#description GoogleIamWorkloadIdentityPool#description}
+        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#disabled GoogleIamWorkloadIdentityPool#disabled}
+        :param display_name: A display name for the pool. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#display_name GoogleIamWorkloadIdentityPool#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#id GoogleIamWorkloadIdentityPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inline_certificate_issuance_config: inline_certificate_issuance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#inline_certificate_issuance_config GoogleIamWorkloadIdentityPool#inline_certificate_issuance_config}
+        :param inline_trust_config: inline_trust_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#inline_trust_config GoogleIamWorkloadIdentityPool#inline_trust_config}
+        :param mode: The mode for the pool is operating in. Pools with an unspecified mode will operate as if they are in 'FEDERATION_ONLY' mode. ~> **Note** This field cannot be changed after the Workload Identity Pool is created. While 'terraform plan' may show an update if you change this field's value, 'terraform apply' **will fail with an API error** (such as 'Error 400: Attempted to update an immutable field.'). To specify a different 'mode', please create a new Workload Identity Pool resource. - 'FEDERATION_ONLY': Pools can only be used for federating external workload identities into Google Cloud. Unless otherwise noted, no structure or format constraints are applied to workload identities in a 'FEDERATION_ONLY' mode pool, and you may not create any resources within the pool besides providers. - 'TRUST_DOMAIN': Pools can be used to assign identities to Google Cloud workloads. All identities within a 'TRUST_DOMAIN' mode pool must consist of a single namespace and individual workload identifier. The subject identifier for all identities must conform to the following format: 'ns//sa/<workload_identifier>'. 'google_iam_workload_identity_pool_provider's cannot be created within 'TRUST_DOMAIN' mode pools. Possible values: ["FEDERATION_ONLY", "TRUST_DOMAIN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#mode GoogleIamWorkloadIdentityPool#mode}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#project GoogleIamWorkloadIdentityPool#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#timeouts GoogleIamWorkloadIdentityPool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleIamWorkloadIdentityPool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleIamWorkloadIdentityPool to import.
-        :param import_from_id: The id of the existing GoogleIamWorkloadIdentityPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleIamWorkloadIdentityPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleIamWorkloadIdentityPool to import is found.
         '''
         if __debug__:
@@ -151,10 +151,10 @@ class GoogleIamWorkloadIdentityPool(
         rotation_window_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param ca_pools: A required mapping of a cloud region to the CA pool resource located in that region used for certificate issuance, adhering to these constraints: * **Key format:** A supported cloud region name equivalent to the location identifier in the corresponding map entry's value. - **Value format:** A valid CA pool resource path format like: 'projects/{project}/locations/{location}/caPools/{ca_pool}' - **Region Matching:** Workloads are ONLY issued certificates from CA pools within the same region. Also the CA pool region (in value) must match the workload's region (key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#ca_pools GoogleIamWorkloadIdentityPool#ca_pools}
-        :param key_algorithm: Key algorithm to use when generating the key pair. This key pair will be used to create the certificate. If unspecified, this will default to 'ECDSA_P256'. - 'RSA_2048': Specifies RSA with a 2048-bit modulus. - 'RSA_3072': Specifies RSA with a 3072-bit modulus. - 'RSA_4096': Specifies RSA with a 4096-bit modulus. - 'ECDSA_P256': Specifies ECDSA with curve P256. - 'ECDSA_P384': Specifies ECDSA with curve P384. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096", "ECDSA_P256", "ECDSA_P384"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#key_algorithm GoogleIamWorkloadIdentityPool#key_algorithm}
-        :param lifetime: Lifetime of the workload certificates issued by the CA pool in seconds. Must be between '86400s' (24 hours) to '2592000s' (30 days), ends in the suffix "'s'" (indicating seconds) and is preceded by the number of seconds. If unspecified, this will be defaulted to '86400s' (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#lifetime GoogleIamWorkloadIdentityPool#lifetime}
-        :param rotation_window_percentage: Rotation window percentage indicating when certificate rotation should be initiated based on remaining lifetime. Must be between '50' - '80'. If unspecified, this will be defaulted to '50'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#rotation_window_percentage GoogleIamWorkloadIdentityPool#rotation_window_percentage}
+        :param ca_pools: A required mapping of a cloud region to the CA pool resource located in that region used for certificate issuance, adhering to these constraints: * **Key format:** A supported cloud region name equivalent to the location identifier in the corresponding map entry's value. - **Value format:** A valid CA pool resource path format like: 'projects/{project}/locations/{location}/caPools/{ca_pool}' - **Region Matching:** Workloads are ONLY issued certificates from CA pools within the same region. Also the CA pool region (in value) must match the workload's region (key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#ca_pools GoogleIamWorkloadIdentityPool#ca_pools}
+        :param key_algorithm: Key algorithm to use when generating the key pair. This key pair will be used to create the certificate. If unspecified, this will default to 'ECDSA_P256'. - 'RSA_2048': Specifies RSA with a 2048-bit modulus. - 'RSA_3072': Specifies RSA with a 3072-bit modulus. - 'RSA_4096': Specifies RSA with a 4096-bit modulus. - 'ECDSA_P256': Specifies ECDSA with curve P256. - 'ECDSA_P384': Specifies ECDSA with curve P384. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096", "ECDSA_P256", "ECDSA_P384"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#key_algorithm GoogleIamWorkloadIdentityPool#key_algorithm}
+        :param lifetime: Lifetime of the workload certificates issued by the CA pool in seconds. Must be between '86400s' (24 hours) to '2592000s' (30 days), ends in the suffix "'s'" (indicating seconds) and is preceded by the number of seconds. If unspecified, this will be defaulted to '86400s' (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#lifetime GoogleIamWorkloadIdentityPool#lifetime}
+        :param rotation_window_percentage: Rotation window percentage indicating when certificate rotation should be initiated based on remaining lifetime. Must be between '50' - '80'. If unspecified, this will be defaulted to '50'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#rotation_window_percentage GoogleIamWorkloadIdentityPool#rotation_window_percentage}
         '''
         value = GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig(
             ca_pools=ca_pools,
@@ -172,7 +172,7 @@ class GoogleIamWorkloadIdentityPool(
         additional_trust_bundles: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundles", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param additional_trust_bundles: additional_trust_bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#additional_trust_bundles GoogleIamWorkloadIdentityPool#additional_trust_bundles}
+        :param additional_trust_bundles: additional_trust_bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#additional_trust_bundles GoogleIamWorkloadIdentityPool#additional_trust_bundles}
         '''
         value = GoogleIamWorkloadIdentityPoolInlineTrustConfig(
             additional_trust_bundles=additional_trust_bundles
@@ -189,9 +189,9 @@ class GoogleIamWorkloadIdentityPool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#create GoogleIamWorkloadIdentityPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#delete GoogleIamWorkloadIdentityPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#update GoogleIamWorkloadIdentityPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#create GoogleIamWorkloadIdentityPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#delete GoogleIamWorkloadIdentityPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#update GoogleIamWorkloadIdentityPool#update}.
         '''
         value = GoogleIamWorkloadIdentityPoolTimeouts(
             create=create, delete=delete, update=update
@@ -476,16 +476,16 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param workload_identity_pool_id: The ID to use for the pool, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#workload_identity_pool_id GoogleIamWorkloadIdentityPool#workload_identity_pool_id}
-        :param description: A description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#description GoogleIamWorkloadIdentityPool#description}
-        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#disabled GoogleIamWorkloadIdentityPool#disabled}
-        :param display_name: A display name for the pool. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#display_name GoogleIamWorkloadIdentityPool#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#id GoogleIamWorkloadIdentityPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inline_certificate_issuance_config: inline_certificate_issuance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#inline_certificate_issuance_config GoogleIamWorkloadIdentityPool#inline_certificate_issuance_config}
-        :param inline_trust_config: inline_trust_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#inline_trust_config GoogleIamWorkloadIdentityPool#inline_trust_config}
-        :param mode: The mode for the pool is operating in. Pools with an unspecified mode will operate as if they are in 'FEDERATION_ONLY' mode. ~> **Note** This field cannot be changed after the Workload Identity Pool is created. While 'terraform plan' may show an update if you change this field's value, 'terraform apply' **will fail with an API error** (such as 'Error 400: Attempted to update an immutable field.'). To specify a different 'mode', please create a new Workload Identity Pool resource. - 'FEDERATION_ONLY': Pools can only be used for federating external workload identities into Google Cloud. Unless otherwise noted, no structure or format constraints are applied to workload identities in a 'FEDERATION_ONLY' mode pool, and you may not create any resources within the pool besides providers. - 'TRUST_DOMAIN': Pools can be used to assign identities to Google Cloud workloads. All identities within a 'TRUST_DOMAIN' mode pool must consist of a single namespace and individual workload identifier. The subject identifier for all identities must conform to the following format: 'ns//sa/<workload_identifier>'. 'google_iam_workload_identity_pool_provider's cannot be created within 'TRUST_DOMAIN' mode pools. Possible values: ["FEDERATION_ONLY", "TRUST_DOMAIN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#mode GoogleIamWorkloadIdentityPool#mode}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#project GoogleIamWorkloadIdentityPool#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#timeouts GoogleIamWorkloadIdentityPool#timeouts}
+        :param workload_identity_pool_id: The ID to use for the pool, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#workload_identity_pool_id GoogleIamWorkloadIdentityPool#workload_identity_pool_id}
+        :param description: A description of the pool. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#description GoogleIamWorkloadIdentityPool#description}
+        :param disabled: Whether the pool is disabled. You cannot use a disabled pool to exchange tokens, or use existing tokens to access resources. If the pool is re-enabled, existing tokens grant access again. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#disabled GoogleIamWorkloadIdentityPool#disabled}
+        :param display_name: A display name for the pool. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#display_name GoogleIamWorkloadIdentityPool#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#id GoogleIamWorkloadIdentityPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inline_certificate_issuance_config: inline_certificate_issuance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#inline_certificate_issuance_config GoogleIamWorkloadIdentityPool#inline_certificate_issuance_config}
+        :param inline_trust_config: inline_trust_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#inline_trust_config GoogleIamWorkloadIdentityPool#inline_trust_config}
+        :param mode: The mode for the pool is operating in. Pools with an unspecified mode will operate as if they are in 'FEDERATION_ONLY' mode. ~> **Note** This field cannot be changed after the Workload Identity Pool is created. While 'terraform plan' may show an update if you change this field's value, 'terraform apply' **will fail with an API error** (such as 'Error 400: Attempted to update an immutable field.'). To specify a different 'mode', please create a new Workload Identity Pool resource. - 'FEDERATION_ONLY': Pools can only be used for federating external workload identities into Google Cloud. Unless otherwise noted, no structure or format constraints are applied to workload identities in a 'FEDERATION_ONLY' mode pool, and you may not create any resources within the pool besides providers. - 'TRUST_DOMAIN': Pools can be used to assign identities to Google Cloud workloads. All identities within a 'TRUST_DOMAIN' mode pool must consist of a single namespace and individual workload identifier. The subject identifier for all identities must conform to the following format: 'ns//sa/<workload_identifier>'. 'google_iam_workload_identity_pool_provider's cannot be created within 'TRUST_DOMAIN' mode pools. Possible values: ["FEDERATION_ONLY", "TRUST_DOMAIN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#mode GoogleIamWorkloadIdentityPool#mode}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#project GoogleIamWorkloadIdentityPool#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#timeouts GoogleIamWorkloadIdentityPool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -622,7 +622,7 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
         value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix
         'gcp-' is reserved for use by Google, and may not be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#workload_identity_pool_id GoogleIamWorkloadIdentityPool#workload_identity_pool_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#workload_identity_pool_id GoogleIamWorkloadIdentityPool#workload_identity_pool_id}
         '''
         result = self._values.get("workload_identity_pool_id")
         assert result is not None, "Required property 'workload_identity_pool_id' is missing"
@@ -632,7 +632,7 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the pool. Cannot exceed 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#description GoogleIamWorkloadIdentityPool#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#description GoogleIamWorkloadIdentityPool#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -647,7 +647,7 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
         existing tokens to access resources. If the pool is re-enabled, existing tokens grant
         access again.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#disabled GoogleIamWorkloadIdentityPool#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#disabled GoogleIamWorkloadIdentityPool#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -656,14 +656,14 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A display name for the pool. Cannot exceed 32 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#display_name GoogleIamWorkloadIdentityPool#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#display_name GoogleIamWorkloadIdentityPool#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#id GoogleIamWorkloadIdentityPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#id GoogleIamWorkloadIdentityPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -677,7 +677,7 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig"]:
         '''inline_certificate_issuance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#inline_certificate_issuance_config GoogleIamWorkloadIdentityPool#inline_certificate_issuance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#inline_certificate_issuance_config GoogleIamWorkloadIdentityPool#inline_certificate_issuance_config}
         '''
         result = self._values.get("inline_certificate_issuance_config")
         return typing.cast(typing.Optional["GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig"], result)
@@ -688,7 +688,7 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["GoogleIamWorkloadIdentityPoolInlineTrustConfig"]:
         '''inline_trust_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#inline_trust_config GoogleIamWorkloadIdentityPool#inline_trust_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#inline_trust_config GoogleIamWorkloadIdentityPool#inline_trust_config}
         '''
         result = self._values.get("inline_trust_config")
         return typing.cast(typing.Optional["GoogleIamWorkloadIdentityPoolInlineTrustConfig"], result)
@@ -716,14 +716,14 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
           'google_iam_workload_identity_pool_provider's cannot be created within 'TRUST_DOMAIN'
           mode pools. Possible values: ["FEDERATION_ONLY", "TRUST_DOMAIN"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#mode GoogleIamWorkloadIdentityPool#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#mode GoogleIamWorkloadIdentityPool#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#project GoogleIamWorkloadIdentityPool#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#project GoogleIamWorkloadIdentityPool#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -731,7 +731,7 @@ class GoogleIamWorkloadIdentityPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["GoogleIamWorkloadIdentityPoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#timeouts GoogleIamWorkloadIdentityPool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#timeouts GoogleIamWorkloadIdentityPool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleIamWorkloadIdentityPoolTimeouts"], result)
@@ -768,10 +768,10 @@ class GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig:
         rotation_window_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param ca_pools: A required mapping of a cloud region to the CA pool resource located in that region used for certificate issuance, adhering to these constraints: * **Key format:** A supported cloud region name equivalent to the location identifier in the corresponding map entry's value. - **Value format:** A valid CA pool resource path format like: 'projects/{project}/locations/{location}/caPools/{ca_pool}' - **Region Matching:** Workloads are ONLY issued certificates from CA pools within the same region. Also the CA pool region (in value) must match the workload's region (key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#ca_pools GoogleIamWorkloadIdentityPool#ca_pools}
-        :param key_algorithm: Key algorithm to use when generating the key pair. This key pair will be used to create the certificate. If unspecified, this will default to 'ECDSA_P256'. - 'RSA_2048': Specifies RSA with a 2048-bit modulus. - 'RSA_3072': Specifies RSA with a 3072-bit modulus. - 'RSA_4096': Specifies RSA with a 4096-bit modulus. - 'ECDSA_P256': Specifies ECDSA with curve P256. - 'ECDSA_P384': Specifies ECDSA with curve P384. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096", "ECDSA_P256", "ECDSA_P384"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#key_algorithm GoogleIamWorkloadIdentityPool#key_algorithm}
-        :param lifetime: Lifetime of the workload certificates issued by the CA pool in seconds. Must be between '86400s' (24 hours) to '2592000s' (30 days), ends in the suffix "'s'" (indicating seconds) and is preceded by the number of seconds. If unspecified, this will be defaulted to '86400s' (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#lifetime GoogleIamWorkloadIdentityPool#lifetime}
-        :param rotation_window_percentage: Rotation window percentage indicating when certificate rotation should be initiated based on remaining lifetime. Must be between '50' - '80'. If unspecified, this will be defaulted to '50'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#rotation_window_percentage GoogleIamWorkloadIdentityPool#rotation_window_percentage}
+        :param ca_pools: A required mapping of a cloud region to the CA pool resource located in that region used for certificate issuance, adhering to these constraints: * **Key format:** A supported cloud region name equivalent to the location identifier in the corresponding map entry's value. - **Value format:** A valid CA pool resource path format like: 'projects/{project}/locations/{location}/caPools/{ca_pool}' - **Region Matching:** Workloads are ONLY issued certificates from CA pools within the same region. Also the CA pool region (in value) must match the workload's region (key). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#ca_pools GoogleIamWorkloadIdentityPool#ca_pools}
+        :param key_algorithm: Key algorithm to use when generating the key pair. This key pair will be used to create the certificate. If unspecified, this will default to 'ECDSA_P256'. - 'RSA_2048': Specifies RSA with a 2048-bit modulus. - 'RSA_3072': Specifies RSA with a 3072-bit modulus. - 'RSA_4096': Specifies RSA with a 4096-bit modulus. - 'ECDSA_P256': Specifies ECDSA with curve P256. - 'ECDSA_P384': Specifies ECDSA with curve P384. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096", "ECDSA_P256", "ECDSA_P384"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#key_algorithm GoogleIamWorkloadIdentityPool#key_algorithm}
+        :param lifetime: Lifetime of the workload certificates issued by the CA pool in seconds. Must be between '86400s' (24 hours) to '2592000s' (30 days), ends in the suffix "'s'" (indicating seconds) and is preceded by the number of seconds. If unspecified, this will be defaulted to '86400s' (24 hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#lifetime GoogleIamWorkloadIdentityPool#lifetime}
+        :param rotation_window_percentage: Rotation window percentage indicating when certificate rotation should be initiated based on remaining lifetime. Must be between '50' - '80'. If unspecified, this will be defaulted to '50'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#rotation_window_percentage GoogleIamWorkloadIdentityPool#rotation_window_percentage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3b4317f5a615969fff2860f547cfe7191e9875f13bf46e648c445d24eea9a7c)
@@ -798,7 +798,7 @@ class GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig:
         - **Region Matching:** Workloads are ONLY issued certificates from CA pools within the
           same region. Also the CA pool region (in value) must match the workload's region (key).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#ca_pools GoogleIamWorkloadIdentityPool#ca_pools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#ca_pools GoogleIamWorkloadIdentityPool#ca_pools}
         '''
         result = self._values.get("ca_pools")
         assert result is not None, "Required property 'ca_pools' is missing"
@@ -817,7 +817,7 @@ class GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig:
         - 'ECDSA_P256': Specifies ECDSA with curve P256.
         - 'ECDSA_P384': Specifies ECDSA with curve P384. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096", "ECDSA_P256", "ECDSA_P384"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#key_algorithm GoogleIamWorkloadIdentityPool#key_algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#key_algorithm GoogleIamWorkloadIdentityPool#key_algorithm}
         '''
         result = self._values.get("key_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -831,7 +831,7 @@ class GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig:
         and is preceded by the number of seconds. If unspecified, this will be defaulted to
         '86400s' (24 hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#lifetime GoogleIamWorkloadIdentityPool#lifetime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#lifetime GoogleIamWorkloadIdentityPool#lifetime}
         '''
         result = self._values.get("lifetime")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -843,7 +843,7 @@ class GoogleIamWorkloadIdentityPoolInlineCertificateIssuanceConfig:
         Must be between '50' - '80'. If unspecified, this will be defaulted
         to '50'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#rotation_window_percentage GoogleIamWorkloadIdentityPool#rotation_window_percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#rotation_window_percentage GoogleIamWorkloadIdentityPool#rotation_window_percentage}
         '''
         result = self._values.get("rotation_window_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -992,7 +992,7 @@ class GoogleIamWorkloadIdentityPoolInlineTrustConfig:
         additional_trust_bundles: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundles", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param additional_trust_bundles: additional_trust_bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#additional_trust_bundles GoogleIamWorkloadIdentityPool#additional_trust_bundles}
+        :param additional_trust_bundles: additional_trust_bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#additional_trust_bundles GoogleIamWorkloadIdentityPool#additional_trust_bundles}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4b4f1e8617acf42f5f1245966af1f0dfa2bfb2d75cbfc5a2bc817744144cd32)
@@ -1007,7 +1007,7 @@ class GoogleIamWorkloadIdentityPoolInlineTrustConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundles"]]]:
         '''additional_trust_bundles block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#additional_trust_bundles GoogleIamWorkloadIdentityPool#additional_trust_bundles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#additional_trust_bundles GoogleIamWorkloadIdentityPool#additional_trust_bundles}
         '''
         result = self._values.get("additional_trust_bundles")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundles"]]], result)
@@ -1037,8 +1037,8 @@ class GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundles:
         trust_domain: builtins.str,
     ) -> None:
         '''
-        :param trust_anchors: trust_anchors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#trust_anchors GoogleIamWorkloadIdentityPool#trust_anchors}
-        :param trust_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#trust_domain GoogleIamWorkloadIdentityPool#trust_domain}.
+        :param trust_anchors: trust_anchors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#trust_anchors GoogleIamWorkloadIdentityPool#trust_anchors}
+        :param trust_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#trust_domain GoogleIamWorkloadIdentityPool#trust_domain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25e79c9f0dff7b69e3e6a2206da732e6630326a285c1ea5c7b2b68d86206268d)
@@ -1055,7 +1055,7 @@ class GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundles:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundlesTrustAnchors"]]:
         '''trust_anchors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#trust_anchors GoogleIamWorkloadIdentityPool#trust_anchors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#trust_anchors GoogleIamWorkloadIdentityPool#trust_anchors}
         '''
         result = self._values.get("trust_anchors")
         assert result is not None, "Required property 'trust_anchors' is missing"
@@ -1063,7 +1063,7 @@ class GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundles:
 
     @builtins.property
     def trust_domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#trust_domain GoogleIamWorkloadIdentityPool#trust_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#trust_domain GoogleIamWorkloadIdentityPool#trust_domain}.'''
         result = self._values.get("trust_domain")
         assert result is not None, "Required property 'trust_domain' is missing"
         return typing.cast(builtins.str, result)
@@ -1269,7 +1269,7 @@ class GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundlesOutput
 class GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundlesTrustAnchors:
     def __init__(self, *, pem_certificate: builtins.str) -> None:
         '''
-        :param pem_certificate: PEM certificate of the PKI used for validation. Must only contain one ca certificate(either root or intermediate cert). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#pem_certificate GoogleIamWorkloadIdentityPool#pem_certificate}
+        :param pem_certificate: PEM certificate of the PKI used for validation. Must only contain one ca certificate(either root or intermediate cert). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#pem_certificate GoogleIamWorkloadIdentityPool#pem_certificate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcfaf3a5778cf2a324a5815aef6beacdd31246ce5509d1669bef4ceb94555b80)
@@ -1282,7 +1282,7 @@ class GoogleIamWorkloadIdentityPoolInlineTrustConfigAdditionalTrustBundlesTrustA
     def pem_certificate(self) -> builtins.str:
         '''PEM certificate of the PKI used for validation. Must only contain one ca certificate(either root or intermediate cert).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#pem_certificate GoogleIamWorkloadIdentityPool#pem_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#pem_certificate GoogleIamWorkloadIdentityPool#pem_certificate}
         '''
         result = self._values.get("pem_certificate")
         assert result is not None, "Required property 'pem_certificate' is missing"
@@ -1537,9 +1537,9 @@ class GoogleIamWorkloadIdentityPoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#create GoogleIamWorkloadIdentityPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#delete GoogleIamWorkloadIdentityPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#update GoogleIamWorkloadIdentityPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#create GoogleIamWorkloadIdentityPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#delete GoogleIamWorkloadIdentityPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#update GoogleIamWorkloadIdentityPool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06827431041d2e983e2e94b4374c77de0d7a2b2ea3a7316a76ba33458f09529c)
@@ -1556,19 +1556,19 @@ class GoogleIamWorkloadIdentityPoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#create GoogleIamWorkloadIdentityPool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#create GoogleIamWorkloadIdentityPool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#delete GoogleIamWorkloadIdentityPool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#delete GoogleIamWorkloadIdentityPool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_iam_workload_identity_pool#update GoogleIamWorkloadIdentityPool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_iam_workload_identity_pool#update GoogleIamWorkloadIdentityPool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

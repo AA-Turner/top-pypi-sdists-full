@@ -215,7 +215,7 @@ def stop_trace():
     if _profile_state.profile_session is None:
       raise RuntimeError("No profile started")
     sess = _profile_state.profile_session
-    sess.stop_and_export(str(_profile_state.log_dir))
+    sess.stop_and_export(str(_profile_state.log_dir))  # type: ignore
     if _profile_state.create_perfetto_trace:
       abs_filename = _write_perfetto_trace_file(_profile_state.log_dir)
       if _profile_state.create_perfetto_link:
@@ -402,7 +402,7 @@ def save_device_memory_profile(filename, backend: str | None = None) -> None:
 
 
 # Allows to run model with profiler given amount of times. After required amount
-# of retries achived client can collect FDO data.
+# of retries achieved client can collect FDO data.
 class PGLEProfiler:
 
   def __init__(self, retries: int, percentile: int):

@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{html::DocumentStyleMap, InlineError};
 use html5ever::local_name;
-use selectors::NthIndexCache;
+use selectors::context::SelectorCaches;
 use std::{fmt, fmt::Formatter, io::Write, iter::successors};
 
 /// HTML document representation.
@@ -297,15 +297,9 @@ impl Document {
     pub(crate) fn select<'a, 'b, 'c>(
         &'a self,
         selectors: &'b str,
-        caches: &'c mut [NthIndexCache],
+        caches: &'c mut SelectorCaches,
     ) -> Result<Select<'a, 'c>, ParseError<'b>> {
         select(self, selectors, caches)
-    }
-
-    pub(crate) fn build_caches(&self) -> Vec<NthIndexCache> {
-        (0..self.elements.len())
-            .map(|_| NthIndexCache::default())
-            .collect()
     }
 }
 
@@ -328,7 +322,7 @@ impl std::ops::IndexMut<NodeId> for Document {
 #[cfg(test)]
 mod tests {
     use super::{super::node::ElementData, *};
-    use html5ever::{local_name, namespace_url, ns, QualName};
+    use html5ever::{local_name, ns, QualName};
     use indexmap::IndexMap;
     use test_case::test_case;
 
@@ -453,7 +447,7 @@ mod tests {
     fn test_debug() {
         let doc =
             Document::parse_with_options(b"<html><body></body></html>", 0, InliningMode::Document);
-        assert_eq!(format!("{doc:?}"), "Document { nodes: [Node { parent: None, next_sibling: None, previous_sibling: None, first_child: None, last_child: None, data: Document }, Node { parent: None, next_sibling: None, previous_sibling: None, first_child: Some(NodeId(2)), last_child: Some(NodeId(2)), data: Document }, Node { parent: Some(NodeId(1)), next_sibling: None, previous_sibling: None, first_child: Some(NodeId(3)), last_child: Some(NodeId(4)), data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('html' type=static) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }, Node { parent: Some(NodeId(2)), next_sibling: Some(NodeId(4)), previous_sibling: None, first_child: None, last_child: None, data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('head' type=static) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }, Node { parent: Some(NodeId(2)), next_sibling: None, previous_sibling: Some(NodeId(3)), first_child: None, last_child: None, data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('body' type=static) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }], styles: [], linked_stylesheets: [], .. }");
+        assert_eq!(format!("{doc:?}"), "Document { nodes: [Node { parent: None, next_sibling: None, previous_sibling: None, first_child: None, last_child: None, data: Document }, Node { parent: None, next_sibling: None, previous_sibling: None, first_child: Some(NodeId(2)), last_child: Some(NodeId(2)), data: Document }, Node { parent: Some(NodeId(1)), next_sibling: None, previous_sibling: None, first_child: Some(NodeId(3)), last_child: Some(NodeId(4)), data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('html' type=inline) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }, Node { parent: Some(NodeId(2)), next_sibling: Some(NodeId(4)), previous_sibling: None, first_child: None, last_child: None, data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('head' type=inline) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }, Node { parent: Some(NodeId(2)), next_sibling: None, previous_sibling: Some(NodeId(3)), first_child: None, last_child: None, data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('body' type=inline) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }], styles: [], linked_stylesheets: [], .. }");
     }
 
     #[test]

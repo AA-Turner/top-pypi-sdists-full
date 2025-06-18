@@ -7,6 +7,7 @@ import numpy.typing as npt
 import optype as op
 import optype.numpy as onp
 import optype.numpy.compat as npc
+
 from scipy._typing import ConvMode
 
 __all__ = [
@@ -54,14 +55,6 @@ _ToJustFloatStrict2ND: TypeAlias = onp.SequenceND[onp.ToJustFloat1D] | onp.CanAr
 _ToJustComplexStrict2ND: TypeAlias = onp.SequenceND[onp.ToJustComplex1D] | onp.CanArrayND[npc.complexfloating, onp.AtLeast2D]
 
 ###
-
-#
-@overload
-@deprecated("`kron` has been deprecated in favour of `numpy.kron` in SciPy 1.15.0 and will be removed in SciPy 1.17.0.")
-def kron(a: onp.Array2D[_SCT], b: onp.Array2D[_SCT]) -> onp.Array2D[_SCT]: ...
-@overload
-@deprecated("`kron` has been deprecated in favour of `numpy.kron` in SciPy 1.15.0 and will be removed in SciPy 1.17.0.")
-def kron(a: onp.ArrayND[_SCT], b: onp.ArrayND[_SCT]) -> onp.Array[onp.AtLeast2D, _SCT]: ...
 
 #
 @overload
@@ -230,6 +223,14 @@ def leslie(f: _ToStrict1D[_SCT], s: _ToStrict2ND[_SCT]) -> _Array3ND[_SCT]: ...
 def leslie(f: _ToStrict2ND[_SCT], s: _ToND[_SCT]) -> _Array3ND[_SCT]: ...
 @overload
 def leslie(f: _ToND[_SCT], s: _ToND[_SCT]) -> _Array2ND[_SCT]: ...
+
+#
+@overload
+@deprecated("`kron` has been deprecated in favour of `numpy.kron` in SciPy 1.15.0 and will be removed in SciPy 1.17.0.")
+def kron(a: onp.Array2D[_SCT], b: onp.Array2D[_SCT]) -> onp.Array2D[_SCT]: ...
+@overload
+@deprecated("`kron` has been deprecated in favour of `numpy.kron` in SciPy 1.15.0 and will be removed in SciPy 1.17.0.")
+def kron(a: onp.ArrayND[_SCT], b: onp.ArrayND[_SCT]) -> onp.Array[onp.AtLeast2D, _SCT]: ...
 
 #
 @overload

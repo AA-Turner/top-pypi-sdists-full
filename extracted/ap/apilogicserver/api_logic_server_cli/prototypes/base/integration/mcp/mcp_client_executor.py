@@ -20,7 +20,7 @@ See: https://apilogicserver.github.io/Docs/Integration-MCP/
 # debug settings
 ################
 
-create_tool_context_from_llm = True
+create_tool_context_from_llm = False
 ''' set to False to bypass LLM call and save 2-3 secs in testing, no API Key required. '''
 
 import os, logging, logging.config, sys
@@ -351,17 +351,18 @@ def process_tool_context(tool_context):
             body = step.get("body", []) 
             # iterate the body fields / values
             # This loop checks each field in the body for a fan-out pattern
-            for attr_name, attr_value in body.items():
-                if isinstance(attr_value, str) and "[*]" in attr_value:
-                    match = re.match(r"\$(\d+)\[\*\]\.(\w+)", attr_value)
-                    if match:
-                        return int(match.group(1)), match.group(2)
-            # If the body is a list, iterate through each field
-            for field in body:
-                if isinstance(field["value"], str) and "[*]" in field["value"]:  # string indices must be integers, not 'str'
-                    match = re.match(r"\$(\d+)\[\*\]\.(\w+)", field["value"])
-                    if match:
-                        return int(match.group(1)), match.group(2)
+            if body is not None:
+                for attr_name, attr_value in body.items():
+                    if isinstance(attr_value, str) and "[*]" in attr_value:
+                        match = re.match(r"\$(\d+)\[\*\]\.(\w+)", attr_value)
+                        if match:
+                            return int(match.group(1)), match.group(2)
+                # If the body is a list, iterate through each field
+                for field in body:
+                    if isinstance(field["value"], str) and "[*]" in field["value"]:  # string indices must be integers, not 'str'
+                        match = re.match(r"\$(\d+)\[\*\]\.(\w+)", field["value"])
+                        if match:
+                            return int(match.group(1)), match.group(2)
         return None
 
 
@@ -468,7 +469,9 @@ def mcp_client_executor(query: str):
     #als: create an MCP request.  See https://apilogicserver.github.io/Docs/Integration-MCP/
 
     Test:
+    * als add-auth --provider-type=None 
     * curl -X 'POST' 'http://localhost:5656/api/SysMcp/' -H 'accept: application/vnd.api+json' -H 'Content-Type: application/json' -d '{ "data": { "attributes": {"request": "List the orders date_shipped is null and CreatedOn before 2023-07-14, and send a discount email (subject: '\''Discount Offer'\'') to the customer for each one."}, "type": "SysMcp"}}'
+
     * Or, use the Admin App and insert a row into SysMCP (see default `query`, below)
 
     Args:

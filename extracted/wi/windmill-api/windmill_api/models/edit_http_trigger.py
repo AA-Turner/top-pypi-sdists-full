@@ -26,6 +26,8 @@ class EditHttpTrigger:
         authentication_method (EditHttpTriggerAuthenticationMethod):
         is_static_website (bool):
         route_path (Union[Unset, str]):
+        summary (Union[Unset, str]):
+        description (Union[Unset, str]):
         workspaced_route (Union[Unset, bool]):
         static_asset_config (Union[Unset, EditHttpTriggerStaticAssetConfig]):
         authentication_resource_path (Union[Unset, str]):
@@ -41,6 +43,8 @@ class EditHttpTrigger:
     authentication_method: EditHttpTriggerAuthenticationMethod
     is_static_website: bool
     route_path: Union[Unset, str] = UNSET
+    summary: Union[Unset, str] = UNSET
+    description: Union[Unset, str] = UNSET
     workspaced_route: Union[Unset, bool] = UNSET
     static_asset_config: Union[Unset, "EditHttpTriggerStaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, str] = UNSET
@@ -59,6 +63,8 @@ class EditHttpTrigger:
 
         is_static_website = self.is_static_website
         route_path = self.route_path
+        summary = self.summary
+        description = self.description
         workspaced_route = self.workspaced_route
         static_asset_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.static_asset_config, Unset):
@@ -83,6 +89,10 @@ class EditHttpTrigger:
         )
         if route_path is not UNSET:
             field_dict["route_path"] = route_path
+        if summary is not UNSET:
+            field_dict["summary"] = summary
+        if description is not UNSET:
+            field_dict["description"] = description
         if workspaced_route is not UNSET:
             field_dict["workspaced_route"] = workspaced_route
         if static_asset_config is not UNSET:
@@ -117,6 +127,10 @@ class EditHttpTrigger:
 
         route_path = d.pop("route_path", UNSET)
 
+        summary = d.pop("summary", UNSET)
+
+        description = d.pop("description", UNSET)
+
         workspaced_route = d.pop("workspaced_route", UNSET)
 
         _static_asset_config = d.pop("static_asset_config", UNSET)
@@ -141,6 +155,8 @@ class EditHttpTrigger:
             authentication_method=authentication_method,
             is_static_website=is_static_website,
             route_path=route_path,
+            summary=summary,
+            description=description,
             workspaced_route=workspaced_route,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,

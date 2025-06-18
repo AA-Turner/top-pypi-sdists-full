@@ -7275,38 +7275,38 @@ async def get_link_for_media(bot, chat_id, file_path, KEYS_JSON, is_del=True):
         # endregion
 
         # region getgems
-        # len_ = len(data["media"]["getgems"])
-        # random_index = random.randint(0, len_ - 1)
-        # getgems_token = data["media"]["getgems"][random_index]
-        #
-        # try:
-        #     random_sequence = await generate_random_sequence()
-        #     url = f"https://api.getgems.io/upload-media?type=Nft&sign={random_sequence}"
-        #     if not getgems_token: raise Exception
-        #     r1 = random.randint(15, 19)
-        #     r2 = random.randint(7, 19)
-        #     r3 = random.randint(605, 655)
-        #     r4 = random.randint(1, 9)
-        #     r5 = random.randint(15, 29)
-        #     r6 = random.randint(17, 29)
-        #     r7 = random.randint(4, 9)
-        #     r8 = random.randint(1, 9)
-        #
-        #     user_agent = f'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_{r1}_{r2}) AppleWebKit/{r3}.{r4}.{r5} (KHTML, like Gecko) Version/{r6}.{r7}.{r8} Safari/{r3}.{r4}.{r5}'
-        #     headers = {'User-Agent': user_agent, 'x-auth-token': getgems_token, }
-        #     form_data = aiohttp.FormData()
-        #     form_data.add_field('file', open(file_path, 'rb'), filename=base_name)
-        #
-        #     async with aiohttp.ClientSession() as session:
-        #         async with session.post(url, data=form_data, headers=headers) as response:
-        #             res = await response.json()
-        #             logger.info(log_ % str(res))
-        #             result = await check_image(res['fileUrl'])
-        #             return
-        # except Exception as e:
-        #     logger.info(log_ % str(e))
-        #     # await asyncio.sleep(round(random.uniform(0, 1), 2))
-        #     if bot: await bot.send_message(my_tid, str(e))
+        len_ = len(data["media"]["getgems"])
+        random_index = random.randint(0, len_ - 1)
+        getgems_token = data["media"]["getgems"][random_index]
+
+        try:
+            random_sequence = await generate_random_sequence()
+            url = f"https://api.getgems.io/upload-media?type=Nft&sign={random_sequence}"
+            if not getgems_token: raise Exception
+            r1 = random.randint(15, 19)
+            r2 = random.randint(7, 19)
+            r3 = random.randint(605, 655)
+            r4 = random.randint(1, 9)
+            r5 = random.randint(15, 29)
+            r6 = random.randint(17, 29)
+            r7 = random.randint(4, 9)
+            r8 = random.randint(1, 9)
+
+            user_agent = f'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_{r1}_{r2}) AppleWebKit/{r3}.{r4}.{r5} (KHTML, like Gecko) Version/{r6}.{r7}.{r8} Safari/{r3}.{r4}.{r5}'
+            headers = {'User-Agent': user_agent, 'x-auth-token': getgems_token, }
+            form_data = aiohttp.FormData()
+            form_data.add_field('file', open(file_path, 'rb'), filename=base_name)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=form_data, headers=headers) as response:
+                    res = await response.json()
+                    logger.info(log_ % str(res) + "getgems +++ ")
+                    result = await check_image(res['fileUrl'])
+                    return
+        except Exception as e:
+            logger.info(log_ % str(e))
+            # await asyncio.sleep(round(random.uniform(0, 1), 2))
+            if bot: await bot.send_message(my_tid, str(e))
         # endregion
 
         # region pinata
@@ -9174,6 +9174,14 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
                 'DT_END': DT_END,
                 'AMOUNT': total_amount
             })
+        elif payload == 'list':
+            USER_PAYMENTS.append({
+                'TYPE': 'LST',
+                'LOAD': payload,
+                'DT_START': DT_START,
+                'DT_END': DT_END,
+                'AMOUNT': total_amount
+            })
         elif payload in ['material']:
             USER_PAYMENTS.append({
                 'TYPE': 'MAT',
@@ -9269,6 +9277,11 @@ async def list_star_invoice_link(bot, PROJECT_USERNAME, PROJECT_TYPE):
         payload = '-'
         r_ = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload)
         print(f"star_invoice_link_{stars} = '{r_}'")
+
+        stars = 2
+        payload = 'list'
+        r_ = await star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload)
+        print(f"star_invoice_list_{stars} = '{r_}'")
 
         stars = 10
         payload = 'donate'

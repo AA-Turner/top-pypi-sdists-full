@@ -15,10 +15,8 @@ classifiers = [
   "Intended Audience :: Developers",
   "Intended Audience :: Information Technology",
   "Intended Audience :: System Administrators",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: MacOS",
   "Operating System :: POSIX",
-  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -34,7 +32,7 @@ classifiers = [
 description = "Checks playbooks for practices and behavior that could potentially be improved"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 keywords = ["ansible", "lint"]
-license = {text = "GPLv3+"}
+license = "GPL-3.0-or-later"
 maintainers = [{"email" = "info@ansible.com", "name" = "Ansible by Red Hat"}]
 name = "ansible-lint"
 readme = "README.md"
@@ -63,7 +61,7 @@ source = ["src", ".tox/*/site-packages"]
 [tool.coverage.report]
 exclude_also = ["pragma: no cover", "if TYPE_CHECKING:"]
 # Increase it just so it would pass on any single-python run
-fail_under = 95
+fail_under = 93
 # During development we might remove code (files) with coverage data, and we dont want to fail:
 ignore_errors = true
 omit = ["test/*"]
@@ -73,10 +71,9 @@ skip_covered = true
 skip_empty = true
 
 [tool.coverage.run]
+# branch is more reliable than lines, protects against false positives
+branch = true
 concurrency = ["multiprocessing", "thread"]
-# Do not use branch until bug is fixes:
-# https://github.com/nedbat/coveragepy/issues/605
-# branch = true
 parallel = true
 source = ["src"]
 
@@ -497,6 +494,7 @@ ignore = [
   "FURB110",
   "FURB113",
   "FURB118",
+  "PLC0207", # maxsplit with [-1] preview rule
   "PLC0415",
   "PLC2701",
   "PLW1641",

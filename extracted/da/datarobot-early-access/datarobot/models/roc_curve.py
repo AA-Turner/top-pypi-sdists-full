@@ -170,8 +170,7 @@ class RocCurve(APIObject, RocCurveThresholdMixin):
         return f"RocCurve({self.source})"
 
     @classmethod
-    # type: ignore[override]
-    def from_server_data(
+    def from_server_data(  # type: ignore[override]
         cls,
         data: Dict[str, Any],
         keep_attrs: Optional[Iterable[str]] = None,
@@ -242,8 +241,7 @@ class SlicedRocCurve(RocCurve):
     """Wrapper around RocCurve to override `from_server_data` method"""
 
     @classmethod
-    # type: ignore[override]
-    def from_server_data(
+    def from_server_data(  # type: ignore[override]
         cls,
         data: Dict[str, Any],
         keep_attrs: Optional[Iterable[str]] = None,

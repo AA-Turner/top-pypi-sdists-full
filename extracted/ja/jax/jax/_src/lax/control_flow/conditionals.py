@@ -490,11 +490,13 @@ def _cond_batching_rule(axis_data, args, dims, *, branches, **params):
     raise NotImplementedError(
         "IO effect not supported in vmap-of-cond.")
 
+  if "branches_platforms" in params and (index_dim is not batching.not_mapped):
+    # If we end up with a mapped index for a platform_dependent cond, we can
+    # replace the index with a fresh call to platform_index. See #29329.
+    index = platform_index_p.bind(platforms=params["branches_platforms"])
+    index_dim = batching.not_mapped
 
   if index_dim is not batching.not_mapped:
-    assert "branches_platforms" not in params, (
-        "The index of a cond with branches_platforms should be a "
-        "platform_index and should never be mapped")
     # Convert to a lax.select. While we could get away with not broadcasting
     # some operands yet, because all outputs must be broadcast together anyway
     # for the select we broadcast the input operands for simplicity and leave
@@ -563,7 +565,7 @@ def _cond_jvp(primals, tangents, *, branches, **params):
   return out_primals, out_tangents
 
 def _cond_partial_eval(trace, *tracers, branches, **params):
-  in_unknowns = [t.pval[0] is not None for t in tracers]
+  in_unknowns = [not t.pval.is_known() for t in tracers]
   index_uk, *ops_uk = in_unknowns
   if any(isinstance(eff, RefEffect) for branch in branches for eff in
       branch.jaxpr.effects):
@@ -617,7 +619,7 @@ def _cond_partial_eval(trace, *tracers, branches, **params):
   name_stack = source_info_util.current_name_stack()[len(trace.name_stack):]
   source = source_info_util.current().replace(name_stack=name_stack)
   eqn = pe.new_eqn_recipe(
-      [index_tracer] + res_tracers + ops_tracers, out_tracers, cond_p, params,
+      trace, [index_tracer] + res_tracers + ops_tracers, out_tracers, cond_p, params,
       core.join_effects(*(j.effects for j in branches_unknown)), source)
   for t in out_tracers: t.recipe = eqn
   return util.merge_lists(out_uks, out_consts, out_tracers)
@@ -677,8 +679,7 @@ def _cond_partial_eval_custom(saveable, unks_in, inst_in, eqn):
              for j in branches_known[1:])
 
   # Create residual variables.
-  newvar = core.gensym()
-  res_binders = map(newvar, all_res_avals)
+  res_binders = map(core.Var, all_res_avals)
 
   # Build the known eqn.
   ins_known, _ = partition_list(unks_in, eqn.invars)  # includes index invar
@@ -763,8 +764,7 @@ def _join_cond_outputs(jaxprs: Sequence[core.ClosedJaxpr],
 def _join_cond_pe_staged_jaxpr_inputs(jaxprs: Sequence[core.ClosedJaxpr],
                                       all_res_avals,
                                       res_aval_indices_per_jaxpr):
-  newvar = core.gensym(suffix='_')
-  all_res_vars = map(newvar, all_res_avals)
+  all_res_vars = map(core.Var, all_res_avals)
 
   def augment_jaxpr(jaxpr: core.ClosedJaxpr, res_indices) -> core.ClosedJaxpr:
     num_res = len(res_indices)

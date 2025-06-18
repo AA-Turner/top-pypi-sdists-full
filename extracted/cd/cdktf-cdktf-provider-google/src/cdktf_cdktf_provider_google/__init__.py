@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.39.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.40.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.39.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.40.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.39.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.40.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -705,6 +705,7 @@ __all__ = [
     "data_google_data_fusion_instance_iam_policy",
     "data_google_dataplex_aspect_type_iam_policy",
     "data_google_dataplex_asset_iam_policy",
+    "data_google_dataplex_data_quality_rules",
     "data_google_dataplex_datascan_iam_policy",
     "data_google_dataplex_entry_group_iam_policy",
     "data_google_dataplex_entry_type_iam_policy",
@@ -1000,6 +1001,7 @@ __all__ = [
     "dialogflow_cx_page",
     "dialogflow_cx_security_settings",
     "dialogflow_cx_test_case",
+    "dialogflow_cx_tool",
     "dialogflow_cx_version",
     "dialogflow_cx_webhook",
     "dialogflow_entity_type",
@@ -2132,6 +2134,7 @@ from . import data_google_data_catalog_taxonomy_iam_policy
 from . import data_google_data_fusion_instance_iam_policy
 from . import data_google_dataplex_aspect_type_iam_policy
 from . import data_google_dataplex_asset_iam_policy
+from . import data_google_dataplex_data_quality_rules
 from . import data_google_dataplex_datascan_iam_policy
 from . import data_google_dataplex_entry_group_iam_policy
 from . import data_google_dataplex_entry_type_iam_policy
@@ -2427,6 +2430,7 @@ from . import dialogflow_cx_intent
 from . import dialogflow_cx_page
 from . import dialogflow_cx_security_settings
 from . import dialogflow_cx_test_case
+from . import dialogflow_cx_tool
 from . import dialogflow_cx_version
 from . import dialogflow_cx_webhook
 from . import dialogflow_entity_type

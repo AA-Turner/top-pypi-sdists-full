@@ -170,7 +170,7 @@ def user_flow_template(client: RESTClientObject) -> None:
     # publish dataset to AI catalog or back to the data source.
     dataset_name = "published_dataset"
     max_wait = 600
-    dataset = Dataset.create_from_recipe(
+    dataset: Dataset = Dataset.create_from_recipe(
         recipe, dataset_name, use_cases=[use_case_id], max_wait=max_wait
     )
     assert dataset

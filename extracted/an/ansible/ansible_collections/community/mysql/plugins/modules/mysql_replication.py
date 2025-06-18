@@ -137,9 +137,10 @@ options:
     aliases: [master_ssl_cipher]
   primary_ssl_verify_server_cert:
     description:
-    - Same as mysql variable.
+    - Same as C(MASTER_SSL_VERIFY_SERVER_CERT) MySQL/MariaDB variable.
+    - The module switch automatically to C(SOURCE_SSL_VERIFY_SERVER_CERT) for MySQL 8.0.23 and later.
+    - Prior to community.mysql 3.14.0 C(false) had no effect.
     type: bool
-    default: false
     version_added: '3.5.0'
   primary_auto_position:
     description:
@@ -493,7 +494,7 @@ def main():
         primary_ssl_cert=dict(type='str', aliases=['master_ssl_cert']),
         primary_ssl_key=dict(type='str', no_log=False, aliases=['master_ssl_key']),
         primary_ssl_cipher=dict(type='str', aliases=['master_ssl_cipher']),
-        primary_ssl_verify_server_cert=dict(type='bool', default=False),
+        primary_ssl_verify_server_cert=dict(type='bool'),
         primary_use_gtid=dict(type='str', choices=[
             'current_pos', 'replica_pos', 'disabled'], aliases=['master_use_gtid']),
         primary_delay=dict(type='int', aliases=['master_delay']),
@@ -641,8 +642,11 @@ def main():
             chm.append("%s='%s'" % (command_resolver.resolve_command('MASTER_SSL_KEY'), primary_ssl_key))
         if primary_ssl_cipher is not None:
             chm.append("%s='%s'" % (command_resolver.resolve_command('MASTER_SSL_CIPHER'), primary_ssl_cipher))
-        if primary_ssl_verify_server_cert:
-            chm.append("%s=1" % command_resolver.resolve_command('MASTER_SSL_VERIFY_SERVER_CERT'))
+        if primary_ssl_verify_server_cert is not None:
+            if primary_ssl_verify_server_cert:
+                chm.append("%s=1" % command_resolver.resolve_command('MASTER_SSL_VERIFY_SERVER_CERT'))
+            else:
+                chm.append("%s=0" % command_resolver.resolve_command('MASTER_SSL_VERIFY_SERVER_CERT'))
         if primary_auto_position:
             chm.append("%s=1" % command_resolver.resolve_command('MASTER_AUTO_POSITION'))
         if primary_use_gtid is not None:
@@ -723,8 +727,11 @@ def main():
             chm.append("SOURCE_SSL_KEY='%s'" % primary_ssl_key)
         if primary_ssl_cipher is not None:
             chm.append("SOURCE_SSL_CIPHER='%s'" % primary_ssl_cipher)
-        if primary_ssl_verify_server_cert:
-            chm.append("SOURCE_SSL_VERIFY_SERVER_CERT=1")
+        if primary_ssl_verify_server_cert is not None:
+            if primary_ssl_verify_server_cert:
+                chm.append("%s=1" % command_resolver.resolve_command('MASTER_SSL_VERIFY_SERVER_CERT'))
+            else:
+                chm.append("%s=0" % command_resolver.resolve_command('MASTER_SSL_VERIFY_SERVER_CERT'))
         if primary_auto_position:
             chm.append("SOURCE_AUTO_POSITION=1")
         try:

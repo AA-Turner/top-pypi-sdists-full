@@ -12,7 +12,7 @@ from ansys.fluent.core.solver.flobject import (
     _InOutFile,
 )
 
-SHASH = "9cb5a5b2564281c0f9101bc53b361f350d27668fb17ceca2fcddecf6d5642bd2"
+SHASH = "f4d0a27df803a8bab94db5f9aff4c63bd11433c2523889d14ceb012391bc67a0"
 
 class single_precision_coordinates(Boolean):
     """
@@ -73572,11 +73572,20 @@ class boundary_zone(String, AllowedValuesMixin):
     fluent_name = 'boundary-zone'
     _python_name = 'boundary_zone'
 
+class open_channel_initialization_method(String, AllowedValuesMixin):
+    """
+    Open channel initialization method.
+    """
+    _version = '261'
+    fluent_name = 'open-channel-initialization-method'
+    _python_name = 'open_channel_initialization_method'
+
 class flat_init(Boolean):
     """
     Enable/disable flat free surface initialization.
     """
     _version = '261'
+    _deprecated_version = '2026R1'
     fluent_name = 'flat-init?'
     _python_name = 'flat_init'
 
@@ -73585,6 +73594,7 @@ class wavy_surface_init(Boolean):
     Enable/disable wavy free surface initialization.
     """
     _version = '261'
+    _deprecated_version = '2026R1'
     fluent_name = 'wavy-surface-init?'
     _python_name = 'wavy_surface_init'
 
@@ -73595,9 +73605,10 @@ class open_channel_auto_init(Group):
     _version = '261'
     fluent_name = 'open-channel-auto-init'
     _python_name = 'open_channel_auto_init'
-    child_names = ['boundary_zone', 'flat_init', 'wavy_surface_init']
+    child_names = ['boundary_zone', 'open_channel_initialization_method', 'flat_init', 'wavy_surface_init']
     _child_classes = dict(
         boundary_zone=boundary_zone,
+        open_channel_initialization_method=open_channel_initialization_method,
         flat_init=flat_init,
         wavy_surface_init=wavy_surface_init,
     )
@@ -73751,7 +73762,7 @@ class from_zone_type_1(String, AllowedValuesMixin):
 
 class from_zone_name_1(String, AllowedValuesMixin):
     """
-    Selecte zone name.
+    Zone name.
     """
     _version = '261'
     fluent_name = 'from-zone-name'
@@ -73774,7 +73785,7 @@ class compute_defaults(Command):
         from_zone_type : str
             Boundary/zone type.
         from_zone_name : str
-            Selecte zone name.
+            Zone name.
         phase : str
             Phase name.
     """
@@ -75142,14 +75153,6 @@ class calculation_activity(Group):
         poor_mesh_numerics=poor_mesh_numerics_1,
     )
 
-class verbosity_19(Integer):
-    """
-    The verbosity for the pseudo time method.
-    """
-    _version = '261'
-    fluent_name = 'verbosity'
-    _python_name = 'verbosity'
-
 class time_step_method_1(String, AllowedValuesMixin):
     """
     Enable/disable use of automatic time step size calculation.
@@ -75181,6 +75184,14 @@ class time_step_size_scale_factor_1(Real):
     _version = '261'
     fluent_name = 'time-step-size-scale-factor'
     _python_name = 'time_step_size_scale_factor'
+
+class verbosity_19(Integer):
+    """
+    The verbosity for the pseudo time method.
+    """
+    _version = '261'
+    fluent_name = 'verbosity'
+    _python_name = 'verbosity'
 
 class length_scale_1(Real):
     """
@@ -75221,12 +75232,13 @@ class time_step_method(Group):
     _version = '261'
     fluent_name = 'time-step-method'
     _python_name = 'time_step_method'
-    child_names = ['time_step_method', 'pseudo_time_step_size', 'length_scale_methods', 'time_step_size_scale_factor', 'length_scale', 'auto_time_size_calc_solid_zone', 'time_solid_scale_factor', 'time_step_size_for_solid_zone']
+    child_names = ['time_step_method', 'pseudo_time_step_size', 'length_scale_methods', 'time_step_size_scale_factor', 'verbosity', 'length_scale', 'auto_time_size_calc_solid_zone', 'time_solid_scale_factor', 'time_step_size_for_solid_zone']
     _child_classes = dict(
         time_step_method=time_step_method_1,
         pseudo_time_step_size=pseudo_time_step_size,
         length_scale_methods=length_scale_methods,
         time_step_size_scale_factor=time_step_size_scale_factor_1,
+        verbosity=verbosity_19,
         length_scale=length_scale_1,
         auto_time_size_calc_solid_zone=auto_time_size_calc_solid_zone,
         time_solid_scale_factor=time_solid_scale_factor,
@@ -75240,19 +75252,13 @@ class pseudo_time_settings(Group):
     _version = '261'
     fluent_name = 'pseudo-time-settings'
     _python_name = 'pseudo_time_settings'
-    child_names = ['verbosity', 'time_step_method']
+    child_names = ['time_step_method']
     _child_classes = dict(
-        verbosity=verbosity_19,
         time_step_method=time_step_method,
     )
-
-class iter_count_2(Integer):
-    """
-    Number of iterations.
-    """
-    _version = '261'
-    fluent_name = 'iter-count'
-    _python_name = 'iter_count'
+    _child_aliases = dict(
+        verbosity=('time_step_method/verbosity', 'verbosity'),
+    )
 
 class enabled_66(Boolean):
     """
@@ -75407,22 +75413,6 @@ class cfl_based_adaptive_time_stepping(Group):
         min_step_change_factor=min_step_change_factor,
         max_step_change_factor=max_step_change_factor,
     )
-
-class reporting_interval(Integer):
-    """
-    Number of solver iterations before returning to scheme.
-    """
-    _version = '261'
-    fluent_name = 'reporting-interval'
-    _python_name = 'reporting_interval'
-
-class profile_update_interval(Integer):
-    """
-    Number of solver iterations after which profile is updated.
-    """
-    _version = '261'
-    fluent_name = 'profile-update-interval'
-    _python_name = 'profile_update_interval'
 
 class enable_28(Boolean):
     """
@@ -75679,17 +75669,9 @@ class solution_status(Boolean):
     fluent_name = 'solution-status'
     _python_name = 'solution_status'
 
-class extrapolate_variables(Boolean):
-    """
-    The extrapolation object.
-    """
-    _version = '261'
-    fluent_name = 'extrapolate-variables'
-    _python_name = 'extrapolate_variables'
-
 class max_flow_time(Real):
     """
-    Maximum flow time.
+    Maximum flow time (-1 no maximum).
     """
     _version = '261'
     fluent_name = 'max-flow-time'
@@ -75743,25 +75725,6 @@ class update_interval_3(Integer):
     fluent_name = 'update-interval'
     _python_name = 'update_interval'
 
-class cfl_based_time_stepping(Group):
-    """
-    CFL-based time stepping object.
-    """
-    _version = '261'
-    fluent_name = 'cfl-based-time-stepping'
-    _python_name = 'cfl_based_time_stepping'
-    child_names = ['courant_number', 'initial_time_step_size', 'fixed_time_step_size', 'min_time_step_size', 'max_time_step_size', 'min_step_change_factor', 'max_step_change_factor', 'update_interval']
-    _child_classes = dict(
-        courant_number=courant_number_1,
-        initial_time_step_size=initial_time_step_size,
-        fixed_time_step_size=fixed_time_step_size,
-        min_time_step_size=min_time_step_size,
-        max_time_step_size=max_time_step_size,
-        min_step_change_factor=min_step_change_factor,
-        max_step_change_factor=max_step_change_factor,
-        update_interval=update_interval_3,
-    )
-
 class control_time_step_size_variation(Boolean):
     """
     Control time step size variation.
@@ -75786,18 +75749,38 @@ class cfl_type(String, AllowedValuesMixin):
     fluent_name = 'cfl-type'
     _python_name = 'cfl_type'
 
-class cfl_based_time_stepping_advanced_options(Group):
+class advanced_options(Group):
     """
     Advanced settings for CFL-based time stepping.
     """
     _version = '261'
-    fluent_name = 'cfl-based-time-stepping-advanced-options'
-    _python_name = 'cfl_based_time_stepping_advanced_options'
+    fluent_name = 'advanced-options'
+    _python_name = 'advanced_options'
     child_names = ['control_time_step_size_variation', 'use_average_cfl', 'cfl_type']
     _child_classes = dict(
         control_time_step_size_variation=control_time_step_size_variation,
         use_average_cfl=use_average_cfl,
         cfl_type=cfl_type,
+    )
+
+class cfl_based_time_stepping(Group):
+    """
+    CFL-based time stepping object.
+    """
+    _version = '261'
+    fluent_name = 'cfl-based-time-stepping'
+    _python_name = 'cfl_based_time_stepping'
+    child_names = ['courant_number', 'initial_time_step_size', 'fixed_time_step_size', 'min_time_step_size', 'max_time_step_size', 'min_step_change_factor', 'max_step_change_factor', 'update_interval', 'advanced_options']
+    _child_classes = dict(
+        courant_number=courant_number_1,
+        initial_time_step_size=initial_time_step_size,
+        fixed_time_step_size=fixed_time_step_size,
+        min_time_step_size=min_time_step_size,
+        max_time_step_size=max_time_step_size,
+        min_step_change_factor=min_step_change_factor,
+        max_step_change_factor=max_step_change_factor,
+        update_interval=update_interval_3,
+        advanced_options=advanced_options,
     )
 
 class error_tolerance_3(Real):
@@ -75808,6 +75791,14 @@ class error_tolerance_3(Real):
     fluent_name = 'error-tolerance'
     _python_name = 'error_tolerance'
 
+class undo_timestep(Boolean):
+    """
+    Undo the previous time step.
+    """
+    _version = '261'
+    fluent_name = 'undo-timestep?'
+    _python_name = 'undo_timestep'
+
 class error_based_time_stepping(Group):
     """
     Error-based time stepping object.
@@ -75815,7 +75806,7 @@ class error_based_time_stepping(Group):
     _version = '261'
     fluent_name = 'error-based-time-stepping'
     _python_name = 'error_based_time_stepping'
-    child_names = ['error_tolerance', 'initial_time_step_size', 'fixed_time_step_size', 'min_time_step_size', 'max_time_step_size', 'min_step_change_factor', 'max_step_change_factor', 'update_interval']
+    child_names = ['error_tolerance', 'initial_time_step_size', 'fixed_time_step_size', 'min_time_step_size', 'max_time_step_size', 'min_step_change_factor', 'max_step_change_factor', 'update_interval', 'undo_timestep']
     _child_classes = dict(
         error_tolerance=error_tolerance_3,
         initial_time_step_size=initial_time_step_size,
@@ -75825,15 +75816,8 @@ class error_based_time_stepping(Group):
         min_step_change_factor=min_step_change_factor,
         max_step_change_factor=max_step_change_factor,
         update_interval=update_interval_3,
+        undo_timestep=undo_timestep,
     )
-
-class undo_timestep(Boolean):
-    """
-    Undo the previous time step.
-    """
-    _version = '261'
-    fluent_name = 'undo-timestep?'
-    _python_name = 'undo_timestep'
 
 class predict_next(Boolean):
     """
@@ -75867,6 +75851,113 @@ class global_courant_number(Real):
     fluent_name = 'global-courant-number'
     _python_name = 'global_courant_number'
 
+class moving_mesh_constraint(Boolean):
+    """
+    Enable Moving Mesh Constraint.
+    """
+    _version = '261'
+    fluent_name = 'moving-mesh-constraint?'
+    _python_name = 'moving_mesh_constraint'
+
+class mesh_courant_number(Real):
+    """
+    Moving Mesh Courant Number.
+    """
+    _version = '261'
+    fluent_name = 'mesh-courant-number'
+    _python_name = 'mesh_courant_number'
+
+class moving_mesh_cfl_constraint(Group):
+    """
+    Moving mesh CFL constraint object.
+    """
+    _version = '261'
+    fluent_name = 'moving-mesh-cfl-constraint'
+    _python_name = 'moving_mesh_cfl_constraint'
+    child_names = ['moving_mesh_constraint', 'mesh_courant_number']
+    _child_classes = dict(
+        moving_mesh_constraint=moving_mesh_constraint,
+        mesh_courant_number=mesh_courant_number,
+    )
+
+class physics_based_constraint(Boolean):
+    """
+    Include physics driven time-step constraints.
+    """
+    _version = '261'
+    fluent_name = 'physics-based-constraint?'
+    _python_name = 'physics_based_constraint'
+
+class viscous_scale(Boolean):
+    """
+    Include viscous time scale.
+    """
+    _version = '261'
+    fluent_name = 'viscous-scale?'
+    _python_name = 'viscous_scale'
+
+class gravity_scale(Boolean):
+    """
+    Include gravity based time scale.
+    """
+    _version = '261'
+    fluent_name = 'gravity-scale?'
+    _python_name = 'gravity_scale'
+
+class surface_tension_scale(Boolean):
+    """
+    Include surface tension based time scale.
+    """
+    _version = '261'
+    fluent_name = 'surface-tension-scale?'
+    _python_name = 'surface_tension_scale'
+
+class acoustic_scale(Boolean):
+    """
+    Include acoustic time scale.
+    """
+    _version = '261'
+    fluent_name = 'acoustic-scale?'
+    _python_name = 'acoustic_scale'
+
+class time_scale_options(Group):
+    """
+    Physics based time scale options.
+    """
+    _version = '261'
+    fluent_name = 'time-scale-options'
+    _python_name = 'time_scale_options'
+    child_names = ['viscous_scale', 'gravity_scale', 'surface_tension_scale', 'acoustic_scale']
+    _child_classes = dict(
+        viscous_scale=viscous_scale,
+        gravity_scale=gravity_scale,
+        surface_tension_scale=surface_tension_scale,
+        acoustic_scale=acoustic_scale,
+    )
+
+class verbosity_20(Boolean):
+    """
+    Verbosity to print multiphase specific time scales.
+    """
+    _version = '261'
+    fluent_name = 'verbosity?'
+    _python_name = 'verbosity'
+
+class time_constraints(Group):
+    """
+    Multiphase-specific time constraints object.
+    """
+    _version = '261'
+    fluent_name = 'time-constraints'
+    _python_name = 'time_constraints'
+    child_names = ['moving_mesh_cfl_constraint', 'physics_based_constraint', 'time_scale_options', 'verbosity']
+    _child_classes = dict(
+        moving_mesh_cfl_constraint=moving_mesh_cfl_constraint,
+        physics_based_constraint=physics_based_constraint,
+        time_scale_options=time_scale_options,
+        verbosity=verbosity_20,
+    )
+
 class mp_specific_time_stepping(Group):
     """
     Multiphase-specific adaptive time stepping parameters.
@@ -75874,7 +75965,7 @@ class mp_specific_time_stepping(Group):
     _version = '261'
     fluent_name = 'mp-specific-time-stepping'
     _python_name = 'mp_specific_time_stepping'
-    child_names = ['enabled', 'global_courant_number', 'initial_time_step_size', 'fixed_time_step_size', 'min_time_step_size', 'max_time_step_size', 'min_step_change_factor', 'max_step_change_factor', 'update_interval']
+    child_names = ['enabled', 'global_courant_number', 'initial_time_step_size', 'fixed_time_step_size', 'min_time_step_size', 'max_time_step_size', 'min_step_change_factor', 'max_step_change_factor', 'update_interval', 'time_constraints']
     _child_classes = dict(
         enabled=enabled_68,
         global_courant_number=global_courant_number,
@@ -75885,6 +75976,7 @@ class mp_specific_time_stepping(Group):
         min_step_change_factor=min_step_change_factor,
         max_step_change_factor=max_step_change_factor,
         update_interval=update_interval_3,
+        time_constraints=time_constraints,
     )
 
 class udf_hook(String, AllowedValuesMixin):
@@ -75981,113 +76073,6 @@ class fixed_periodic(Group):
         times_steps_per_period=('time_steps_per_period', 'times-steps-per-period'),
     )
 
-class moving_mesh_constraint(Boolean):
-    """
-    Enable Moving Mesh Constraint.
-    """
-    _version = '261'
-    fluent_name = 'moving-mesh-constraint?'
-    _python_name = 'moving_mesh_constraint'
-
-class mesh_courant_number(Real):
-    """
-    Moving Mesh Courant Number.
-    """
-    _version = '261'
-    fluent_name = 'mesh-courant-number'
-    _python_name = 'mesh_courant_number'
-
-class moving_mesh_cfl_constraint(Group):
-    """
-    Moving mesh CFL constraint object.
-    """
-    _version = '261'
-    fluent_name = 'moving-mesh-cfl-constraint'
-    _python_name = 'moving_mesh_cfl_constraint'
-    child_names = ['moving_mesh_constraint', 'mesh_courant_number']
-    _child_classes = dict(
-        moving_mesh_constraint=moving_mesh_constraint,
-        mesh_courant_number=mesh_courant_number,
-    )
-
-class physics_based_constraint(Boolean):
-    """
-    Include physics driven time-step constraints.
-    """
-    _version = '261'
-    fluent_name = 'physics-based-constraint?'
-    _python_name = 'physics_based_constraint'
-
-class viscous_scale(Boolean):
-    """
-    Include viscous time scale.
-    """
-    _version = '261'
-    fluent_name = 'viscous-scale?'
-    _python_name = 'viscous_scale'
-
-class gravity_scale(Boolean):
-    """
-    Include gravity based time scale.
-    """
-    _version = '261'
-    fluent_name = 'gravity-scale?'
-    _python_name = 'gravity_scale'
-
-class surface_tension_scale(Boolean):
-    """
-    Include surface tension based time scale.
-    """
-    _version = '261'
-    fluent_name = 'surface-tension-scale?'
-    _python_name = 'surface_tension_scale'
-
-class acoustic_scale(Boolean):
-    """
-    Include acoustic time scale.
-    """
-    _version = '261'
-    fluent_name = 'acoustic-scale?'
-    _python_name = 'acoustic_scale'
-
-class time_scale_options(Group):
-    """
-    Physics based time scale options.
-    """
-    _version = '261'
-    fluent_name = 'time-scale-options'
-    _python_name = 'time_scale_options'
-    child_names = ['viscous_scale', 'gravity_scale', 'surface_tension_scale', 'acoustic_scale']
-    _child_classes = dict(
-        viscous_scale=viscous_scale,
-        gravity_scale=gravity_scale,
-        surface_tension_scale=surface_tension_scale,
-        acoustic_scale=acoustic_scale,
-    )
-
-class verbosity_20(Boolean):
-    """
-    Verbosity to print multiphase specific time scales.
-    """
-    _version = '261'
-    fluent_name = 'verbosity?'
-    _python_name = 'verbosity'
-
-class multiphase_specific_time_constraints(Group):
-    """
-    Multiphase-specific time constraints object.
-    """
-    _version = '261'
-    fluent_name = 'multiphase-specific-time-constraints'
-    _python_name = 'multiphase_specific_time_constraints'
-    child_names = ['moving_mesh_cfl_constraint', 'physics_based_constraint', 'time_scale_options', 'verbosity']
-    _child_classes = dict(
-        moving_mesh_cfl_constraint=moving_mesh_cfl_constraint,
-        physics_based_constraint=physics_based_constraint,
-        time_scale_options=time_scale_options,
-        verbosity=verbosity_20,
-    )
-
 class enable_solid_time_step(Boolean):
     """
     Enable/Disable different time step size for solid zones?.
@@ -76134,6 +76119,14 @@ class time_step_size_for_acoustic_export(Real):
     fluent_name = 'time-step-size-for-acoustic-export'
     _python_name = 'time_step_size_for_acoustic_export'
 
+class extrapolate_variables(Boolean):
+    """
+    The extrapolation object.
+    """
+    _version = '261'
+    fluent_name = 'extrapolate-variables'
+    _python_name = 'extrapolate_variables'
+
 class extrapolate_eqn_vars_child(Boolean):
     """
     'child_object_type' of extrapolate_eqn_vars.
@@ -76175,7 +76168,7 @@ class transient_controls(Group):
     _version = '261'
     fluent_name = 'transient-controls'
     _python_name = 'transient_controls'
-    child_names = ['type', 'method', 'duration_specification_method', 'specified_time_step', 'incremental_time', 'time_step_count', 'total_time', 'time_step_size', 'max_iter_per_time_step', 'flow_time', 'total_time_step_count', 'solution_status', 'extrapolate_variables', 'max_flow_time', 'cfl_based_time_stepping', 'cfl_based_time_stepping_advanced_options', 'error_based_time_stepping', 'undo_timestep', 'predict_next', 'rotating_mesh_flow_predictor', 'mp_specific_time_stepping', 'udf_hook', 'fixed_periodic', 'multiphase_specific_time_constraints', 'solid_time_step_size', 'time_step_size_for_acoustic_export', 'extrapolate_eqn_vars']
+    child_names = ['type', 'method', 'duration_specification_method', 'specified_time_step', 'incremental_time', 'time_step_count', 'total_time', 'time_step_size', 'max_iter_per_time_step', 'flow_time', 'total_time_step_count', 'solution_status', 'max_flow_time', 'cfl_based_time_stepping', 'error_based_time_stepping', 'predict_next', 'rotating_mesh_flow_predictor', 'mp_specific_time_stepping', 'udf_hook', 'fixed_periodic', 'solid_time_step_size', 'time_step_size_for_acoustic_export', 'extrapolate_variables', 'extrapolate_eqn_vars']
     query_names = ['simulation_status']
     _child_classes = dict(
         type=type_15,
@@ -76190,22 +76183,63 @@ class transient_controls(Group):
         flow_time=flow_time,
         total_time_step_count=total_time_step_count,
         solution_status=solution_status,
-        extrapolate_variables=extrapolate_variables,
         max_flow_time=max_flow_time,
         cfl_based_time_stepping=cfl_based_time_stepping,
-        cfl_based_time_stepping_advanced_options=cfl_based_time_stepping_advanced_options,
         error_based_time_stepping=error_based_time_stepping,
-        undo_timestep=undo_timestep,
         predict_next=predict_next,
         rotating_mesh_flow_predictor=rotating_mesh_flow_predictor,
         mp_specific_time_stepping=mp_specific_time_stepping,
         udf_hook=udf_hook,
         fixed_periodic=fixed_periodic,
-        multiphase_specific_time_constraints=multiphase_specific_time_constraints,
         solid_time_step_size=solid_time_step_size,
         time_step_size_for_acoustic_export=time_step_size_for_acoustic_export,
+        extrapolate_variables=extrapolate_variables,
         extrapolate_eqn_vars=extrapolate_eqn_vars,
         simulation_status=simulation_status,
+    )
+    _child_aliases = dict(
+        cfl_based_time_stepping_advanced_options=('cfl_based_time_stepping/advanced_options', 'cfl-based-time-stepping-advanced-options'),
+        multiphase_specific_time_constraints=('mp_specific_time_stepping/time_constraints', 'multiphase-specific-time-constraints'),
+        multiphase_specific_time_stepping=('mp_specific_time_stepping', 'multiphase-specific-time-stepping'),
+        undo_timestep=('error_based_time_stepping/undo_timestep', 'undo-timestep?'),
+    )
+
+class iter_count_2(Integer):
+    """
+    Number of iterations.
+    """
+    _version = '261'
+    fluent_name = 'iter-count'
+    _python_name = 'iter_count'
+
+class reporting_interval(Integer):
+    """
+    Number of solver iterations before returning to scheme.
+    """
+    _version = '261'
+    fluent_name = 'reporting-interval'
+    _python_name = 'reporting_interval'
+
+class profile_update_interval(Integer):
+    """
+    Number of solver iterations after which profile is updated.
+    """
+    _version = '261'
+    fluent_name = 'profile-update-interval'
+    _python_name = 'profile_update_interval'
+
+class parameters_8(Group):
+    """
+    Iteration parameters object.
+    """
+    _version = '261'
+    fluent_name = 'parameters'
+    _python_name = 'parameters'
+    child_names = ['iter_count', 'reporting_interval', 'profile_update_interval']
+    _child_classes = dict(
+        iter_count=iter_count_2,
+        reporting_interval=reporting_interval,
+        profile_update_interval=profile_update_interval,
     )
 
 class postprocess(Boolean):
@@ -76736,19 +76770,17 @@ class run_calculation(Group):
     _version = '261'
     fluent_name = 'run-calculation'
     _python_name = 'run_calculation'
-    child_names = ['pseudo_time_settings', 'iter_count', 'adaptive_time_stepping', 'cfl_based_adaptive_time_stepping', 'reporting_interval', 'profile_update_interval', 'solution_steering', 'time_step_count', 'transient_controls', 'pollutants', 'data_sampling', 'data_sampling_options', 'residual_verbosity']
+    child_names = ['pseudo_time_settings', 'adaptive_time_stepping', 'cfl_based_adaptive_time_stepping', 'solution_steering', 'time_step_count', 'transient_controls', 'parameters', 'pollutants', 'data_sampling', 'data_sampling_options', 'residual_verbosity']
     command_names = ['calculate', 'interrupt', 'dual_time_iterate', 'iterate']
     query_names = ['iterating']
     _child_classes = dict(
         pseudo_time_settings=pseudo_time_settings,
-        iter_count=iter_count_2,
         adaptive_time_stepping=adaptive_time_stepping,
         cfl_based_adaptive_time_stepping=cfl_based_adaptive_time_stepping,
-        reporting_interval=reporting_interval,
-        profile_update_interval=profile_update_interval,
         solution_steering=solution_steering,
         time_step_count=time_step_count_1,
         transient_controls=transient_controls,
+        parameters=parameters_8,
         pollutants=pollutants,
         data_sampling=data_sampling,
         data_sampling_options=data_sampling_options,
@@ -76758,6 +76790,11 @@ class run_calculation(Group):
         dual_time_iterate=dual_time_iterate,
         iterate=iterate,
         iterating=iterating,
+    )
+    _child_aliases = dict(
+        iter_count=('parameters/iter_count', 'iter-count'),
+        profile_update_interval=('parameters/profile_update_interval', 'profile-update-interval'),
+        reporting_interval=('parameters/reporting_interval', 'reporting-interval'),
     )
 
 class solution(Group):
@@ -95644,7 +95681,7 @@ class constraints(Real):
     fluent_name = 'constraints'
     _python_name = 'constraints'
 
-class parameters_8(Real):
+class parameters_9(Real):
     """
     Tolerance on parameters.
     """
@@ -95662,7 +95699,7 @@ class tolerances(Group):
     child_names = ['constraints', 'parameters']
     _child_classes = dict(
         constraints=constraints,
-        parameters=parameters_8,
+        parameters=parameters_9,
     )
 
 class polynomials(Group):
@@ -96550,7 +96587,7 @@ class value_21(Real):
     fluent_name = 'value'
     _python_name = 'value'
 
-class parameters_9_child(Group):
+class parameters_10_child(Group):
     """
     'child_object_type' of parameters.
     """
@@ -96563,7 +96600,7 @@ class parameters_9_child(Group):
         value=value_21,
     )
 
-class parameters_9(NamedObject[parameters_9_child], CreatableNamedObjectMixin[parameters_9_child]):
+class parameters_10(NamedObject[parameters_10_child], CreatableNamedObjectMixin[parameters_10_child]):
     """
     Parameters for prescribed profile.
     """
@@ -96579,7 +96616,7 @@ class parameters_9(NamedObject[parameters_9_child], CreatableNamedObjectMixin[pa
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = parameters_9_child
+    child_object_type = parameters_10_child
 
 class x_10(Group):
     """
@@ -96964,7 +97001,7 @@ class definition_3_child(Group):
         fit_imported_surfaces=fit_imported_surfaces,
         bounding_offset=bounding_offset,
         deformation_profile=deformation_profile,
-        parameters=parameters_9,
+        parameters=parameters_10,
         displacement=displacement,
         scaling_type=scaling_type,
         scale_factor=scale_factor_2,
@@ -97455,7 +97492,7 @@ class affected_conditions(StringList, AllowedValuesMixin):
     fluent_name = 'affected-conditions'
     _python_name = 'affected_conditions'
 
-class parameters_10_child(Group):
+class parameters_11_child(Group):
     """
     'child_object_type' of parameters.
     """
@@ -97468,7 +97505,7 @@ class parameters_10_child(Group):
         affected_conditions=affected_conditions,
     )
 
-class parameters_10(NamedObject[parameters_10_child], CreatableNamedObjectMixin[parameters_10_child]):
+class parameters_11(NamedObject[parameters_11_child], CreatableNamedObjectMixin[parameters_11_child]):
     """
     Design change parameter.
     """
@@ -97484,7 +97521,7 @@ class parameters_10(NamedObject[parameters_10_child], CreatableNamedObjectMixin[
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = parameters_10_child
+    child_object_type = parameters_11_child
 
 class file_name_30(String):
     """
@@ -97847,7 +97884,7 @@ class design_change(Group):
     child_names = ['parameters', 'results', 'export', 'preview', 'history']
     command_names = ['check', 'calculate_design_change', 'print_expected_changes', 'modify', 'revert', 'remesh']
     _child_classes = dict(
-        parameters=parameters_10,
+        parameters=parameters_11,
         results=results_1,
         export=export_2,
         preview=preview_1,
@@ -97970,7 +98007,7 @@ class parameters_count(Integer):
     fluent_name = 'parameters-count'
     _python_name = 'parameters_count'
 
-class parameters_11_child(String, AllowedValuesMixin):
+class parameters_12_child(String, AllowedValuesMixin):
     """
     'child_object_type' of parameters.
     """
@@ -97978,7 +98015,7 @@ class parameters_11_child(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'parameters_child'
 
-class parameters_11(ListObject[parameters_11_child]):
+class parameters_12(ListObject[parameters_12_child]):
     """
     Operating condition parameter.
     """
@@ -97990,7 +98027,7 @@ class parameters_11(ListObject[parameters_11_child]):
         list_properties=list_properties_1,
         resize=resize,
     )
-    child_object_type = parameters_11_child
+    child_object_type = parameters_12_child
 
 class id_1(Integer):
     """
@@ -98008,7 +98045,7 @@ class active_4(Boolean):
     fluent_name = 'active'
     _python_name = 'active'
 
-class parameters_12_child(Real):
+class parameters_13_child(Real):
     """
     'child_object_type' of parameters.
     """
@@ -98016,7 +98053,7 @@ class parameters_12_child(Real):
     fluent_name = 'child-object-type'
     _python_name = 'parameters_child'
 
-class parameters_12(NamedObject[parameters_12_child], CreatableNamedObjectMixin[parameters_12_child]):
+class parameters_13(NamedObject[parameters_13_child], CreatableNamedObjectMixin[parameters_13_child]):
     """
     Parameter values of the given condition.
     """
@@ -98032,7 +98069,7 @@ class parameters_12(NamedObject[parameters_12_child], CreatableNamedObjectMixin[
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = parameters_12_child
+    child_object_type = parameters_13_child
 
 class conditions_2_child(Group):
     """
@@ -98045,7 +98082,7 @@ class conditions_2_child(Group):
     _child_classes = dict(
         id=id_1,
         active=active_4,
-        parameters=parameters_12,
+        parameters=parameters_13,
     )
 
 class conditions_2(ListObject[conditions_2_child]):
@@ -98073,7 +98110,7 @@ class operating_conditions_1(Group):
     _child_classes = dict(
         count=count_1,
         parameters_count=parameters_count,
-        parameters=parameters_11,
+        parameters=parameters_12,
         conditions=conditions_2,
     )
 

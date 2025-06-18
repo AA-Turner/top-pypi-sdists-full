@@ -67,6 +67,7 @@ class BlocksEndpoint(Endpoint):
                 "embed",
                 "type",
                 "archived",
+                "in_trash",
                 "bookmark",
                 "image",
                 "video",
@@ -93,6 +94,7 @@ class BlocksEndpoint(Endpoint):
                 "callout",
                 "synced_block",
                 "table",
+                "column",
             ),
             auth=kwargs.get("auth"),
         )
@@ -133,7 +135,15 @@ class DatabasesEndpoint(Endpoint):
             path=f"databases/{database_id}/query",
             method="POST",
             query=pick(kwargs, "filter_properties"),
-            body=pick(kwargs, "filter", "sorts", "start_cursor", "page_size"),
+            body=pick(
+                kwargs,
+                "filter",
+                "sorts",
+                "start_cursor",
+                "page_size",
+                "archived",
+                "in_trash",
+            ),
             auth=kwargs.get("auth"),
         )
 
@@ -155,7 +165,14 @@ class DatabasesEndpoint(Endpoint):
             path="databases",
             method="POST",
             body=pick(
-                kwargs, "parent", "title", "properties", "icon", "cover", "is_inline"
+                kwargs,
+                "parent",
+                "title",
+                "description",
+                "properties",
+                "icon",
+                "cover",
+                "is_inline",
             ),
             auth=kwargs.get("auth"),
         )
@@ -176,6 +193,8 @@ class DatabasesEndpoint(Endpoint):
                 "icon",
                 "cover",
                 "is_inline",
+                "archived",
+                "in_trash",
             ),
             auth=kwargs.get("auth"),
         )

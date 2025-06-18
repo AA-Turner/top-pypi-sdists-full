@@ -218,8 +218,7 @@ class BedrockClient(BaseClient):
         self, **kwargs: Unpack[CreateCustomModelRequestTypeDef]
     ) -> CreateCustomModelResponseTypeDef:
         """
-        Creates a new custom model in Amazon Bedrock from an existing SageMaker
-        AI-trained Amazon Nova model stored in an Amazon-managed Amazon S3 bucket.
+        Creates a new custom model in Amazon Bedrock.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_custom_model.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_custom_model)

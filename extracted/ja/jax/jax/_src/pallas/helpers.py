@@ -13,9 +13,13 @@
 # limitations under the License.
 """Pallas helper functions."""
 
+from collections.abc import Callable
+
 import jax
-from jax._src.pallas import pallas_call
+from jax._src import checkify
+from jax._src import config
 from jax._src.pallas import core as pl_core
+from jax._src.pallas import pallas_call
 
 
 @jax.named_call
@@ -65,3 +69,43 @@ def when(condition):
     else:
       jax.lax.cond(condition, f, lambda: None)
   return _wrapped
+
+
+def loop(
+    lower: jax.typing.ArrayLike,
+    upper: jax.typing.ArrayLike,
+    *,
+    unroll: int | bool | None = None,
+) -> Callable[[Callable[[jax.Array], None]], None]:
+  def decorator(body):
+    jax.lax.fori_loop(
+        lower, upper, lambda idx, _: body(idx), init_val=None, unroll=unroll
+    )
+
+  return decorator
+
+
+_ENABLE_DEBUG_CHECKS = config.bool_state(
+    "jax_pallas_enable_debug_checks",
+    default=False,
+    help=(
+        "If set, ``pl.debug_check`` calls are checked at runtime. Otherwise,"
+        " they are a noop."
+    ),
+)
+
+
+enable_debug_checks = _ENABLE_DEBUG_CHECKS
+
+
+def debug_checks_enabled() -> bool:
+  """Returns runtime checks are enabled."""
+  return _ENABLE_DEBUG_CHECKS.value
+
+
+def debug_check(condition, message):
+  """Check the condition if
+  :func:`~jax.experimental.pallas.enable_debug_checks` is set, otherwise
+  do nothing.
+  """
+  return checkify.debug_check(condition, message)

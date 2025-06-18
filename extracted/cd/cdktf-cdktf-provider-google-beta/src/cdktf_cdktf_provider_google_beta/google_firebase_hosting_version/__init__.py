@@ -1,7 +1,7 @@
 r'''
 # `google_firebase_hosting_version`
 
-Refer to the Terraform Registry for docs: [`google_firebase_hosting_version`](https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version).
+Refer to the Terraform Registry for docs: [`google_firebase_hosting_version`](https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleFirebaseHostingVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleFirebaseHostingVersion.GoogleFirebaseHostingVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version google_firebase_hosting_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version google_firebase_hosting_version}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GoogleFirebaseHostingVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version google_firebase_hosting_version} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version google_firebase_hosting_version} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param site_id: Required. The ID of the site in which to create this Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#site_id GoogleFirebaseHostingVersion#site_id}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#config GoogleFirebaseHostingVersion#config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#id GoogleFirebaseHostingVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#timeouts GoogleFirebaseHostingVersion#timeouts}
+        :param site_id: Required. The ID of the site in which to create this Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#site_id GoogleFirebaseHostingVersion#site_id}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#config GoogleFirebaseHostingVersion#config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#id GoogleFirebaseHostingVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#timeouts GoogleFirebaseHostingVersion#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GoogleFirebaseHostingVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleFirebaseHostingVersion to import.
-        :param import_from_id: The id of the existing GoogleFirebaseHostingVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleFirebaseHostingVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleFirebaseHostingVersion to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class GoogleFirebaseHostingVersion(
         rewrites: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleFirebaseHostingVersionConfigRewrites", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
-        :param redirects: redirects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#redirects GoogleFirebaseHostingVersion#redirects}
-        :param rewrites: rewrites block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#rewrites GoogleFirebaseHostingVersion#rewrites}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
+        :param redirects: redirects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#redirects GoogleFirebaseHostingVersion#redirects}
+        :param rewrites: rewrites block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#rewrites GoogleFirebaseHostingVersion#rewrites}
         '''
         value = GoogleFirebaseHostingVersionConfigA(
             headers=headers, redirects=redirects, rewrites=rewrites
@@ -150,8 +150,8 @@ class GoogleFirebaseHostingVersion(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#create GoogleFirebaseHostingVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#delete GoogleFirebaseHostingVersion#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#create GoogleFirebaseHostingVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#delete GoogleFirebaseHostingVersion#delete}.
         '''
         value = GoogleFirebaseHostingVersionTimeouts(create=create, delete=delete)
 
@@ -290,10 +290,10 @@ class GoogleFirebaseHostingVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param site_id: Required. The ID of the site in which to create this Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#site_id GoogleFirebaseHostingVersion#site_id}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#config GoogleFirebaseHostingVersion#config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#id GoogleFirebaseHostingVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#timeouts GoogleFirebaseHostingVersion#timeouts}
+        :param site_id: Required. The ID of the site in which to create this Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#site_id GoogleFirebaseHostingVersion#site_id}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#config GoogleFirebaseHostingVersion#config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#id GoogleFirebaseHostingVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#timeouts GoogleFirebaseHostingVersion#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -406,7 +406,7 @@ class GoogleFirebaseHostingVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def site_id(self) -> builtins.str:
         '''Required. The ID of the site in which to create this Version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#site_id GoogleFirebaseHostingVersion#site_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#site_id GoogleFirebaseHostingVersion#site_id}
         '''
         result = self._values.get("site_id")
         assert result is not None, "Required property 'site_id' is missing"
@@ -416,14 +416,14 @@ class GoogleFirebaseHostingVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def config(self) -> typing.Optional["GoogleFirebaseHostingVersionConfigA"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#config GoogleFirebaseHostingVersion#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#config GoogleFirebaseHostingVersion#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["GoogleFirebaseHostingVersionConfigA"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#id GoogleFirebaseHostingVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#id GoogleFirebaseHostingVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -435,7 +435,7 @@ class GoogleFirebaseHostingVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["GoogleFirebaseHostingVersionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#timeouts GoogleFirebaseHostingVersion#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#timeouts GoogleFirebaseHostingVersion#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleFirebaseHostingVersionTimeouts"], result)
@@ -470,9 +470,9 @@ class GoogleFirebaseHostingVersionConfigA:
         rewrites: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleFirebaseHostingVersionConfigRewrites", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
-        :param redirects: redirects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#redirects GoogleFirebaseHostingVersion#redirects}
-        :param rewrites: rewrites block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#rewrites GoogleFirebaseHostingVersion#rewrites}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
+        :param redirects: redirects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#redirects GoogleFirebaseHostingVersion#redirects}
+        :param rewrites: rewrites block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#rewrites GoogleFirebaseHostingVersion#rewrites}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3855947fecf52c08d151c14c9bb8bc28891eb0e7afa98a8de09483a66a672b16)
@@ -493,7 +493,7 @@ class GoogleFirebaseHostingVersionConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirebaseHostingVersionConfigHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirebaseHostingVersionConfigHeaders"]]], result)
@@ -504,7 +504,7 @@ class GoogleFirebaseHostingVersionConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirebaseHostingVersionConfigRedirects"]]]:
         '''redirects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#redirects GoogleFirebaseHostingVersion#redirects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#redirects GoogleFirebaseHostingVersion#redirects}
         '''
         result = self._values.get("redirects")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirebaseHostingVersionConfigRedirects"]]], result)
@@ -515,7 +515,7 @@ class GoogleFirebaseHostingVersionConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirebaseHostingVersionConfigRewrites"]]]:
         '''rewrites block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#rewrites GoogleFirebaseHostingVersion#rewrites}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#rewrites GoogleFirebaseHostingVersion#rewrites}
         '''
         result = self._values.get("rewrites")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirebaseHostingVersionConfigRewrites"]]], result)
@@ -669,9 +669,9 @@ class GoogleFirebaseHostingVersionConfigHeaders:
         regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param headers: The additional headers to add to the response. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
-        :param glob: The user-supplied glob to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
-        :param regex: The user-supplied RE2 regular expression to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
+        :param headers: The additional headers to add to the response. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
+        :param glob: The user-supplied glob to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
+        :param regex: The user-supplied RE2 regular expression to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49cf0f6795f76bda90686aff48ada944f8502cf1f6f7b48d92e6f5f03ff9b7fd)
@@ -690,7 +690,7 @@ class GoogleFirebaseHostingVersionConfigHeaders:
     def headers(self) -> typing.Mapping[builtins.str, builtins.str]:
         '''The additional headers to add to the response. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#headers GoogleFirebaseHostingVersion#headers}
         '''
         result = self._values.get("headers")
         assert result is not None, "Required property 'headers' is missing"
@@ -700,7 +700,7 @@ class GoogleFirebaseHostingVersionConfigHeaders:
     def glob(self) -> typing.Optional[builtins.str]:
         '''The user-supplied glob to match against the request URL path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
         '''
         result = self._values.get("glob")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -709,7 +709,7 @@ class GoogleFirebaseHostingVersionConfigHeaders:
     def regex(self) -> typing.Optional[builtins.str]:
         '''The user-supplied RE2 regular expression to match against the request URL path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -944,10 +944,10 @@ class GoogleFirebaseHostingVersionConfigRedirects:
         regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: The value to put in the HTTP location header of the response. The location can contain capture group values from the pattern using a : prefix to identify the segment and an optional * to capture the rest of the URL. For example:: redirects { glob = "/:capture*" status_code = 302 location = "https://example.com/foo/:capture" } Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#location GoogleFirebaseHostingVersion#location}
-        :param status_code: The status HTTP code to return in the response. It must be a valid 3xx status code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#status_code GoogleFirebaseHostingVersion#status_code}
-        :param glob: The user-supplied glob to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
-        :param regex: The user-supplied RE2 regular expression to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
+        :param location: The value to put in the HTTP location header of the response. The location can contain capture group values from the pattern using a : prefix to identify the segment and an optional * to capture the rest of the URL. For example:: redirects { glob = "/:capture*" status_code = 302 location = "https://example.com/foo/:capture" } Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#location GoogleFirebaseHostingVersion#location}
+        :param status_code: The status HTTP code to return in the response. It must be a valid 3xx status code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#status_code GoogleFirebaseHostingVersion#status_code}
+        :param glob: The user-supplied glob to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
+        :param regex: The user-supplied RE2 regular expression to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd78c497bece651d7033cd6241a6f248165adea8771d4035df0589886120feef)
@@ -977,7 +977,7 @@ class GoogleFirebaseHostingVersionConfigRedirects:
              location = "https://example.com/foo/:capture"
            }
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#location GoogleFirebaseHostingVersion#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#location GoogleFirebaseHostingVersion#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -987,7 +987,7 @@ class GoogleFirebaseHostingVersionConfigRedirects:
     def status_code(self) -> jsii.Number:
         '''The status HTTP code to return in the response. It must be a valid 3xx status code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#status_code GoogleFirebaseHostingVersion#status_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#status_code GoogleFirebaseHostingVersion#status_code}
         '''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
@@ -997,7 +997,7 @@ class GoogleFirebaseHostingVersionConfigRedirects:
     def glob(self) -> typing.Optional[builtins.str]:
         '''The user-supplied glob to match against the request URL path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
         '''
         result = self._values.get("glob")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1006,7 +1006,7 @@ class GoogleFirebaseHostingVersionConfigRedirects:
     def regex(self) -> typing.Optional[builtins.str]:
         '''The user-supplied RE2 regular expression to match against the request URL path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1258,11 +1258,11 @@ class GoogleFirebaseHostingVersionConfigRewrites:
         run: typing.Optional[typing.Union["GoogleFirebaseHostingVersionConfigRewritesRun", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param function: The function to proxy requests to. Must match the exported function name exactly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#function GoogleFirebaseHostingVersion#function}
-        :param glob: The user-supplied glob to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
-        :param path: The URL path to rewrite the request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#path GoogleFirebaseHostingVersion#path}
-        :param regex: The user-supplied RE2 regular expression to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
-        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#run GoogleFirebaseHostingVersion#run}
+        :param function: The function to proxy requests to. Must match the exported function name exactly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#function GoogleFirebaseHostingVersion#function}
+        :param glob: The user-supplied glob to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
+        :param path: The URL path to rewrite the request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#path GoogleFirebaseHostingVersion#path}
+        :param regex: The user-supplied RE2 regular expression to match against the request URL path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
+        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#run GoogleFirebaseHostingVersion#run}
         '''
         if isinstance(run, dict):
             run = GoogleFirebaseHostingVersionConfigRewritesRun(**run)
@@ -1289,7 +1289,7 @@ class GoogleFirebaseHostingVersionConfigRewrites:
     def function(self) -> typing.Optional[builtins.str]:
         '''The function to proxy requests to. Must match the exported function name exactly.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#function GoogleFirebaseHostingVersion#function}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#function GoogleFirebaseHostingVersion#function}
         '''
         result = self._values.get("function")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1298,7 +1298,7 @@ class GoogleFirebaseHostingVersionConfigRewrites:
     def glob(self) -> typing.Optional[builtins.str]:
         '''The user-supplied glob to match against the request URL path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#glob GoogleFirebaseHostingVersion#glob}
         '''
         result = self._values.get("glob")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1307,7 +1307,7 @@ class GoogleFirebaseHostingVersionConfigRewrites:
     def path(self) -> typing.Optional[builtins.str]:
         '''The URL path to rewrite the request to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#path GoogleFirebaseHostingVersion#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#path GoogleFirebaseHostingVersion#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1316,7 +1316,7 @@ class GoogleFirebaseHostingVersionConfigRewrites:
     def regex(self) -> typing.Optional[builtins.str]:
         '''The user-supplied RE2 regular expression to match against the request URL path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#regex GoogleFirebaseHostingVersion#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1325,7 +1325,7 @@ class GoogleFirebaseHostingVersionConfigRewrites:
     def run(self) -> typing.Optional["GoogleFirebaseHostingVersionConfigRewritesRun"]:
         '''run block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#run GoogleFirebaseHostingVersion#run}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#run GoogleFirebaseHostingVersion#run}
         '''
         result = self._values.get("run")
         return typing.cast(typing.Optional["GoogleFirebaseHostingVersionConfigRewritesRun"], result)
@@ -1469,8 +1469,8 @@ class GoogleFirebaseHostingVersionConfigRewritesOutputReference(
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_id: User-defined ID of the Cloud Run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#service_id GoogleFirebaseHostingVersion#service_id}
-        :param region: Optional. User-provided region where the Cloud Run service is hosted. Defaults to 'us-central1' if not supplied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#region GoogleFirebaseHostingVersion#region}
+        :param service_id: User-defined ID of the Cloud Run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#service_id GoogleFirebaseHostingVersion#service_id}
+        :param region: Optional. User-provided region where the Cloud Run service is hosted. Defaults to 'us-central1' if not supplied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#region GoogleFirebaseHostingVersion#region}
         '''
         value = GoogleFirebaseHostingVersionConfigRewritesRun(
             service_id=service_id, region=region
@@ -1609,8 +1609,8 @@ class GoogleFirebaseHostingVersionConfigRewritesRun:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_id: User-defined ID of the Cloud Run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#service_id GoogleFirebaseHostingVersion#service_id}
-        :param region: Optional. User-provided region where the Cloud Run service is hosted. Defaults to 'us-central1' if not supplied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#region GoogleFirebaseHostingVersion#region}
+        :param service_id: User-defined ID of the Cloud Run service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#service_id GoogleFirebaseHostingVersion#service_id}
+        :param region: Optional. User-provided region where the Cloud Run service is hosted. Defaults to 'us-central1' if not supplied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#region GoogleFirebaseHostingVersion#region}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d9b08fb1bd013042973d640f231ea57fe1e5bbfbd4e408724904f0297595738)
@@ -1626,7 +1626,7 @@ class GoogleFirebaseHostingVersionConfigRewritesRun:
     def service_id(self) -> builtins.str:
         '''User-defined ID of the Cloud Run service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#service_id GoogleFirebaseHostingVersion#service_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#service_id GoogleFirebaseHostingVersion#service_id}
         '''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
@@ -1636,7 +1636,7 @@ class GoogleFirebaseHostingVersionConfigRewritesRun:
     def region(self) -> typing.Optional[builtins.str]:
         '''Optional. User-provided region where the Cloud Run service is hosted. Defaults to 'us-central1' if not supplied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#region GoogleFirebaseHostingVersion#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#region GoogleFirebaseHostingVersion#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1742,8 +1742,8 @@ class GoogleFirebaseHostingVersionTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#create GoogleFirebaseHostingVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#delete GoogleFirebaseHostingVersion#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#create GoogleFirebaseHostingVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#delete GoogleFirebaseHostingVersion#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__443a7a17c8b875888fdd6967d5aaed564db9d383ed7cd563c45cffd1f4247a07)
@@ -1757,13 +1757,13 @@ class GoogleFirebaseHostingVersionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#create GoogleFirebaseHostingVersion#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#create GoogleFirebaseHostingVersion#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.39.0/docs/resources/google_firebase_hosting_version#delete GoogleFirebaseHostingVersion#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.40.0/docs/resources/google_firebase_hosting_version#delete GoogleFirebaseHostingVersion#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

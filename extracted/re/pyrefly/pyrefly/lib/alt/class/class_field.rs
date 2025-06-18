@@ -13,6 +13,8 @@ use dupe::Dupe;
 use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_util::owner::Owner;
+use pyrefly_util::prelude::ResultExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -20,6 +22,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::vec1;
 
 use crate::alt::answers::AnswersSolver;
 use crate::alt::answers::LookupAnswer;
@@ -270,7 +273,7 @@ impl ClassField {
 
     fn as_special_method_type(self, instance: &Instance) -> Option<Type> {
         self.as_raw_special_method_type(instance)
-            .and_then(|ty| make_bound_method(instance, &ty))
+            .and_then(|ty| make_bound_method(instance, ty).ok())
     }
 
     pub fn as_named_tuple_type(&self) -> Type {
@@ -340,6 +343,14 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_class_var())
+            }
+        }
+    }
+
+    pub fn is_init_var(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Simple { annotation, .. } => {
+                annotation.as_ref().is_some_and(|ann| ann.is_init_var())
             }
         }
     }
@@ -447,39 +458,38 @@ impl<'a> Instance<'a> {
 }
 
 fn bind_class_attribute(cls: &Class, attr: Type) -> Attribute {
-    Attribute::read_write(make_bound_classmethod(cls, &attr).unwrap_or(attr))
+    Attribute::read_write(make_bound_classmethod(cls, attr).into_inner())
 }
 
+/// Return the type of making it bound, or if not,
 fn make_bound_method_helper(
     obj: Type,
-    attr: &Type,
+    attr: Type,
     should_bind: &dyn Fn(&FuncMetadata) -> bool,
-) -> Option<Type> {
+) -> Result<Type, Type> {
     let func = match attr {
         Type::Forall(box Forall {
             tparams,
             body: Forallable::Function(func),
-        }) if should_bind(&func.metadata) => Some(BoundMethodType::Forall(Forall {
-            tparams: tparams.clone(),
-            body: func.clone(),
-        })),
-        Type::Function(func) if should_bind(&func.metadata) => {
-            Some(BoundMethodType::Function((**func).clone()))
-        }
+        }) if should_bind(&func.metadata) => BoundMethodType::Forall(Forall {
+            tparams,
+            body: func,
+        }),
+        Type::Function(func) if should_bind(&func.metadata) => BoundMethodType::Function(*func),
         Type::Overload(overload) if should_bind(&overload.metadata) => {
-            Some(BoundMethodType::Overload(overload.clone()))
+            BoundMethodType::Overload(overload)
         }
-        _ => None,
+        _ => return Err(attr),
     };
-    func.map(|func| Type::BoundMethod(Box::new(BoundMethod { obj, func })))
+    Ok(Type::BoundMethod(Box::new(BoundMethod { obj, func })))
 }
 
-fn make_bound_classmethod(cls: &Class, attr: &Type) -> Option<Type> {
+fn make_bound_classmethod(cls: &Class, attr: Type) -> Result<Type, Type> {
     let should_bind = |meta: &FuncMetadata| meta.flags.is_classmethod;
     make_bound_method_helper(Type::ClassDef(cls.dupe()), attr, &should_bind)
 }
 
-fn make_bound_method(instance: &Instance, attr: &Type) -> Option<Type> {
+fn make_bound_method(instance: &Instance, attr: Type) -> Result<Type, Type> {
     let should_bind =
         |meta: &FuncMetadata| !meta.flags.is_staticmethod && !meta.flags.is_classmethod;
     make_bound_method_helper(instance.to_type(), attr, &should_bind)
@@ -494,21 +504,21 @@ fn bind_instance_attribute(
     // Decorated objects are methods, so they can't be ClassVars
     match attr {
         _ if attr.is_property_getter() => Attribute::property(
-            make_bound_method(instance, &attr).unwrap_or(attr),
+            make_bound_method(instance, attr).into_inner(),
             None,
             instance.class.dupe(),
         ),
         _ if let Some(getter) = attr.is_property_setter_with_getter() => Attribute::property(
-            make_bound_method(instance, &getter).unwrap_or(getter),
-            Some(make_bound_method(instance, &attr).unwrap_or(attr)),
+            make_bound_method(instance, getter).into_inner(),
+            Some(make_bound_method(instance, attr).into_inner()),
             instance.class.dupe(),
         ),
         attr if is_class_var || readonly => {
-            Attribute::read_only(make_bound_method(instance, &attr).unwrap_or(attr))
+            Attribute::read_only(make_bound_method(instance, attr).into_inner())
         }
         attr => Attribute::read_write(
-            make_bound_method(instance, &attr)
-                .unwrap_or_else(|| make_bound_classmethod(instance.class, &attr).unwrap_or(attr)),
+            make_bound_method(instance, attr)
+                .unwrap_or_else(|attr| make_bound_classmethod(instance.class, attr).into_inner()),
         ),
     }
 }
@@ -530,11 +540,12 @@ impl<T> WithDefiningClass<T> {
     }
 }
 
-#[expect(clippy::large_enum_variant)] // the vast majority of `DataclassMember`s are `Field`
 /// The result of processing a raw dataclass member (any annotated assignment in its body).
 pub enum DataclassMember {
     /// A dataclass field
     Field(ClassField, BoolKeywords),
+    /// A pseudo-field that only appears as a constructor argument
+    InitVar(ClassField),
     /// A pseudo-field annotated with KW_ONLY
     KwOnlyMarker,
     /// Anything else
@@ -834,7 +845,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .ancestors(self.stdlib)
             .find_map(|parent| {
                 let parent_field =
-                    self.get_field_from_current_class_only(parent.class_object(), name)?;
+                    self.get_field_from_current_class_only(parent.class_object(), name, true)?;
                 found_field = true;
                 let ClassField(ClassFieldInner::Simple { annotation, .. }) = &*parent_field;
                 annotation.clone()
@@ -893,10 +904,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// This is used for dataclass field synthesis; when accessing attributes on dataclass instances,
+    /// use `get_instance_attribute` or `get_class_attribute`
     pub fn get_dataclass_member(&self, cls: &Class, name: &Name, kw_only: bool) -> DataclassMember {
         // Even though we check that the class member exists before calling this function,
         // it can be None if the class has an invalid MRO.
-        let Some(member) = self.get_class_member(cls, name) else {
+        let Some(member) = self.get_class_member_impl(cls, name, true) else {
             return DataclassMember::NotAField;
         };
         let field = &*member.value;
@@ -912,6 +925,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar)))
         {
             DataclassMember::NotAField // Class variables are not dataclass fields
+        } else if field.is_init_var() {
+            DataclassMember::InitVar(field.clone())
         } else {
             DataclassMember::Field(field.clone(), field.dataclass_flags_of(kw_only))
         }
@@ -927,12 +942,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if let Some(method_field) =
-            self.get_non_synthesized_field_from_current_class_only(class, method_name)
+            self.get_non_synthesized_field_from_current_class_only(class, method_name, false)
         {
             match &method_field.raw_type() {
                 Type::Forall(box Forall { tparams, .. }) => {
                     let mut qs = SmallSet::new();
                     ty.collect_quantifieds(&mut qs);
+                    let ts = Owner::new();
                     let gradual_fallbacks: SmallMap<_, _> = tparams
                         .iter()
                         .filter_map(|param| {
@@ -949,7 +965,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         param.name(),
                                     ),
                                 );
-                                Some((q.clone(), q.as_gradual_type()))
+                                Some((q , ts.push(q.as_gradual_type())))
                             } else {
                                 None
                             }
@@ -1184,22 +1200,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ));
             }
             let attr_check =
-                self.is_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
+                self.check_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
                     self.is_subset_eq(got, want)
                 });
-            if !attr_check {
-                self.error(
-                    errors,
-                    range,
-                    ErrorKind::BadOverride,
-                    None,
+            if let Err(error) = attr_check {
+                let msg = vec1![
                     format!(
                         "Class member `{}.{}` overrides parent class `{}` in an inconsistent manner",
                         class.name(),
                         name,
                         parent.name()
                     ),
-                );
+                    error.to_error_msg(class.name(), parent.name(), name)
+                ];
+                errors.add(range, ErrorKind::BadOverride, None, msg);
             }
         }
         if is_override && !parent_attr_found && !parent_has_any {
@@ -1221,10 +1235,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
+        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
         if cls.contains(name) {
             let field = self.get_from_class(cls, &KeyClassField(cls.index(), name.clone()));
-            Some(field)
+            if !include_initvar && field.is_init_var() {
+                None
+            } else {
+                Some(field)
+            }
         } else {
             None
         }
@@ -1235,8 +1254,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
+        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
-        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name) {
+        if let Some(field) =
+            self.get_non_synthesized_field_from_current_class_only(cls, name, include_initvar)
+        {
             Some(field)
         } else {
             let synthesized_fields =
@@ -1246,12 +1268,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub(in crate::alt::class) fn get_class_member(
+    fn get_class_member_impl(
         &self,
         cls: &Class,
         name: &Name,
+        include_initvar: bool,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        if let Some(field) = self.get_field_from_current_class_only(cls, name) {
+        if let Some(field) = self.get_field_from_current_class_only(cls, name, include_initvar) {
             Some(WithDefiningClass {
                 value: field,
                 defining_class: cls.dupe(),
@@ -1260,13 +1283,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.get_metadata_for_class(cls)
                 .ancestors(self.stdlib)
                 .find_map(|ancestor| {
-                    self.get_field_from_current_class_only(ancestor.class_object(), name)
-                        .map(|field| WithDefiningClass {
-                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                            defining_class: ancestor.class_object().dupe(),
-                        })
+                    self.get_field_from_current_class_only(
+                        ancestor.class_object(),
+                        name,
+                        include_initvar,
+                    )
+                    .map(|field| WithDefiningClass {
+                        value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                        defining_class: ancestor.class_object().dupe(),
+                    })
                 })
         }
+    }
+
+    pub(in crate::alt::class) fn get_class_member(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<WithDefiningClass<Arc<ClassField>>> {
+        self.get_class_member_impl(cls, name, false)
     }
 
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
@@ -1315,7 +1350,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .skip_while(|ancestor| *ancestor != start_lookup_cls);
         for ancestor in ancestors {
             if let Some(found) = self
-                .get_field_from_current_class_only(ancestor.class_object(), name)
+                .get_field_from_current_class_only(ancestor.class_object(), name, false)
                 .map(|field| WithDefiningClass {
                     value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
                     defining_class: ancestor.class_object().dupe(),

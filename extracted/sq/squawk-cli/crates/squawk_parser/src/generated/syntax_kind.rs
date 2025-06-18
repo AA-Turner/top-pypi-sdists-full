@@ -848,6 +848,7 @@ pub enum SyntaxKind {
     NOT_LIKE,
     NOT_NULL_CONSTRAINT,
     NOT_OF,
+    NOT_SIMILAR_TO,
     NOT_VALID,
     NO_ACTION,
     NO_FORCE_RLS,
@@ -993,6 +994,10 @@ pub enum SyntaxKind {
     WITH_CLAUSE,
     WITH_TABLE,
     WITH_TIMEZONE,
+    XML_COLUMN_OPTION,
+    XML_COLUMN_OPTION_LIST,
+    XML_TABLE_COLUMN,
+    XML_TABLE_COLUMN_LIST,
 
     #[doc(hidden)]
     __LAST,

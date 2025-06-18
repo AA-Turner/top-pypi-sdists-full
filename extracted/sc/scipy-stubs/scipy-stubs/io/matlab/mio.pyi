@@ -1,4 +1,3 @@
-# ruff: noqa: ANN401
 # This module is not meant for public use and will be removed in SciPy v2.0.0.
 
 from typing import Any
@@ -8,12 +7,7 @@ __all__ = ["loadmat", "savemat", "whosmat"]
 
 @deprecated("will be removed in SciPy v2.0.0")
 def loadmat(
-    file_name: object,
-    mdict: object = ...,
-    appendmat: object = ...,
-    *,
-    spmatrix: bool = True,
-    **kwargs: object,
+    file_name: object, mdict: object = ..., appendmat: object = ..., *, spmatrix: bool = True, **kwargs: object
 ) -> Any: ...
 @deprecated("will be removed in SciPy v2.0.0")
 def savemat(

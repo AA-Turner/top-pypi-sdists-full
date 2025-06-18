@@ -1,21 +1,15 @@
-#!/bin/bash
+#!/bin/bash -eux
 
-VERSION="3.2.0"
+VERSION="3.2.1"
 # MILESTONE="master"
 MILESTONE=""
 # RPM_RELEASE="0.1.$MILESTONE.$(date -u +%Y%m%d%H%M%S)"
 RPM_RELEASE="1"
 
-BUILD_TYPE=$2
 BUILD_PATH=$3
 
-if [[ $BUILD_TYPE = "rhv" ]]; then
-COLLECTION_NAMESPACE="redhat"
-COLLECTION_NAME="rhv"
-else
 COLLECTION_NAMESPACE="ovirt"
 COLLECTION_NAME="ovirt"
-fi
 PACKAGE_NAME="ovirt-ansible-collection"
 PREFIX=/usr/local
 DATAROOT_DIR=$PREFIX/share
@@ -51,27 +45,17 @@ install() {
 
   cp -pR plugins/ roles/ "$PKG_DATA_DIR/$COLLECTION_NAMESPACE/$COLLECTION_NAME"
 
-  if [[ $BUILD_TYPE = "rhv" ]]; then
-    echo "Creating link to ovirt.ovirt"
-    mkdir -p "$PKG_DATA_DIR/ovirt"
-    ln -f -s "$PKG_DATA_DIR_ORIG/redhat/rhv" "$PKG_DATA_DIR/ovirt/ovirt"
-  fi
   echo "Installation done."
-}
-
-rename() {
-  echo "Renaming ovirt to $COLLECTION_NAMESPACE and ovirt to $COLLECTION_NAME"
-  find ./* -type f -exec sed -i -e "s/ovirt/$COLLECTION_NAMESPACE/g" -e "s/ovirt/$COLLECTION_NAME/g" {} \;
 }
 
 build() {
   if [[ $BUILD_PATH ]]; then
     BUILD_PATH="$BUILD_PATH/ansible_collections/$COLLECTION_NAMESPACE/$COLLECTION_NAME/"
     mkdir -p "$BUILD_PATH"
-    echo "The copying files to $BUILD_PATH"
-    cp -r ./* .config/ "$BUILD_PATH"
+    echo "Copying files to $BUILD_PATH"
+    git config --global --add safe.directory "$(pwd)"
+    git archive --format=tar HEAD | (cd "$BUILD_PATH" && tar xf -)
     cd "$BUILD_PATH"
-    rename
     dist
   fi
 }

@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import datetime
+import functools
 import json
 import logging
 import numbers
@@ -72,6 +73,7 @@ from distributed.comm.addressing import parse_address
 from distributed.utils import LoopRunner, sync
 from packaging.version import Version
 from rich.console import Console
+from rich.prompt import Confirm
 from rich.text import Text
 from tornado.ioloop import IOLoop
 from typing_extensions import Literal, ParamSpec, Protocol, TypeAlias
@@ -81,6 +83,7 @@ from coiled.exceptions import (
     ApiResponseStatusError,
     AWSCredentialsParameterError,
     BuildError,
+    CoiledException,
     GCPCredentialsError,
     GCPCredentialsParameterError,
     NotFound,
@@ -407,6 +410,66 @@ class Cloud(Generic[IsAsynchronous]):
         should only ever be used to make idempotent API calls (e.g. non-mutating calls).
         """
         return await self._do_request(*args, ensure_running=ensure_running, **kwargs)
+
+    async def _do_request_with_confirmation(self, *args, ensure_running: bool = True, **kwargs):
+        """
+        Makes a request and handles 409 responses that require user confirmation or a retry action.
+
+        This method implements its own retry loop for 409 conflicts to manage confirmation
+        state in a concurrency-safe manner. Other retryable errors (e.g., 5xx, 429)
+        should be handled by decorators on `_do_request` itself.
+        """
+        current_call_kwargs = kwargs.copy()
+        # Ensure 'params' is a dictionary in current_call_kwargs for modification
+        if "params" not in current_call_kwargs:
+            current_call_kwargs["params"] = {}
+        else:
+            # Make a mutable copy if params were provided
+            current_call_kwargs["params"] = current_call_kwargs["params"].copy()
+
+        while True:
+            # The `_do_request` method is assumed to handle other retries
+            # and to correctly pass through method, url, and other kwargs.
+            response = await self._do_request(*args, ensure_running=ensure_running, **current_call_kwargs)
+
+            if response.status != 409:
+                if not response.ok:
+                    # Log non-409 errors if any, after all retries in _do_request are done
+                    logger.debug(
+                        f"API call to {response.url} failed with status {response.status}: {await response.text()}"
+                    )
+                return response
+
+            # Handle 409 Conflict
+            try:
+                error_data = await response.json()
+            except JSONDecodeError as decode_error:
+                logger.warning(f"Failed to parse JSON from 409 response for {response.url}", exc_info=True)
+                raise CoiledException(f"Failed to parse 409 response for {response.url}") from decode_error
+
+            action_required = error_data.get("action_required")
+            detail_message = error_data.get("detail", "No details provided.")
+
+            if action_required == "confirm":
+                console.print(f"[bold yellow]Confirmation Required:[/bold yellow]\n{detail_message}")
+                loop = asyncio.get_running_loop()
+                try:
+                    confirm = await loop.run_in_executor(
+                        None, functools.partial(Confirm.ask, "Do you want to proceed?", default=False)
+                    )
+                except Exception as e:
+                    logger.error(f"Error during confirmation prompt for {response.url}: {e}", exc_info=True)
+                    raise CoiledException("Error during confirmation prompt.") from e
+
+                if confirm:
+                    current_call_kwargs["params"]["confirm"] = 1
+                else:
+                    raise CoiledException("Operation cancelled by user.")
+            elif action_required == "retry":
+                logger.debug(f"Retrying operation for {response.url} after 3s sleep due to 'retry' action.")
+                await asyncio.sleep(3)
+            else:
+                raise CoiledException(f"Unhandled 409 action from API for {response.url}: {action_required}")
 
     @backoff.on_predicate(
         backoff.expo,
@@ -1300,13 +1363,12 @@ class Cloud(Generic[IsAsynchronous]):
             **gcp_credentials,
             "instance_service_account": instance_service_account,
         }
-        response = await self._do_request(
+        response = await self._do_request_with_confirmation(
             "POST",
             self.server + f"/api/v2/cloud-credentials/{account}/gcp",
             json=payload,
         )
-        if not response.ok:
-            logger.debug(f"Failed to update gcp creds {response.status}:{await response.text()}")
+        return response
 
     @delete_docstring
     def unset_gcp_credentials(self: CloudSyncAsync, account: str | None = None):
@@ -1315,12 +1377,11 @@ class Cloud(Generic[IsAsynchronous]):
     @track_context
     async def _unset_gcp_credentials(self, account: str | None = None):
         account = account or self.default_workspace
-        response = await self._do_request(
+        response = await self._do_request_with_confirmation(
             "DELETE",
             self.server + f"/api/v2/cloud-credentials/{account}/gcp",
         )
-        if not response.ok:
-            logger.debug(f"Failed to delete gcp creds {response.status}:{await response.text()}")
+        return response
 
     @delete_docstring
     def set_aws_credentials(self: CloudSyncAsync, aws_credentials: dict, account: str | None = None):
@@ -1329,13 +1390,12 @@ class Cloud(Generic[IsAsynchronous]):
     @track_context
     async def _set_aws_credentials(self, aws_credentials: dict, account: str | None = None):
         account = account or self.default_workspace
-        response = await self._do_request(
+        response = await self._do_request_with_confirmation(
             "POST",
             self.server + f"/api/v2/cloud-credentials/{account}/aws",
             json=aws_credentials,
         )
-        if not response.ok:
-            logger.debug(f"Failed to update aws creds {response.status}:{await response.text()}")
+        return response
 
     @delete_docstring
     def unset_aws_credentials(self: CloudSyncAsync, account: str | None = None):
@@ -1344,12 +1404,11 @@ class Cloud(Generic[IsAsynchronous]):
     @track_context
     async def _unset_aws_credentials(self, account: str | None = None):
         account = account or self.default_workspace
-        response = await self._do_request(
+        response = await self._do_request_with_confirmation(
             "DELETE",
             self.server + f"/api/v2/cloud-credentials/{account}/aws",
         )
-        if not response.ok:
-            logger.debug(f"Failed to delete aws creds {response.status}:{await response.text()}")
+        return response
 
     @track_context
     async def _list_instance_types_page(

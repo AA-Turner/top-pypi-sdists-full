@@ -12,9 +12,7 @@ DOCUMENTATION = '''
 module: ovirt_template
 short_description: Module to manage virtual machine templates in oVirt/RHV
 version_added: "1.0.0"
-author:
-- "Ondra Machacek (@machacekondra)"
-- "Martin Necas (@mnecas)"
+author: "oVirt Developers (@oVirt)"
 description:
     - "Module to manage virtual machine templates in oVirt/RHV."
 options:
@@ -71,6 +69,7 @@ options:
                     - The id of the target profile id to be mapped to in the engine.
         type: list
         elements: dict
+        default: []
     cluster_mappings:
         description:
             - "Mapper which maps cluster name between Template's OVF and the destination cluster this Template should be registered to,
@@ -85,6 +84,7 @@ options:
                     - The name of the destination cluster.
         type: list
         elements: dict
+        default: []
     role_mappings:
         description:
             - "Mapper which maps role name between Template's OVF and the destination role this Template should be registered to,
@@ -99,6 +99,7 @@ options:
                     - The name of the destination role.
         type: list
         elements: dict
+        default: []
     domain_mappings:
         description:
             - "Mapper which maps aaa domain name between Template's OVF and the destination aaa domain this Template should be registered to,
@@ -113,6 +114,7 @@ options:
                     - The name of the destination aaa domain.
         type: list
         elements: dict
+        default: []
     exclusive:
         description:
             - "When C(state) is I(exported) this parameter indicates if the existing templates with the
@@ -291,6 +293,7 @@ options:
               are merged with C(cloud_init_nics) parameters.
         type: list
         elements: dict
+        default: []
         suboptions:
             nic_boot_protocol:
                 description:
@@ -331,6 +334,7 @@ options:
             - List of NICs, which should be attached to Virtual Machine. NIC is described by following dictionary.
         type: list
         elements: dict
+        default: []
         suboptions:
             name:
                 description:
@@ -488,8 +492,8 @@ EXAMPLES = '''
     name: mytemplate
     vm: rhel7
     version:
-        number: 2
-        name: subversion
+      number: 2
+      name: subversion
 
 # Create new template subversion
 - ovirt.ovirt.ovirt_template:
@@ -497,7 +501,7 @@ EXAMPLES = '''
     name: mytemplate
     vm: rhel7
     version:
-        name: subversion
+      name: subversion
 
 - name: Template with cloud init
   ovirt.ovirt.ovirt_template:
@@ -528,13 +532,13 @@ EXAMPLES = '''
     cluster: mycluster
     vm: rhel8
     cloud_init_nics:
-    - nic_name: eth0
-      nic_boot_protocol: dhcp
-    - nic_name: eth1
-      nic_boot_protocol: static
-      nic_ip_address: 10.34.60.86
-      nic_netmask: 255.255.252.0
-      nic_gateway: 10.34.63.254
+      - nic_name: eth0
+        nic_boot_protocol: dhcp
+      - nic_name: eth1
+        nic_boot_protocol: static
+        nic_ip_address: 10.34.60.86
+        nic_netmask: 255.255.252.0
+        nic_gateway: 10.34.63.254
 
 - name: Template with timezone and nic
   ovirt.ovirt.ovirt_template:
@@ -583,7 +587,6 @@ template:
     type: dict
 '''
 
-import time
 import traceback
 
 try:

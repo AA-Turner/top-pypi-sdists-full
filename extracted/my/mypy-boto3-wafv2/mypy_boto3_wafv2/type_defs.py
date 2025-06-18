@@ -89,6 +89,11 @@ __all__ = (
     "AndStatementOutputTypeDef",
     "AndStatementTypeDef",
     "AndStatementUnionTypeDef",
+    "ApplicationAttributeOutputTypeDef",
+    "ApplicationAttributeTypeDef",
+    "ApplicationConfigOutputTypeDef",
+    "ApplicationConfigTypeDef",
+    "ApplicationConfigUnionTypeDef",
     "AsnMatchStatementOutputTypeDef",
     "AsnMatchStatementTypeDef",
     "AsnMatchStatementUnionTypeDef",
@@ -440,6 +445,16 @@ class AndStatementOutputTypeDef(TypedDict):
 
 class AndStatementTypeDef(TypedDict):
     Statements: Sequence[Mapping[str, Any]]
+
+
+class ApplicationAttributeOutputTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Values: NotRequired[List[str]]
+
+
+class ApplicationAttributeTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Values: NotRequired[Sequence[str]]
 
 
 class ForwardedIPConfigTypeDef(TypedDict):
@@ -1057,6 +1072,14 @@ class UpdateIPSetRequestTypeDef(TypedDict):
 AndStatementUnionTypeDef = Union[AndStatementTypeDef, AndStatementOutputTypeDef]
 
 
+class ApplicationConfigOutputTypeDef(TypedDict):
+    Attributes: NotRequired[List[ApplicationAttributeOutputTypeDef]]
+
+
+class ApplicationConfigTypeDef(TypedDict):
+    Attributes: NotRequired[Sequence[ApplicationAttributeTypeDef]]
+
+
 class AsnMatchStatementOutputTypeDef(TypedDict):
     AsnList: List[int]
     ForwardedIPConfig: NotRequired[ForwardedIPConfigTypeDef]
@@ -1537,6 +1560,7 @@ class UpdateManagedRuleSetVersionExpiryDateRequestTypeDef(TypedDict):
     ExpiryTimestamp: TimestampTypeDef
 
 
+ApplicationConfigUnionTypeDef = Union[ApplicationConfigTypeDef, ApplicationConfigOutputTypeDef]
 AsnMatchStatementUnionTypeDef = Union[AsnMatchStatementTypeDef, AsnMatchStatementOutputTypeDef]
 GeoMatchStatementUnionTypeDef = Union[GeoMatchStatementTypeDef, GeoMatchStatementOutputTypeDef]
 AssociationConfigUnionTypeDef = Union[AssociationConfigTypeDef, AssociationConfigOutputTypeDef]
@@ -2227,6 +2251,7 @@ class WebACLTypeDef(TypedDict):
     AssociationConfig: NotRequired[AssociationConfigOutputTypeDef]
     RetrofittedByFirewallManager: NotRequired[bool]
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
+    ApplicationConfig: NotRequired[ApplicationConfigOutputTypeDef]
 
 
 RuleActionOverrideUnionTypeDef = Union[RuleActionOverrideTypeDef, RuleActionOverrideOutputTypeDef]
@@ -2342,6 +2367,7 @@ class CreateWebACLRequestTypeDef(TypedDict):
     TokenDomains: NotRequired[Sequence[str]]
     AssociationConfig: NotRequired[AssociationConfigUnionTypeDef]
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
+    ApplicationConfig: NotRequired[ApplicationConfigUnionTypeDef]
 
 
 class UpdateRuleGroupRequestTypeDef(TypedDict):

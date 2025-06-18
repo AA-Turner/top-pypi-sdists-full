@@ -15,7 +15,6 @@ use lsp_types::DocumentSymbol;
 use lsp_types::ParameterInformation;
 use lsp_types::ParameterLabel;
 use lsp_types::SemanticToken;
-use lsp_types::SemanticTokenType;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use pyrefly_util::gas::Gas;
@@ -60,11 +59,10 @@ use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::state::handle::Handle;
 use crate::state::ide::IntermediateDefinition;
-use crate::state::ide::binding_to_intermediate_definition;
 use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::state::require::Require;
-use crate::state::semantic_tokens::SemanticTokenWithFullRange;
+use crate::state::semantic_tokens::SemanticTokenBuilder;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
@@ -102,12 +100,10 @@ impl DefinitionMetadata {
 /// A binding that is verified to be a binding for a name in the source code.
 /// This data structure carries the proof for the verification,
 /// which includes the definition information, and the binding itself.
-struct NamedBinding<'a> {
+struct NamedBinding {
     definition_handle: Handle,
     definition_export: Export,
     key: Key,
-    #[allow(dead_code)]
-    binding: &'a Binding,
 }
 
 enum CalleeKind {
@@ -849,18 +845,6 @@ impl<'a> Transaction<'a> {
         self.resolve_intermediate_definition(handle, intermediate_definition, gas)
     }
 
-    fn binding_to_export(
-        &self,
-        handle: &Handle,
-        binding: &Binding,
-        mut gas: Gas,
-    ) -> Option<(Handle, Export)> {
-        let bindings = self.get_bindings(handle)?;
-        let intermediate_definition =
-            binding_to_intermediate_definition(&bindings, binding, &mut gas)?;
-        self.resolve_intermediate_definition(handle, intermediate_definition, gas)
-    }
-
     fn find_definition_for_name_def(
         &self,
         handle: &Handle,
@@ -1275,7 +1259,6 @@ impl<'a> Transaction<'a> {
             definition_handle,
             definition_export,
             key,
-            binding: _,
         } in self.named_bindings(handle, &bindings)
         {
             if definition_handle.path() == definition.module_info.path()
@@ -1290,14 +1273,13 @@ impl<'a> Transaction<'a> {
     /// Bindings can contain synthetic bindings, which are not meaningful to end users.
     /// This function helps to filter out such bindings and only leave bindings that eventually
     /// jumps to a name in the source.
-    fn named_bindings<'b>(&self, handle: &Handle, bindings: &'b Bindings) -> Vec<NamedBinding<'b>> {
+    fn named_bindings(&self, handle: &Handle, bindings: &Bindings) -> Vec<NamedBinding> {
         let self_module_info = self.get_module_info(handle);
         let mut named_bindings = Vec::new();
         for idx in bindings.keys::<Key>() {
-            let binding = bindings.get(idx);
             let key = bindings.idx_to_key(idx);
             if let Some((definition_handle, definition_export)) =
-                self.binding_to_export(handle, binding, INITIAL_GAS)
+                self.key_to_export(handle, key, INITIAL_GAS)
                 && let Some(self_module_info) = &self_module_info
                 && let Some(definition_module_info) = self.get_module_info(&definition_handle)
                 && definition_handle.path() == definition_module_info.path()
@@ -1311,7 +1293,6 @@ impl<'a> Transaction<'a> {
                         definition_handle,
                         definition_export,
                         key: key.clone(),
-                        binding,
                     });
                 }
             }
@@ -1500,65 +1481,26 @@ impl<'a> Transaction<'a> {
         let bindings = self.get_bindings(handle)?;
         let ast = self.get_ast(handle)?;
         let legends = SemanticTokensLegends::new();
-        let mut tokens = Vec::new();
+        let mut builder = SemanticTokenBuilder::new(limit_range);
         for NamedBinding {
-            definition_handle: _,
+            definition_handle,
             definition_export,
             key,
-            binding: _,
         } in self.named_bindings(handle, &bindings)
         {
-            let reference_range = key.range();
-            if let Some(limit_range) = limit_range
-                && !limit_range.contains_range(reference_range)
-            {
-                continue;
-            }
-            let (token_type, token_modifiers) = if let Export {
+            if let Export {
                 symbol_kind: Some(symbol_kind),
                 ..
             } = definition_export
             {
-                symbol_kind.to_lsp_semantic_token_type_with_modifiers()
-            } else {
-                continue;
-            };
-            tokens.push(SemanticTokenWithFullRange {
-                range: reference_range,
-                token_type,
-                token_modifiers,
-            });
-        }
-        fn visit_expr(
-            x: &Expr,
-            tokens: &mut Vec<SemanticTokenWithFullRange>,
-            limit_range: Option<TextRange>,
-        ) {
-            if let Expr::Call(call) = x
-                && let Expr::Attribute(attr) = call.func.as_ref()
-            {
-                if limit_range.is_none_or(|x| x.contains_range(attr.attr.range())) {
-                    tokens.push(SemanticTokenWithFullRange {
-                        range: attr.attr.range(),
-                        token_type: SemanticTokenType::METHOD,
-                        token_modifiers: vec![],
-                    });
-                }
-            } else if let Expr::Attribute(attr) = x {
-                // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
-                if limit_range.is_none_or(|x| x.contains_range(attr.attr.range())) {
-                    tokens.push(SemanticTokenWithFullRange {
-                        range: attr.attr.range(),
-                        token_type: SemanticTokenType::PROPERTY,
-                        token_modifiers: vec![],
-                    });
-                }
-            } else {
-                x.recurse(&mut |x| visit_expr(x, tokens, limit_range));
+                builder.process_key(&key, definition_handle.module(), symbol_kind)
             }
         }
-        ast.visit(&mut |e| visit_expr(e, &mut tokens, limit_range));
-        Some(legends.convert_tokens_into_lsp_semantic_tokens(tokens, module_info))
+        builder.process_ast(&ast);
+        Some(
+            legends
+                .convert_tokens_into_lsp_semantic_tokens(&builder.all_tokens_sorted(), module_info),
+        )
     }
 
     #[allow(deprecated)] // The `deprecated` field

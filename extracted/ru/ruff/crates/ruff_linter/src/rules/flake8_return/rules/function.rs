@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 use anyhow::Result;
 
 use ruff_macros::{ViolationMetadata, derive_message_formats};
@@ -8,6 +6,7 @@ use ruff_python_ast::stmt_if::elif_else_range;
 use ruff_python_ast::visitor::Visitor;
 use ruff_python_ast::whitespace::indentation;
 use ruff_python_ast::{self as ast, Decorator, ElifElseClause, Expr, Stmt};
+use ruff_python_parser::TokenKind;
 use ruff_python_semantic::SemanticModel;
 use ruff_python_semantic::analyze::visibility::is_property;
 use ruff_python_trivia::{SimpleTokenKind, SimpleTokenizer, is_python_whitespace};
@@ -17,7 +16,6 @@ use ruff_text_size::{Ranged, TextRange, TextSize};
 use crate::checkers::ast::Checker;
 use crate::fix::edits;
 use crate::fix::edits::adjust_indentation;
-use crate::preview::is_only_add_return_none_at_end_enabled;
 use crate::registry::Rule;
 use crate::rules::flake8_return::helpers::end_of_last_statement;
 use crate::{AlwaysFixableViolation, FixAvailability, Violation};
@@ -463,67 +461,53 @@ fn add_return_none(checker: &Checker, stmt: &Stmt, range: TextRange) {
     }
 }
 
-/// Returns a list of all implicit returns in the given statement.
-///
-/// Note: The function should be refactored to `has_implicit_return` with an early return (when seeing the first implicit return)
-/// when removing the preview gating.
-fn implicit_returns<'a>(checker: &Checker, stmt: &'a Stmt) -> Vec<&'a Stmt> {
+fn has_implicit_return(checker: &Checker, stmt: &Stmt) -> bool {
     match stmt {
         Stmt::If(ast::StmtIf {
             body,
             elif_else_clauses,
             ..
         }) => {
-            let mut implicit_stmts = body
+            if body
                 .last()
-                .map(|last| implicit_returns(checker, last))
-                .unwrap_or_default();
+                .is_some_and(|last| has_implicit_return(checker, last))
+            {
+                return true;
+            }
 
-            for clause in elif_else_clauses {
-                implicit_stmts.extend(
-                    clause
-                        .body
-                        .last()
-                        .iter()
-                        .flat_map(|last| implicit_returns(checker, last)),
-                );
+            if elif_else_clauses.iter().any(|clause| {
+                clause
+                    .body
+                    .last()
+                    .is_some_and(|last| has_implicit_return(checker, last))
+            }) {
+                return true;
             }
 
             // Check if we don't have an else clause
-            if matches!(
+            matches!(
                 elif_else_clauses.last(),
                 None | Some(ast::ElifElseClause { test: Some(_), .. })
-            ) {
-                implicit_stmts.push(stmt);
-            }
-            implicit_stmts
+            )
         }
-        Stmt::Assert(ast::StmtAssert { test, .. }) if is_const_false(test) => vec![],
-        Stmt::While(ast::StmtWhile { test, .. }) if is_const_true(test) => vec![],
+        Stmt::Assert(ast::StmtAssert { test, .. }) if is_const_false(test) => false,
+        Stmt::While(ast::StmtWhile { test, .. }) if is_const_true(test) => false,
         Stmt::For(ast::StmtFor { orelse, .. }) | Stmt::While(ast::StmtWhile { orelse, .. }) => {
             if let Some(last_stmt) = orelse.last() {
-                implicit_returns(checker, last_stmt)
+                has_implicit_return(checker, last_stmt)
             } else {
-                vec![stmt]
+                true
             }
         }
-        Stmt::Match(ast::StmtMatch { cases, .. }) => {
-            let mut implicit_stmts = vec![];
-            for case in cases {
-                implicit_stmts.extend(
-                    case.body
-                        .last()
-                        .into_iter()
-                        .flat_map(|last_stmt| implicit_returns(checker, last_stmt)),
-                );
-            }
-            implicit_stmts
-        }
+        Stmt::Match(ast::StmtMatch { cases, .. }) => cases.iter().any(|case| {
+            case.body
+                .last()
+                .is_some_and(|last| has_implicit_return(checker, last))
+        }),
         Stmt::With(ast::StmtWith { body, .. }) => body
             .last()
-            .map(|last_stmt| implicit_returns(checker, last_stmt))
-            .unwrap_or_default(),
-        Stmt::Return(_) | Stmt::Raise(_) | Stmt::Try(_) => vec![],
+            .is_some_and(|last_stmt| has_implicit_return(checker, last_stmt)),
+        Stmt::Return(_) | Stmt::Raise(_) | Stmt::Try(_) => false,
         Stmt::Expr(ast::StmtExpr { value, .. })
             if matches!(
                 value.as_ref(),
@@ -531,28 +515,16 @@ fn implicit_returns<'a>(checker: &Checker, stmt: &'a Stmt) -> Vec<&'a Stmt> {
                     if is_noreturn_func(func, checker.semantic())
             ) =>
         {
-            vec![]
+            false
         }
-        _ => {
-            vec![stmt]
-        }
+        _ => true,
     }
 }
 
 /// RET503
 fn implicit_return(checker: &Checker, function_def: &ast::StmtFunctionDef, stmt: &Stmt) {
-    let implicit_stmts = implicit_returns(checker, stmt);
-
-    if implicit_stmts.is_empty() {
-        return;
-    }
-
-    if is_only_add_return_none_at_end_enabled(checker.settings) {
+    if has_implicit_return(checker, stmt) {
         add_return_none(checker, stmt, function_def.range());
-    } else {
-        for implicit_stmt in implicit_stmts {
-            add_return_none(checker, implicit_stmt, implicit_stmt.range());
-        }
     }
 }
 
@@ -614,17 +586,17 @@ fn unnecessary_assign(checker: &Checker, stack: &Stack) {
             let delete_return =
                 edits::delete_stmt(stmt, None, checker.locator(), checker.indexer());
 
-            // Replace the `x = 1` statement with `return 1`.
-            let content = checker.locator().slice(assign);
-            let equals_index = content
-                .find('=')
-                .ok_or(anyhow::anyhow!("expected '=' in assignment statement"))?;
-            let after_equals = equals_index + 1;
+            let eq_token = checker
+                .tokens()
+                .before(assign.value.start())
+                .iter()
+                .rfind(|token| token.kind() == TokenKind::Equal)
+                .unwrap();
 
+            let content = checker.source();
+            // Replace the `x = 1` statement with `return 1`.
             let replace_assign = Edit::range_replacement(
-                // If necessary, add whitespace after the `return` keyword.
-                // Ex) Convert `x=y` to `return y` (instead of `returny`).
-                if content[after_equals..]
+                if content[eq_token.end().to_usize()..]
                     .chars()
                     .next()
                     .is_some_and(is_python_whitespace)
@@ -635,13 +607,7 @@ fn unnecessary_assign(checker: &Checker, stack: &Stack) {
                 },
                 // Replace from the start of the assignment statement to the end of the equals
                 // sign.
-                TextRange::new(
-                    assign.start(),
-                    assign
-                        .range()
-                        .start()
-                        .add(TextSize::try_from(after_equals)?),
-                ),
+                TextRange::new(assign.start(), eq_token.range().end()),
             );
 
             Ok(Fix::unsafe_edits(replace_assign, [delete_return]))

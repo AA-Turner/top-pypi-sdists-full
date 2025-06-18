@@ -196,7 +196,7 @@ def add_to_use_case(
         # Some return types are "TDataset", others are Dataset<datarobot.Dataset>
         ret_type = ret_type.__name__.lower() if not isinstance(ret_type, str) else ret_type.lower()
         ret_type = ret_type.lstrip("t")
-        if not UseCaseReferenceEntityMap.get(ret_type):
+        if not UseCaseReferenceEntityMap.get(ret_type):  # type: ignore[arg-type]
             raise InvalidUsageError(
                 "This decorator can only support methods that return a "
                 "Project, Dataset, or Application instance."
@@ -212,8 +212,9 @@ def add_to_use_case(
         if allow_multiple:
 
             @functools.wraps(func)
-            def add_to_multiple(
+            def add_to_multiple(  # type: ignore[valid-type]
                 *args: P.args,
+                # TODO: use_cases should be an optional kwarg to make it mypy compatible
                 use_cases: Optional[UseCaseLike] = None,
                 **kwargs: P.kwargs,
             ) -> T:
@@ -263,8 +264,9 @@ def add_to_use_case(
         else:
 
             @functools.wraps(func)
-            def add_to_one(
+            def add_to_one(  # type: ignore[valid-type]
                 *args: P.args,
+                # TODO: use_case should be an optional kwarg to make it mypy compatible
                 use_case: Optional[Union[UseCase, str]] = None,
                 **kwargs: P.kwargs,
             ) -> T:

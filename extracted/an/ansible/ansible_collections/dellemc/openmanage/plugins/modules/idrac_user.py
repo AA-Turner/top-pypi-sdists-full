@@ -4,7 +4,7 @@
 #
 # Dell OpenManage Ansible Modules
 # Version 9.3.0
-# Copyright (C) 2018-2024 Dell Inc. or its subsidiaries. All Rights Reserved.
+# Copyright (C) 2018-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 #
@@ -328,7 +328,8 @@ def create_or_modify_account(module, idrac, slot_uri, slot_id, empty_slot_id, em
     :param empty_slot_uri: empty slot uri for create
     :return: json
     """
-    generation, firmware_version = idrac.get_server_generation
+    gen_details = idrac.get_server_generation
+    generation = gen_details[0]
     msg, response = "Unable to retrieve the user details.", {}
     if (slot_id and slot_uri) is None and (empty_slot_id and empty_slot_uri) is not None:
         msg = "Successfully created user account."

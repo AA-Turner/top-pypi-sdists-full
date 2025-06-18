@@ -28,27 +28,26 @@ from __future__ import annotations
 import builtins
 from collections.abc import Callable, Sequence
 from functools import partial
-import importlib
 import math
 import operator
 import os
 from typing import (Any, IO, Literal, Protocol, TypeVar, Union, overload)
 import warnings
 
-import jax
-from jax import jit
 from jax import lax
+from jax._src.api import jit
+from jax._src import api
 from jax._src import config
 from jax._src import core
 from jax._src import deprecations
 from jax._src import dtypes
-from jax._src import xla_bridge
 from jax._src.api_util import _ensure_index_tuple
 from jax._src.custom_derivatives import custom_jvp
 from jax._src.lax import lax as lax_internal
 from jax._src.lax.lax import (PrecisionLike,_array_copy,
                               _sort_le_comparator, _sort_lt_comparator)
 from jax._src.lib import xla_client as xc
+from jax._src.numpy.array import array, asarray
 from jax._src.numpy import indexing
 from jax._src.numpy import reductions
 from jax._src.numpy import tensor_contractions
@@ -62,26 +61,16 @@ from jax._src.typing import (
   Array, ArrayLike, DType, DTypeLike, DeprecatedArg, DimSize, Shape, SupportsShape
 )
 from jax._src.util import (
-    NumpyComplexWarning, canonicalize_axis as _canonicalize_axis,
+    canonicalize_axis as _canonicalize_axis,
     ceil_of_ratio, safe_zip, set_module, unzip2)
 from jax.sharding import Sharding
 from jax._src.sharding_impls import NamedSharding, PartitionSpec as P
 from jax._src.mesh import get_abstract_mesh
 from jax._src.pjit import auto_axes
-from jax.tree_util import tree_flatten, tree_map
+from jax.tree_util import tree_map
 import numpy as np
 
 export = set_module('jax.numpy')
-
-for pkg_name in ['jax_cuda12_plugin', 'jaxlib.cuda']:
-  try:
-    cuda_plugin_extension = importlib.import_module(
-        f'{pkg_name}.cuda_plugin_extension'
-    )
-  except ImportError:
-    cuda_plugin_extension = None  # type: ignore
-  else:
-    break
 
 T = TypeVar('T')
 
@@ -171,7 +160,7 @@ finfo = dtypes.finfo
 can_cast = dtypes.can_cast
 promote_types = dtypes.promote_types
 
-ComplexWarning = NumpyComplexWarning
+ComplexWarning = np.exceptions.ComplexWarning
 
 _lax_const = lax_internal._const
 
@@ -272,7 +261,7 @@ def load(file: IO[bytes] | str | os.PathLike[Any], *args: Any, **kwargs: Any) ->
 def fmin(x1: ArrayLike, x2: ArrayLike) -> Array:
   """Return element-wise minimum of the input arrays.
 
-  JAX implemtentation of :func:`numpy.fmin`.
+  JAX implementation of :func:`numpy.fmin`.
 
   Args:
     x1: input array or scalar.
@@ -508,7 +497,7 @@ def isscalar(element: Any) -> bool:
   """
   if np.isscalar(element):
     return True
-  elif isinstance(element, (np.ndarray, jax.Array)):
+  elif isinstance(element, (np.ndarray, Array)):
     return element.ndim == 0
   elif hasattr(element, '__jax_array__'):
     return asarray(element).ndim == 0
@@ -2251,7 +2240,7 @@ def resize(a: ArrayLike, new_shape: Shape) -> Array:
 
   Returns:
     A resized array with specified shape. The elements of ``a`` are repeated in
-    the resized array, if the resized array is larger than the original aray.
+    the resized array, if the resized array is larger than the original array.
 
   See also:
     - :func:`jax.numpy.reshape`: Returns a reshaped copy of an array.
@@ -2602,31 +2591,13 @@ def isclose(a: ArrayLike, b: ArrayLike, rtol: ArrayLike = 1e-05, atol: ArrayLike
     dtype = np.array(0, dtype).real.dtype
   rtol = lax.convert_element_type(rtol, dtype)
   atol = lax.convert_element_type(atol, dtype)
-  out = lax.le(
+  both_nan = ufuncs.logical_and(ufuncs.isnan(a), ufuncs.isnan(b))
+  check_fin = ufuncs.isfinite(b)
+  in_range = lax.le(
     lax.abs(lax.sub(a, b)),
     lax.add(atol, lax.mul(rtol, lax.abs(b))))
-  # This corrects the comparisons for infinite and nan values
-  a_inf = ufuncs.isinf(a)
-  b_inf = ufuncs.isinf(b)
-  any_inf = ufuncs.logical_or(a_inf, b_inf)
-  both_inf = ufuncs.logical_and(a_inf, b_inf)
-  # Make all elements where either a or b are infinite to False
-  out = ufuncs.logical_and(out, ufuncs.logical_not(any_inf))
-  # Make all elements where both a or b are the same inf to True
-  same_value = lax.eq(a, b)
-  same_inf = ufuncs.logical_and(both_inf, same_value)
-  out = ufuncs.logical_or(out, same_inf)
-
-  # Make all elements where either a or b is NaN to False
-  a_nan = ufuncs.isnan(a)
-  b_nan = ufuncs.isnan(b)
-  any_nan = ufuncs.logical_or(a_nan, b_nan)
-  out = ufuncs.logical_and(out, ufuncs.logical_not(any_nan))
-  if equal_nan:
-    # Make all elements where both a and b is NaN to True
-    both_nan = ufuncs.logical_and(a_nan, b_nan)
-    out = ufuncs.logical_or(out, both_nan)
-  return out
+  out = ufuncs.logical_or(lax.eq(a, b), ufuncs.logical_and(check_fin, in_range))
+  return ufuncs.logical_or(out, both_nan) if equal_nan else out
 
 
 def _interp(x: ArrayLike, xp: ArrayLike, fp: ArrayLike,
@@ -2932,7 +2903,7 @@ def bincount(x: ArrayLike, weights: ArrayLike | None = None,
 
   JAX implementation of :func:`numpy.bincount`.
 
-  For an array of positive integers ``x``, this function returns an array ``counts``
+  For an array of non-negative integers ``x``, this function returns an array ``counts``
   of size ``x.max() + 1``, such that ``counts[i]`` contains the number of occurrences
   of the value ``i`` in ``x``.
 
@@ -2945,7 +2916,7 @@ def bincount(x: ArrayLike, weights: ArrayLike | None = None,
     like :func:`jax.jit`. In this case, items larger than `length + 1` will be dropped.
 
   Args:
-    x : N-dimensional array of positive integers
+    x : 1-dimensional array of non-negative integers
     weights: optional array of weights associated with ``x``. If not specified, the
       weight for each entry will be ``1``.
     minlength: the minimum length of the output counts array.
@@ -3410,6 +3381,7 @@ def clip(
   Returns:
     An array containing values from ``arr``, with values smaller than ``min`` set
     to ``min``, and values larger than ``max`` set to ``max``.
+    Wherever ``min`` is larger than ``max``, the value of ``max`` is returned.
 
   See also:
     - :func:`jax.numpy.minimum`: Compute the element-wise minimum value of two arrays.
@@ -3435,7 +3407,7 @@ def clip(
     )
 
   util.check_arraylike("clip", arr)
-  if any(jax.numpy.iscomplexobj(t) for t in (arr, min, max)):
+  if any(iscomplexobj(t) for t in (arr, min, max)):
     raise ValueError(
       "Clip received a complex value either through the input or the min/max "
       "keywords. Complex values have no ordering and cannot be clipped. "
@@ -3444,7 +3416,7 @@ def clip(
   if min is not None:
     arr = ufuncs.maximum(min, arr)
   if max is not None:
-    arr = ufuncs.minimum(max, arr)
+    arr = ufuncs.minimum(max, arr) # type: ignore
   return asarray(arr)
 
 
@@ -4693,7 +4665,7 @@ def concat(arrays: Sequence[ArrayLike], /, *, axis: int | None = 0) -> Array:
            [1., 1., 1., 0.]], dtype=float32)
   """
   util.check_arraylike("concat", *arrays)
-  return jax.numpy.concatenate(arrays, axis=axis)
+  return concatenate(arrays, axis=axis)
 
 
 @export
@@ -4749,7 +4721,7 @@ def vstack(tup: np.ndarray | Array | Sequence[ArrayLike],
   """
   arrs: Array | list[Array]
   if isinstance(tup, (np.ndarray, Array)):
-    arrs = jax.vmap(atleast_2d)(tup)
+    arrs = api.vmap(atleast_2d)(tup)
   else:
     # TODO(jakevdp): Non-array input deprecated 2023-09-22; change to error.
     util.check_arraylike("vstack", *tup, emit_warning=True)
@@ -4808,7 +4780,7 @@ def hstack(tup: np.ndarray | Array | Sequence[ArrayLike],
   """
   arrs: Array | list[Array]
   if isinstance(tup, (np.ndarray, Array)):
-    arrs = jax.vmap(atleast_1d)(tup)
+    arrs = api.vmap(atleast_1d)(tup)
     arr0_ndim = arrs.ndim - 1
   else:
     # TODO(jakevdp): Non-array input deprecated 2023-09-22; change to error.
@@ -4871,7 +4843,7 @@ def dstack(tup: np.ndarray | Array | Sequence[ArrayLike],
   """
   arrs: Array | list[Array]
   if isinstance(tup, (np.ndarray, Array)):
-    arrs = jax.vmap(atleast_3d)(tup)
+    arrs = api.vmap(atleast_3d)(tup)
   else:
     # TODO(jakevdp): Non-array input deprecated 2023-09-22; change to error.
     util.check_arraylike("dstack", *tup, emit_warning=True)
@@ -4933,7 +4905,7 @@ def column_stack(tup: np.ndarray | Array | Sequence[ArrayLike]) -> Array:
   """
   arrs: Array | list[Array] | np.ndarray
   if isinstance(tup, (np.ndarray, Array)):
-    arrs = jax.vmap(lambda x: atleast_2d(x).T)(tup) if tup.ndim < 3 else tup
+    arrs = api.vmap(lambda x: atleast_2d(x).T)(tup) if tup.ndim < 3 else tup
   else:
     # TODO(jakevdp): Non-array input deprecated 2023-09-22; change to error.
     util.check_arraylike("column_stack", *tup, emit_warning=True)
@@ -5337,262 +5309,13 @@ def atleast_3d(*arys: ArrayLike) -> Array | list[Array]:
     return [atleast_3d(arr) for arr in arys]
 
 
-def _supports_buffer_protocol(obj):
-  try:
-    view = memoryview(obj)
-  except TypeError:
-    return False
-  else:
-    return True
-
-
-def _make_string_array(
-    object: np.ndarray,
-    dtype: DTypeLike | None = None,
-    ndmin: int = 0,
-    device: xc.Device | Sharding | None = None,
-) -> Array:
-  if not isinstance(object, np.ndarray):
-    raise TypeError(
-        "Currently, string arrays can only be made from NumPy"
-        f" arrays. Got:  {type(object)}."
-    )
-  if dtype is not None and (
-      dtypes.is_string_dtype(object.dtype) != dtypes.is_string_dtype(dtype)
-  ):
-    raise TypeError(
-        f"Cannot make an array with dtype {dtype} from an object with dtype"
-        f" {object.dtype}."
-    )
-  if ndmin > object.ndim:
-    raise TypeError(
-        f"ndmin {ndmin} cannot be greater than object's ndims"
-        f" {object.ndim} for string arrays."
-    )
-
-  # Just do a device_put since XLA does not support string as a data type.
-  return jax.device_put(x=object, device=device)
-
-
-@export
-def array(object: Any, dtype: DTypeLike | None = None, copy: bool = True,
-          order: str | None = "K", ndmin: int = 0,
-          *, device: xc.Device | Sharding | None = None) -> Array:
-  """Convert an object to a JAX array.
-
-  JAX implementation of :func:`numpy.array`.
-
-  Args:
-    object: an object that is convertible to an array. This includes JAX
-      arrays, NumPy arrays, Python scalars, Python collections like lists
-      and tuples, objects with an ``__array__`` method, and objects
-      supporting the Python buffer protocol.
-    dtype: optionally specify the dtype of the output array. If not
-      specified it will be inferred from the input.
-    copy: specify whether to force a copy of the input. Default: True.
-    order: not implemented in JAX
-    ndmin: integer specifying the minimum number of dimensions in the
-      output array.
-    device: optional :class:`~jax.Device` or :class:`~jax.sharding.Sharding`
-      to which the created array will be committed.
-
-  Returns:
-    A JAX array constructed from the input.
-
-  See also:
-    - :func:`jax.numpy.asarray`: like `array`, but by default only copies
-      when necessary.
-    - :func:`jax.numpy.from_dlpack`: construct a JAX array from an object
-      that implements the dlpack interface.
-    - :func:`jax.numpy.frombuffer`: construct a JAX array from an object
-      that implements the buffer interface.
-
-  Examples:
-    Constructing JAX arrays from Python scalars:
-
-    >>> jnp.array(True)
-    Array(True, dtype=bool)
-    >>> jnp.array(42)
-    Array(42, dtype=int32, weak_type=True)
-    >>> jnp.array(3.5)
-    Array(3.5, dtype=float32, weak_type=True)
-    >>> jnp.array(1 + 1j)
-    Array(1.+1.j, dtype=complex64, weak_type=True)
-
-    Constructing JAX arrays from Python collections:
-
-    >>> jnp.array([1, 2, 3])  # list of ints -> 1D array
-    Array([1, 2, 3], dtype=int32)
-    >>> jnp.array([(1, 2, 3), (4, 5, 6)])  # list of tuples of ints -> 2D array
-    Array([[1, 2, 3],
-           [4, 5, 6]], dtype=int32)
-    >>> jnp.array(range(5))
-    Array([0, 1, 2, 3, 4], dtype=int32)
-
-    Constructing JAX arrays from NumPy arrays:
-
-    >>> jnp.array(np.linspace(0, 2, 5))
-    Array([0. , 0.5, 1. , 1.5, 2. ], dtype=float32)
-
-    Constructing a JAX array via the Python buffer interface, using Python's
-    built-in :mod:`array` module.
-
-    >>> from array import array
-    >>> pybuffer = array('i', [2, 3, 5, 7])
-    >>> jnp.array(pybuffer)
-    Array([2, 3, 5, 7], dtype=int32)
-  """
-  if order is not None and order != "K":
-    raise NotImplementedError("Only implemented for order='K'")
-
-  # check if the given dtype is compatible with JAX
-  dtypes.check_user_dtype_supported(dtype, "array")
-
-  # Here we make a judgment call: we only return a weakly-typed array when the
-  # input object itself is weakly typed. That ensures asarray(x) is a no-op
-  # whenever x is weak, but avoids introducing weak types with something like
-  # array([1, 2, 3])
-  weak_type = dtype is None and dtypes.is_weakly_typed(object)
-  if device is None and isinstance(object, core.Tracer):
-    sharding = object.aval.sharding
-    sharding = None if sharding.mesh.empty else sharding
-  else:
-    sharding = util.canonicalize_device_to_sharding(device)
-
-  # Use device_put to avoid a copy for ndarray inputs.
-  if (not copy and isinstance(object, np.ndarray) and
-      (dtype is None or dtype == object.dtype) and (ndmin <= object.ndim) and
-      device is None):
-    # Keep the output uncommitted.
-    return jax.device_put(object)
-
-  # String arrays need separate handling because XLA does not support string
-  # as a data type.
-  if dtypes.is_string_dtype(dtype) or (
-      hasattr(object, "dtype") and dtypes.is_string_dtype(object.dtype)
-  ):
-    return _make_string_array(
-        object=object, dtype=dtype, ndmin=ndmin, device=device
-    )
-
-  # For Python scalar literals, call coerce_to_array to catch any overflow
-  # errors. We don't use dtypes.is_python_scalar because we don't want this
-  # triggering for traced values. We do this here because it matters whether or
-  # not dtype is None. We don't assign the result because we want the raw object
-  # to be used for type inference below.
-  if isinstance(object, (bool, int, float, complex)):
-    _ = dtypes.coerce_to_array(object, dtype)
-  elif not isinstance(object, Array):
-    # Check if object supports any of the data exchange protocols
-    # (except dlpack, see data-apis/array-api#301). If it does,
-    # consume the object as jax array and continue (but not return) so
-    # that other array() arguments get processed against the input
-    # object.
-    #
-    # Notice that data exchange protocols define dtype in the
-    # corresponding data structures and it may not be available as
-    # object.dtype. So, we'll resolve the protocols here before
-    # evaluating object.dtype.
-    if hasattr(object, '__jax_array__'):
-      object = object.__jax_array__()
-    elif hasattr(object, '__cuda_array_interface__'):
-      cai = object.__cuda_array_interface__
-      backend = xla_bridge.get_backend("cuda")
-      if cuda_plugin_extension is None:
-        device_id = None
-      else:
-        device_id = cuda_plugin_extension.get_device_ordinal(cai["data"][0])
-      object = xc._xla.cuda_array_interface_to_buffer(
-          cai=cai, gpu_backend=backend, device_id=device_id)
-
-  leaves, treedef = tree_flatten(object, is_leaf=lambda x: x is None)
-  if any(leaf is None for leaf in leaves):
-    raise ValueError("None is not a valid value for jnp.array")
-  leaves = [
-      leaf
-      if (leaf_jax_array := getattr(leaf, "__jax_array__", None)) is None
-      else leaf_jax_array()
-      for leaf in leaves
-  ]
-  if dtype is None:
-    # Use lattice_result_type rather than result_type to avoid canonicalization.
-    # Otherwise, weakly-typed inputs would have their dtypes canonicalized.
-    try:
-      dtype = dtypes._lattice_result_type(*leaves)[0] if leaves else dtypes.float_
-    except TypeError:
-      # This happens if, e.g. one of the entries is a memoryview object.
-      # This is rare, so we only handle it if the normal path fails.
-      leaves = [_convert_to_array_if_dtype_fails(leaf) for leaf in leaves]
-      dtype = dtypes._lattice_result_type(*leaves)[0]
-
-  if not weak_type:
-    dtype = dtypes.canonicalize_dtype(dtype, allow_extended_dtype=True)  # type: ignore[assignment]
-
-  object = treedef.unflatten(leaves)
-  out: ArrayLike
-  if all(not isinstance(leaf, Array) for leaf in leaves):
-    # TODO(jakevdp): falling back to numpy here fails to overflow for lists
-    # containing large integers; see discussion in
-    # https://github.com/jax-ml/jax/pull/6047. More correct would be to call
-    # coerce_to_array on each leaf, but this may have performance implications.
-    out = np.asarray(object, dtype=dtype)
-  elif isinstance(object, Array):
-    assert object.aval is not None
-    out = _array_copy(object) if copy else object
-  elif isinstance(object, (list, tuple)):
-    if object:
-      out = stack([asarray(elt, dtype=dtype) for elt in object])
-    else:
-      out = np.array([], dtype=dtype)
-  elif _supports_buffer_protocol(object):
-    object = memoryview(object)
-    # TODO(jakevdp): update this once we support NumPy 2.0 semantics for the copy arg.
-    out = np.array(object) if copy else np.asarray(object)
-  else:
-    raise TypeError(f"Unexpected input type for array: {type(object)}")
-  out_array: Array = lax_internal._convert_element_type(
-      out, dtype, weak_type=weak_type, sharding=sharding)
-  if ndmin > np.ndim(out_array):
-    out_array = lax.expand_dims(out_array, range(ndmin - np.ndim(out_array)))
-  return out_array
-
-
-def _get_platform(
-    device_or_sharding: xc.Device | Sharding | None | str) -> str:
-  """Get device_or_sharding platform or look up config.default_device.value."""
-  if isinstance(device_or_sharding, xc.Device):
-    return device_or_sharding.platform
-  elif isinstance(device_or_sharding, Sharding):
-    return list(device_or_sharding.device_set)[0].platform
-  elif isinstance(device_or_sharding, str):
-    return device_or_sharding
-  elif device_or_sharding is None:
-    if config.default_device.value is None:
-      return jax.default_backend()
-    else:
-      return _get_platform(config.default_device.value)
-  else:
-    raise ValueError(f"`{device_or_sharding = }` was passed to"
-                     "`canonicalize_or_get_default_platform`, only xc.Device,"
-                     " Sharding, None or str values are supported.")
-
-
-def _convert_to_array_if_dtype_fails(x: ArrayLike) -> ArrayLike:
-  try:
-    dtypes.dtype(x)
-  except TypeError:
-    return np.asarray(x)
-  else:
-    return x
-
-
 @export
 def astype(x: ArrayLike, dtype: DTypeLike | None,
            /, *, copy: bool = False,
            device: xc.Device | Sharding | None = None) -> Array:
   """Convert an array to a specified dtype.
 
-  JAX imlementation of :func:`numpy.astype`.
+  JAX implementation of :func:`numpy.astype`.
 
   This is implemented via :func:`jax.lax.convert_element_type`, which may
   have slightly different behavior than :func:`numpy.astype` in some cases.
@@ -5648,88 +5371,6 @@ def astype(x: ArrayLike, dtype: DTypeLike | None,
     x_arr, dtype, sharding=util.normalize_device_to_sharding(device),
     warn_on_complex_to_real_cast=False)
   return _array_copy(result) if copy else result
-
-
-@export
-def asarray(a: Any, dtype: DTypeLike | None = None, order: str | None = None,
-            *, copy: bool | None = None,
-            device: xc.Device | Sharding | None = None) -> Array:
-  """Convert an object to a JAX array.
-
-  JAX implementation of :func:`numpy.asarray`.
-
-  Args:
-    a: an object that is convertible to an array. This includes JAX
-      arrays, NumPy arrays, Python scalars, Python collections like lists
-      and tuples, objects with an ``__array__`` method, and objects
-      supporting the Python buffer protocol.
-    dtype: optionally specify the dtype of the output array. If not
-      specified it will be inferred from the input.
-    order: not implemented in JAX
-    copy: optional boolean specifying the copy mode. If True, then always
-      return a copy. If False, then error if a copy is necessary. Default is
-      None, which will only copy when necessary.
-    device: optional :class:`~jax.Device` or :class:`~jax.sharding.Sharding`
-      to which the created array will be committed.
-
-  Returns:
-    A JAX array constructed from the input.
-
-  See also:
-    - :func:`jax.numpy.array`: like `asarray`, but defaults to `copy=True`.
-    - :func:`jax.numpy.from_dlpack`: construct a JAX array from an object
-      that implements the dlpack interface.
-    - :func:`jax.numpy.frombuffer`: construct a JAX array from an object
-      that implements the buffer interface.
-
-  Examples:
-    Constructing JAX arrays from Python scalars:
-
-    >>> jnp.asarray(True)
-    Array(True, dtype=bool)
-    >>> jnp.asarray(42)
-    Array(42, dtype=int32, weak_type=True)
-    >>> jnp.asarray(3.5)
-    Array(3.5, dtype=float32, weak_type=True)
-    >>> jnp.asarray(1 + 1j)
-    Array(1.+1.j, dtype=complex64, weak_type=True)
-
-    Constructing JAX arrays from Python collections:
-
-    >>> jnp.asarray([1, 2, 3])  # list of ints -> 1D array
-    Array([1, 2, 3], dtype=int32)
-    >>> jnp.asarray([(1, 2, 3), (4, 5, 6)])  # list of tuples of ints -> 2D array
-    Array([[1, 2, 3],
-           [4, 5, 6]], dtype=int32)
-    >>> jnp.asarray(range(5))
-    Array([0, 1, 2, 3, 4], dtype=int32)
-
-    Constructing JAX arrays from NumPy arrays:
-
-    >>> jnp.asarray(np.linspace(0, 2, 5))
-    Array([0. , 0.5, 1. , 1.5, 2. ], dtype=float32)
-
-    Constructing a JAX array via the Python buffer interface, using Python's
-    built-in :mod:`array` module.
-
-    >>> from array import array
-    >>> pybuffer = array('i', [2, 3, 5, 7])
-    >>> jnp.asarray(pybuffer)
-    Array([2, 3, 5, 7], dtype=int32)
-  """
-  # For copy=False, the array API specifies that we raise a ValueError if the input supports
-  # the buffer protocol but a copy is required. Since array() supports the buffer protocol
-  # via numpy, this is only the case when the default device is not 'cpu'
-  if (copy is False and not isinstance(a, Array)
-      and _get_platform(device) != "cpu"
-      and _supports_buffer_protocol(a)):
-    raise ValueError(f"jnp.asarray: cannot convert object of type {type(a)} to JAX Array "
-                     f"on platform={_get_platform(device)} with "
-                     "copy=False. Consider using copy=None or copy=True instead.")
-  dtypes.check_user_dtype_supported(dtype, "asarray")
-  if dtype is not None:
-    dtype = dtypes.canonicalize_dtype(dtype, allow_extended_dtype=True)  # type: ignore[assignment]
-  return array(a, dtype=dtype, copy=bool(copy), order=order, device=device)
 
 
 @export
@@ -5974,7 +5615,7 @@ def from_dlpack(x: Any, /, *, device: xc.Device | Sharding | None = None,
       if needed for a device transfer.
 
   Returns:
-    A JAX array of the imput buffer.
+    A JAX array of the input buffer.
 
   Note:
     While JAX arrays are always immutable, dlpack buffers cannot be marked as
@@ -6094,7 +5735,7 @@ def fromfunction(function: Callable[..., Array], shape: Any,
   shape = core.canonicalize_shape(shape, context="shape argument of jnp.fromfunction()")
   for i in range(len(shape)):
     in_axes = [0 if i == j else None for j in range(len(shape))]
-    function = jax.vmap(function, in_axes=tuple(in_axes[::-1]))
+    function = api.vmap(function, in_axes=tuple(in_axes[::-1]))
   return function(*(arange(s, dtype=dtype) for s in shape), **kwargs)
 
 
@@ -6183,7 +5824,7 @@ def eye(N: DimSize, M: DimSize | None = None,
   # instead of putting it on default device and then on the specific device
   output = _eye(N, M=M, k=k, dtype=dtype)
   if device is not None:
-    return jax.device_put(output, device=device)
+    return api.device_put(output, device=device)
   return output
 
 
@@ -6316,7 +5957,7 @@ def arange(start: ArrayLike | DimSize, stop: ArrayLike | DimSize | None = None,
   # instead of putting it on default device and then on the specific device
   output = _arange(start, stop=stop, step=step, dtype=dtype)
   if device is not None:
-    return jax.device_put(output, device=device)
+    return api.device_put(output, device=device)
   return output
 
 
@@ -6513,7 +6154,7 @@ def _i0(x):
 
 @_i0.defjvp
 def _i0_jvp(primals, tangents):
-  primal_out, tangent_out = jax.jvp(_i0.fun, primals, tangents)
+  primal_out, tangent_out = api.jvp(_i0.fun, primals, tangents)
   return primal_out, where(primals[0] == 0, 0.0, tangent_out)
 
 @export
@@ -7809,7 +7450,7 @@ def trim_zeros(filt: ArrayLike, trim: str ='fb') -> Array:
   util.check_arraylike("trim_zeros", filt, emit_warning=True)
   core.concrete_or_error(None, filt,
                          "Error arose in the `filt` argument of trim_zeros()")
-  filt_arr = jax.numpy.asarray(filt)
+  filt_arr = asarray(filt)
   del filt
   if filt_arr.ndim != 1:
     # Added on 2024-09-11
@@ -8190,9 +7831,9 @@ def apply_along_axis(
   axis = _canonicalize_axis(axis, num_dims)
   func = lambda arr: func1d(arr, *args, **kwargs)
   for i in range(1, num_dims - axis):
-    func = jax.vmap(func, in_axes=i, out_axes=-1)
+    func = api.vmap(func, in_axes=i, out_axes=-1)
   for i in range(axis):
-    func = jax.vmap(func, in_axes=0, out_axes=0)
+    func = api.vmap(func, in_axes=0, out_axes=0)
   return func(arr)
 
 
@@ -8436,7 +8077,7 @@ def vander(
            [3, 1],
            [4, 1]], dtype=int32)
 
-    Generates the Vandermonde matrix in increaing order of powers, when
+    Generates the Vandermonde matrix in increasing order of powers, when
     ``increasing=True``.
 
     >>> jnp.vander(x, increasing=True)
@@ -9640,7 +9281,7 @@ def _searchsorted_via_sort(sorted_arr: Array, query: Array, side: str, dtype: ty
 
 def _searchsorted_via_compare_all(sorted_arr: Array, query: Array, side: str, dtype: type) -> Array:
   op = _sort_lt_comparator if side == 'left' else _sort_le_comparator
-  comparisons = jax.vmap(op, in_axes=(0, None))(sorted_arr, query)
+  comparisons = api.vmap(op, in_axes=(0, None))(sorted_arr, query)
   return comparisons.sum(dtype=dtype, axis=0)
 
 

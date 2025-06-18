@@ -4,8 +4,9 @@ from typing import Any, Final, Literal, TypeAlias, TypeVar, overload
 import numpy as np
 import optype as op
 import optype.numpy as onp
-from scipy.sparse import csc_matrix
+
 from .base import DenseOutput
+from scipy.sparse import csc_matrix
 
 _SCT = TypeVar("_SCT", bound=np.generic)
 _ToFloatT = TypeVar("_ToFloatT", bound=onp.ToFloat)
@@ -60,9 +61,7 @@ def validate_first_step(first_step: _ToFloatT, t0: onp.ToFloat, t_bound: onp.ToF
 def validate_max_step(max_step: _ToFloatT) -> _ToFloatT: ...
 def warn_extraneous(extraneous: dict[str, object]) -> None: ...
 def validate_tol(
-    rtol: onp.ArrayND[np.floating[Any]],
-    atol: onp.ArrayND[np.floating[Any]],
-    n: int,
+    rtol: onp.ArrayND[np.floating[Any]], atol: onp.ArrayND[np.floating[Any]], n: int
 ) -> tuple[onp.Array1D[np.floating[Any]], onp.Array1D[np.floating[Any]]]: ...
 def norm(x: onp.ToFloatND) -> np.floating[Any]: ...
 def select_initial_step(

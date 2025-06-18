@@ -18,6 +18,7 @@ import statistics
 import tempfile
 import threading
 
+initialized_storage: bool = False
 prepared_setting_to_custom: bool = False
 whole_start_time: float = time.time()
 last_progress_bar_desc: str = ""
@@ -602,6 +603,7 @@ class ConfigLoader:
     config_json: Optional[str]
     config_yaml: Optional[str]
     workdir: str
+    db_url: Optional[str]
     dont_jit_compile: bool
     no_normalize_y: bool
     transforms: List[str]
@@ -692,6 +694,7 @@ class ConfigLoader:
         optional.add_argument('--max_abandoned_retrial', help='Maximum number retrials to get when a job is abandoned post-generation', default=20, type=int)
         optional.add_argument('--share_password', help='Use this as a password for share. Default is none.', default=None, type=str)
         optional.add_argument('--dryrun', help='Try to do a dry run, i.e. a run for very short running jobs to test the installation of OmniOpt2 and check if environment stuff and paths and so on works properly', action='store_true', default=False)
+        optional.add_argument('--db_url', type=str, default=None, help='Database URL (e.g., mysql+pymysql://user:pass@host/db), disables sqlite3 storage')
 
         speed.add_argument('--dont_warm_start_refitting', help='Do not keep Model weights, thus, refit for every generator (may be more accurate, but slower)', action='store_true', default=False)
         speed.add_argument('--refit_on_cv', help='Refit on Cross-Validation (helps in accuracy, but makes generating new points slower)', action='store_true', default=False)
@@ -1049,6 +1052,9 @@ try:
     with console.status("[bold green]Importing save_experiment..."):
         from ax.storage.json_store.save import save_experiment
 
+    with console.status("[bold green]Importing save_experiment_to_db..."):
+        from ax.storage.sqa_store.save import save_experiment as save_experiment_to_db, save_generation_strategy
+
     with console.status("[bold green]Importing TrialStatus..."):
         from ax.core.base_trial import TrialStatus
 
@@ -1105,6 +1111,9 @@ except ImportError as e:
 
 with console.status("[bold green]Importing ax logger...") as status:
     from ax.utils.common.logger import disable_loggers
+
+with console.status("[bold green]Importing SQL-Storage-Stuff...") as status:
+    from ax.storage.sqa_store.db import init_engine_and_session_factory, get_engine, create_all_tables
 
     disable_loggers(names=["ax.modelbridge.base"], level=logging.CRITICAL)
 
@@ -1811,6 +1820,30 @@ def compute_md5_hash(filepath: str) -> Optional[str]:
         return None
 
 @beartype
+def init_storage(db_url: str):
+    init_engine_and_session_factory(url=db_url, force_init=True)
+    engine = get_engine()
+    create_all_tables(engine)
+
+@beartype
+def try_saving_to_db() -> None:
+    global initialized_storage
+
+    db_url = f"sqlite:////{get_current_run_folder()}/database.db"
+
+    if args.db_url:
+        db_url = args.db_url
+
+    if not initialized_storage:
+        init_storage(db_url)
+
+        initialized_storage = True
+
+    save_experiment_to_db(ax_client.experiment)
+    save_generation_strategy(global_gs)
+
+
+@beartype
 def save_results_csv() -> Optional[str]:
     pd_csv: str = f'{get_current_run_folder()}/{PD_CSV_FILENAME}'
     pd_json: str = f'{get_current_run_folder()}/state_files/pd.json'
@@ -1838,6 +1871,8 @@ def save_results_csv() -> Optional[str]:
             ax_client.experiment,
             f"{get_current_run_folder()}/state_files/ax_client.experiment.json"
         )
+
+        try_saving_to_db()
     except SignalUSR as e:
         raise SignalUSR(str(e)) from e
     except SignalCONT as e:
@@ -8770,9 +8805,8 @@ def set_orchestrator() -> None:
 
 @beartype
 def check_if_has_random_steps() -> None:
-    with console.status("[bold green]Checking if has random steps..."):
-        if (not args.continue_previous_job and "--continue" not in sys.argv) and (args.num_random_steps == 0 or not args.num_random_steps) and args.model not in ["EXTERNAL_GENERATOR", "SOBOL", "PSEUDORANDOM"]:
-            _fatal_error("You have no random steps set. This is only allowed in continued jobs. To start, you need either some random steps, or a continued run.", 233)
+    if (not args.continue_previous_job and "--continue" not in sys.argv) and (args.num_random_steps == 0 or not args.num_random_steps) and args.model not in ["EXTERNAL_GENERATOR", "SOBOL", "PSEUDORANDOM"]:
+        _fatal_error("You have no random steps set. This is only allowed in continued jobs. To start, you need either some random steps, or a continued run.", 233)
 
 @beartype
 def add_exclude_to_defective_nodes() -> None:
@@ -8791,15 +8825,14 @@ def check_max_eval(_max_eval: int) -> None:
 
 @beartype
 def parse_parameters() -> Any:
-    with console.status("[bold green]Parsing parameters..."):
-        experiment_parameters = None
-        cli_params_experiment_parameters = None
-        classic_params = None
-        if args.parameter:
-            experiment_parameters, classic_params = parse_experiment_parameters()
-            cli_params_experiment_parameters = experiment_parameters
+    experiment_parameters = None
+    cli_params_experiment_parameters = None
+    classic_params = None
+    if args.parameter:
+        experiment_parameters, classic_params = parse_experiment_parameters()
+        cli_params_experiment_parameters = experiment_parameters
 
-        return experiment_parameters, cli_params_experiment_parameters, classic_params
+    return experiment_parameters, cli_params_experiment_parameters, classic_params
 
 @beartype
 def create_pareto_front_table(idxs: List[int], metric_x: str, metric_y: str) -> Table:
@@ -9885,13 +9918,12 @@ def main() -> None:
 
     initialize_ax_client()
 
-    with console.status("[bold green]Getting experiment parameters..."):
-        ax_client, experiment_parameters, experiment_args, gpu_string, gpu_color = get_experiment_parameters([
-            cli_params_experiment_parameters,
-            experiment_parameters,
-        ])
+    ax_client, experiment_parameters, experiment_args, gpu_string, gpu_color = get_experiment_parameters([
+        cli_params_experiment_parameters,
+        experiment_parameters,
+    ])
 
-        print_debug(f"experiment_parameters: {experiment_parameters}")
+    print_debug(f"experiment_parameters: {experiment_parameters}")
 
     set_orchestrator()
 
