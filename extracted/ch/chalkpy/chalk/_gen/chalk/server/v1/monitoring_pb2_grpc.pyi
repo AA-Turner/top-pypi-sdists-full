@@ -8,18 +8,30 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.monitoring_pb2 import (
+    AddIncidentIoIntegrationRequest,
+    AddIncidentIoIntegrationResponse,
     AddPagerDutyIntegrationRequest,
     AddPagerDutyIntegrationResponse,
+    DeleteIncidentIoIntegrationRequest,
+    DeleteIncidentIoIntegrationResponse,
     DeletePagerDutyIntegrationRequest,
     DeletePagerDutyIntegrationResponse,
+    GetAllIncidentIoIntegrationsRequest,
+    GetAllIncidentIoIntegrationsResponse,
     GetAllPagerDutyIntegrationsRequest,
     GetAllPagerDutyIntegrationsResponse,
+    GetIncidentIoIntegrationRequest,
+    GetIncidentIoIntegrationResponse,
     GetPagerDutyIntegrationRequest,
     GetPagerDutyIntegrationResponse,
     SetDefaultPagerDutyIntegrationRequest,
     SetDefaultPagerDutyIntegrationResponse,
+    TestIncidentIoIntegrationRequest,
+    TestIncidentIoIntegrationResponse,
     TestPagerDutyIntegrationRequest,
     TestPagerDutyIntegrationResponse,
+    UpdateIncidentIoIntegrationRequest,
+    UpdateIncidentIoIntegrationResponse,
     UpdatePagerDutyIntegrationRequest,
     UpdatePagerDutyIntegrationResponse,
 )
@@ -59,6 +71,30 @@ class MonitoringServiceStub:
     GetPagerDutyIntegration: UnaryUnaryMultiCallable[
         GetPagerDutyIntegrationRequest,
         GetPagerDutyIntegrationResponse,
+    ]
+    TestIncidentIoIntegration: UnaryUnaryMultiCallable[
+        TestIncidentIoIntegrationRequest,
+        TestIncidentIoIntegrationResponse,
+    ]
+    AddIncidentIoIntegration: UnaryUnaryMultiCallable[
+        AddIncidentIoIntegrationRequest,
+        AddIncidentIoIntegrationResponse,
+    ]
+    DeleteIncidentIoIntegration: UnaryUnaryMultiCallable[
+        DeleteIncidentIoIntegrationRequest,
+        DeleteIncidentIoIntegrationResponse,
+    ]
+    UpdateIncidentIoIntegration: UnaryUnaryMultiCallable[
+        UpdateIncidentIoIntegrationRequest,
+        UpdateIncidentIoIntegrationResponse,
+    ]
+    GetAllIncidentIoIntegrations: UnaryUnaryMultiCallable[
+        GetAllIncidentIoIntegrationsRequest,
+        GetAllIncidentIoIntegrationsResponse,
+    ]
+    GetIncidentIoIntegration: UnaryUnaryMultiCallable[
+        GetIncidentIoIntegrationRequest,
+        GetIncidentIoIntegrationResponse,
     ]
 
 class MonitoringServiceServicer(metaclass=ABCMeta):
@@ -104,5 +140,41 @@ class MonitoringServiceServicer(metaclass=ABCMeta):
         request: GetPagerDutyIntegrationRequest,
         context: ServicerContext,
     ) -> GetPagerDutyIntegrationResponse: ...
+    @abstractmethod
+    def TestIncidentIoIntegration(
+        self,
+        request: TestIncidentIoIntegrationRequest,
+        context: ServicerContext,
+    ) -> TestIncidentIoIntegrationResponse: ...
+    @abstractmethod
+    def AddIncidentIoIntegration(
+        self,
+        request: AddIncidentIoIntegrationRequest,
+        context: ServicerContext,
+    ) -> AddIncidentIoIntegrationResponse: ...
+    @abstractmethod
+    def DeleteIncidentIoIntegration(
+        self,
+        request: DeleteIncidentIoIntegrationRequest,
+        context: ServicerContext,
+    ) -> DeleteIncidentIoIntegrationResponse: ...
+    @abstractmethod
+    def UpdateIncidentIoIntegration(
+        self,
+        request: UpdateIncidentIoIntegrationRequest,
+        context: ServicerContext,
+    ) -> UpdateIncidentIoIntegrationResponse: ...
+    @abstractmethod
+    def GetAllIncidentIoIntegrations(
+        self,
+        request: GetAllIncidentIoIntegrationsRequest,
+        context: ServicerContext,
+    ) -> GetAllIncidentIoIntegrationsResponse: ...
+    @abstractmethod
+    def GetIncidentIoIntegration(
+        self,
+        request: GetIncidentIoIntegrationRequest,
+        context: ServicerContext,
+    ) -> GetIncidentIoIntegrationResponse: ...
 
 def add_MonitoringServiceServicer_to_server(servicer: MonitoringServiceServicer, server: Server) -> None: ...

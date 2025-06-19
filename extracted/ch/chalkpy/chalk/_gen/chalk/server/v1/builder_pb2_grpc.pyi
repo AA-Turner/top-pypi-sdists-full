@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     ActivateDeploymentResponse,
     AddKarpenterNodepoolRequest,
     AddKarpenterNodepoolResponse,
+    AddNodepoolRequest,
+    AddNodepoolResponse,
     CreateClusterBackgroundPersistenceRequest,
     CreateClusterBackgroundPersistenceResponse,
     CreateClusterGatewayRequest,
@@ -22,6 +24,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     CreateKafkaTopicsResponse,
     DeleteKarpenterNodepoolRequest,
     DeleteKarpenterNodepoolResponse,
+    DeleteNodepoolRequest,
+    DeleteNodepoolResponse,
     DeployKubeComponentsRequest,
     DeployKubeComponentsResponse,
     GetClusterBackgroundPersistenceRequest,
@@ -40,6 +44,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetKarpenterInstallationMetadataResponse,
     GetKarpenterNodepoolsRequest,
     GetKarpenterNodepoolsResponse,
+    GetNodepoolsRequest,
+    GetNodepoolsResponse,
     GetSearchConfigRequest,
     GetSearchConfigResponse,
     GetTagWeightsRequest,
@@ -62,6 +68,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     UpdateEnvironmentVariablesResponse,
     UpdateKarpenterNodepoolRequest,
     UpdateKarpenterNodepoolResponse,
+    UpdateNodepoolRequest,
+    UpdateNodepoolResponse,
     UploadSourceRequest,
     UploadSourceResponse,
 )
@@ -161,22 +169,42 @@ class BuilderServiceStub:
         StartBranchRequest,
         StartBranchResponse,
     ]
+    GetNodepools: UnaryUnaryMultiCallable[
+        GetNodepoolsRequest,
+        GetNodepoolsResponse,
+    ]
+    AddNodepool: UnaryUnaryMultiCallable[
+        AddNodepoolRequest,
+        AddNodepoolResponse,
+    ]
+    UpdateNodepool: UnaryUnaryMultiCallable[
+        UpdateNodepoolRequest,
+        UpdateNodepoolResponse,
+    ]
+    DeleteNodepool: UnaryUnaryMultiCallable[
+        DeleteNodepoolRequest,
+        DeleteNodepoolResponse,
+    ]
     GetKarpenterNodepools: UnaryUnaryMultiCallable[
         GetKarpenterNodepoolsRequest,
         GetKarpenterNodepoolsResponse,
     ]
+    """to be deprecated"""
     AddKarpenterNodepool: UnaryUnaryMultiCallable[
         AddKarpenterNodepoolRequest,
         AddKarpenterNodepoolResponse,
     ]
+    """to be deprecated"""
     UpdateKarpenterNodepool: UnaryUnaryMultiCallable[
         UpdateKarpenterNodepoolRequest,
         UpdateKarpenterNodepoolResponse,
     ]
+    """to be deprecated"""
     DeleteKarpenterNodepool: UnaryUnaryMultiCallable[
         DeleteKarpenterNodepoolRequest,
         DeleteKarpenterNodepoolResponse,
     ]
+    """to be deprecated"""
     GetKarpenterInstallationMetadata: UnaryUnaryMultiCallable[
         GetKarpenterInstallationMetadataRequest,
         GetKarpenterInstallationMetadataResponse,
@@ -317,29 +345,57 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> StartBranchResponse: ...
     @abstractmethod
+    def GetNodepools(
+        self,
+        request: GetNodepoolsRequest,
+        context: ServicerContext,
+    ) -> GetNodepoolsResponse: ...
+    @abstractmethod
+    def AddNodepool(
+        self,
+        request: AddNodepoolRequest,
+        context: ServicerContext,
+    ) -> AddNodepoolResponse: ...
+    @abstractmethod
+    def UpdateNodepool(
+        self,
+        request: UpdateNodepoolRequest,
+        context: ServicerContext,
+    ) -> UpdateNodepoolResponse: ...
+    @abstractmethod
+    def DeleteNodepool(
+        self,
+        request: DeleteNodepoolRequest,
+        context: ServicerContext,
+    ) -> DeleteNodepoolResponse: ...
+    @abstractmethod
     def GetKarpenterNodepools(
         self,
         request: GetKarpenterNodepoolsRequest,
         context: ServicerContext,
-    ) -> GetKarpenterNodepoolsResponse: ...
+    ) -> GetKarpenterNodepoolsResponse:
+        """to be deprecated"""
     @abstractmethod
     def AddKarpenterNodepool(
         self,
         request: AddKarpenterNodepoolRequest,
         context: ServicerContext,
-    ) -> AddKarpenterNodepoolResponse: ...
+    ) -> AddKarpenterNodepoolResponse:
+        """to be deprecated"""
     @abstractmethod
     def UpdateKarpenterNodepool(
         self,
         request: UpdateKarpenterNodepoolRequest,
         context: ServicerContext,
-    ) -> UpdateKarpenterNodepoolResponse: ...
+    ) -> UpdateKarpenterNodepoolResponse:
+        """to be deprecated"""
     @abstractmethod
     def DeleteKarpenterNodepool(
         self,
         request: DeleteKarpenterNodepoolRequest,
         context: ServicerContext,
-    ) -> DeleteKarpenterNodepoolResponse: ...
+    ) -> DeleteKarpenterNodepoolResponse:
+        """to be deprecated"""
     @abstractmethod
     def GetKarpenterInstallationMetadata(
         self,

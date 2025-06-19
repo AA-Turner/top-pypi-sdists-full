@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from abc import abstractmethod
 from hashlib import sha3_512
 from typing import (
@@ -22,12 +23,17 @@ from .exceptions import (
 from .geometry import DBUGeometricObject, GeometricObject, UMGeometricObject
 from .port import DPort, Port, ProtoPort
 from .serialization import clean_name, get_cell_name
-from .settings import Info, KCellSettings
 from .typings import TUnit
 
 if TYPE_CHECKING:
     from ruamel.yaml.representer import BaseRepresenter, MappingNode
 
+    from .instance_pins import (
+        DInstancePins,
+        InstancePins,
+        ProtoTInstancePins,
+        VInstancePins,
+    )
     from .instance_ports import (
         DInstancePorts,
         InstancePorts,
@@ -175,6 +181,12 @@ class ProtoTInstance(ProtoInstance[TUnit], Generic[TUnit]):
     @property
     @abstractmethod
     def ports(self) -> ProtoTInstancePorts[TUnit]:
+        """Ports of the instance."""
+        ...
+
+    @property
+    @abstractmethod
+    def pins(self) -> ProtoTInstancePins[TUnit]:
         """Ports of the instance."""
         ...
 
@@ -501,12 +513,19 @@ class Instance(ProtoTInstance[int], DBUGeometricObject):
         self.kcl = kcl
         self._instance = instance
 
-    @property
+    @functools.cached_property
     def ports(self) -> InstancePorts:
         """Gets the transformed ports of the KCell."""
         from .instance_ports import InstancePorts
 
         return InstancePorts(self)
+
+    @functools.cached_property
+    def pins(self) -> InstancePins:
+        """Gets the transformed pins of the KCell."""
+        from .instance_pins import InstancePins
+
+        return InstancePins(self)
 
     def __getitem__(
         self, key: int | str | tuple[int | str | None, int, int] | None
@@ -579,12 +598,19 @@ class DInstance(ProtoTInstance[float], UMGeometricObject):
         self.kcl = kcl
         self._instance = instance
 
-    @property
+    @functools.cached_property
     def ports(self) -> DInstancePorts:
         """Gets the transformed ports of the KCell."""
         from .instance_ports import DInstancePorts
 
         return DInstancePorts(self)
+
+    @functools.cached_property
+    def pins(self) -> DInstancePins:
+        """Gets the transformed ports of the KCell."""
+        from .instance_pins import DInstancePins
+
+        return DInstancePins(self)
 
     @property
     def cell(self) -> DKCell:
@@ -692,11 +718,17 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
         """
         return self.ports[key]
 
-    @property
+    @functools.cached_property
     def ports(self) -> VInstancePorts:
         from .instance_ports import VInstancePorts
 
         return VInstancePorts(self)
+
+    @functools.cached_property
+    def pins(self) -> VInstancePins:
+        from .instance_pins import VInstancePins
+
+        return VInstancePins(self)
 
     def __repr__(self) -> str:
         """Return a string representation of the instance."""
@@ -730,10 +762,14 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
                     f" name is 'None'. VKCell at {self.trans}"
                 )
             if trans_ != kdb.DCplxTrans():
-                trans_str = (
-                    f"_M{trans_.mirror}_S{trans_.angle}"
-                    f"_X{trans_.disp.x}_Y{trans_.disp.y}"
-                ).replace(".", "p")
+                trans_str = ""
+                if trans_.mirror:
+                    trans_str += "_M"
+                if trans_.angle != 0:
+                    f"_A{trans_.angle}"
+                if trans_.disp != kdb.DVector(0, 0):
+                    trans_str += f"_X{trans_.disp.x}_Y{trans_.disp.y}"
+                trans_str = trans_str.replace(".", "p")
                 cell_name = get_cell_name(cell_name + clean_name(trans_str))
             if cell.kcl.layout_cell(cell_name) is None:
                 cell_ = KCell(kcl=self.cell.kcl, name=cell_name)  # self.cell.dup()
@@ -745,16 +781,28 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
                 cell_.name = cell_name
                 for port in self.cell.ports:
                     cell_.add_port(port=port.copy(trans_))
-                settings = self.cell.settings.model_dump()
-                settings.update({"virtual_trans": trans_})
+                for c_shapes in (
+                    cell_.shapes(layer) for layer in cell_.kcl.layer_indexes()
+                ):
+                    if not c_shapes.is_empty():
+                        r = kdb.Region(c_shapes)
+                        r.merge()
+                        c_shapes.clear()
+                        c_shapes.insert(r)
+                settings = self.cell.settings.model_copy()
                 settings_units = self.cell.settings_units.model_copy()
-                cell_.settings = KCellSettings(**settings)
-                cell_.info = Info(**self.cell.info.model_dump())
+                cell_.settings = settings
+                cell_.info = self.cell.info.model_copy(deep=True)
                 cell_.settings_units = settings_units
+                cell_._base.virtual = True
+                if trans_ != kdb.DCplxTrans():
+                    cell_._base.vtrans = trans_
             else:
                 cell_ = cell.kcl[cell_name]
             inst_ = cell << cell_
             inst_.transform(base_trans)
+            if self._name:
+                inst_.name = self._name
             return Instance(kcl=self.cell.kcl, instance=inst_.instance)
 
         assert isinstance(self.cell, ProtoTKCell)
@@ -765,22 +813,37 @@ class VInstance(ProtoInstance[float], UMGeometricObject):
         trans_ = base_trans.inverted() * trans_
         cell_name = self.cell.name
         if trans_ != kdb.DCplxTrans():
-            trans_str = (
-                f"_M{trans_.mirror}_S{trans_.angle}_X{trans_.disp.x}_Y{trans_.disp.y}"
-            ).replace(".", "p")
-            cell_name = cell_name + trans_str
+            trans_str = ""
+            if trans_.mirror:
+                trans_str += "_M"
+            if trans_.angle != 0:
+                f"_A{trans_.angle}"
+            if trans_.disp != kdb.DVector(0, 0):
+                trans_str += f"_X{trans_.disp.x}_Y{trans_.disp.y}"
+            trans_str = trans_str.replace(".", "p")
+            cell_name += trans_str
+        else:
+            inst_ = cell << self.cell
+            if self._name:
+                inst_.name = self._name
+            inst_.transform(base_trans)
+            return Instance(kcl=self.cell.kcl, instance=inst_.instance)
         if cell.kcl.layout_cell(cell_name) is None:
             tkcell = self.cell.dup()
             tkcell.name = cell_name
-            tkcell.flatten(False)
+            tkcell.flatten(True)
             for layer in tkcell.kcl.layer_indexes():
                 tkcell.shapes(layer).transform(trans_)
             for _port in tkcell.ports:
                 _port.dcplx_trans = trans_ * _port.dcplx_trans
+            if trans_ != kdb.DCplxTrans():
+                tkcell._base.vtrans = trans_
         else:
             tkcell = cell.kcl[cell_name]
         inst_ = cell << tkcell
         inst_.transform(base_trans)
+        if self._name:
+            inst_.name = self._name
         return Instance(kcl=self.cell.kcl, instance=inst_.instance)
 
     @overload

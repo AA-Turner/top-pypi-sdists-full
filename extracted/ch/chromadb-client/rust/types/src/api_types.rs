@@ -156,6 +156,7 @@ impl ChromaError for ResetError {
 #[derive(Serialize, ToSchema)]
 pub struct ChecklistResponse {
     pub max_batch_size: u32,
+    pub supports_base64_encoding: bool,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -1719,11 +1720,12 @@ impl ChromaError for QueryError {
 #[derive(Serialize, ToSchema)]
 pub struct HealthCheckResponse {
     pub is_executor_ready: bool,
+    pub is_log_client_ready: bool,
 }
 
 impl HealthCheckResponse {
     pub fn get_status_code(&self) -> tonic::Code {
-        if self.is_executor_ready {
+        if self.is_executor_ready && self.is_log_client_ready {
             tonic::Code::Ok
         } else {
             tonic::Code::Unavailable

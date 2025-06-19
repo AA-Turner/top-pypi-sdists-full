@@ -930,7 +930,7 @@ class RAGEngine(WMLResource):
                 ]
 
             pattern_details = None
-            metrics_best_score = 0
+            metrics_best_score = -1  # to avoid skipping `0.0` metric score
             for pattern in results:
                 for test_data in pattern["metrics"]["test_data"]:
                     if (

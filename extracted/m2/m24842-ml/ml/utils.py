@@ -193,6 +193,23 @@ def allocate_dynamic_memory(model, bsz, min_len, max_len, device="cpu"):
     
     return model
 
+def compile_model(model, input_shape, device="cpu"):
+    """
+    Allocate dynamic memory on the specified device.
+    """
+    temp = torch.zeros(input_shape, device=device)
+    backends = ["inductor", "aot_eager", "eager"]
+    for backend in backends:
+        try:
+            compiled_model = torch.compile(model, dynamic=True, backend=backend)
+            with torch.no_grad(): compiled_model(temp)
+            model = compiled_model
+            break
+        except:
+            pass
+    
+    return model
+
 def try_to_float(dictionary):
     """
     Convert string values to float if possible.

@@ -942,6 +942,9 @@ def run_end_to_end_test(args: Namespace, bubble_sort_path: str, bubble_sort_test
     if args.no_pr:
         command.append("--no-pr")
 
+    if args.verbose:
+        command.append("--verbose")
+
     logger.info("Running sample optimization…")
     console.rule()
 

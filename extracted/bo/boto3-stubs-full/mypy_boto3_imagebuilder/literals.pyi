@@ -43,11 +43,26 @@ __all__ = (
     "LifecyclePolicyResourceTypeType",
     "LifecyclePolicyStatusType",
     "LifecyclePolicyTimeUnitType",
+    "ListComponentBuildVersionsPaginatorName",
+    "ListComponentsPaginatorName",
+    "ListContainerRecipesPaginatorName",
+    "ListDistributionConfigurationsPaginatorName",
+    "ListImageBuildVersionsPaginatorName",
+    "ListImagePackagesPaginatorName",
+    "ListImagePipelineImagesPaginatorName",
+    "ListImagePipelinesPaginatorName",
+    "ListImageRecipesPaginatorName",
+    "ListImageScanFindingAggregationsPaginatorName",
+    "ListImageScanFindingsPaginatorName",
+    "ListImagesPaginatorName",
+    "ListInfrastructureConfigurationsPaginatorName",
     "ListLifecycleExecutionResourcesPaginatorName",
     "ListLifecycleExecutionsPaginatorName",
     "ListLifecyclePoliciesPaginatorName",
     "ListWaitingWorkflowStepsPaginatorName",
     "ListWorkflowBuildVersionsPaginatorName",
+    "ListWorkflowExecutionsPaginatorName",
+    "ListWorkflowStepExecutionsPaginatorName",
     "ListWorkflowsPaginatorName",
     "MarketplaceResourceTypeType",
     "OnWorkflowFailureType",
@@ -107,11 +122,26 @@ LifecyclePolicyDetailFilterTypeType = Literal["AGE", "COUNT"]
 LifecyclePolicyResourceTypeType = Literal["AMI_IMAGE", "CONTAINER_IMAGE"]
 LifecyclePolicyStatusType = Literal["DISABLED", "ENABLED"]
 LifecyclePolicyTimeUnitType = Literal["DAYS", "MONTHS", "WEEKS", "YEARS"]
+ListComponentBuildVersionsPaginatorName = Literal["list_component_build_versions"]
+ListComponentsPaginatorName = Literal["list_components"]
+ListContainerRecipesPaginatorName = Literal["list_container_recipes"]
+ListDistributionConfigurationsPaginatorName = Literal["list_distribution_configurations"]
+ListImageBuildVersionsPaginatorName = Literal["list_image_build_versions"]
+ListImagePackagesPaginatorName = Literal["list_image_packages"]
+ListImagePipelineImagesPaginatorName = Literal["list_image_pipeline_images"]
+ListImagePipelinesPaginatorName = Literal["list_image_pipelines"]
+ListImageRecipesPaginatorName = Literal["list_image_recipes"]
+ListImageScanFindingAggregationsPaginatorName = Literal["list_image_scan_finding_aggregations"]
+ListImageScanFindingsPaginatorName = Literal["list_image_scan_findings"]
+ListImagesPaginatorName = Literal["list_images"]
+ListInfrastructureConfigurationsPaginatorName = Literal["list_infrastructure_configurations"]
 ListLifecycleExecutionResourcesPaginatorName = Literal["list_lifecycle_execution_resources"]
 ListLifecycleExecutionsPaginatorName = Literal["list_lifecycle_executions"]
 ListLifecyclePoliciesPaginatorName = Literal["list_lifecycle_policies"]
 ListWaitingWorkflowStepsPaginatorName = Literal["list_waiting_workflow_steps"]
 ListWorkflowBuildVersionsPaginatorName = Literal["list_workflow_build_versions"]
+ListWorkflowExecutionsPaginatorName = Literal["list_workflow_executions"]
+ListWorkflowStepExecutionsPaginatorName = Literal["list_workflow_step_executions"]
 ListWorkflowsPaginatorName = Literal["list_workflows"]
 MarketplaceResourceTypeType = Literal["COMPONENT_ARTIFACT", "COMPONENT_DATA"]
 OnWorkflowFailureType = Literal["ABORT", "CONTINUE"]
@@ -148,6 +178,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -563,10 +594,25 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "list_component_build_versions",
+    "list_components",
+    "list_container_recipes",
+    "list_distribution_configurations",
+    "list_image_build_versions",
+    "list_image_packages",
+    "list_image_pipeline_images",
+    "list_image_pipelines",
+    "list_image_recipes",
+    "list_image_scan_finding_aggregations",
+    "list_image_scan_findings",
+    "list_images",
+    "list_infrastructure_configurations",
     "list_lifecycle_execution_resources",
     "list_lifecycle_executions",
     "list_lifecycle_policies",
     "list_waiting_workflow_steps",
     "list_workflow_build_versions",
+    "list_workflow_executions",
+    "list_workflow_step_executions",
     "list_workflows",
 ]

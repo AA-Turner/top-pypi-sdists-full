@@ -40,7 +40,7 @@ connectorx = ["connectorx >= 0.3.2"]
 sqlalchemy = ["sqlalchemy", "polars-lts-cpu[pandas]"]
 database = ["polars-lts-cpu[adbc,connectorx,sqlalchemy]"]
 fsspec = ["fsspec"]
-deltalake = ["deltalake >= 0.19.0"]
+deltalake = ["deltalake >= 1.0.0"]
 iceberg = ["pyiceberg >= 0.7.1"]
 async = ["gevent"]
 cloudpickle = ["cloudpickle"]
@@ -107,7 +107,7 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 addopts = ["--tb=short", "--strict-config", "--strict-markers", "--import-mode=importlib", "-m not slow and not write_disk and not release and not docs and not hypothesis and not benchmark and not ci_only"]
 markers = ["ci_only: Tests that should only run on CI by default.", "debug: Tests that should be run on a Polars debug build.", "docs: Documentation code snippets", "release: Tests that should be run on a Polars release build.", "slow: Tests with a longer than average runtime.", "write_disk: Tests that write to disk", "may_fail_auto_streaming: Test that may fail when automatically using the streaming engine for all lazy queries."]
-filterwarnings = ["error", "ignore:.*unrecognized arguments.*PyDevIPCompleter:DeprecationWarning", "ignore:.*is_sparse is deprecated.*:FutureWarning", "ignore:FigureCanvasAgg is non-interactive:UserWarning", "ignore:datetime.datetime.utcfromtimestamp\\(\\) is deprecated.*:DeprecationWarning", "ignore:datetime.datetime.utcnow\\(\\) is deprecated.*:DeprecationWarning", "ignore:.*co_lnotab is deprecated, use co_lines.*:DeprecationWarning", "ignore:unclosed file.*:ResourceWarning", "ignore:unclosed database.*:ResourceWarning", "ignore:Deprecated API features detected.*:DeprecationWarning", "ignore:.*numpy\\.longdouble.*:UserWarning", "ignore:The old streaming engine*:DeprecationWarning"]
+filterwarnings = ["error", "ignore:.*unrecognized arguments.*PyDevIPCompleter:DeprecationWarning", "ignore:.*is_sparse is deprecated.*:FutureWarning", "ignore:FigureCanvasAgg is non-interactive:UserWarning", "ignore:datetime.datetime.utcfromtimestamp\\(\\) is deprecated.*:DeprecationWarning", "ignore:datetime.datetime.utcnow\\(\\) is deprecated.*:DeprecationWarning", "ignore:.*co_lnotab is deprecated, use co_lines.*:DeprecationWarning", "ignore:unclosed file.*:ResourceWarning", "ignore:unclosed database.*:ResourceWarning", "ignore:Deprecated API features detected.*:DeprecationWarning", "ignore:.*numpy\\.longdouble.*:UserWarning"]
 xfail_strict = true
 
 [tool.coverage.run]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reportlab
-Version: 4.4.1
+Version: 4.4.2
 Summary: The Reportlab Toolkit
 Home-page: https://www.reportlab.com/
 Author: Andy Robinson, Robin Becker, the ReportLab team and the community
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.7,<4
 License-File: LICENSE
 Requires-Dist: pillow>=9.0.0
-Requires-Dist: chardet
+Requires-Dist: charset-normalizer
 Provides-Extra: accel
 Requires-Dist: rl_accel<1.1,>=0.9.0; extra == "accel"
 Provides-Extra: renderpm

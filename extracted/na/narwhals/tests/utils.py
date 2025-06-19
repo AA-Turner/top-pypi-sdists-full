@@ -6,7 +6,7 @@ import sys
 import warnings
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Mapping, Sequence
 
 import pandas as pd
 import pyarrow as pa
@@ -16,8 +16,6 @@ from narwhals._utils import Implementation, parse_version
 from narwhals.translate import from_native
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping, Sequence
-
     from typing_extensions import TypeAlias
 
     from narwhals.typing import DataFrameLike, NativeFrame, NativeLazyFrame

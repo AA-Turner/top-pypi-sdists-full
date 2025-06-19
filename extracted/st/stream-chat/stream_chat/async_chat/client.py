@@ -21,6 +21,7 @@ from stream_chat.async_chat.campaign import Campaign
 from stream_chat.async_chat.segment import Segment
 from stream_chat.types.base import SortParam
 from stream_chat.types.campaign import CampaignData, QueryCampaignsOptions
+from stream_chat.types.draft import QueryDraftsFilter, QueryDraftsOptions
 from stream_chat.types.segment import (
     QuerySegmentsOptions,
     QuerySegmentTargetsOptions,
@@ -222,6 +223,22 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
             "query_banned_users", params={"payload": json.dumps(query_conditions)}
         )
 
+    async def block_user(
+        self, blocked_user_id: str, user_id: str, **options: Any
+    ) -> StreamResponse:
+        data = {"blocked_user_id": blocked_user_id, "user_id": user_id, **options}
+        return await self.post("users/block", data=data)
+
+    async def unblock_user(
+        self, blocked_user_id: str, user_id: str, **options: Any
+    ) -> StreamResponse:
+        data = {"blocked_user_id": blocked_user_id, "user_id": user_id, **options}
+        return await self.post("users/unblock", data=data)
+
+    async def get_blocked_users(self, user_id: str, **options: Any) -> StreamResponse:
+        params = {"user_id": user_id, **options}
+        return await self.get("users/block", params=params)
+
     async def run_message_action(self, message_id: str, data: Dict) -> StreamResponse:
         return await self.post(f"messages/{message_id}/action", data=data)
 
@@ -359,6 +376,13 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
             }
         )
         return await self.post("messages/history", data=params)
+
+    async def query_threads(
+        self, filter: Dict = None, sort: List[Dict] = None, **options: Any
+    ) -> StreamResponse:
+        params = options.copy()
+        params.update({"filter": filter, "sort": self.normalize_sort(sort)})
+        return await self.post("threads", data=params)
 
     async def query_users(
         self, filter_conditions: Dict, sort: List[Dict] = None, **options: Any
@@ -824,6 +848,113 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
 
     async def unread_counts_batch(self, user_ids: List[str]) -> StreamResponse:
         return await self.post("unread_batch", data={"user_ids": user_ids})
+
+    async def query_drafts(
+        self,
+        user_id: str,
+        filter: Optional[QueryDraftsFilter] = None,
+        sort: Optional[List[SortParam]] = None,
+        options: Optional[QueryDraftsOptions] = None,
+    ) -> StreamResponse:
+        data: Dict[str, Union[str, Dict[str, Any], List[SortParam]]] = {
+            "user_id": user_id
+        }
+
+        if filter is not None:
+            data["filter"] = cast(dict, filter)
+
+        if sort is not None:
+            data["sort"] = cast(dict, sort)
+
+        if options is not None:
+            data.update(cast(dict, options))
+
+        return await self.post("drafts/query", data=data)
+
+    async def create_reminder(
+        self,
+        message_id: str,
+        user_id: str,
+        remind_at: Optional[datetime.datetime] = None,
+    ) -> StreamResponse:
+        """
+        Creates a reminder for a message.
+
+        :param message_id: The ID of the message to create a reminder for
+        :param user_id: The ID of the user creating the reminder
+        :param remind_at: When to remind the user (optional)
+        :return: API response
+        """
+        data = {"user_id": user_id}
+        remind_at_timestamp = ""
+        if remind_at is not None:
+            if isinstance(remind_at, datetime.datetime):
+                remind_at_timestamp = remind_at.isoformat()
+            else:
+                remind_at_timestamp = str(remind_at)
+
+            data["remind_at"] = remind_at_timestamp
+
+        return await self.post(f"messages/{message_id}/reminders", data=data)
+
+    async def update_reminder(
+        self,
+        message_id: str,
+        user_id: str,
+        remind_at: Optional[datetime.datetime] = None,
+    ) -> StreamResponse:
+        """
+        Updates a reminder for a message.
+
+        :param message_id: The ID of the message with the reminder
+        :param user_id: The ID of the user who owns the reminder
+        :param remind_at: When to remind the user (optional)
+        :return: API response
+        """
+        data = {"user_id": user_id}
+        remind_at_timestamp = ""
+        if remind_at is not None:
+            if isinstance(remind_at, datetime.datetime):
+                remind_at_timestamp = remind_at.isoformat()
+            else:
+                remind_at_timestamp = str(remind_at)
+
+            data["remind_at"] = remind_at_timestamp
+        return await self.patch(f"messages/{message_id}/reminders", data=data)
+
+    async def delete_reminder(self, message_id: str, user_id: str) -> StreamResponse:
+        """
+        Deletes a reminder for a message.
+
+        :param message_id: The ID of the message with the reminder
+        :param user_id: The ID of the user who owns the reminder
+        :return: API response
+        """
+        return await self.delete(
+            f"messages/{message_id}/reminders", params={"user_id": user_id}
+        )
+
+    async def query_reminders(
+        self,
+        user_id: str,
+        filter_conditions: Dict = None,
+        sort: List[Dict] = None,
+        **options: Any,
+    ) -> StreamResponse:
+        """
+        Queries reminders based on filter conditions.
+
+        :param user_id: The ID of the user whose reminders to query
+        :param filter_conditions: Conditions to filter reminders
+        :param sort: Sort parameters (default: [{ field: 'remind_at', direction: 1 }])
+        :param options: Additional query options like limit, offset
+        :return: API response with reminders
+        """
+        params = options.copy()
+        params["filter_conditions"] = filter_conditions or {}
+        params["sort"] = sort or [{"field": "remind_at", "direction": 1}]
+        params["user_id"] = user_id
+        return await self.post("reminders/query", data=params)
 
     async def close(self) -> None:
         await self.session.close()

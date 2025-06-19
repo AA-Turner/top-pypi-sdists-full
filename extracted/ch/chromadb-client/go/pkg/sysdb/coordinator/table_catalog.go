@@ -188,7 +188,7 @@ func (tc *Catalog) DeleteDatabase(ctx context.Context, deleteDatabase *model.Del
 			return err
 		}
 
-		collections, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(nil, nil, deleteDatabase.Tenant, deleteDatabase.Name, nil, nil)
+		collections, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(nil, nil, deleteDatabase.Tenant, deleteDatabase.Name, nil, nil, false)
 		if err != nil {
 			return err
 		}
@@ -285,7 +285,7 @@ func (tc *Catalog) createCollectionImpl(txCtx context.Context, createCollection 
 	}
 
 	collectionName := createCollection.Name
-	existing, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(nil, &collectionName, tenantID, databaseName, nil, nil)
+	existing, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(nil, &collectionName, tenantID, databaseName, nil, nil, false)
 	if err != nil {
 		log.Error("error getting collection", zap.Error(err))
 		return nil, false, err
@@ -367,7 +367,7 @@ func (tc *Catalog) createCollectionImpl(txCtx context.Context, createCollection 
 	}
 
 	// Get the inserted collection (by name, to handle the case where some other request created the collection)
-	collectionList, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(nil, &collectionName, tenantID, databaseName, nil, nil)
+	collectionList, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(nil, &collectionName, tenantID, databaseName, nil, nil, false)
 	// It is possible, under read-commited isolation that someone else deleted the collection
 	// in between writing the collection and reading it back, in that case this will return empty, and we should throw an error
 	if err != nil {
@@ -403,7 +403,7 @@ func (tc *Catalog) CreateCollection(ctx context.Context, createCollection *model
 
 // Returns true if collection is deleted (either soft-deleted or hard-deleted)
 // and false otherwise.
-func (tc *Catalog) CheckCollection(ctx context.Context, collectionID types.UniqueID) (bool, error) {
+func (tc *Catalog) CheckCollection(ctx context.Context, collectionID types.UniqueID) (bool, int64, error) {
 	tracer := otel.Tracer
 	if tracer != nil {
 		_, span := tracer.Start(ctx, "Catalog.CheckCollection")
@@ -412,18 +412,14 @@ func (tc *Catalog) CheckCollection(ctx context.Context, collectionID types.Uniqu
 
 	collectionInfo, err := tc.metaDomain.CollectionDb(ctx).GetCollectionWithoutMetadata(types.FromUniqueID(collectionID), nil, nil)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 	// Collection is hard deleted.
 	if collectionInfo == nil {
-		return true, nil
+		return true, 0, nil
 	}
-	// Collection is soft deleted.
-	if collectionInfo.IsDeleted {
-		return true, nil
-	}
-	// Collection is not deleted.
-	return false, nil
+
+	return collectionInfo.IsDeleted, collectionInfo.LogPosition, nil
 }
 
 func (tc *Catalog) GetCollection(ctx context.Context, collectionID types.UniqueID, collectionName *string, tenantID string, databaseName string) (*model.Collection, error) {
@@ -455,19 +451,44 @@ func (tc *Catalog) GetCollection(ctx context.Context, collectionID types.UniqueI
 	return collection[0], nil
 }
 
-func (tc *Catalog) GetCollections(ctx context.Context, collectionID types.UniqueID, collectionName *string, tenantID string, databaseName string, limit *int32, offset *int32) ([]*model.Collection, error) {
+func (tc *Catalog) GetCollections(ctx context.Context, collectionIDs []types.UniqueID, collectionName *string, tenantID string, databaseName string, limit *int32, offset *int32, includeSoftDeleted bool) ([]*model.Collection, error) {
 	tracer := otel.Tracer
 	if tracer != nil {
 		_, span := tracer.Start(ctx, "Catalog.GetCollections")
 		defer span.End()
 	}
 
-	collectionAndMetadataList, err := tc.metaDomain.CollectionDb(ctx).GetCollections(types.FromUniqueID(collectionID), collectionName, tenantID, databaseName, limit, offset)
+	ids := ([]string)(nil)
+	if collectionIDs != nil {
+		ids = make([]string, 0, len(collectionIDs))
+		for _, id := range collectionIDs {
+			ids = append(ids, id.String())
+		}
+	}
+
+	collectionAndMetadataList, err := tc.metaDomain.CollectionDb(ctx).GetCollections(ids, collectionName, tenantID, databaseName, limit, offset, includeSoftDeleted)
 	if err != nil {
 		return nil, err
 	}
 	collections := convertCollectionToModel(collectionAndMetadataList)
 	return collections, nil
+}
+
+func (tc *Catalog) GetCollectionByResourceName(ctx context.Context, tenantResourceName string, databaseName string, collectionName string) (*model.Collection, error) {
+	tracer := otel.Tracer
+	if tracer != nil {
+		_, span := tracer.Start(ctx, "Catalog.GetCollectionByResourceName")
+		defer span.End()
+	}
+
+	collectionAndMetadata, err := tc.metaDomain.CollectionDb(ctx).GetCollectionByResourceName(tenantResourceName, databaseName, collectionName)
+	if err != nil {
+		return nil, err
+	}
+	if collectionAndMetadata == nil {
+		return nil, common.ErrCollectionNotFound
+	}
+	return convertCollectionToModel([]*dbmodel.CollectionAndMetadata{collectionAndMetadata})[0], nil
 }
 
 func (tc *Catalog) CountCollections(ctx context.Context, tenantID string, databaseName *string) (uint64, error) {
@@ -626,7 +647,7 @@ func (tc *Catalog) hardDeleteCollection(ctx context.Context, deleteCollection *m
 				return err
 			}
 
-			newLineageFileFullName, err := tc.s3Store.PutLineageFile(collectionEntry.Tenant, collectionEntry.DatabaseID, rootCollection.ID, fmt.Sprintf("%s.binpb", newLineageFileId.String()), lineageFile)
+			newLineageFileFullName, err := tc.s3Store.PutLineageFile(ctx, collectionEntry.Tenant, collectionEntry.DatabaseID, rootCollection.ID, fmt.Sprintf("%s.binpb", newLineageFileId.String()), lineageFile)
 			if err != nil {
 				return err
 			}
@@ -680,7 +701,7 @@ func (tc *Catalog) softDeleteCollection(ctx context.Context, deleteCollection *m
 	log.Info("Soft deleting collection", zap.Any("softDeleteCollection", deleteCollection))
 	return tc.txImpl.Transaction(ctx, func(txCtx context.Context) error {
 		// Check if collection exists
-		collections, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(types.FromUniqueID(deleteCollection.ID), nil, deleteCollection.TenantID, deleteCollection.DatabaseName, nil, nil)
+		collections, err := tc.metaDomain.CollectionDb(txCtx).GetCollections([]string{deleteCollection.ID.String()}, nil, deleteCollection.TenantID, deleteCollection.DatabaseName, nil, nil, false)
 		if err != nil {
 			return err
 		}
@@ -849,12 +870,13 @@ func (tc *Catalog) UpdateCollection(ctx context.Context, updateCollection *model
 	err := tc.txImpl.Transaction(ctx, func(txCtx context.Context) error {
 		// Check if collection exists
 		collections, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(
-			types.FromUniqueID(updateCollection.ID),
+			[]string{updateCollection.ID.String()},
 			nil,
 			updateCollection.TenantID,
 			updateCollection.DatabaseName,
 			nil,
 			nil,
+			false,
 		)
 		if err != nil {
 			return err
@@ -918,7 +940,7 @@ func (tc *Catalog) UpdateCollection(ctx context.Context, updateCollection *model
 		}
 		databaseName := updateCollection.DatabaseName
 		tenantID := updateCollection.TenantID
-		collectionList, err := tc.metaDomain.CollectionDb(txCtx).GetCollections(types.FromUniqueID(updateCollection.ID), nil, tenantID, databaseName, nil, nil)
+		collectionList, err := tc.metaDomain.CollectionDb(txCtx).GetCollections([]string{updateCollection.ID.String()}, nil, tenantID, databaseName, nil, nil, false)
 		if err != nil {
 			return err
 		}
@@ -944,7 +966,7 @@ func (tc *Catalog) getLineageFile(ctx context.Context, lineageFileName *string) 
 	}
 
 	// Safe to deref.
-	return tc.s3Store.GetLineageFile(*lineageFileName)
+	return tc.s3Store.GetLineageFile(ctx, *lineageFileName)
 }
 
 func (tc *Catalog) ForkCollection(ctx context.Context, forkCollection *model.ForkCollection) (*model.Collection, []*model.Segment, error) {
@@ -1130,7 +1152,7 @@ func (tc *Catalog) ForkCollection(ctx context.Context, forkCollection *model.For
 		}
 
 		newLineageFileBaseName := fmt.Sprintf("%s.binpb", newLineageFileId.String())
-		newLineageFileFullName, err = tc.s3Store.PutLineageFile(lineageFileTenantId, databaseID, rootCollectionIDStr, newLineageFileBaseName, lineageFile)
+		newLineageFileFullName, err = tc.s3Store.PutLineageFile(txCtx, lineageFileTenantId, databaseID, rootCollectionIDStr, newLineageFileBaseName, lineageFile)
 		if err != nil {
 			return err
 		}
@@ -1167,7 +1189,7 @@ func (tc *Catalog) CountForks(ctx context.Context, sourceCollectionID types.Uniq
 	}
 
 	limit := int32(1)
-	collections, err := tc.GetCollections(ctx, rootCollectionID, nil, "", "", &limit, nil)
+	collections, err := tc.GetCollections(ctx, []types.UniqueID{rootCollectionID}, nil, "", "", &limit, nil, false)
 	if err != nil {
 		return 0, err
 	}
@@ -1281,7 +1303,7 @@ func (tc *Catalog) createFirstVersionFile(ctx context.Context, databaseID string
 	}
 	// Construct the version file name.
 	versionFileName := "0"
-	fullFilePath, err := tc.s3Store.PutVersionFile(createCollection.TenantID, databaseID, createCollection.ID.String(), versionFileName, collectionVersionFilePb)
+	fullFilePath, err := tc.s3Store.PutVersionFile(ctx, createCollection.TenantID, databaseID, createCollection.ID.String(), versionFileName, collectionVersionFilePb)
 	if err != nil {
 		return "", err
 	}
@@ -1494,6 +1516,10 @@ func (tc *Catalog) GetTenantsLastCompactionTime(ctx context.Context, tenantIDs [
 	return tenants, err
 }
 
+func (tc *Catalog) SetTenantResourceName(ctx context.Context, tenantID string, resourceName string) error {
+	return tc.metaDomain.TenantDb(ctx).SetTenantResourceName(tenantID, resourceName)
+}
+
 // ListCollectionVersions lists all versions of a collection that have not been marked for deletion.
 func (tc *Catalog) ListCollectionVersions(ctx context.Context,
 	collectionID types.UniqueID,
@@ -1521,7 +1547,7 @@ func (tc *Catalog) ListCollectionVersions(ctx context.Context,
 		zap.Int64("version", int64(collectionEntry.Version)),
 		zap.String("version_file_name", collectionEntry.VersionFileName))
 
-	versionFile, err := tc.s3Store.GetVersionFile(collectionEntry.VersionFileName)
+	versionFile, err := tc.s3Store.GetVersionFile(ctx, collectionEntry.VersionFileName)
 	if err != nil {
 		log.Error("error getting version file", zap.Error(err))
 		return nil, err
@@ -1560,7 +1586,7 @@ func (tc *Catalog) ListCollectionVersions(ctx context.Context,
 	return filteredVersions, nil
 }
 
-func (tc *Catalog) updateVersionFileInS3(existingVersionFilePb *coordinatorpb.CollectionVersionFile, flushCollectionCompaction *model.FlushCollectionCompaction, previousSegmentInfo []*model.Segment, ts_secs int64) (string, error) {
+func (tc *Catalog) updateVersionFileInS3(ctx context.Context, existingVersionFilePb *coordinatorpb.CollectionVersionFile, flushCollectionCompaction *model.FlushCollectionCompaction, previousSegmentInfo []*model.Segment, ts_secs int64) (string, error) {
 	segmentCompactionInfos := make([]*coordinatorpb.FlushSegmentCompactionInfo, 0, len(flushCollectionCompaction.FlushSegmentCompactions))
 	// If flushCollectionCompaction.FlushSegmentCompactions is empty then use previousSegmentInfo.
 	if len(flushCollectionCompaction.FlushSegmentCompactions) == 0 {
@@ -1609,7 +1635,7 @@ func (tc *Catalog) updateVersionFileInS3(existingVersionFilePb *coordinatorpb.Co
 	// Format of version file name: <version>_<uuid>_flush
 	// The version should be left padded with 0s upto 6 digits.
 	newVersionFileName := fmt.Sprintf("%06d_%s_flush", flushCollectionCompaction.CurrentCollectionVersion+1, uuid.New().String())
-	fullFilePath, err := tc.s3Store.PutVersionFile(flushCollectionCompaction.TenantID, existingVersionFilePb.CollectionInfoImmutable.DatabaseId, flushCollectionCompaction.ID.String(), newVersionFileName, existingVersionFilePb)
+	fullFilePath, err := tc.s3Store.PutVersionFile(ctx, flushCollectionCompaction.TenantID, existingVersionFilePb.CollectionInfoImmutable.DatabaseId, flushCollectionCompaction.ID.String(), newVersionFileName, existingVersionFilePb)
 	if err != nil {
 		return "", err
 	}
@@ -1781,7 +1807,7 @@ func (tc *Catalog) FlushCollectionCompactionForVersionedCollection(ctx context.C
 			}
 		} else {
 			// Read the VersionFile from S3MetaStore.
-			existingVersionFilePb, err = tc.s3Store.GetVersionFile(existingVersionFileName)
+			existingVersionFilePb, err = tc.s3Store.GetVersionFile(ctx, existingVersionFileName)
 			if err != nil {
 				return nil, err
 			}
@@ -1801,10 +1827,12 @@ func (tc *Catalog) FlushCollectionCompactionForVersionedCollection(ctx context.C
 		// The update function takes the content of the existing version file,
 		// and the set of segments that are part of the new version file.
 		// NEW VersionFile is created in S3 at this step.
-		newVersionFileName, err := tc.updateVersionFileInS3(existingVersionFilePb, flushCollectionCompaction, segments, time.Now().Unix())
+		newVersionFileName, err := tc.updateVersionFileInS3(ctx, existingVersionFilePb, flushCollectionCompaction, segments, time.Now().Unix())
 		if err != nil {
 			return nil, err
 		}
+
+		numActiveVersions := tc.getNumberOfActiveVersions(existingVersionFilePb)
 
 		txErr := tc.txImpl.Transaction(ctx, func(txCtx context.Context) error {
 			// NOTE: DO NOT move UpdateTenantLastCompactionTime & RegisterFilePaths to the end of the transaction.
@@ -1849,6 +1877,7 @@ func (tc *Catalog) FlushCollectionCompactionForVersionedCollection(ctx context.C
 				// SAFETY(hammadb): This int64 to uint64 conversion is ok because we always are in post-epoch time.
 				// and the value is always positive.
 				uint64(lastCompactionTime),
+				uint64(numActiveVersions),
 			)
 			if err != nil {
 				return err
@@ -1981,7 +2010,7 @@ func (tc *Catalog) markVersionForDeletionInSingleCollection(
 		// TODO(rohit): log error if collection in file is different from the one in request.
 
 		existingVersionFileName := collectionEntry.VersionFileName
-		versionFilePb, err := tc.s3Store.GetVersionFile(existingVersionFileName)
+		versionFilePb, err := tc.s3Store.GetVersionFile(ctx, existingVersionFileName)
 		if err != nil {
 			return err
 		}
@@ -1999,7 +2028,7 @@ func (tc *Catalog) markVersionForDeletionInSingleCollection(
 			collectionEntry.Version,
 			uuid.New().String(),
 		)
-		newVerFileFullPath, err := tc.s3Store.PutVersionFile(tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName, versionFilePb)
+		newVerFileFullPath, err := tc.s3Store.PutVersionFile(ctx, tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName, versionFilePb)
 		if err != nil {
 			return err
 		}
@@ -2009,7 +2038,7 @@ func (tc *Catalog) markVersionForDeletionInSingleCollection(
 		rowsAffected, err := tc.metaDomain.CollectionDb(ctx).UpdateVersionRelatedFields(collectionID, existingVersionFileName, newVerFileFullPath, nil, nil)
 		if err != nil {
 			// Delete the newly created version file from S3 since it is not needed.
-			tc.s3Store.DeleteVersionFile(tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName)
+			tc.s3Store.DeleteVersionFile(ctx, tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName)
 			return err
 		}
 		if rowsAffected == 0 {
@@ -2025,6 +2054,12 @@ func (tc *Catalog) markVersionForDeletionInSingleCollection(
 }
 
 func (tc *Catalog) MarkVersionForDeletion(ctx context.Context, req *coordinatorpb.MarkVersionForDeletionRequest) (*coordinatorpb.MarkVersionForDeletionResponse, error) {
+	tracer := otel.Tracer
+	if tracer != nil {
+		_, span := tracer.Start(ctx, "Catalog.MarkVersionForDeletion")
+		defer span.End()
+	}
+
 	result := coordinatorpb.MarkVersionForDeletionResponse{
 		CollectionIdToSuccess: make(map[string]bool),
 	}
@@ -2105,7 +2140,7 @@ func (tc *Catalog) DeleteVersionEntriesForCollection(ctx context.Context, tenant
 		}
 
 		existingVersionFileName := collectionEntry.VersionFileName
-		versionFilePb, err := tc.s3Store.GetVersionFile(existingVersionFileName)
+		versionFilePb, err := tc.s3Store.GetVersionFile(ctx, existingVersionFileName)
 		if err != nil {
 			return err
 		}
@@ -2141,7 +2176,7 @@ func (tc *Catalog) DeleteVersionEntriesForCollection(ctx context.Context, tenant
 			collectionEntry.Version,
 			uuid.New().String(),
 		)
-		newVerFileFullPath, err := tc.s3Store.PutVersionFile(tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName, versionFilePb)
+		newVerFileFullPath, err := tc.s3Store.PutVersionFile(ctx, tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName, versionFilePb)
 		if err != nil {
 			return err
 		}
@@ -2150,7 +2185,7 @@ func (tc *Catalog) DeleteVersionEntriesForCollection(ctx context.Context, tenant
 		rowsAffected, err := tc.metaDomain.CollectionDb(ctx).UpdateVersionRelatedFields(collectionID, existingVersionFileName, newVerFileFullPath, oldestVersionTs, &numActiveVersions)
 		if err != nil {
 			// Delete the newly created version file from S3 since it is not needed
-			tc.s3Store.DeleteVersionFile(tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName)
+			tc.s3Store.DeleteVersionFile(ctx, tenantID, collectionEntry.DatabaseID, collectionID, newVersionFileName)
 			return err
 		}
 		if rowsAffected == 0 {

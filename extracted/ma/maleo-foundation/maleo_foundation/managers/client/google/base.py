@@ -23,7 +23,7 @@ class GoogleClientManager(ClientManager):
         if credentials is not None:
             self._credentials = credentials
         else:
-            self._credentials = GoogleCredentialsLoader(credentials_path)
+            self._credentials = GoogleCredentialsLoader.load(credentials_path)
 
         self._project_id = self._credentials.project_id
 

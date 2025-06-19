@@ -4,9 +4,9 @@
 namespace ampl {
 
 namespace output {
-/*!
-Represents the type of the output coming from the interpreter
-*/
+/**
+ * Represents the type of the output coming from the interpreter
+ */
 enum Kind {
   /**
    * Output ``prompt2``, returned when incomplete statements are
@@ -283,9 +283,6 @@ class OutputHandler {
   virtual void output(output::Kind kind, const char* msg) = 0;
 };
 
-namespace internal {
-typedef void (*OutputHandlerCbPtr)(output::Kind, const char*, void*);
-}
 }  // namespace ampl
 
 #endif  // AMPL_OUTPUT_H_

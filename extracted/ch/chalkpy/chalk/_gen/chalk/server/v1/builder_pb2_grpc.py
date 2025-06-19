@@ -110,6 +110,26 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartBranchRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartBranchResponse.FromString,
         )
+        self.GetNodepools = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetNodepools",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.FromString,
+        )
+        self.AddNodepool = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/AddNodepool",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolResponse.FromString,
+        )
+        self.UpdateNodepool = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/UpdateNodepool",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateNodepoolRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateNodepoolResponse.FromString,
+        )
+        self.DeleteNodepool = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteNodepool",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteNodepoolRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteNodepoolResponse.FromString,
+        )
         self.GetKarpenterNodepools = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetKarpenterNodepools",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetKarpenterNodepoolsRequest.SerializeToString,
@@ -270,26 +290,50 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def GetKarpenterNodepools(self, request, context):
+    def GetNodepools(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def AddNodepool(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateNodepool(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteNodepool(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetKarpenterNodepools(self, request, context):
+        """to be deprecated"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def AddKarpenterNodepool(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """to be deprecated"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def UpdateKarpenterNodepool(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """to be deprecated"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def DeleteKarpenterNodepool(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """to be deprecated"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -409,6 +453,26 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.StartBranch,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartBranchRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartBranchResponse.SerializeToString,
+        ),
+        "GetNodepools": grpc.unary_unary_rpc_method_handler(
+            servicer.GetNodepools,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.SerializeToString,
+        ),
+        "AddNodepool": grpc.unary_unary_rpc_method_handler(
+            servicer.AddNodepool,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolResponse.SerializeToString,
+        ),
+        "UpdateNodepool": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateNodepool,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateNodepoolRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateNodepoolResponse.SerializeToString,
+        ),
+        "DeleteNodepool": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteNodepool,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteNodepoolRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteNodepoolResponse.SerializeToString,
         ),
         "GetKarpenterNodepools": grpc.unary_unary_rpc_method_handler(
             servicer.GetKarpenterNodepools,
@@ -995,6 +1059,122 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/StartBranch",
             chalk_dot_server_dot_v1_dot_builder__pb2.StartBranchRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.StartBranchResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetNodepools(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetNodepools",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def AddNodepool(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/AddNodepool",
+            chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateNodepool(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/UpdateNodepool",
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateNodepoolRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateNodepoolResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteNodepool(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteNodepool",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteNodepoolRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteNodepoolResponse.FromString,
             options,
             channel_credentials,
             insecure,

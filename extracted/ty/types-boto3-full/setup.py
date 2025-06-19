@@ -12,12 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.38.38",
+    version="1.38.39",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
         "types_boto3_acm",
         "types_boto3_acm_pca",
+        "types_boto3_aiops",
         "types_boto3_amp",
         "types_boto3_amplify",
         "types_boto3_amplifybackend",
@@ -424,7 +425,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.38.38 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.38.39 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -452,6 +453,7 @@ setup(
         "types_boto3_account": ["py.typed", "*.pyi"],
         "types_boto3_acm": ["py.typed", "*.pyi"],
         "types_boto3_acm_pca": ["py.typed", "*.pyi"],
+        "types_boto3_aiops": ["py.typed", "*.pyi"],
         "types_boto3_amp": ["py.typed", "*.pyi"],
         "types_boto3_amplify": ["py.typed", "*.pyi"],
         "types_boto3_amplifybackend": ["py.typed", "*.pyi"],

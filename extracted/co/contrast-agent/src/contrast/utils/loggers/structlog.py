@@ -9,22 +9,142 @@ Use print(...) instead
 """
 
 import asyncio
+from contextlib import suppress
 import os
 import pathlib
 import io
 import sys
+from dataclasses import dataclass
 from functools import partial
-from typing import Union, TextIO, Optional
+from typing import Union, TextIO, Optional, cast
 
 from contrast.agent import request_state
 from contrast.utils.namespace import Namespace
 from contrast_vendor import structlog
 from contrast.utils.configuration_utils import get_hostname
-from . import DEFAULT_PROGNAME, DEFAULT_AGENT_LOGGER_PATH
+from . import DEFAULT_PROGNAME
+from contrast_vendor.filelock import FileLock, Timeout
 
 
 class module(Namespace):
-    file_handle: Optional[io.IOBase] = DEFAULT_AGENT_LOGGER_PATH
+    file_handle: Optional[TextIO] = None
+
+
+@dataclass
+class RotationConfig:
+    backup_count: int
+    max_bytes: int
+
+
+class RotatingFile:
+    """
+    A file handler that rotates the log file when it reaches a certain size.
+
+    Writes to instances of this class are not thread-safe. If calling write() from multiple threads,
+    you must ensure that the writes are synchronized externally.
+    """
+
+    def __init__(self, file: TextIO, config: RotationConfig):
+        if config.max_bytes <= 0:
+            raise ValueError("max_bytes must be greater than 0")
+        self._max_bytes = config.max_bytes
+        if config.backup_count <= 0:
+            raise ValueError("backup_count must be greater than 0")
+        self._backup_count = config.backup_count
+        self._file = file
+        self._filename = file.name
+        self._lock = FileLock(f".{self._filename}.lock")
+
+    def write(self, message: str) -> int:
+        """Write a message to the log file, performing rotation if needed."""
+        self._rotate_if_needed(len(message))
+
+        return self._file.write(message)
+
+    # NOTE: flush() and close() are intentionally hardcoding the implementation
+    # of __getattr__. This is critical for flush(), because structlog's WriteLogger
+    # binds the flush method function to an internal attribute. If we don't introduce
+    # this layer of indirection, then when we rotate the _file, structlog will attempt
+    # to call flush() on the old file handle, which has already been closed.
+
+    def flush(self):
+        """Flush the log file."""
+        self._file.flush()
+
+    def close(self):
+        """Close the log file."""
+        self._file.close()
+
+    def _reopen(self):
+        """Reopen the log file."""
+        self._file.close()
+        self._file = open(self._filename, "a", encoding="utf-8")
+
+    def _should_rollover(self, msg_size: int):
+        """Check if the log file should be rotated."""
+        file_size = self._file.tell()
+        if file_size == 0:
+            # If the file is empty, we either need to write to it or
+            # discard the message. We can't rollover, because the new
+            # file will be empty and we'd enter an infinitely loop.
+            return False
+        if file_size + msg_size > self._max_bytes:
+            return True
+        return False
+
+    def _rotate_if_needed(self, msg_size: int):
+        """Check if the log file should be rotated and perform the rotation if needed."""
+        # Refer to https://en.wikipedia.org/wiki/Double-checked_locking for background
+        # on the pattern used here (and ways it can be broken).
+        if not self._should_rollover(msg_size):
+            return
+
+        while True:
+            with suppress(Timeout), self._lock.acquire(timeout=1):
+                self._reopen()
+                if self._should_rollover(msg_size):
+                    self._do_rollover()
+                return
+
+    def _do_rollover(self):
+        """Perform log file rotation."""
+        # This implementation follows the Java and .NET agents decisions.
+        # It's a little unconventional, but we want to keep the same behavior across languages
+        # so that it's easier for our support team to troubleshoot issues from the logs.
+
+        # Check if the highest backup slot is filled
+        highest_backup = f"{self._filename}.{self._backup_count}"
+        if not os.path.exists(highest_backup):
+            # Not all slots are filled yet - find next available slot
+            next_slot = 1
+            while (
+                os.path.exists(f"{self._filename}.{next_slot}")
+                and next_slot < self._backup_count
+            ):
+                next_slot += 1
+
+            os.rename(self._filename, f"{self._filename}.{next_slot}")
+        else:
+            # All slots filled - need to shift files
+            # contrast.log.1 is the oldest, contrast.log.N is newest
+
+            # Delete the oldest backup
+            os.remove(f"{self._filename}.1")
+
+            # Shift files down by one position (2→1, 3→2, etc.)
+            for i in range(1, self._backup_count):
+                src = f"{self._filename}.{i + 1}"
+                dst = f"{self._filename}.{i}"
+                if os.path.exists(src):
+                    os.rename(src, dst)
+
+            os.rename(self._filename, highest_backup)
+
+        # Reopen the file
+        self._reopen()
+
+    def __getattr__(self, name: str):
+        return getattr(self._file, name)
 
 
 def add_hostname(logger, method_name, event_dict):
@@ -62,17 +182,13 @@ def add_progname(logger, method_name, event_dict, progname=DEFAULT_PROGNAME):
 
 def add_asyncio_info(logger, method_name, event_dict):
     try:
-        current_task = asyncio.current_task()
-
-        # If no name has been explicitly assigned to the Task, the default asyncio Task implementation
-        # generates a default name during instantiation.
-        event_dict["asyncio_task_name"] = current_task.get_name()
-
-        current_coro = current_task.get_coro()
-        if hasattr(current_coro, "__name__"):
-            event_dict["asyncio_coro_name"] = current_coro.__name__
-
-        event_dict["asyncio_task_id"] = id(current_task)
+        if (current_task := asyncio.current_task()) is not None:
+            # If no name has been explicitly assigned to the Task, the default asyncio Task implementation
+            # generates a default name during instantiation.
+            event_dict["asyncio_task_name"] = current_task.get_name()
+            current_coro = current_task.get_coro()
+            event_dict["asyncio_coro_name"] = current_coro.__qualname__
+            event_dict["asyncio_task_id"] = id(current_task)
     except Exception:
         # This can happen when there is no running event loop
         pass
@@ -100,50 +216,48 @@ def _log_level_to_int(level: str) -> int:
 
 
 def _close_handler():
-    ignore_fds = (sys.stderr, sys.stdout, None)
-    file_name = getattr(module.file_handle, "name", None)
-    # ignore_names handles a specific case for capturing sys.stderr/stdout in pytest
-    # see also: https://docs.pytest.org/en/stable/how-to/capture-stdout-stderr.html
-    ignore_names = ("<stderr>", "<stdout>")
-
-    if (
-        module.file_handle not in ignore_fds
-        and file_name not in ignore_names
-        and not module.file_handle.closed
-    ):
-        module.file_handle.close()
-
-    module.file_handle = None
+    handle = module.file_handle
+    if handle not in (sys.stderr, sys.stdout, None):
+        module.file_handle = None
+        handle.close()
 
 
-def _set_handler(log_file: Union[TextIO, str, None]):
-    if isinstance(log_file, str):
+def _set_handler(
+    filename: Union[TextIO, str], rotation_config: Optional[RotationConfig] = None
+):
+    if isinstance(filename, str):
         try:
-            path = pathlib.Path(log_file).parent.resolve()
+            path = pathlib.Path(filename).parent.resolve()
             os.makedirs(path, exist_ok=True)
-            module.file_handle = open(log_file, "a", encoding="utf-8")
+            module.file_handle = open(filename, "a", encoding="utf-8")
+            if rotation_config:
+                module.file_handle = cast(
+                    TextIO, RotatingFile(module.file_handle, rotation_config)
+                )
+
         except Exception as e:
-            sys.stderr.write(f"Failed to create log file {log_file} - {e}\n")
-    elif isinstance(log_file, io.IOBase):
-        module.file_handle = log_file
-    elif log_file is None:
-        module.file_handle = DEFAULT_AGENT_LOGGER_PATH
+            sys.stderr.write(f"Failed to create log file {filename} - {e}\n")
+            module.file_handle = sys.stderr
+    elif isinstance(filename, io.TextIOBase):
+        module.file_handle = filename
+    else:
+        raise TypeError(
+            "log_file must be a string path to a file or an open TextIOBase object",
+            type(filename).__name__,
+        )
 
     return module.file_handle
 
 
-def shutdown():
-    _close_handler()
-
-
 def init_structlog(
     log_level_name: str,
-    log_file: Union[TextIO, str, None],
+    log_file: Union[TextIO, str],
     progname: str,
     *,
     # NOTE: We should only enable logger caching if its configuration is finalized. If
     # it's possible for the logging config to change in the future, do not cache it.
     cache_logger: bool = False,
+    rotation_config: Optional[RotationConfig] = None,
 ) -> None:
     """
     Initial configuration for structlog. This can still be modified by subsequent calls
@@ -152,7 +266,7 @@ def init_structlog(
     log_level = _log_level_to_int(log_level_name)
 
     _close_handler()
-    file_handle = _set_handler(log_file)
+    file_handle = _set_handler(log_file, rotation_config)
 
     structlog.configure(
         processors=[

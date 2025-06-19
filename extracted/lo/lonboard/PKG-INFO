@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lonboard
-Version: 0.11.0
+Version: 0.11.1
 Summary: Fast, interactive geospatial data visualization in Jupyter.
 Project-URL: homepage, https://developmentseed.org/lonboard/latest/
 Project-URL: documentation, https://developmentseed.org/lonboard/latest/
@@ -29,7 +29,7 @@ Requires-Dist: ipywidgets>=7.6.0
 Requires-Dist: numpy>=1.14
 Requires-Dist: pyproj>=3.3
 Requires-Dist: traitlets>=5.7.1
-Requires-Dist: typing-extensions~=4.6.0; python_version < '3.12'
+Requires-Dist: typing-extensions>=4.6.0; python_version < '3.12'
 Provides-Extra: cli
 Requires-Dist: click>=8.1.7; extra == 'cli'
 Requires-Dist: pyogrio>=0.8; extra == 'cli'

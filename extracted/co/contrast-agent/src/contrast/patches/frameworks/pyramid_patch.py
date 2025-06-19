@@ -137,26 +137,31 @@ def do_pyramid_route_discovery(pyramid_router_instance):
 @fail_quietly("unable to perform Pyramid route observation")
 @scope.contrast_scope()
 def do_pyramid_route_observation(pyramid_router_instance, request_path_arg):
-    from contrast.agent.middlewares.route_coverage.pyramid_routes import get_signature
+    from contrast.agent.middlewares.route_coverage.pyramid_routes import (
+        get_signature_and_path_template,
+    )
 
     context = contrast.CS__CONTEXT_TRACKER.current()
     if context is None:
         return
 
     request_path = request_path_arg[0]["PATH_INFO"]
-    signature = get_signature(
+    context.signature, context.path_template = get_signature_and_path_template(
         request_path,
         pyramid_router_instance.routes_mapper.routelist,
         pyramid_router_instance.registry,
     )
-    if signature is None:
+    if context.signature is None:
         logger.debug(
             "WARNING: could not find pyramid view function", request_path=request_path
         )
         return
 
-    context.view_func_str = signature
-    logger.debug("Found Pyramid view function", view_func=context.view_func_str)
+    logger.debug(
+        "Found Pyramid view function",
+        signature=context.signature,
+        path_template=context.path_template,
+    )
 
 
 def patch_pyramid(pyramid_router_module):

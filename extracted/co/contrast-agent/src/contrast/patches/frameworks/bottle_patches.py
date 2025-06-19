@@ -9,7 +9,6 @@ from contrast.agent.policy.applicator import (
     reverse_module_patches,
 )
 from contrast.agent.middlewares.route_coverage import common
-from contrast.agent.middlewares.route_coverage.bottle_routes import create_bottle_routes
 from contrast.agent.policy import patch_manager
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
@@ -18,10 +17,12 @@ from contrast.utils.patch_utils import (
     register_module_patcher,
 )
 from contrast.utils.decorators import fail_quietly
+from contrast_fireball import DiscoveredRoute
 
 from contrast_vendor import structlog as logging
 
 MODULE_NAME = "bottle"
+DEFAULT_BOTTLE_ROUTE_METHODS = common.DEFAULT_ROUTE_METHODS + ("PUT", "PATCH", "DELETE")
 
 logger = logging.getLogger("contrast")
 
@@ -81,6 +82,22 @@ def do_bottle_route_discovery(bottle_instance):
     common.handle_route_discovery("bottle", create_bottle_routes, (bottle_instance,))
 
 
+def create_bottle_routes(app) -> set[DiscoveredRoute]:
+    """
+    Returns all the routes registered to a Bottle app.
+    """
+    return {
+        DiscoveredRoute(
+            verb=method_type,
+            url=route.rule,
+            signature=common.build_signature(route.rule, route.callback),
+            framework="Bottle",
+        )
+        for route in app.routes
+        for method_type in DEFAULT_BOTTLE_ROUTE_METHODS
+    }
+
+
 def build_match_patch(orig_func, patch_policy):
     """
     Patch for bottle.Router.match()
@@ -106,8 +123,13 @@ def do_bottle_route_observation(route, url_args):
     if context is None:
         return
 
-    context.view_func_str = common.build_signature(route.rule, route.callback)
-    logger.debug("Found Bottle view function", view_func=context.view_func_str)
+    context.signature = common.build_signature(route.rule, route.callback)
+    context.path_template = route.rule
+    logger.debug(
+        "Found Bottle view function",
+        signature=context.signature,
+        path_template=context.path_template,
+    )
 
 
 def patch_bottle(bottle_module):

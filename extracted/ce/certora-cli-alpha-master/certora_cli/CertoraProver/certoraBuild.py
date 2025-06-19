@@ -3688,8 +3688,9 @@ def build_from_scratch(context: CertoraContext,
 
         # add to cache also source files that were found in the SDCs (e.g., storage extensions)
         paths_set = sdc.all_contract_files
-        for p in context.files:
-            paths_set.add(Path(p).absolute())
+        for f in context.files:
+            path = f.split(':')[0]  # `f` is either 'path/to/file.sol' or 'path/to/file.sol:ContractName'
+            paths_set.add(Path(path).absolute())
 
         # the contract files in SDCs are relative to .certora_sources. Which isn't good for us here.
         # Need to be relative to original paths

@@ -1,10 +1,10 @@
 #ifndef AMPL_ENTITYMAP_H
 #define AMPL_ENTITYMAP_H
 
+#include <map>
 #include <iterator>
 
 #include "ampl/entity.h"
-#include "ampl/ep/entitymap_ep.h"
 
 namespace ampl {
 /**
@@ -21,126 +21,10 @@ namespace ampl {
 template <class EntityClass>
 class EntityMap {
   friend class AMPL;
-  typedef typename EntityClass::Inner EntityInner;
+  typedef std::map<std::string, EntityClass> EntityInternMap;
 
  public:
-  /**
-  Iterator used to access the entities in the list
-  \sa begin(), end() and find()
-  */
-  class iterator {
-   public:
-    using iterator_category = std::forward_iterator_tag;
-    using value_type = EntityClass;
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type*;
-    using reference = value_type&;
-
-   private:
-    // A proxy used for implementing operator->.
-    class Proxy {
-     private:
-      EntityClass inner_;
-
-     public:
-      // Constructor
-      explicit Proxy(EntityInner* e) : inner_(e) {}
-
-      // Arrow operator
-      const EntityClass* operator->() const { return &inner_; }
-    };
-
-   public:
-    iterator() : data_(NULL) {}
-
-    /**
-     * Regular constructor
-     */
-    explicit iterator(internal::EntityMapRefPointer<EntityInner>* it)
-        : data_(it) {}
-
-    /**
-     * Copy constructor.
-     */
-    iterator(const iterator& other) {
-      data_ = other.data_;
-      data_->count_++;
-    }
-
-    /**
-    Destructor
-    */
-    ~iterator() { destroy(); }
-
-    /**
-     * Equals comparison operator
-     */
-    bool operator==(const iterator& other) const {
-      return internal::EntityFunctions<EntityClass>::equal(data_, other.data_);
-    }
-
-    /**
-     * Not-equals comparison operator
-     */
-    bool operator!=(const iterator& other) const { return !(*this == other); }
-
-    /**
-     * Dereference operator
-     * \return The entity this iterator is currently referring to
-     */
-    EntityClass operator*() const {
-      return EntityClass(internal::EntityFunctions<EntityClass>::second(data_));
-    }
-
-    /**
-    Arrow operator
-    */
-    Proxy operator->() const {
-      return Proxy(internal::EntityFunctions<EntityClass>::second(data_));
-    }
-
-    /**
-    Assignment operator
-    */
-    iterator& operator=(const iterator& other) {
-      if (this != &other) {
-        destroy();
-        data_ = other.data_;
-        data_->count_++;
-      }
-      return *this;
-    }
-
-    /**
-     * Prefix increment operator (e.g., ++it)
-     */
-    iterator& operator++() {
-      internal::EntityFunctions<EntityClass>::increment(data_);
-      return *this;
-    }
-
-    /**
-     * Postfix increment operator (e.g., it++)
-     */
-    iterator operator++(int) {
-      // Use operator++()
-      const iterator old(*this);
-      ++(*this);
-      return old;
-    }
-
-   private:
-    internal::EntityMapRefPointer<EntityInner>* data_;
-
-    void destroy() {
-      if (data_ != NULL) {
-        data_->count_--;
-        if (data_->count_ == 0)
-          internal::EntityFunctions<EntityClass>::delete_iterator(data_);
-      }
-    }
-  };
-
+  typedef typename EntityInternMap::iterator iterator;
   /**
   Entity access
   Returns the entity identified by the specified name.
@@ -150,15 +34,15 @@ class EntityMap {
   exist
   */
   EntityClass operator[](fmt::CStringRef name) const {
-    return EntityClass(
-        internal::EntityFunctions<EntityClass>::getMap(impl_, name.c_str()));
+    std::string str(name.c_str());
+    return entity_map_.find(name)->second;
   }
 
   /**
    * Get the number of items in the collection
    */
   std::size_t size() const {
-    return internal::EntityFunctions<EntityClass>::size(impl_);
+    return entity_map_.size();
   }
 
   /**
@@ -172,15 +56,15 @@ class EntityMap {
       std::cout << v.name() << "\n";
   \endrst
   */
-  iterator begin() const {
-    return iterator(internal::EntityFunctions<EntityClass>::begin(impl_));
+  iterator begin() {
+    return entity_map_.begin();
   }
 
   /**
   Return iterator to the end of this collection
   */
-  iterator end() const {
-    return iterator(internal::EntityFunctions<EntityClass>::end(impl_));
+  iterator end() {
+    return entity_map_.end();
   }
 
   /**
@@ -206,16 +90,95 @@ class EntityMap {
   found, or end() otherwise.
 
   */
-  iterator find(fmt::CStringRef name) const {
-    return iterator(
-        internal::EntityFunctions<EntityClass>::find(impl_, name.c_str()));
+  iterator find(std::string name) {
+    return entity_map_.find(name);
   }
 
  protected:
-  internal::EntityMap<EntityInner>* impl_;
+  ::AMPL *ampl_;
+  AMPL_ENTITYTYPE type_;
+  EntityInternMap entity_map_;
 
  private:
-  explicit EntityMap(internal::EntityMap<EntityInner>* impl) { impl_ = impl; }
+  explicit EntityMap(::AMPL *ampl, AMPL_ENTITYTYPE type) : ampl_(ampl), type_(type) { 
+    char **names;
+    size_t size;
+    switch (type_) {
+      case AMPL_VARIABLE:
+        AMPL_CALL_CPP(AMPL_GetVariables(ampl_, &size, &names));
+        for (size_t i=0; i<size; i++) {
+          EntityClass entity(ampl_, names[i]);
+          std::string str(names[i]);
+          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
+          AMPL_StringFree(&names[i]);
+        }
+        free(names);
+        break;
+      case AMPL_CONSTRAINT:
+        AMPL_CALL_CPP(AMPL_GetConstraints(ampl_, &size, &names));
+        for (size_t i=0; i<size; i++) {
+          EntityClass entity(ampl_, names[i]);
+          std::string str(names[i]);
+          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
+          AMPL_StringFree(&names[i]);
+        }
+        free(names);
+        break;
+      case AMPL_OBJECTIVE:
+        AMPL_CALL_CPP(AMPL_GetObjectives(ampl_, &size, &names));
+        for (size_t i=0; i<size; i++) {
+          EntityClass entity(ampl_, names[i]);
+          std::string str(names[i]);
+          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
+          AMPL_StringFree(&names[i]);
+        }
+        free(names);
+        break;
+      case AMPL_PARAMETER:
+        AMPL_CALL_CPP(AMPL_GetParameters(ampl_, &size, &names));
+        for (size_t i=0; i<size; i++) {
+          EntityClass entity(ampl_, names[i]);
+          std::string str(names[i]);
+          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
+          AMPL_StringFree(&names[i]);
+        }
+        free(names);
+        break;
+      case AMPL_SET:
+        AMPL_CALL_CPP(AMPL_GetSets(ampl_, &size, &names));
+        for (size_t i=0; i<size; i++) {
+          EntityClass entity(ampl_, names[i]);
+          std::string str(names[i]);
+          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
+          AMPL_StringFree(&names[i]);
+        }
+        free(names);
+        break;
+      case AMPL_TABLE:
+        AMPL_CALL_CPP(AMPL_GetTables(ampl_, &size, &names));
+        for (size_t i=0; i<size; i++) {
+          EntityClass entity(ampl_, names[i]);
+          std::string str(names[i]);
+          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
+          AMPL_StringFree(&names[i]);
+        }
+        free(names);
+        break;
+      case AMPL_PROBLEM:
+        AMPL_CALL_CPP(AMPL_GetProblems(ampl_, &size, &names));
+        for (size_t i=0; i<size; i++) {
+          EntityClass entity(ampl_, names[i]);
+          std::string str(names[i]);
+          entity_map_.insert(std::pair<std::string, EntityClass>(str, entity));
+          AMPL_StringFree(&names[i]);
+        }
+        free(names);
+        break;
+      default:
+        break;
+    }
+  }
+
 };
 }  // namespace ampl
 #endif  // AMPL_ENTITYMAP_H

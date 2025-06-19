@@ -11,7 +11,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import attr
 from openlineage.client.event_v2 import Dataset, InputDataset, Job, OutputDataset, Run, RunEvent, RunState
 from openlineage.client.facet_v2 import (
-    BaseFacet,
     DatasetFacet,
     InputDatasetFacet,
     JobFacet,
@@ -22,13 +21,14 @@ from openlineage.client.facet_v2 import (
     documentation_dataset,
     job_type_job,
     output_statistics_output_dataset,
-    parent_run,
+    processing_engine_run,
     schema_dataset,
     sql_job,
 )
 from openlineage.client.uuid import generate_new_uuid
+from openlineage.common.provider.dbt.facets import DbtRunRunFacet, DbtVersionRunFacet, ParentRunMetadata
+from openlineage.common.provider.dbt.utils import __version__ as openlineage_version
 from openlineage.common.provider.snowflake import fix_account_name
-from openlineage.common.schema import GITHUB_LOCATION
 from openlineage.common.utils import get_from_multiple_chains, get_from_nullable_chain
 from openlineage_sql import parse as parse_sql
 
@@ -47,6 +47,7 @@ class Adapter(Enum):
     DUCKDB = "duckdb"
     TRINO = "trino"
     GLUE = "glue"
+    CLICKHOUSE = "clickhouse"
 
     @staticmethod
     def adapters() -> str:
@@ -68,36 +69,36 @@ class UnsupportedDbtCommand(Exception):
     pass
 
 
-@attr.s
+@attr.define
 class ModelNode:
-    metadata_node: Dict = attr.ib()
-    catalog_node: Optional[Dict] = attr.ib(default=None)
+    metadata_node: Dict
+    catalog_node: Optional[Dict] = None
 
 
-@attr.s
+@attr.define
 class DbtRun:
-    started_at: str = attr.ib()
-    completed_at: str = attr.ib()
-    status: str = attr.ib()
-    inputs: List[Dataset] = attr.ib()
-    output: Optional[Dataset] = attr.ib()
-    job_name: str = attr.ib()
-    namespace: str = attr.ib()
-    run_id: str = attr.ib(factory=lambda: str(generate_new_uuid()))
+    started_at: str
+    completed_at: str
+    status: str
+    inputs: List[Dataset]
+    output: Optional[Dataset]
+    job_name: str
+    namespace: str
+    run_id: str = attr.field(factory=lambda: str(generate_new_uuid()))
 
 
-@attr.s
+@attr.define
 class DbtRunResult:
-    start: RunEvent = attr.ib()
-    complete: Optional[RunEvent] = attr.ib(default=None)
-    fail: Optional[RunEvent] = attr.ib(default=None)
+    start: RunEvent
+    complete: Optional[RunEvent] = None
+    fail: Optional[RunEvent] = None
 
 
-@attr.s
+@attr.define
 class DbtEvents:
-    starts: List[RunEvent] = attr.ib(factory=list)
-    completes: List[RunEvent] = attr.ib(factory=list)
-    fails: List[RunEvent] = attr.ib(factory=list)
+    starts: List[RunEvent] = attr.field(factory=list)
+    completes: List[RunEvent] = attr.field(factory=list)
+    fails: List[RunEvent] = attr.field(factory=list)
 
     def events(self):
         return self.starts + self.completes + self.fails
@@ -120,46 +121,11 @@ class DbtEvents:
         raise NotImplementedError
 
 
-@attr.s
+@attr.define
 class DbtRunContext:
-    manifest: Dict = attr.ib()
-    run_results: Dict = attr.ib()
-    catalog: Optional[Dict] = attr.ib(default=None)
-
-
-@attr.s
-class ParentRunMetadata:
-    run_id: str = attr.ib()
-    job_name: str = attr.ib()
-    job_namespace: str = attr.ib()
-    root_parent_job_name: Optional[str] = attr.ib(default=None)
-    root_parent_job_namespace: Optional[str] = attr.ib(default=None)
-    root_parent_run_id: Optional[str] = attr.ib(default=None)
-
-    def to_openlineage(self) -> parent_run.ParentRunFacet:
-        root = None
-        if self.root_parent_run_id and self.root_parent_job_namespace and self.root_parent_job_name:
-            root = parent_run.Root(
-                run=parent_run.RootRun(runId=self.root_parent_run_id),
-                job=parent_run.RootJob(
-                    namespace=self.root_parent_job_namespace, name=self.root_parent_job_name
-                ),
-            )
-
-        return parent_run.ParentRunFacet(
-            run=parent_run.Run(runId=self.run_id),
-            job=parent_run.Job(namespace=self.job_namespace, name=self.job_name),
-            root=root,
-        )
-
-
-@attr.s
-class DbtVersionRunFacet(BaseFacet):
-    version: str = attr.ib()
-
-    @staticmethod
-    def _get_schema() -> str:
-        return GITHUB_LOCATION + "dbt-version-run-facet.json"
+    manifest: Dict
+    run_results: Dict
+    catalog: Optional[Dict] = None
 
 
 class DbtArtifactProcessor:
@@ -225,7 +191,8 @@ class DbtArtifactProcessor:
         if self.command not in ["run", "build", "test", "seed", "snapshot"]:
             if self.should_raise_on_unsupported_command:
                 raise UnsupportedDbtCommand(
-                    f"Not recognized run command " f"{self.command} - should be run, test, seed or build"
+                    f"Not recognized run command {self.command} - "
+                    "should be run, build, test, seed or snapshot"
                 )
             else:
                 return events
@@ -315,6 +282,7 @@ class DbtArtifactProcessor:
                     get_from_nullable_chain(context.catalog, ["nodes", run["unique_id"]]),
                 ),
                 has_facets=True,
+                adapter_response=run.get("adapter_response", None),
             )
 
             # Add column lineage if SQL is available
@@ -486,7 +454,7 @@ class DbtArtifactProcessor:
             )
         else:
             # Should not happen?
-            raise ValueError(f"Run status was {status}, " f"should be in ['success', 'skipped', 'error']")
+            raise ValueError(f"Run status was {status}, should be in ['success', 'skipped', 'error']")
 
     def node_to_dataset(
         self,
@@ -496,41 +464,71 @@ class DbtArtifactProcessor:
         namespace, name, facets, _ = self.extract_dataset_data(node, None, has_facets)
         return Dataset(name=name, namespace=namespace, facets=facets)
 
-    def node_to_output_dataset(self, node: ModelNode, has_facets: bool = False) -> OutputDataset:
+    def node_to_output_dataset(
+        self,
+        node: ModelNode,
+        has_facets: bool = False,
+        adapter_response: Optional[Dict] = None,
+    ) -> OutputDataset:
         namespace, name, facets, _ = self.extract_dataset_data(node, None, has_facets)
-        output_facets: Dict[str, OutputDatasetFacet] = {}
-        if has_facets and node.catalog_node:
-            bytes = get_from_multiple_chains(
-                node.catalog_node,
-                [
-                    ["stats", "num_bytes", "value"],  # bigquery
-                    ["stats", "bytes", "value"],  # snowflake
+        if not has_facets:
+            return OutputDataset(name=name, namespace=namespace, facets=facets)
+
+        row_count = 0
+        byte_count = 0
+        if node.catalog_node:
+            row_count = (
+                get_from_multiple_chains(
+                    node.catalog_node,
                     [
-                        "stats",
-                        "size",
-                        "value",
-                    ],  # redshift (Note: size = count of 1MB blocks)
-                ],
-            )
-            rows = get_from_multiple_chains(
-                node.catalog_node,
-                [
-                    ["stats", "num_rows", "value"],  # bigquery
-                    ["stats", "row_count", "value"],  # snowflake
-                    ["stats", "rows", "value"],  # redshift
-                ],
-            )
-
-            if bytes:
-                bytes = int(bytes) if self.adapter_type != Adapter.REDSHIFT else int(rows) * (2**20)
-            if rows:
-                rows = int(rows)
-
-                output_facets[
-                    "outputStatistics"
-                ] = output_statistics_output_dataset.OutputStatisticsOutputDatasetFacet(
-                    rowCount=rows, size=bytes
+                        ["stats", "num_rows", "value"],  # bigquery
+                        ["stats", "row_count", "value"],  # snowflake
+                        ["stats", "rows", "value"],  # redshift
+                    ],
                 )
+                or 0
+            )
+
+            byte_count = (
+                get_from_multiple_chains(
+                    node.catalog_node,
+                    [
+                        ["stats", "num_bytes", "value"],  # bigquery
+                        ["stats", "bytes", "value"],  # snowflake
+                    ],
+                )
+                or 0
+            )
+
+            if self.adapter_type == Adapter.REDSHIFT:
+                # size is the number of 1MB blocks
+                blocks_count = (
+                    get_from_multiple_chains(
+                        node.catalog_node,
+                        [
+                            ["stats", "size", "value"],
+                        ],
+                    )
+                    or 0
+                )
+                byte_count = byte_count or blocks_count * (2**20)
+
+        if adapter_response:
+            row_count = row_count or adapter_response.get("rows_affected", 0)
+            byte_count = byte_count or adapter_response.get("bytes_processed", 0)
+
+        row_count = int(row_count)
+        byte_count = int(byte_count)
+        if not row_count and not byte_count:
+            return OutputDataset(name=name, namespace=namespace, facets=facets)
+
+        output_facets: Dict[str, OutputDatasetFacet] = {}
+        output_facets[
+            "outputStatistics"
+        ] = output_statistics_output_dataset.OutputStatisticsOutputDatasetFacet(
+            rowCount=row_count if row_count > 0 else None,
+            size=byte_count if byte_count > 0 else None,
+        )
         return OutputDataset(name=name, namespace=namespace, facets=facets, outputFacets=output_facets)
 
     def _format_dataset_name(self, database: Optional[str], schema: Optional[str], table: str) -> str:
@@ -621,7 +619,7 @@ class DbtArtifactProcessor:
             self.adapter_type = Adapter[profile["type"].upper()]
         except KeyError:
             raise NotImplementedError(
-                f"Only {Adapter.adapters()} adapters are supported right now. " f"Passed {profile['type']}"
+                f"Only {Adapter.adapters()} adapters are supported right now. Passed {profile['type']}"
             )
 
     def extract_dataset_namespace(self, profile: Dict):
@@ -637,6 +635,8 @@ class DbtArtifactProcessor:
             return f"redshift://{profile['host']}:{profile['port']}"
         elif self.adapter_type == Adapter.POSTGRES:
             return f"postgres://{profile['host']}:{profile['port']}"
+        elif self.adapter_type == Adapter.CLICKHOUSE:
+            return f"clickhouse://{profile['host']}:{profile['port']}"
         elif self.adapter_type == Adapter.TRINO:
             return f"trino://{profile['host']}:{profile['port']}"
         elif self.adapter_type == Adapter.DATABRICKS:
@@ -672,15 +672,19 @@ class DbtArtifactProcessor:
                 return f"spark://{profile['host']}{port}"
             else:
                 raise NotImplementedError(
-                    f"Connection method `{profile['method']}` is not " f"supported for spark adapter."
+                    f"Connection method `{profile['method']}` is not supported for spark adapter."
                 )
         else:
             raise NotImplementedError(
-                f"Only {Adapter.adapters()} adapters are supported right now. " f"Passed {profile['type']}"
+                f"Only {Adapter.adapters()} adapters are supported right now. Passed {profile['type']}"
             )
 
     def get_run(self, run_id: str) -> Run:
-        run_facets = {"dbt_version": self.dbt_version_facet()}
+        run_facets = {
+            "dbt_version": self.dbt_version_facet(),
+            "dbt_run": self.dbt_run_run_facet(),
+            "processing_engine": self.processing_engine_facet(),
+        }
         if self._dbt_run_metadata:
             run_facets["parent"] = self._dbt_run_metadata.to_openlineage()
         return Run(
@@ -688,8 +692,23 @@ class DbtArtifactProcessor:
             facets=run_facets,
         )
 
-    def dbt_version_facet(self):
-        return DbtVersionRunFacet(version=self.run_metadata["dbt_version"])
+    # TODO: remove after deprecation period
+    def dbt_version_facet(self) -> DbtVersionRunFacet:
+        self.logger.debug(
+            "dbt_version facet is deprecated, and will be removed in future versions. "
+            "Use processing_engine facet instead."
+        )
+        return DbtVersionRunFacet(version=self.run_metadata["dbt_version"])  # type: ignore[index]
+
+    def dbt_run_run_facet(self) -> DbtRunRunFacet:
+        return DbtRunRunFacet(invocation_id=self.run_metadata["invocation_id"])  # type: ignore[index]
+
+    def processing_engine_facet(self) -> processing_engine_run.ProcessingEngineRunFacet:
+        return processing_engine_run.ProcessingEngineRunFacet(
+            name="dbt",
+            version=self.run_metadata["dbt_version"],  # type: ignore[index]
+            openlineageAdapterVersion=openlineage_version,
+        )
 
     @staticmethod
     def get_timings(timings: List[Dict]) -> Tuple[str, str]:

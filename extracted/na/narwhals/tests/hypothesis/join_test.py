@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, Mapping, cast
 
 import pytest
 from hypothesis import assume, given, strategies as st
@@ -16,9 +16,6 @@ pytest.importorskip("pyarrow")
 import pandas as pd
 import polars as pl
 import pyarrow as pa
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 @given(

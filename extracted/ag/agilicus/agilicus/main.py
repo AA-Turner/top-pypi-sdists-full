@@ -8616,17 +8616,15 @@ def list_support_requests(ctx, **kwargs):
     print(table)
 
 
-@cli.command(name="add-support-request")
-@click.argument("org-id", type=str)
-@click.argument("supporting-user-email", type=str)
+@cli.command(name="create-support-request")
+@click.option("--org-id", type=str, default=None)
+@click.option("--supporting-user-email", type=str)
 @click.option("--supporting-user-org-id", type=str)
 @click.option("--expiry", type=click.DateTime(), default=None)
 @click.option("--viewer-only-permissions", default=False, type=bool)
 @click.pass_context
-def add_support_user(
-    ctx, org_id, supporting_user_org_id, supporting_user_email, **kwargs
-):
-    result = users.add_support_request(ctx, org_id, supporting_user_email, **kwargs)
+def create_support_request(ctx, org_id, **kwargs):
+    result = users.create_support_request(ctx, org_id, **kwargs)
     output_entry(ctx, result)
 
 

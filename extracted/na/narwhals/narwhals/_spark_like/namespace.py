@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 from functools import reduce
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Iterable, Sequence
 
 from narwhals._compliant import LazyNamespace, LazyThen, LazyWhen
 from narwhals._expression_parsing import (
@@ -19,8 +19,6 @@ from narwhals._spark_like.utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
-
     from sqlframe.base.column import Column
 
     from narwhals._spark_like.dataframe import SQLFrameDataFrame  # noqa: F401

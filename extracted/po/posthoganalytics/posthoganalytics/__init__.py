@@ -4,7 +4,15 @@ from typing import Callable, Dict, List, Optional, Tuple  # noqa: F401
 
 from posthoganalytics.client import Client
 from posthoganalytics.exception_capture import Integrations  # noqa: F401
-from posthoganalytics.scopes import clear_tags, get_tags, new_context, scoped, tag
+from posthoganalytics.scopes import (
+    clear_tags,
+    get_tags,
+    new_context,
+    scoped,
+    tag,
+    set_context_session,
+    identify_context,
+)
 from posthoganalytics.types import FeatureFlag, FlagsAndPayloads
 from posthoganalytics.version import VERSION
 
@@ -16,6 +24,9 @@ tag = tag
 get_tags = get_tags
 clear_tags = clear_tags
 scoped = scoped
+identify_context = identify_context
+set_context_session = set_context_session
+
 
 """Settings."""
 api_key = None  # type: Optional[str]

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ibm-watson
-Version: 9.0.0
+Version: 10.0.0
 Summary: Client library to use the IBM Watson Services
 Home-page: https://github.com/watson-developer-cloud/python-sdk
 Author: IBM Watson
@@ -22,6 +22,17 @@ Requires-Dist: requests<3.0,>=2.0
 Requires-Dist: python_dateutil>=2.5.3
 Requires-Dist: websocket-client>=1.1.0
 Requires-Dist: ibm_cloud_sdk_core==3.*,>=3.3.6
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # Watson Developer Cloud Python SDK
 

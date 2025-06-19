@@ -525,6 +525,7 @@ class QrackAceBackend:
 
         sim.mtrx([m00, m01, m10, m11], q)
 
+
     def _correct(self, lq, phase=False):
         hq = self._unpack(lq)
 
@@ -579,24 +580,31 @@ class QrackAceBackend:
             p, a, i = [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]
             p[0], a[0], i[0] = self.get_bloch_angles(hq[0])
             p[1], a[1], i[1] = self.get_bloch_angles(hq[1])
-            p[3], a[2], i[2] = self.get_bloch_angles(hq[3])
-            p[4], a[3], i[3] = self.get_bloch_angles(hq[4])
+            p[2], a[2], i[2] = self.get_lhv_bloch_angles(hq[2])
+            p[3], a[3], i[3] = self.get_bloch_angles(hq[3])
+            p[4], a[4], i[4] = self.get_bloch_angles(hq[4])
 
             indices = []
             a_target = 0
             i_target = 0
-            for x in range(4):
+            weight = 0
+            for x in range(5):
                 if p[x] < 0.5:
                     continue
                 indices.append(x)
-                a_target += a[x]
-                i_target += i[x]
+                w = (1.5 - p[x])
+                a_target += w * a[x]
+                i_target += w * i[x]
+                weight += w
 
             if len(indices) > 1:
-                a_target /= len(indices)
-                i_target /= len(indices)
+                a_target /= weight
+                i_target /= weight
                 for x in indices:
-                    self.rotate_to_bloch(hq[x], a[x], i[x], a_target, i_target)
+                    if x == 2:
+                        self.rotate_lhv_to_bloch(hq[x], a[x], i[x], a_target, i_target)
+                    else:
+                        self.rotate_to_bloch(hq[x], a[x], i[x], a_target, i_target)
         else:
             # RMS
             p = [
@@ -616,25 +624,32 @@ class QrackAceBackend:
                     else:
                         self.sim[hq[q][0]].x(hq[q][1])
 
-            p, a, i = [0, 0], [0, 0], [0, 0]
+            p, a, i = [0, 0, 0], [0, 0, 0], [0, 0, 0]
             p[0], a[0], i[0] = self.get_bloch_angles(hq[0])
             p[1], a[1], i[1] = self.get_bloch_angles(hq[1])
+            p[2], a[2], i[2] = self.get_lhv_bloch_angles(hq[2])
 
             indices = []
             a_target = 0
             i_target = 0
+            weight = 0
             for x in range(2):
                 if p[x] < 0.5:
                     continue
                 indices.append(x)
-                a_target += a[x]
-                i_target += i[x]
+                w = (1.5 - p[x])
+                a_target += w * a[x]
+                i_target += w * i[x]
+                weight += w
 
             if len(indices) > 1:
-                a_target /= len(indices)
-                i_target /= len(indices)
+                a_target /= weight
+                i_target /= weight
                 for x in indices:
-                    self.rotate_to_bloch(hq[x], a[x], i[x], a_target, i_target)
+                    if x == 2:
+                        self.rotate_lhv_to_bloch(hq[x], a[x], i[x], a_target, i_target)
+                    else:
+                        self.rotate_to_bloch(hq[x], a[x], i[x], a_target, i_target)
 
         if phase:
             for q in qb:

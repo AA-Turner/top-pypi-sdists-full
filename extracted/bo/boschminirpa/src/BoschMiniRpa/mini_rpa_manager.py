@@ -358,6 +358,9 @@ class MiniRpaManager(MiniRpaFunction):
             elif function_name == 'date_transfer':
                 self.date_transfer(process_number, self.from_file_path, self.from_file_name, self.from_sheet_name, from_column_name, has_from_file_condition,
                                    is_save)
+            elif function_name == 'date_transfer_date_format':
+                self.date_transfer_date_format(process_number, self.from_file_path, self.from_file_name, self.from_sheet_name, from_column_name, has_from_file_condition,
+                                               is_save)
             elif function_name == 'remove_duplicates':
                 self.remove_duplicates(process_number, self.from_file_path, self.from_file_name, self.from_sheet_name, from_column_name, has_from_file_condition,
                                        keep_config, is_save)

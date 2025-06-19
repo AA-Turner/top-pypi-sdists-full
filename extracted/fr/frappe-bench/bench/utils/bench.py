@@ -246,7 +246,7 @@ def migrate_env(python, backup=False):
 		shutil.move(dest, target)
 
 	# Create virtualenv using specified python
-	def _install_app(app):
+	def _install_app(app, pyenv):
 		app_path = f"-e {os.path.join('apps', app)}"
 		if os.environ.get("BENCH_USE_UV"):
 			exec_cmd(f"uv pip install --upgrade {app_path} --python {pyenv}/bin/python")
@@ -261,10 +261,10 @@ def migrate_env(python, backup=False):
 			exec_cmd(f"{python} -m venv {pvenv}")
 
 		# Install frappe first
-		_install_app("frappe")
+		_install_app("frappe", pvenv)
 		for app in bench.apps:
 			if str(app) != "frappe":
-				_install_app(app)
+				_install_app(app, pvenv)
 
 		logger.log(f"Migration Successful to {python}")
 	except Exception:

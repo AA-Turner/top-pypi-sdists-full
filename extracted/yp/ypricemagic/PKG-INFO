@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ypricemagic
-Version: 4.6.9
+Version: 4.6.11
 Summary: Use this tool to extract historical on-chain price data from an archive node. Shoutout to @bantg and @nymmrx for their awesome work on yearn-exporter that made this library possible.
 Home-page: https://github.com/BobTheBuidler/ypricemagic
 Author: BobTheBuidler
@@ -23,6 +23,14 @@ License-File: LICENSE.txt
 Use this tool to extract historical on-chain price data from an archive node.
 
 ypricemagic is built to work seamlessly with both sync and async Python codebases using the [ez-a-sync framework](https://github.com/BobTheBuidler/ez-a-sync).
+
+## Requirements
+- Python 3.9 or higher.
+- At least 16GB of RAM.
+
+## Prerequisites
+- First, you will need to bring your own archive node. This can be one you run yourself, or one from one of the common providers (Tenderly, Alchemy, QuickNode, etc.)
+- You will also need an auth token for [Etherscan](https://etherscan.io/)'s API. Follow their [guide](https://docs.etherscan.io/etherscan-v2/getting-an-api-key) to get your key, and set env var `ETHERSCAN_TOKEN` with its value.
 
 ## Installation
 ypricemagic is published on [PyPI](https://pypi.org/). Simply install it just as you would any other library.

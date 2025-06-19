@@ -5,9 +5,6 @@ Differentially rotating a map
 
 How to apply differential rotation to a Map.
 
-.. note::
-   This example requires `reproject` 0.6 or later to be installed.
-
 The example uses the :func:`~sunpy.coordinates.propagate_with_solar_surface`
 context manager to apply differential rotation during coordinate
 transformations.
@@ -19,7 +16,7 @@ from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
 import sunpy.map
-from sunpy.coordinates import Helioprojective, propagate_with_solar_surface
+from sunpy.coordinates import Helioprojective, SphericalScreen, propagate_with_solar_surface
 from sunpy.data.sample import AIA_171_IMAGE
 
 ##############################################################################
@@ -38,7 +35,7 @@ out_frame = Helioprojective(observer='earth', obstime=out_time,
                             rsun=aiamap.coordinate_frame.rsun)
 
 ##############################################################################
-# Construct a WCS object for the output map.  If one has an actual ``Map``
+# Construct a WCS object for the output map. If one has an actual ``Map``
 # object at the desired output time (e.g., the actual AIA observation at the
 # output time), one can use the WCS object from that ``Map`` object (e.g.,
 # ``mymap.wcs``) instead of constructing a custom WCS.
@@ -50,13 +47,28 @@ header = sunpy.map.make_fitswcs_header(aiamap.data.shape,
 out_wcs = WCS(header)
 
 ##############################################################################
-# Reproject the map from the input frame to the output frame.  We use the
+# Reproject the map from the input frame to the output frame. We use the
 # :func:`~sunpy.coordinates.propagate_with_solar_surface` context manager so
 # that coordinates are treated as points that evolve in time with the
 # rotation of the solar surface rather than as inertial points in space.
 
 with propagate_with_solar_surface():
     out_warp = aiamap.reproject_to(out_wcs)
+
+fig = plt.figure()
+ax = fig.add_subplot(projection=out_warp)
+out_warp.plot(axes=ax, vmin=0, vmax=20000,
+              title=f"Reprojected to an Earth observer {(out_time - in_time).to('day')} later")
+
+##############################################################################
+# Note that the off-disk parts of the map have been discarded. This is due to
+# the lack of knowledge of where that data should be placed in the 3D space.
+# Let's reproject again, but this time apply a so-called screen (e.g.,
+# :func:`~sunpy.coordinates.SphericalScreen`) to tell the coordinate framework
+# what assumption to use beyond the disk.
+
+with propagate_with_solar_surface(), SphericalScreen(aiamap.observer_coordinate, only_off_disk=True):
+    out_warp_with_screen = aiamap.reproject_to(out_wcs)
 
 ##############################################################################
 # Let's plot the differentially rotated Map next to the original Map.
@@ -67,9 +79,11 @@ ax1 = fig.add_subplot(121, projection=aiamap)
 aiamap.plot(axes=ax1, vmin=0, vmax=20000, title='Original map')
 plt.colorbar()
 
-ax2 = fig.add_subplot(122, projection=out_warp)
-out_warp.plot(axes=ax2, vmin=0, vmax=20000,
-              title=f"Reprojected to an Earth observer {(out_time - in_time).to('day')} later")
+ax2 = fig.add_subplot(122, projection=out_warp_with_screen)
+out_warp_with_screen.plot(axes=ax2, vmin=0, vmax=20000,
+                          title=f"Reprojected to an Earth observer {(out_time - in_time).to('day')} later")
 plt.colorbar()
 
 plt.show()
+
+# sphinx_gallery_thumbnail_number = 2

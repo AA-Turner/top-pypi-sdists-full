@@ -1,6 +1,6 @@
 # -*- Mode:Python; indent-tabs-mode:nil; tab-width:4 -*-
 #
-# Copyright 2023 Canonical Ltd.
+# Copyright 2023-2025 Canonical Ltd.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -13,13 +13,6 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-import io
-import os
-import xml.etree.ElementTree as ET
-from pathlib import Path
-from textwrap import dedent
-from unittest import mock
 
 import pytest
 from craft_parts import Part, PartInfo, ProjectInfo, errors
@@ -160,7 +153,10 @@ def test_get_build_commands_with_parameters(part_info):
     plugin = MavenPlugin(properties=properties, part_info=part_info)
 
     assert plugin.get_build_commands() == (
-        ["mvn package -Dprop1=1 -c", *plugin._get_java_post_build_commands()]
+        [
+            "mvn package -Dprop1=1 -c",
+            *plugin._get_java_post_build_commands(),
+        ]
     )
 
 
@@ -184,89 +180,3 @@ common/craft-parts/reference/plugins/maven_plugin.html'; exit 1;
             *plugin._get_java_post_build_commands(),
         ]
     )
-
-
-def test_settings_no_proxy(part_info, new_dir):
-    properties = MavenPlugin.properties_class.unmarshal({"source": "."})
-    plugin = MavenPlugin(properties=properties, part_info=part_info)
-    settings_path = Path(new_dir / "parts/my-part/build/.parts/.m2/settings.xml")
-
-    with mock.patch.dict(os.environ, {}):
-        assert plugin.get_build_commands() == (
-            ["mvn package", *plugin._get_java_post_build_commands()]
-        )
-        assert settings_path.exists() is False
-
-
-@pytest.mark.parametrize(
-    ("protocol", "expected_protocol"),
-    [("http", "http"), ("https", "https"), ("HTTP", "http"), ("HTTPS", "https")],
-)
-@pytest.mark.parametrize(
-    ("no_proxy", "non_proxy_hosts"),
-    [(None, "localhost"), ("foo", "foo"), ("foo,bar", "foo|bar")],
-)
-def test_settings_proxy(
-    part_info, protocol, expected_protocol, no_proxy, non_proxy_hosts
-):
-    properties = MavenPlugin.properties_class.unmarshal({"source": "."})
-    plugin = MavenPlugin(properties=properties, part_info=part_info)
-    settings_path = Path(
-        part_info._dirs.parts_dir / "my-part/build/.parts/.m2/settings.xml"
-    )
-
-    expected_content = dedent(
-        f"""\
-        <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
-          <interactiveMode>false</interactiveMode>
-          <proxies>
-            <proxy>
-              <id>{expected_protocol}_proxy</id>
-              <active>true</active>
-              <protocol>{expected_protocol}</protocol>
-              <host>my-proxy-host</host>
-              <port>3128</port>
-              <nonProxyHosts>{non_proxy_hosts}</nonProxyHosts>
-            </proxy>
-          </proxies>
-        </settings>
-        """
-    )
-
-    env_dict = {
-        f"{protocol}_proxy": "http://my-proxy-host:3128",
-        f"{protocol}_PROXY": "http://my-proxy-host:3128",
-    }
-    if no_proxy:
-        env_dict["no_proxy"] = no_proxy
-
-    with mock.patch.dict(os.environ, env_dict):
-        assert plugin.get_build_commands() == (
-            [
-                f"mvn package -s {str(settings_path.absolute())}",
-                *plugin._get_java_post_build_commands(),
-            ]
-        )
-        assert settings_path.exists()
-        assert _normalize_settings(settings_path.read_text()) == _normalize_settings(
-            expected_content
-        )
-
-
-def _normalize_settings(settings):
-    with io.StringIO(settings) as f:
-        tree = ET.parse(f)  # noqa: S314
-    for element in tree.iter():
-        if element.text is not None and element.text.isspace():
-            element.text = None
-        if element.tail is not None and element.tail.isspace():
-            element.tail = None
-    with io.StringIO() as f:
-        tree.write(
-            f,
-            encoding="unicode",
-            default_namespace="http://maven.apache.org/SETTINGS/1.0.0",
-        )
-        return f.getvalue() + "\n"

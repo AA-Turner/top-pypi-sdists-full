@@ -4,11 +4,13 @@ import urllib.parse
 from typing import Any
 
 import pyarrow as pa
+from pyarrow import ArrowException
 
+from influxdb_client_3.exceptions import InfluxDB3ClientQueryError
+from influxdb_client_3.exceptions import InfluxDBError
 from influxdb_client_3.query.query_api import QueryApi as _QueryApi, QueryApiOptionsBuilder
 from influxdb_client_3.read_file import UploadFile
 from influxdb_client_3.write_client import InfluxDBClient as _InfluxDBClient, WriteOptions, Point
-from influxdb_client_3.write_client.client.exceptions import InfluxDBError
 from influxdb_client_3.write_client.client.write_api import WriteApi as _WriteApi, SYNCHRONOUS, ASYNCHRONOUS, \
     PointSettings, DefaultWriteOptions, WriteType
 from influxdb_client_3.write_client.domain.write_precision import WritePrecision
@@ -22,6 +24,7 @@ INFLUX_ORG = "INFLUX_ORG"
 INFLUX_PRECISION = "INFLUX_PRECISION"
 INFLUX_AUTH_SCHEME = "INFLUX_AUTH_SCHEME"
 INFLUX_GZIP_THRESHOLD = "INFLUX_GZIP_THRESHOLD"
+INFLUX_WRITE_NO_SYNC = "INFLUX_WRITE_NO_SYNC"
 
 
 def write_client_options(**kwargs):
@@ -110,9 +113,15 @@ def _parse_precision(precision):
     :rtype: WritePrecision
     :raises ValueError: If the provided precision is not valid.
     """
-    if precision not in [WritePrecision.NS, WritePrecision.MS, WritePrecision.S, WritePrecision.US]:
-        raise ValueError(f"Invalid precision value: {precision}")
-    return precision
+    if precision == WritePrecision.NS or precision == "nanosecond":
+        return WritePrecision.NS
+    if precision == WritePrecision.US or precision == "microsecond":
+        return WritePrecision.US
+    if precision == WritePrecision.MS or precision == "millisecond":
+        return WritePrecision.MS
+    if precision == WritePrecision.S or precision == "second":
+        return WritePrecision.S
+    raise ValueError(f"Invalid precision value: {precision}")
 
 
 def _parse_gzip_threshold(threshold):
@@ -137,6 +146,21 @@ def _parse_gzip_threshold(threshold):
     if threshold < 0:
         raise ValueError(f"Invalid threshold value: {threshold}. Must be non-negative.")
     return threshold
+
+
+def _parse_write_no_sync(write_no_sync):
+    """
+    Parses and validates the provided write no sync value.
+
+    This function ensures that the given value is a valid boolean,
+    and it raises an appropriate error if the value is not valid.
+
+    :param write_no_sync: The input value to be parsed and validated.
+    :type write_no_sync: Any
+    :return: The validated write no sync value as an boolean.
+    :rtype: bool
+    """
+    return write_no_sync.strip().lower() in ['true', '1', 't', 'y', 'yes']
 
 
 class InfluxDBClient3:
@@ -195,14 +219,17 @@ class InfluxDBClient3:
 
         write_type = DefaultWriteOptions.write_type.value
         write_precision = DefaultWriteOptions.write_precision.value
+        write_no_sync = DefaultWriteOptions.no_sync.value
         if isinstance(write_client_options, dict) and write_client_options.get('write_options') is not None:
             write_opts = write_client_options['write_options']
             write_type = getattr(write_opts, 'write_type', write_type)
             write_precision = getattr(write_opts, 'write_precision', write_precision)
+            write_no_sync = getattr(write_opts, 'no_sync', write_no_sync)
 
         write_options = WriteOptions(
             write_type=write_type,
             write_precision=write_precision,
+            no_sync=write_no_sync,
         )
 
         self._write_client_options = {
@@ -283,6 +310,10 @@ class InfluxDBClient3:
         if gzip_threshold is not None:
             kwargs['gzip_threshold'] = _parse_gzip_threshold(gzip_threshold)
             kwargs['enable_gzip'] = True
+
+        write_no_sync = os.getenv(INFLUX_WRITE_NO_SYNC)
+        if write_no_sync is not None:
+            write_options.no_sync = _parse_write_no_sync(write_no_sync)
 
         precision = os.getenv(INFLUX_PRECISION)
         if precision is not None:
@@ -400,8 +431,8 @@ class InfluxDBClient3:
 
         try:
             return self._query_api.query(query=query, language=language, mode=mode, database=database, **kwargs)
-        except InfluxDBError as e:
-            raise e
+        except ArrowException as e:
+            raise InfluxDB3ClientQueryError(f"Error while executing query: {e}")
 
     async def query_async(self, query: str, language: str = "sql", mode: str = "all", database: str = None, **kwargs):
         """Query data from InfluxDB asynchronously.
@@ -433,8 +464,8 @@ class InfluxDBClient3:
                                                      mode=mode,
                                                      database=database,
                                                      **kwargs)
-        except InfluxDBError as e:
-            raise e
+        except ArrowException as e:
+            raise InfluxDB3ClientQueryError(f"Error while executing query: {e}")
 
     def close(self):
         """Close the client and clean up resources."""

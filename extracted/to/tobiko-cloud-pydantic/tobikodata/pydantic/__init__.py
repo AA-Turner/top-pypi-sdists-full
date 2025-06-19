@@ -203,10 +203,13 @@ def _contains_annotation(cls: t.Any, field_info: FieldInfo) -> bool:
     return False
 
 
+SECRET_FIELD_PLACEHOLDER = "******"
+
+
 def _hide_secret(v: str, info: pydantic.SerializationInfo) -> str:
     if context := info.context:
         if context.get("hide_secret", False):
-            return "******" if v else ""
+            return SECRET_FIELD_PLACEHOLDER if v else ""
     return v
 
 

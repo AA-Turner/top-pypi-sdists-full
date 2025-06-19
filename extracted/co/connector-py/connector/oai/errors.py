@@ -125,6 +125,11 @@ class DefaultHandler(ExceptionHandler):
             traceback.print_exception(e)
             response.error.error_code = ErrorCode.UNEXPECTED_ERROR
 
+            # Catch 'Illegal header' errors
+            if "Illegal header" in response.error.message:
+                response.error.message = "Illegal header constructed for API request. Please check the app configuration and try again."
+                response.error.error_code = ErrorCode.BAD_REQUEST
+
         return response
 
 

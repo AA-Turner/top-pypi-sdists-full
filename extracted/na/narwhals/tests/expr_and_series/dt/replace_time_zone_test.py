@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -130,8 +129,9 @@ def test_replace_time_zone_none_series(constructor_eager: ConstructorEager) -> N
 
 def test_replace_time_zone_to_connection_tz_duckdb() -> None:
     pytest.importorskip("duckdb")
-
+    pytest.importorskip("zoneinfo")
     import duckdb
+    from zoneinfo import ZoneInfo
 
     duckdb.sql("set timezone = 'Asia/Kolkata'")
     rel = duckdb.sql("""select * from values (timestamptz '2020-01-01') df(a)""")
@@ -152,6 +152,7 @@ def test_replace_time_zone_to_connection_tz_pyspark(
     if "pyspark" not in str(constructor) or "sqlframe" in str(constructor):
         pytest.skip()
     pytest.importorskip("pyspark")
+    pytest.importorskip("zoneinfo")
     from pyspark.sql import SparkSession
 
     session = SparkSession.builder.config(

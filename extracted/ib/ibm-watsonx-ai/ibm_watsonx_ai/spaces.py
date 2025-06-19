@@ -180,7 +180,7 @@ class Spaces(WMLResource):
         )
 
         spaces_details = self._handle_response(
-            202, "creating new spaces", creation_response
+            202, "creating new spaces", creation_response, _silent_response_logging=True
         )
 
         # Cloud Convergence: Set self._client.credentials.instance_id to instance_id
@@ -350,6 +350,7 @@ class Spaces(WMLResource):
         asynchronous: bool | None = False,
         get_all: bool | None = False,
         space_name: str | None = None,
+        **kwargs: Any,
     ) -> dict:
         """Get metadata of stored space(s).
 
@@ -385,14 +386,22 @@ class Spaces(WMLResource):
         Spaces._validate_type(space_id, "space_id", str, False)
 
         href = self._client._href_definitions.get_platform_space_href(space_id)
+        query_params = {}
+        if extra_query_params := kwargs.get("extra_query_params"):
+            query_params.update(extra_query_params)
 
         if space_id is not None:
-            response_get = requests.get(href, headers=self._client._get_headers())
+            response_get = requests.get(
+                href, headers=self._client._get_headers(), params=query_params
+            )
 
-            return self._handle_response(200, "Get space", response_get)
+            return self._handle_response(
+                200, "Get space", response_get, _silent_response_logging=True
+            )
 
         else:
-            query_params = {"name": space_name} if space_name else None
+            if space_name:
+                query_params.update({"name": space_name})
 
             return self._get_with_or_without_limit(
                 self._client._href_definitions.get_platform_spaces_href(),
@@ -404,6 +413,7 @@ class Spaces(WMLResource):
                 query_params=query_params,
                 _async=asynchronous,
                 _all=get_all,
+                _silent_response_logging=True,
             )
 
     def list(

@@ -1,15 +1,7 @@
-[tool.poetry]
+[project]
 name = "shipyard-templates"
-version = "0.9.0"
+version = "0.10.0"
 description = "Super classes for blueprint development"
-authors = ["wrp801 <wespoulsen@gmail.com>"]
-license = "Apache License 2.0"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.9"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires-python = ">=3.11"
+dependencies = []

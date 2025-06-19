@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: podman
-Version: 5.4.0.1
+Version: 5.5.0
 Summary: Bindings for Podman RESTful API
 Home-page: https://github.com/containers/podman-py
 Author: Brent Baude, Urvashi Mohnani
@@ -239,9 +239,10 @@ Requires-Dist: fixtures; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: requests-mock; extra == "test"
 Requires-Dist: tox; extra == "test"
+Dynamic: license-file
 
 # podman-py
-[![Build Status](https://api.cirrus-ci.com/github/containers/podman-py.svg)](https://cirrus-ci.com/github/containers/podman-py/main)
+[![PyPI Latest Version](https://img.shields.io/pypi/v/podman)](https://pypi.org/project/podman/)
 
 This python package is a library of bindings to use the RESTful API of [Podman](https://github.com/containers/podman).
 It is currently under development and contributors are welcome!

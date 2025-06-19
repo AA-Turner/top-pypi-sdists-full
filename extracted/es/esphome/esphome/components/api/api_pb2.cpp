@@ -96,6 +96,8 @@ template<> const char *proto_enum_to_string<enums::ColorMode>(enums::ColorMode v
       return "COLOR_MODE_UNKNOWN";
     case enums::COLOR_MODE_ON_OFF:
       return "COLOR_MODE_ON_OFF";
+    case enums::COLOR_MODE_LEGACY_BRIGHTNESS:
+      return "COLOR_MODE_LEGACY_BRIGHTNESS";
     case enums::COLOR_MODE_BRIGHTNESS:
       return "COLOR_MODE_BRIGHTNESS";
     case enums::COLOR_MODE_WHITE:
@@ -514,6 +516,8 @@ template<> const char *proto_enum_to_string<enums::VoiceAssistantEvent>(enums::V
       return "VOICE_ASSISTANT_TTS_STREAM_START";
     case enums::VOICE_ASSISTANT_TTS_STREAM_END:
       return "VOICE_ASSISTANT_TTS_STREAM_END";
+    case enums::VOICE_ASSISTANT_INTENT_PROGRESS:
+      return "VOICE_ASSISTANT_INTENT_PROGRESS";
     default:
       return "UNKNOWN";
   }
@@ -626,6 +630,7 @@ template<> const char *proto_enum_to_string<enums::UpdateCommand>(enums::UpdateC
   }
 }
 #endif
+
 bool HelloRequest::decode_varint(uint32_t field_id, ProtoVarInt value) {
   switch (field_id) {
     case 2: {

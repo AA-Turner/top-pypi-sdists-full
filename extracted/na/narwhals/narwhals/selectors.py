@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, Iterable, NoReturn
 
 from narwhals._expression_parsing import ExprMetadata, combine_metadata
 from narwhals._utils import flatten
 from narwhals.expr import Expr
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
     from datetime import timezone
 
     from narwhals.dtypes import DType

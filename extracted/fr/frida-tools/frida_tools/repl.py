@@ -30,7 +30,7 @@ from pygments.token import Token
 
 from frida_tools import _repl_magic
 from frida_tools.application import ConsoleApplication
-from frida_tools.cli_formatting import format_compiled, format_compiling, format_diagnostic
+from frida_tools.cli_formatting import THEME_COLOR, format_compiled, format_compiling, format_diagnostic
 from frida_tools.reactor import Reactor
 
 T = TypeVar("T")
@@ -57,8 +57,8 @@ class REPLApplication(ConsoleApplication):
         if self._have_terminal and not self._plain_terminal:
             style = PromptToolkitStyle(
                 [
-                    ("completion-menu", "bg:#3d3d3d #ef6456"),
-                    ("completion-menu.completion.current", "bg:#ef6456 #3d3d3d"),
+                    ("completion-menu", f"bg:#3d3d3d {THEME_COLOR}"),
+                    ("completion-menu.completion.current", f"bg:{THEME_COLOR} #3d3d3d"),
                 ]
             )
             history = FileHistory(self._get_or_create_history_file())
@@ -959,6 +959,7 @@ class CompilerContext:
             return compiler.build(self._user_script, project_root=self._project_root)
 
         if self._bundle is None:
+            success = True
             ready = threading.Event()
 
             def on_compiler_output(bundle) -> None:
@@ -969,9 +970,19 @@ class CompilerContext:
                 else:
                     self._on_bundle_updated()
 
+            def on_compiler_diagnostics(self, diagnostics) -> None:
+                nonlocal success
+                success = False
+                ready.set()
+
             compiler.on("output", on_compiler_output)
+            compiler.on("diagnostics", on_compiler_diagnostics)
             compiler.watch(self._user_script, project_root=self._project_root)
             ready.wait()
+            compiler.off("diagnostics", on_compiler_diagnostics)
+            if not success:
+                compiler.off("output", on_compiler_output)
+                raise ValueError("compilation failed")
 
         return self._bundle
 

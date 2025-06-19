@@ -1,24 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-multiapi-storage
-Version: 1.4.0
+Version: 1.5.0
 Summary: Microsoft Azure Storage Client Library for Python with multi API version support.
 Home-page: https://github.com/Azure/azure-multiapi-storage-python
 Author: Microsoft Corporation
 Author-email: azpycli@microsoft.com
 License: MIT
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.9.0
 License-File: LICENSE
+Requires-Dist: azure-common
+Requires-Dist: python-dateutil
+Requires-Dist: requests
+Requires-Dist: azure-core<2.0.0,>=1.10.0
+Requires-Dist: msrest>=0.6.18
+Requires-Dist: cryptography>=2.1.4
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Microsoft Azure Storage Client Library for Python - with Multi API version Support
 ==================================================================================
@@ -39,6 +53,20 @@ Handles multi-API versions of Azure Storage Data Plane originally from https://g
 
 Change Log
 ----------
+1.5.0
+++++++
+* packaging: Remove unused import, cleanup build pipeline
+* storage, cosmosdb:
+    - Remove all track1 sdks
+* blob:
+    - Keep only v2021-08-06, v2022-11-02
+* fileshare:
+    - Keep only v2025-05-05
+* filedatalake:
+    - Keep only v2021-08-06
+* queue:
+    - Keep only v2018-03-28
+
 1.4.0
 ++++++
 * fileshare: Support v2025-05-05(12.21.0) and remove v2024-08-04

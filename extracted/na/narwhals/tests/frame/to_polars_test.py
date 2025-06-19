@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 
 import pytest
 
 import narwhals as nw
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from tests.utils import ConstructorEager
 
 pytest.importorskip("polars")

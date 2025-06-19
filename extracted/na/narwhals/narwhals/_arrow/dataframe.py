@@ -1,8 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Collection, Iterator, Mapping, Sequence
 from functools import partial
-from typing import TYPE_CHECKING, Any, Literal, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Collection,
+    Iterator,
+    Literal,
+    Mapping,
+    Sequence,
+    cast,
+    overload,
+)
 
 import pyarrow as pa
 import pyarrow.compute as pc

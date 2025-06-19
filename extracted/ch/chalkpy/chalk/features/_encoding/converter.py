@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import types
+import typing
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import BytesIO
@@ -1354,4 +1355,13 @@ class FeatureConverter(PrimitiveFeatureConverter[_TPrim], Generic[_TPrim, _TRich
     def has_nontrivial_rich_type(self) -> bool:
         if self._encoder is not None or self._decoder is not None:
             return True
-        return _canonicalize_typ(self.primitive_type) != _canonicalize_typ(self.rich_type)
+
+        prim_canonical = _canonicalize_typ(self.primitive_type)
+        rich_canonical = _canonicalize_typ(self.rich_type)
+        if self.is_nullable:
+            # Primitive type is based off of the pyarrow dtype, which doesn't know about nullability
+            # So Optional[str] will become just 'str' and needs to be re-wrapped in an Optional[] to compare w/ the rich type
+            # This is mainly a hack for re-creating python Feature objects from serialize proto features (e.g. for running notebook-defined resolvers)
+            # We can remove this once we support encoding more information about the rich type itself in the feature proto.
+            prim_canonical = typing.Optional[prim_canonical]
+        return prim_canonical != rich_canonical

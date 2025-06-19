@@ -526,6 +526,36 @@ class MiniRpaFunction(MiniRPACore):
                 self.save_file(process_number, from_file_name, date_dtype_dict, date_data, 'date_transfer', from_sheet_name, is_save)
                 del date_data
 
+    def date_transfer_date_format(self, process_number: int, from_file_path: str, from_file_name: str, from_sheet_name: str, from_column_name: str,
+                                  has_from_file_condition: bool, is_save: bool) -> None:
+        """This function is used to transfer date format
+
+
+        Args:
+            process_number: This is the process number
+            from_file_path: This is the file path of target Excel file
+            from_file_name: This is the file name of Excel file
+            from_sheet_name: This is the sheet name of Excel file
+            from_column_name: This is the column name whose values will be transferred into date format
+            has_from_file_condition: This indicates whether current process has additional condition settings
+            is_save: This is indicator whether to save processed data
+
+        """
+        is_from_file_exist, _ = smb_check_file_exist(self.user_name, self.user_password, self.server_name, self.share_name, from_file_path, self.port)
+        if is_from_file_exist:
+            original_date_data, date_data, date_dtype_dict = self.get_from_or_update_data(from_file_path, from_file_name, from_sheet_name, has_from_file_condition, 'from_file')
+
+            if date_data is not None and not date_data.empty:
+                from_column_list = from_column_name.replace('，', ',').split(',')
+                for column in from_column_list:
+                    date_data[column] = date_data[column].fillna('')
+                    date_data[column] = date_data[column].astype(str).str.strip()
+                    date_data[column] = date_data[column].apply(self.prepare_date_info)
+
+                # date_data = self.update_dataframe(original_date_data, date_data)
+                self.save_file(process_number, from_file_name, date_dtype_dict, date_data, 'date_transfer_date_format', from_sheet_name, is_save)
+                del date_data
+
     def remove_duplicates(self, process_number: int, from_file_path: str, from_file_name: str, from_sheet_name: str, from_column_name: str,
                           has_from_file_condition: bool, keep_config: Union[str, bool], is_save: bool) -> None:
         """This function is used to remove duplicate values

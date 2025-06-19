@@ -152,6 +152,8 @@ def stack_filter(keep_level: str):
             AssessEventAction.CREATION,
             AssessEventAction.TRIGGER,
         )
+    elif keep_level == "SINK":
+        return lambda action: action != AssessEventAction.TRIGGER
     else:
         raise ValueError(f"Unknown stack level: {keep_level}")
 

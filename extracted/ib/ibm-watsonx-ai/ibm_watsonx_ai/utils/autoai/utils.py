@@ -57,7 +57,6 @@ import enum
 import gzip
 import inspect
 import re
-import shutil
 import sys
 from contextlib import redirect_stdout
 from functools import wraps
@@ -69,8 +68,7 @@ from warnings import warn
 from zipfile import ZipFile
 from contextlib import contextmanager
 import pandas as pd
-import logging
-from collections.abc import Sequence
+
 
 from importlib.metadata import PackageNotFoundError
 import ibm_watsonx_ai._wrappers.requests as requests
@@ -87,7 +85,6 @@ from .enums import (
     Metrics,
     TShirtSize,
     PredictionType,
-    DataConnectionTypes,
     ImputationStrategy,
     BatchedRegressionAlgorithms,
     BatchedClassificationAlgorithms,
@@ -329,21 +326,14 @@ def fetch_pipelines(
                 # --- end note
 
     else:
-        from ibm_boto3 import client
+        from ibm_watsonx_ai.helpers import DataConnection  # prevent circular import
 
-        cos_client = client(
-            service_name="s3",
-            endpoint_url=run_params["entity"]["results_reference"]["connection"][
-                "endpoint_url"
-            ],
-            aws_access_key_id=run_params["entity"]["results_reference"]["connection"][
-                "access_key_id"
-            ],
-            aws_secret_access_key=run_params["entity"]["results_reference"][
-                "connection"
-            ]["secret_access_key"],
-        )
-        buckets = []
+        results_reference = run_params["entity"]["results_reference"]
+
+        if isinstance(results_reference, dict):
+            results_reference = DataConnection.from_dict(results_reference)
+
+        results_reference.set_client(api_client)
         filenames = []
         keys = []
 
@@ -352,7 +342,6 @@ def fetch_pipelines(
             model_number = pipeline["context"]["intermediate_model"]["name"].split("P")[
                 -1
             ]
-            pipeline_phase = pipeline["context"]["phase"]
             model_phase = chose_model_output(
                 model_number=model_number,
                 is_ts_metrics=is_ts_metrics,
@@ -365,9 +354,6 @@ def fetch_pipelines(
                 )
 
                 if pipeline_name is None:
-                    buckets.append(
-                        run_params["entity"]["results_reference"]["location"]["bucket"]
-                    )
                     filenames.append(
                         f"{path}/Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}.{pipeline_suffix}"
                     )
@@ -391,9 +377,6 @@ def fetch_pipelines(
                     pipeline_name
                     == f"Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}"
                 ):
-                    buckets = [
-                        run_params["entity"]["results_reference"]["location"]["bucket"]
-                    ]
                     filenames = [
                         f"{path}/Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}.{pipeline_suffix}"
                     ]
@@ -415,10 +398,11 @@ def fetch_pipelines(
 
                     break
 
-        for bucket, filename, key, name in zip(
-            buckets, filenames, keys, pipelines_names
-        ):
-            cos_client.download_file(Bucket=bucket, Filename=filename, Key=key)
+        for filename, key, name in zip(filenames, keys, pipelines_names):
+
+            results_reference.location.path = key
+            results_reference.download(filename=filename)
+
             if load_pipelines:
 
                 # Disable printing to suppress warning from ai4ml
@@ -541,20 +525,13 @@ def _download_notebook(
                     return filename
 
     else:
-        from ibm_boto3 import client
+        from ibm_watsonx_ai.helpers import DataConnection  # prevent circular import
 
-        cos_client = client(
-            service_name="s3",
-            endpoint_url=run_params["entity"]["results_reference"]["connection"][
-                "endpoint_url"
-            ],
-            aws_access_key_id=run_params["entity"]["results_reference"]["connection"][
-                "access_key_id"
-            ],
-            aws_secret_access_key=run_params["entity"]["results_reference"][
-                "connection"
-            ]["secret_access_key"],
-        )
+        notebook_reference = run_params["entity"]["results_reference"]
+        if isinstance(notebook_reference, dict):
+            notebook_reference = DataConnection.from_dict(notebook_reference)
+
+        notebook_reference.set_client(api_client)
 
         for pipeline in run_params["entity"]["status"].get("metrics", []):
             model_number = pipeline["context"]["intermediate_model"]["name"].split("P")[
@@ -569,19 +546,15 @@ def _download_notebook(
 
                 if pipeline["context"]["phase"] == model_phase:
                     try:
-                        model_path = f"{pipeline['context']['intermediate_model']['notebook_location']}"
+                        notebook_path = f"{pipeline['context']['intermediate_model']['notebook_location']}"
                     except:
                         raise NoAvailableNotebookLocation(pipeline_name)
 
-                    bucket = run_params["entity"]["results_reference"]["location"][
-                        "bucket"
-                    ]
                     if not filename:
                         filename = f"{path}/Pipeline_{model_number}_notebook.ipynb"
 
-                    cos_client.download_file(
-                        Bucket=bucket, Filename=filename, Key=model_path
-                    )
+                    notebook_reference.location.path = notebook_path
+                    notebook_reference.download(filename=filename)
 
                     print(f"Selected pipeline notebook stored under: {filename}")
 
@@ -1067,45 +1040,17 @@ def prepare_auto_ai_model_to_publish(
     else:
         from ibm_watsonx_ai.helpers import DataConnection
 
-        # Note: container type needs to be converted to S3 type to handle credentials!
-        bucket = None
-
-        results_reference = DataConnection._from_dict(
+        results_reference = DataConnection.from_dict(
             run_params["entity"]["results_reference"]
         )
         results_reference.set_client(api_client)
-        results_reference._check_if_connection_asset_is_s3()
-        bucket = (
-            results_reference.location.bucket
-        )  # bucket is removed when casting to dict for Container type
-        run_params["entity"][
-            "results_reference"
-        ] = results_reference._to_dict()  # update resolbved credentials in run params
-        # --- end note
-
-        if run_params["entity"]["results_reference"]["type"] == DataConnectionTypes.CA:
-            connection_details = api_client.connections.get_details(
-                run_params["entity"]["results_reference"]["connection"]["id"]
-            )["entity"]
-            cos_client = init_cos_client(connection_details)
-        else:
-            cos_client = init_cos_client(
-                run_params["entity"]["results_reference"]["connection"]
-            )
-
-        bucket = (
-            bucket
-            if bucket is not None
-            else run_params["entity"]["results_reference"]["location"]["bucket"]
-        )
 
         # note: need to download model schema and pipeline definition json
-        cos_client.meta.client.download_file(
-            Bucket=bucket, Filename=pipeline_definition_name, Key=pipeline_model_path
-        )
-        cos_client.meta.client.download_file(
-            Bucket=bucket, Filename="schema.json", Key=schema_path
-        )
+        results_reference.location.path = pipeline_model_path
+        results_reference.download(filename=pipeline_definition_name)
+
+        results_reference.location.path = schema_path
+        results_reference.download(filename="schema.json")
 
         with open("schema.json", "r") as f:
             schema_json = f.read()
@@ -2682,33 +2627,18 @@ def download_request_json(
                     raise e
 
     else:
-        # Note: container type needs to be converted to S3 type to handle credentials!
-        bucket = None
-        if results_reference is not None:
-            results_reference._check_if_connection_asset_is_s3()
-            bucket = (
-                results_reference.location.bucket
-            )  # bucket is removed when casting to dict for Container type
-            results_reference = results_reference._to_dict()
+        from ibm_watsonx_ai.helpers import DataConnection  # prevent circular import
 
-        else:
+        if results_reference is None:
             results_reference = run_params["entity"]["results_reference"]
-        # --- end note
+            if isinstance(results_reference, dict):
+                results_reference = DataConnection.from_dict(results_reference)
 
-        if results_reference["type"] == DataConnectionTypes.CA:
-            connection_details = api_client.connections.get_details(
-                results_reference["connection"]["id"]
-            )["entity"]
-            cos_client = init_cos_client(connection_details)
-        else:
-            cos_client = init_cos_client(results_reference["connection"])
+        results_reference.set_client(api_client)
+        results_reference.location.path = request_path
 
-        bucket = (
-            bucket if bucket is not None else results_reference["location"]["bucket"]
-        )
-        cos_client.meta.client.download_file(
-            Bucket=bucket, Filename="request.json", Key=request_path
-        )
+        results_reference.download(filename="request.json")
+
         try:
             with open("request.json", "r") as f:
                 request_str = f.read()
@@ -2726,9 +2656,8 @@ def download_request_json(
         # note: only if there was 1 estimator during training
         if "content_location" not in request_str:
             request_path = f"{schema_path.split('/data/')[0]}/assets/{run_id}_P{model_number}_compose_model_type_output/resources/wml_model/request.json"
-            cos_client.meta.client.download_file(
-                Bucket=bucket, Filename="request.json", Key=request_path
-            )
+            results_reference.location.path = request_path
+            results_reference.download(filename="request.json")
             try:
                 with open("request.json", "r") as f:
                     request_str = f.read()

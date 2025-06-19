@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Sequence
 
 import pytest
 
 import narwhals as nw
 from narwhals.exceptions import InvalidOperationError, ShapeError
 from tests.utils import PANDAS_VERSION, POLARS_VERSION, Constructor, assert_equal_data
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 # For context, polars allows to explode multiple columns only if the columns
 # have matching element counts, therefore, l1 and l2 but not l1 and l3 together.

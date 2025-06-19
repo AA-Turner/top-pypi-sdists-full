@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: klaviyo-api
-Version: 19.0.1
+Version: 19.0.2
 Summary: Klaviyo Python SDK
 Home-page: https://github.com/klaviyo/klaviyo-api-python
 Author: Klaviyo Developers
@@ -21,7 +21,7 @@ Dynamic: license-file
 
 # Klaviyo Python SDK
 
-- SDK version: 19.0.1
+- SDK version: 19.0.2
 - API revision: 2025-04-15
 
 ## Table of Contents
@@ -69,7 +69,6 @@ Dynamic: license-file
   * [Typed Responses](#typed-responses)
     * [Backwards Compatibility](#backwards-compatibility)
   * [Untyped Response Data for Specific APIs](#untyped-response-data-for-specific-apis)
-  * [Lazy Imports](#lazy-imports)
 <!-- TOC -->
 
 ## Helpful Resources

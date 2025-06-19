@@ -117,7 +117,7 @@ jobs:
       - name: Setup Tox environments
         run: tox run -m unit-tests --notest
       - name: Unit tests
-        run: .tox/.tox/bin/tox run --skip-pkg-install --no-list-dependencies --result-json results/tox-${{ matrix.platform }}.json -m unit-tests
+        run: .tox/.tox/bin/tox run --skip-pkg-install --no-list-dependencies --result-json results/tox-${{ matrix.os }}.json -m unit-tests
         env:
           PYTEST_ADDOPTS: "--no-header -vv -rN"
   tests:
@@ -190,6 +190,11 @@ jobs:
           echo "::endgroup::"
           echo "::group::JDK"
           sudo apt-get install -y openjdk-17-jdk openjdk-21-jdk openjdk-8-jdk-headless openjdk-11-jdk tinyproxy gradle
+          echo "::endgroup::"
+          echo "::group::Maven"
+          sudo apt-get install maven libmaven-resources-plugin-java libmaven-compiler-plugin-java \
+            libmaven-jar-plugin-java libmaven-install-plugin-java libmaven-deploy-plugin-java     \
+            libmaven-shade-plugin-java libsurefire-java
           echo "::endgroup::"
       - name: Install uv
         uses: astral-sh/setup-uv@v4

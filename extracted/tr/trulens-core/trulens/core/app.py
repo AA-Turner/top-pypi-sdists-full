@@ -68,6 +68,9 @@ from trulens.otel.semconv.constants import (
     TRULENS_APP_SPECIFIC_INSTRUMENT_WRAPPER_FLAG,
 )
 from trulens.otel.semconv.constants import TRULENS_INSTRUMENT_WRAPPER_FLAG
+from trulens.otel.semconv.constants import (
+    TRULENS_RECORD_ROOT_INSTRUMENT_WRAPPER_FLAG,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -310,7 +313,7 @@ def instrumented_component_views(
     for q, o in serial_utils.all_objects(obj):
         if (
             isinstance(o, pydantic.BaseModel)
-            and constant_utils.CLASS_INFO in o.model_fields
+            and constant_utils.CLASS_INFO in type(o).model_fields
         ):
             yield q, ComponentView.of_json(json=o)
 
@@ -612,6 +615,14 @@ class App(
             if hasattr(func, TRULENS_INSTRUMENT_WRAPPER_FLAG) or hasattr(
                 func, TRULENS_APP_SPECIFIC_INSTRUMENT_WRAPPER_FLAG
             ):
+                return True
+            func = func.__wrapped__
+        return False
+
+    @staticmethod
+    def _has_record_root_instrumentation(func: Callable) -> bool:
+        while hasattr(func, "__wrapped__"):
+            if hasattr(func, TRULENS_RECORD_ROOT_INSTRUMENT_WRAPPER_FLAG):
                 return True
             func = func.__wrapped__
         return False
@@ -1604,9 +1615,10 @@ you use the `%s` wrapper to make sure `%s` does get instrumented. `%s` method
         except AttributeError:
             pass
 
-        app = self.app
+        if __name == "app":
+            return None
 
-        if python_utils.safe_hasattr(app, __name):
+        if python_utils.safe_hasattr(self.app, __name):
             msg = ATTRIBUTE_ERROR_MESSAGE.format(
                 attribute_name=__name,
                 class_name=type(self).__name__,
@@ -1991,7 +2003,8 @@ you use the `%s` wrapper to make sure `%s` does get instrumented. `%s` method
 
     def stop_evaluator(self) -> None:
         """Stop the evaluator for the app."""
-        self._evaluator.stop_evaluator()
+        if hasattr(self, "_evaluator") and self._evaluator is not None:
+            self._evaluator.stop_evaluator()
 
 
 # NOTE: Cannot App.model_rebuild here due to circular imports involving mod_session.TruSession

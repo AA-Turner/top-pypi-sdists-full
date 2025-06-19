@@ -100,6 +100,7 @@ packages = [
     "posthoganalytics.ai.gemini",
     "posthoganalytics.test",
     "posthoganalytics.exception_integrations",
+    "posthoganalytics.integrations",
 ]
 
 [tool.setuptools.dynamic.version]

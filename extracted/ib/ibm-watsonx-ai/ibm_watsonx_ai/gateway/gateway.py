@@ -12,6 +12,8 @@ from ibm_watsonx_ai.wml_resource import WMLResource
 
 
 class Gateway(WMLResource):
+    """Model Gateway class."""
+
     def __init__(
         self,
         *,
@@ -41,12 +43,50 @@ class Gateway(WMLResource):
                 WMLResource.__init__(self, __name__, api_client)
 
             def create(self, model: str, messages: list[dict], **kwargs: Any) -> dict:
+                """Generate chat completions for given model and messages.
+
+                :param model: name of model for given provider or alias
+                :type model: str
+
+                :param messages: messages to be processed during call
+                :type messages: list[dict]
+
+                :returns: model answer
+                :rtype: dict
+                """
                 request_json = {"messages": messages, "model": model}
 
                 if kwargs:
                     request_json.update(**kwargs)
 
                 response = self._client.httpx_client.post(
+                    self._client._href_definitions.get_gateway_chat_completions_href(),
+                    headers=self._client._get_headers(),
+                    json=request_json,
+                )
+
+                return self._handle_response(200, "chat completion creation", response)
+
+            async def acreate(
+                self, model: str, messages: list[dict], **kwargs: Any
+            ) -> dict:
+                """Generate asynchronously chat completions for given model and messages.
+
+                :param model: name of model for given provider or alias
+                :type model: str
+
+                :param messages: messages to be processed during call
+                :type messages: list[dict]
+
+                :returns: model answer
+                :rtype: dict
+                """
+                request_json = {"messages": messages, "model": model}
+
+                if kwargs:
+                    request_json.update(**kwargs)
+
+                response = await self._client.async_httpx_client.post(
                     self._client._href_definitions.get_gateway_chat_completions_href(),
                     headers=self._client._get_headers(),
                     json=request_json,
@@ -68,12 +108,50 @@ class Gateway(WMLResource):
             def create(
                 self, model: str, prompt: str | list[str] | list[int], **kwargs: Any
             ) -> dict:
+                """Generate text completions for given model and prompt.
+
+                :param model: name of model for given provider or alias
+                :type model: str
+
+                :param prompt: prompt for processing
+                :type prompt: str or list[str] or list[int]
+
+                :returns: model answer
+                :rtype: dict
+                """
                 request_json = {"prompt": prompt, "model": model}
 
                 if kwargs:
                     request_json.update(**kwargs)
 
                 response = self._client.httpx_client.post(
+                    self._client._href_definitions.get_gateway_text_completions_href(),
+                    headers=self._client._get_headers(),
+                    json=request_json,
+                )
+
+                return self._handle_response(200, "text completion creation", response)
+
+            async def acreate(
+                self, model: str, prompt: str | list[str] | list[int], **kwargs: Any
+            ) -> dict:
+                """Generate asynchronous text completions for given model and prompt.
+
+                :param model: name of model for given provider or alias
+                :type model: str
+
+                :param prompt: prompt for processing
+                :type prompt: str or list[str] or list[int]
+
+                :returns: model answer
+                :rtype: dict
+                """
+                request_json = {"prompt": prompt, "model": model}
+
+                if kwargs:
+                    request_json.update(**kwargs)
+
+                response = await self._client.async_httpx_client.post(
                     self._client._href_definitions.get_gateway_text_completions_href(),
                     headers=self._client._get_headers(),
                     json=request_json,
@@ -91,6 +169,17 @@ class Gateway(WMLResource):
             def create(
                 self, model: str, input: str | list[str] | list[int], **kwargs: Any
             ) -> dict:
+                """Generate embeddings for given model and input.
+
+                :param model: name of model for given provider or alias
+                :type model: str
+
+                :param input: prompt for processing
+                :type input: str or list[str] or list[int]
+
+                :returns: embeddings for given model and input
+                :rtype: dict
+                """
                 request_json = {"input": input, "model": model}
 
                 if kwargs:
@@ -104,20 +193,60 @@ class Gateway(WMLResource):
 
                 return self._handle_response(200, "embedding creation", response)
 
+            async def acreate(
+                self, model: str, input: str | list[str] | list[int], **kwargs: Any
+            ) -> dict:
+                """Generate asynchronous embeddings for given model and input.
+
+                :param model: name of model for given provider or alias
+                :type model: str
+
+                :param input: prompt for processing
+                :type input: str or list[str] or list[int]
+
+                :returns: embeddings for given model and input
+                :rtype: dict
+                """
+                request_json = {"input": input, "model": model}
+
+                if kwargs:
+                    request_json.update(**kwargs)
+
+                response = await self._client.async_httpx_client.post(
+                    self._client._href_definitions.get_gateway_embeddings_href(),
+                    headers=self._client._get_headers(),
+                    json=request_json,
+                )
+
+                return self._handle_response(200, "embedding creation", response)
+
         self.embeddings = _Embeddings(self._client)
 
-    def set_secret_manager(
-        self, secret_manager: str, name: str = "Watsonx AI Gateway configuration"
+    def set_secrets_manager(
+        self, secrets_manager: str, name: str = "Watsonx AI Model Gateway configuration"
     ) -> dict:
+        """Configure Model Gateway by, among others, setting Secrets Manager url.
+
+        :param secrets_manager: Secrets Manager url
+        :type secrets_manager: str
+
+        :param name: Model Gateway configuration name
+        :type name: str, optional
+        """
         response = self._client.httpx_client.post(
             self._client._href_definitions.get_gateway_tenant_href(),
             headers=self._client._get_headers(),
-            json={"name": name, "secret_manager": secret_manager},
+            json={"name": name, "secrets_manager": secrets_manager},
         )
 
-        return self._handle_response(201, "set secret manager", response)
+        return self._handle_response(201, "set secrets manager", response)
 
-    def clear_secret_manager(self) -> Literal["SUCCESS"]:
+    def clear_secrets_manager(self) -> str:
+        """Clear Model Gateway configuration.
+
+        :return: status ("SUCCESS" if succeeded)
+        :rtype: str
+        """
         response = self._client.httpx_client.delete(
             self._client._href_definitions.get_gateway_tenant_href(),
             headers=self._client._get_headers(),

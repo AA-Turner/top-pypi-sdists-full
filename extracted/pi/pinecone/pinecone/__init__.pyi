@@ -46,6 +46,7 @@ from pinecone.db_data.models import (
     UpsertResponse,
     UpdateRequest,
 )
+from pinecone.core.openapi.db_data.models import NamespaceDescription
 from pinecone.db_data.resources.sync.bulk_import import ImportErrorMode
 from pinecone.db_data.errors import (
     VectorDictionaryMissingKeysError,
@@ -76,6 +77,10 @@ from pinecone.db_control.models import (
     ServerlessSpecDefinition,
     PodSpec,
     PodSpecDefinition,
+)
+from pinecone.db_control.types import (
+    ConfigureIndexEmbed,
+    CreateIndexForModelEmbedTypedDict,
 )
 from pinecone.pinecone import Pinecone
 from pinecone.pinecone_asyncio import PineconeAsyncio
@@ -130,6 +135,7 @@ __all__ = [
     "QueryResponse",
     "UpsertResponse",
     "UpdateRequest",
+    "NamespaceDescription",
     "ImportErrorMode",
     # Error classes
     "VectorDictionaryMissingKeysError",
@@ -158,4 +164,7 @@ __all__ = [
     "ServerlessSpecDefinition",
     "PodSpec",
     "PodSpecDefinition",
+    # Control plane types
+    "ConfigureIndexEmbed",
+    "CreateIndexForModelEmbedTypedDict",
 ]

@@ -311,10 +311,18 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         console.print("INSERINDO CODIGO DO FORNECEDOR ...\n")
         field_fornecedor = main_window.child_window(class_name="TDBIEditCode", found_index=0)
         field_fornecedor.click()
-        field_fornecedor.set_edit_text(cod_cliente_incorreto)
+
+        if cod_cliente_incorreto != "140552":
+            field_fornecedor.set_edit_text(cod_cliente_incorreto)
+        else:
+            field_fornecedor.set_edit_text(cod_empresa)
         field_fornecedor.click()
         pyautogui.press("tab")
         await worker_sleep(2)
+
+        
+        itens = nota.get('itens', [])
+        itens_arla = [item for item in itens if item['descricao'].lower() == 'arla']
 
         #SELECIONAO A NOP 
         console.print("SELECIONAO A NOP...\n")
@@ -324,10 +332,19 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         itens_to_select = select_box_nop_select.texts()
         nop_to_be_select = ''
 
-        for item in itens_to_select:
-            if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
-                nop_to_be_select = item
-                break
+        if len(itens_arla) == len(itens):
+            for item in itens_to_select:
+                if '1202' in item and (('s/ est' in item.lower() or 's/est' in item.lower())):
+                    nop_to_be_select = item
+                    break
+                elif '2202' in item and (('s/ est' in item.lower() or 's/est' in item.lower())):
+                    nop_to_be_select = item
+                    break
+        else:        
+            for item in itens_to_select:
+                if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
+                    nop_to_be_select = item
+                    break
 
         if nop_to_be_select != '':
             set_combobox("||List", nop_to_be_select)

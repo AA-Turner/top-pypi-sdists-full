@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: topk_sdk
-Version: 0.3.5
+Version: 0.3.7
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -100,7 +100,7 @@ client.collection("books").upsert(
 Now, **retrieve books using semantic search**:
 
 ```python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 results = client.collection("books").query(
   select(

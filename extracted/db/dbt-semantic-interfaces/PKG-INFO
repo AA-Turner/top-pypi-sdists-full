@@ -1,9 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: dbt-semantic-interfaces
-Version: 0.8.3
+Version: 0.8.4
 Summary: The shared semantic layer definitions that dbt-core and MetricFlow use
 Author-email: dbt Labs <info@dbtlabs.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
@@ -16,8 +17,8 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.8
 Requires-Dist: click<9.0,>=7.0
-Requires-Dist: importlib-metadata<7,>=6.0
-Requires-Dist: jinja2<4,>=3.1.3
+Requires-Dist: importlib-metadata<9,>=6.0
+Requires-Dist: jinja2<4,>=3.1.6
 Requires-Dist: jsonschema<5,>=4.0
 Requires-Dist: more-itertools<11.0,>=8.0
 Requires-Dist: pydantic<3,>=1.10

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from narwhals._compliant import LazyGroupBy
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     import ibis.expr.types as ir  # noqa: F401
 
     from narwhals._ibis.dataframe import IbisLazyFrame

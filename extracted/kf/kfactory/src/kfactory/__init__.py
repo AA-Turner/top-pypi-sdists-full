@@ -6,7 +6,7 @@ Uses the klayout package as a backend.
 # The import order matters, we need to first import the important stuff.
 # isort:skip_file
 
-__version__ = "1.8.2"
+__version__ = "1.9.2"
 
 import klayout.db as kdb
 from klayout import lay
@@ -22,6 +22,8 @@ from .cross_section import (
 from .enclosure import KCellEnclosure, LayerEnclosure
 from .grid import flexgrid, flexgrid_dbu, grid, grid_dbu
 from .kcell import BaseKCell, DKCell, KCell, ProtoTKCell, VKCell, show
+from .pin import Pin, DPin, ProtoPin
+from .pins import Pins, DPins
 from .ports import Ports, DPorts
 from .port import Port, DPort, ProtoPort
 from .instance import Instance, DInstance, VInstance
@@ -78,6 +80,8 @@ __all__ = [
     "DInstancePorts",
     "DInstances",
     "DKCell",
+    "DPin",
+    "DPins",
     "DPort",
     "DPorts",
     "DSchema",
@@ -95,8 +99,11 @@ __all__ = [
     "LayerInfos",
     "LayerStack",
     "Netlist",
+    "Pin",
+    "Pins",
     "Port",
     "Ports",
+    "ProtoPin",
     "ProtoPort",
     "ProtoTKCell",
     "Schema",

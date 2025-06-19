@@ -331,21 +331,24 @@ class NotionHelper:
             "日期": get_date(format_date(date)),
             "时间戳": get_number(timestamp),
         }
-        properties["年"] = get_relation(
-            [
-                self.get_year_relation_id(new_date),
-            ]
-        )
-        properties["月"] = get_relation(
-            [
-                self.get_month_relation_id(new_date),
-            ]
-        )
-        properties["周"] = get_relation(
-            [
-                self.get_week_relation_id(new_date),
-            ]
-        )
+        if self.year_database_id is not None:
+            properties["年"] = get_relation(
+                [
+                    self.get_year_relation_id(new_date),
+                ]
+            )
+        if self.month_database_id is not None:
+            properties["月"] = get_relation(
+                [
+                    self.get_month_relation_id(new_date),
+                ]
+            )
+        if self.week_database_id is not None:
+            properties["周"] = get_relation(
+                [
+                    self.get_week_relation_id(new_date),
+                ]
+            )
         return self.get_relation_id(
             day, self.day_database_id, self.get_date_icon(date, "day"), properties
         )
@@ -551,23 +554,27 @@ class NotionHelper:
         return results
 
     def get_date_relation(self, properties, date):
-        properties["年"] = get_relation(
-            [
-                self.get_year_relation_id(date),
-            ]
-        )
-        properties["月"] = get_relation(
-            [
-                self.get_month_relation_id(date),
-            ]
-        )
-        properties["周"] = get_relation(
-            [
-                self.get_week_relation_id(date),
-            ]
-        )
-        properties["日"] = get_relation(
-            [
-                self.get_day_relation_id(date),
-            ]
-        )
+        if self.year_database_id is not None:
+            properties["年"] = get_relation(
+                [
+                    self.get_year_relation_id(date),
+                ]
+            )
+        if self.month_database_id is not None:
+            properties["月"] = get_relation(
+                [
+                    self.get_month_relation_id(date),
+                ]
+            )
+        if self.week_database_id is not None:
+            properties["周"] = get_relation(
+                [
+                    self.get_week_relation_id(date),
+                ]
+            )
+        if self.day_database_id is not None:
+            properties["日"] = get_relation(
+                [
+                    self.get_day_relation_id(date),
+                ]
+            )

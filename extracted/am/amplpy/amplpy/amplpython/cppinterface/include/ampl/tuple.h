@@ -1,203 +1,78 @@
 #ifndef AMPL_TUPLE_H
 #define AMPL_TUPLE_H
 
-#include <vector>
-
-#include "ampl/ep/tuple_ep.h"
+#include "ampl/ampl_c.h"
 #include "ampl/variant.h"
 
 namespace ampl {
-namespace internal {
-class TupleUtils;
-}
-
 /**
-Generic tuple (with or without ownership)
-
-Represents a tuple with the concept of ownership. It always has ownership of the
-array of variant itself, but not the data they contain. This second is
-controlled by the template argument.
-*/
-template <bool OWNING>
-class BasicTuple {
-  friend class internal::TupleBuilder;
-  friend class Tuple;
-  template <bool O>
-  friend class BasicTuple;  // For coercing
-  friend class internal::TupleUtils;
-
-  void destroy() {
-    if (OWNING && impl_.size > 0) deleteTuple(impl_);
-  }
-
-  void assign(internal::Tuple other) {
-    std::size_t size = other.size;
-    internal::Variant* data = other.data;
-    if (!OWNING) {
-      impl_.size = size;
-      impl_.data = data;
-      return;
-    }
-    internal::TupleBuilder tb(size);
-    for (std::size_t i = 0; i < size; i++) tb.add(VariantRef(data[i]));
-    impl_.size = 0;
-    BasicTuple t;
-    t.impl_ = tb.release();
-    swap(*this, t);
-    t.destroy();
-  }
-
-  friend void swap(BasicTuple& l, BasicTuple& r) {
-    using std::swap;
-    swap(l.impl_, r.impl_);
-  }
-
- protected:
-  internal::Tuple impl_;
-
- public:
-  /**
-  Get access to the inner immutable object (infrastructure).
-  */
-  internal::Tuple impl() const { return impl_; }
-
-  /**
-  Constructor from struct. If owning, copies all the data from it, otherwise
-  it references it
-  */
-  explicit BasicTuple(internal::Tuple other) { assign(other); }
-
-  /**
-  Default constructor
-  */
-  BasicTuple() {
-    impl_.size = 0;
-    impl_.data = NULL;
-  }
-
-  /**
-  Copy constructor
-  */
-  BasicTuple(BasicTuple const& other) { assign(other.impl_); }
-
-  /**
-  Coercing copy constructor
-  */
-  template <bool O>
-  BasicTuple(BasicTuple<O> const& other) {
-    assign(other.impl_);
-  }
-
-  /**
-  Destructor
-  */
-  ~BasicTuple() {
-    if (OWNING) destroy();
-  }
-
-  /**
-  Coercing assignment operator
-  */
-  template <bool O>
-  BasicTuple& operator=(BasicTuple<O> other) {
-    using std::swap;
-    swap(*this, other);
-    if (OWNING) other.destroy();
-    return *this;
-  }
-
-  /**
-  Assignment operator
-  */
-  BasicTuple& operator=(BasicTuple other) {
-    using std::swap;
-    swap(*this, other);
-    if (OWNING) other.destroy();
-    return *this;
-  }
-
-  /**
-  Get the number of Elements in this tuple
-  */
-  std::size_t size() const { return impl_.size; }
-
-  /**
-  Return a string representation of this tuple. All elements are formatted
-  as in BasicVariant::toString and comma separated.
-  An empty tuple is returned as "()".
-  */
-  std::string toString() const {
-    const char* c_str = AMPL_Tuple_ToString(&impl_);
-    std::string s(c_str);
-    internal::AMPL_DeleteString(c_str);
-    return s;
-  }
-
-  /**
-  Accessor for elements of the tuple
-  */
-  VariantRef operator[](std::size_t index) const {
-    assert(index < impl_.size);
-    return VariantRef(impl_.data[index]);
-  }
-};
-
-/**
- * Not owning Tuple.
- *
- * A public typedef of BasicTuple without ownership semantics.
- * It can be used both as a return type when the ownership semantics is not
- * needed (e.g. returning a reference to a tuple stored in a container) and as
- * an argument type to provide implicit conversions and reduce the number of
- * required overloads.
+ * Represents a tuple
  */
-typedef BasicTuple<false> TupleRef;
-
-/**
-Represents a tuple with ownership semantics (owns all the data it contains)
-*/
-class Tuple : public BasicTuple<true> {
+class Tuple {
  public:
   /** @name Constructors
    * Constructors for Tuple objects.
    */
   //@{
   /**
-  Construct an empty Tuple
-  */
-  Tuple() : BasicTuple<true>() {}
-
-  /**
-  Construct a n-Tuple from an array of variants
-  */
-  Tuple(Variant arguments[], std::size_t N) {
-    internal::TupleBuilder tb(N);
-    for (std::size_t i = 0; i < N; i++) tb.add(arguments[i]);
-    impl_ = tb.release();
+   * Construct an empty Tuple
+   */
+  Tuple() {
+    AMPL_TupleCreate(&impl_, 0, NULL);
   }
 
   /**
-  Construct a Tuple from a TupleRef
-  */
-  explicit Tuple(TupleRef t) : BasicTuple<true>(t.impl_) {}
+   * Get access to the inner immutable object (infrastructure).
+   */
+  AMPL_TUPLE *impl() const { return impl_; }
+
+  /**
+   * Construct a n-Tuple from an array of variants
+   */
+  Tuple(Variant arguments[], std::size_t N) {
+    std::vector<AMPL_VARIANT*> vs(N);
+    for (std::size_t i = 0; i < N; i++) vs[i] = arguments[i].impl();
+    AMPL_TupleCreate(&impl_, vs.size(), vs.data());
+  }
+
+  /**
+   * Copy constructor. If ``OWNING`` copy the resources
+   */
+  Tuple(const Tuple& other) { AMPL_TupleCopy(&impl_, other.impl_); }
+
+  /**
+   * Destructor
+   */
+  ~Tuple() {
+    AMPL_TupleFree(&impl_);
+  }
+
+  /**
+   * Assignment operator
+   */
+  Tuple& operator=(const Tuple& other) {
+    AMPL_TupleFree(&impl_);
+    AMPL_TupleCopy(&impl_, other.impl_);
+    return *this;
+  }
 
   /** @name Constructors from variants
    * Constructors from ampl::Variant objects.
    */
   //@{
-  explicit Tuple(VariantRef v1) {
-    VariantRef args[1] = {v1};
-    initialize(args, 1);
+  Tuple(Variant v1) {
+    AMPL_VARIANT *vs[] = {v1.impl()};
+    AMPL_TupleCreate(&impl_, 1, vs);
   }
 
-  Tuple(VariantRef v1, VariantRef v2) {
-    VariantRef args[2] = {v1, v2};
-    initialize(args, 2);
+  Tuple(Variant v1, Variant v2) {
+    AMPL_VARIANT *vs[] = {v1.impl(), v2.impl()};
+    AMPL_TupleCreate(&impl_, 2, vs);
   }
 
-  Tuple(VariantRef v1, VariantRef v2, VariantRef v3) {
-    VariantRef args[3] = {v1, v2, v3};
-    initialize(args, 3);
+  Tuple(Variant v1, Variant v2, Variant v3) {
+    AMPL_VARIANT *vs[] = {v1.impl(), v2.impl(), v3.impl()};
+    AMPL_TupleCreate(&impl_, 3, vs);
   }
 
   /**
@@ -208,9 +83,9 @@ class Tuple : public BasicTuple<true> {
    * \param v3 Third element
    * \param v4 Fourth element
    */
-  Tuple(VariantRef v1, VariantRef v2, VariantRef v3, VariantRef v4) {
-    VariantRef args[4] = {v1, v2, v3, v4};
-    initialize(args, 4);
+  Tuple(Variant v1, Variant v2, Variant v3, Variant v4) {
+    AMPL_VARIANT *vs[] = {v1.impl(), v2.impl(), v3.impl(), v4.impl()};
+    AMPL_TupleCreate(&impl_, 4, vs);
   }
 
   /**@}*/  // end constructors from variants group
@@ -219,42 +94,76 @@ class Tuple : public BasicTuple<true> {
   /**
    * Construct a tuple from an internal struct (infrastructure)
    */
-  explicit Tuple(internal::Tuple other) : BasicTuple<true>(other) {}
+  explicit Tuple(AMPL_TUPLE *other) : impl_(other) { retainTuple(impl_); }
 
   /**
-  Join two tuples together and forms a new one copying all data
-  */
-  static Tuple join(TupleRef t1, TupleRef t2) {
+   * Get the number of Elements in this tuple
+   */
+  std::size_t size() const {
+    size_t size;
+    AMPL_TupleGetSize(impl_, &size);
+    return size; 
+  }
+
+  /**
+   * Return a string representation of this tuple. All elements are formatted
+   * as in BasicVariant::toString and comma separated.
+   * An empty tuple is returned as "()".
+   */
+  std::string toString() const {
+    char* str;
+    AMPL_TupleToString(impl_, &str);
+    std::string s(str);
+    AMPL_StringFree(&str);
+    return s;
+  }
+
+  /**
+   * Accessor for elements of the tuple
+   */
+  Variant operator[](std::size_t index) const {
+    size_t size;
+    AMPL_TupleGetSize(impl_, &size);
+    assert(index < size);
+
+    AMPL_VARIANT *v;
+    AMPL_TupleGetVariant(impl_, index, &v);
+    //retainVariant(v);
+    return Variant(v);
+  }
+
+  /**
+   * Join two tuples together and forms a new one copying all data
+   */
+  static Tuple join(Tuple t1, Tuple t2) {
+    Tuple t;
     std::size_t size1 = t1.size();
     std::size_t size2 = t2.size();
-    internal::TupleBuilder tb(size1 + size2);
-    for (std::size_t i = 0; i < size1; i++)
-      tb.add(VariantRef(t1.impl_.data[i]));
-    for (std::size_t i = 0; i < size2; i++)
-      tb.add(VariantRef(t2.impl_.data[i]));
-    Tuple t;
-    t.impl_ = tb.release();
+    AMPL_VARIANT **vs = (AMPL_VARIANT**)malloc((size1 + size2) * sizeof(AMPL_VARIANT*));
+    for (std::size_t i = 0; i < size1; i++) {
+      AMPL_VARIANT *v;
+      AMPL_TupleGetVariant(t1.impl(), i, &v);
+      vs[i] = v;
+      retainVariant(vs[i]);
+    }
+    for (std::size_t i = 0; i < size2; i++) {
+      AMPL_VARIANT *v;
+      AMPL_TupleGetVariant(t2.impl(), i, &v);
+      vs[i + size1] = v;
+      retainVariant(vs[i]);
+    }
+
+    AMPL_TupleCreate(&t.impl_, static_cast<size_t>(size1 + size2), vs);    
     return t;
   }
 
  private:
-  void initialize(VariantRef args[], std::size_t n) {
-    internal::TupleBuilder tb(n);
-    for (std::size_t i = 0; i < n; i++) tb.add(args[i]);
-    impl_ = tb.release();
-  }
+  AMPL_TUPLE *impl_;
 };
 
 namespace internal {
-inline std::vector<Tuple> getInternalTupleArray(const ampl::Tuple* array,
-                                                std::size_t size) {
-  std::vector<internal::Tuple> v;
-  v.reserve(size);
-  for (std::size_t i = 0; i < size; ++i) v.push_back(array[i].impl());
-  return v;
-}
 
-inline int compare(TupleRef t1, TupleRef t2) {
+inline int compare(ampl::Tuple t1, ampl::Tuple t2) {
   if (t1.size() == t2.size()) {
     for (std::size_t i = 0; i < t1.size(); i++) {
       int r = compare(t1[i], t2[i]);
@@ -265,11 +174,6 @@ inline int compare(TupleRef t1, TupleRef t2) {
     return (t1.size() > t2.size()) ? 1 : -1;
 }
 
-template <std::size_t SIZE>
-inline BasicTuple<false> MakeTempTuple(internal::Variant (&data)[SIZE]) {
-  internal::Tuple tuple = {data, SIZE};
-  return BasicTuple<false>(tuple);
-}
 }  // namespace internal
 
 /** @name Tuple comparison operators
@@ -278,55 +182,55 @@ inline BasicTuple<false> MakeTempTuple(internal::Variant (&data)[SIZE]) {
 ///@{
 
 /**
-Comparison operator.
-Returns true if t1.size() < t2.size(). Otherwise
-implements Variant comparison on all elements considering
-element 0 as the most significative.
-*/
-inline bool operator<(TupleRef t1, TupleRef t2) {
+ * Comparison operator.
+ * Returns true if t1.size() < t2.size(). Otherwise
+ * implements Variant comparison on all elements considering
+ * element 0 as the most significative.
+ */
+inline bool operator<(Tuple t1, Tuple t2) {
   return internal::compare(t1, t2) < 0;
 }
 
-/*Comparison operator.
-Returns true if t1.size() <= t2.size(). Otherwise
-implements Variant comparison on all elements considering
-element 0 as the most significative.
-*/
-inline bool operator<=(TupleRef t1, TupleRef t2) {
+/* Comparison operator.
+ * Returns true if t1.size() <= t2.size(). Otherwise
+ * implements Variant comparison on all elements considering
+ * element 0 as the most significative.
+ */
+inline bool operator<=(Tuple t1, Tuple t2) {
   return internal::compare(t1, t2) <= 0;
 }
 
 /**
-Equality operator
-*/
-inline bool operator==(TupleRef t1, TupleRef t2) {
+ * Equality operator
+ */
+inline bool operator==(Tuple t1, Tuple t2) {
   return internal::compare(t1, t2) == 0;
 }
 
 /**
-Inequality operator
-*/
-inline bool operator!=(TupleRef t1, TupleRef t2) {
+ * Inequality operator
+ */
+inline bool operator!=(Tuple t1, Tuple t2) {
   return internal::compare(t1, t2) != 0;
 }
 
 /**
-Comparison operator.
-Returns true if t1.size() > t2.size(). Otherwise
-implements Variant comparison on all elements considering
-element 0 as the most significative.
-*/
-inline bool operator>(TupleRef t1, TupleRef t2) {
+ * Comparison operator.
+ * Returns true if t1.size() > t2.size(). Otherwise
+ * implements Variant comparison on all elements considering
+ * element 0 as the most significative.
+ */
+inline bool operator>(Tuple t1, Tuple t2) {
   return internal::compare(t1, t2) > 0;
 }
 
 /**
-Comparison operator.
-Returns true if t1.size() >= t2.size(). Otherwise
-implements Variant comparison on all elements considering
-element 0 as the most significative.
-*/
-inline bool operator>=(TupleRef t1, TupleRef t2) {
+ * Comparison operator.
+ * Returns true if t1.size() >= t2.size(). Otherwise
+ * implements Variant comparison on all elements considering
+ * element 0 as the most significative.
+ */
+inline bool operator>=(Tuple t1, Tuple t2) {
   return internal::compare(t1, t2) >= 0;
 }
 

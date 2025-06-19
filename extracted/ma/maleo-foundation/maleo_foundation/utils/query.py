@@ -24,10 +24,10 @@ class BaseQueryUtils:
         value_filters = []
         if value is not None:
             value_filters.extend([column_attr == val for val in value])
-        if include_null:
-            value_filters.append(column_attr.is_(None))
 
         if value_filters:
+            if include_null:
+                value_filters.append(column_attr.is_(None))
             query = query.filter(or_(*value_filters))
 
         return query
@@ -43,14 +43,14 @@ class BaseQueryUtils:
         column_attr = getattr(table, column, None)
         if column_attr is None or not isinstance(column_attr, InstrumentedAttribute):
             return query
-        
+
         id_filters = []
         if ids is not None:
             id_filters.extend([column_attr == id for id in ids])
-        if include_null:
-            id_filters.append(column_attr.is_(None))
 
         if id_filters:
+            if include_null:
+                id_filters.append(column_attr.is_(None))
             query = query.filter(or_(*id_filters))
 
         return query

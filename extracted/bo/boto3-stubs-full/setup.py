@@ -12,12 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs-full",
-    version="1.38.38",
+    version="1.38.39",
     packages=[
         "mypy_boto3_accessanalyzer",
         "mypy_boto3_account",
         "mypy_boto3_acm",
         "mypy_boto3_acm_pca",
+        "mypy_boto3_aiops",
         "mypy_boto3_amp",
         "mypy_boto3_amplify",
         "mypy_boto3_amplifybackend",
@@ -424,7 +425,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.38.38 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.38.39 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -452,6 +453,7 @@ setup(
         "mypy_boto3_account": ["py.typed", "*.pyi"],
         "mypy_boto3_acm": ["py.typed", "*.pyi"],
         "mypy_boto3_acm_pca": ["py.typed", "*.pyi"],
+        "mypy_boto3_aiops": ["py.typed", "*.pyi"],
         "mypy_boto3_amp": ["py.typed", "*.pyi"],
         "mypy_boto3_amplify": ["py.typed", "*.pyi"],
         "mypy_boto3_amplifybackend": ["py.typed", "*.pyi"],

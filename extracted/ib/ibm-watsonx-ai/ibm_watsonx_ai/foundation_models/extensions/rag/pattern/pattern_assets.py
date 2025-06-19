@@ -688,7 +688,7 @@ class RAGPatternService(BaseRAGPatternService):
 
 
 class RAGPatternFunction(BaseRAGPatternService):
-    """Initialize ``RAGPatternSFunction`` object.
+    """Initialize ``RAGPatternFunction`` object.
 
     :param api_client: initialized APIClient object
     :type api_client: APIClient

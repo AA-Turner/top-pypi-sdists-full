@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-einstats
-Version: 0.9.0
+Version: 0.9.1
 Summary: Stats, linear algebra and einops for xarray
 Author-email: ArviZ team <arviz.devs@gmail.com>
 Requires-Python: >=3.11

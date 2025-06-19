@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: nncf
-Version: 2.16.0
+Version: 2.17.0
 Summary: Neural Networks Compression Framework
 Author: Intel
-Author-email: alexander.kozlov@intel.com
+Author-email: maksim.proshin@intel.com
 License: Apache-2.0
 Project-URL: Homepage, https://github.com/openvinotoolkit/nncf
 Keywords: bert,classification,compression,hawq,mixed-precision-training,mmdetection,nas,nlp,object-detection,pruning,quantization,quantization-aware-training,semantic-segmentation,sparsity,transformers
@@ -14,7 +14,6 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: jsonschema>=3.2.0
-Requires-Dist: jstyleson>=0.0.2
 Requires-Dist: natsort>=7.1.0
 Requires-Dist: networkx<3.5.0,>=2.6
 Requires-Dist: ninja<1.12,>=1.10.0.post2

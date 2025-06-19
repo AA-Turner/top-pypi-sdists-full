@@ -256,41 +256,6 @@ def evaluate_input_value_from(
     return updated_inputs
 
 
-def collect_outputs(cwl, inputs, requirements: list = []) -> list[str]:
-    """Collect evaluated output filenames.
-
-    Parameters
-    ----------
-    cwl: dict
-        The CWL definition
-    inputs: dict
-        user provided inputs.
-
-    Returns
-    -------
-    outputs: list[str]
-        The output filenames of this workflow given
-        the provided inputs and defaults.
-    """
-
-    outputs = []
-    if cwl.outputs is None:
-        return outputs
-    for output in cwl.outputs:
-        if glob := output.outputBinding.glob:
-            result = do_eval(
-                glob,
-                inputs,
-                outdir=None,
-                requirements=requirements,
-                tmpdir=None,
-                resources={},
-            )
-            outputs.append(result)
-
-    return outputs
-
-
 def extract_output_files(
     cwl_obj: CommandLineTool,
     inputs: dict,
@@ -434,6 +399,8 @@ def extract_and_translate_input_files(cwl_inputs) -> dict[str, Any]:
 
         elif isinstance(input_value, File):
             input_value.path = update_inputs(input_value)
+        elif isinstance(input_value, str) and input_value.startswith(LFN_PREFIX):
+            cwl_inputs[key] = Path(input_value.removeprefix(LFN_PREFIX)).name
 
     return {
         "InputDesc": cwl_inputs,

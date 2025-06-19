@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hume
-Version: 0.8.6
+Version: 0.9.0
 Summary: A Python SDK for Hume AI
 License: MIT
 Keywords: hume,ai,evi,empathic,multimodal,expression,analysis,sentiment,voice,recognition,detection,emotion,interface,speech,audio,vision,expressive,embeddings,communication,learning
@@ -22,7 +22,6 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Provides-Extra: examples
-Provides-Extra: legacy
 Provides-Extra: microphone
 Requires-Dist: aiofiles (>=24.1.0,<25.0.0)
 Requires-Dist: eval-type-backport (>=0.2.0,<0.3.0)
@@ -31,8 +30,8 @@ Requires-Dist: httpx (>=0.21.2)
 Requires-Dist: jupyter (>=1.0.0,<2.0.0) ; extra == "examples"
 Requires-Dist: pydantic (>=1.9.2)
 Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
-Requires-Dist: pydub (>=0.25.1,<0.26.0) ; extra == "microphone" or extra == "legacy"
-Requires-Dist: simpleaudio (>=1.0.4,<2.0.0) ; extra == "microphone"
+Requires-Dist: pydub (>=0.25.1,<0.26.0)
+Requires-Dist: simpleaudio (>=1.0.4,<2.0.0)
 Requires-Dist: sounddevice (>=0.4.6,<0.5.0) ; extra == "microphone"
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: websockets (>=13.1,<14.0)
@@ -56,11 +55,8 @@ Description-Content-Type: text/markdown
 
 ## Migration Guide for Version 0.7.0 and Above
 
-We've released version `0.7.0` of the SDK with significant architectural changes. This update introduces `AsyncHumeClient` and `HumeClient`, improves type safety and async support, and provides more granular configuration options. To help you transition, we've prepared a comprehensive migration guide:
-
-**[View the Migration Guide](https://github.com/HumeAI/hume-python-sdk/wiki/Python-SDK-Migration-Guide)**
-
-Please review this guide before updating, as it covers breaking changes and provides examples for updating your code. Legacy functionality is preserved for backward compatibility. If you have any questions, please open an issue or contact our support team.
+There were major breaking changes in version `0.7.0` of the SDK. If upgrading from a previous version, please 
+**[View the Migration Guide](https://github.com/HumeAI/hume-python-sdk/wiki/Python-SDK-Migration-Guide)**. That release deprecated several interfaces and moved them to the `hume[legacy]` package extra. The `legacy` extra was removed in `0.9.0`. The last version to include `legacy` was `0.8.6`.
 
 ## Documentation
 
@@ -132,21 +128,6 @@ client = AsyncHumeClient()
 async with aiofiles.open('artifacts.zip', mode='wb') as file:
     async for chunk in client.expression_measurement.batch.get_job_artifacts(id="my-job-id"):
         await file.write(chunk)
-```
-
-## Legacy SDK
-
-If you want to continue using the legacy SDKs, simply import them from
-the `hume.legacy` module.
-
-```python
-from hume.legacy import HumeVoiceClient, VoiceConfig
-
-client = HumeVoiceClient("<your-api-key>")
-config = client.empathic_voice.configs.get_config_version(
-    id="id",
-    version=1,
-)
 ```
 
 ## Namespaces

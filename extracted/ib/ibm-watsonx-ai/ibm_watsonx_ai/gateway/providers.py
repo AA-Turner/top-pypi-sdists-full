@@ -14,12 +14,28 @@ from ibm_watsonx_ai.wml_resource import WMLResource
 
 
 class Providers(WMLResource):
+    """Model Gateway providers class."""
+
     def __init__(self, api_client: APIClient):
         WMLResource.__init__(self, __name__, api_client)
 
     def create(
         self, provider: str, name: str | None = None, data: dict | None = None
     ) -> dict:
+        """Create provider in Model Gateway.
+
+        :param provider: provider name
+        :type provider: str
+
+        :param name: name of provider for display
+        :type name: str, optional
+
+        :param data: data required to connect to provider api
+        :type data: dict, optional
+
+        :returns: provider details
+        :rtype: dict
+        """
 
         request_json = {}
 
@@ -38,6 +54,16 @@ class Providers(WMLResource):
         return self._handle_response(201, "provider creation", response)
 
     def get_details(self, provider_id: str | None = None) -> dict:
+        """Get provider/providers details:
+         - `provider_id` is set - details for given provider are returned
+         - `provider_id` is `None` - details for all providers are returned
+
+        :param provider_id: unique provider ID
+        :type provider_id: str, optional
+
+        :returns: provider/providers details
+        :rtype: dict
+        """
         if provider_id:
             response = self._client.httpx_client.get(
                 self._client._href_definitions.get_gateway_provider_href(provider_id),
@@ -54,6 +80,14 @@ class Providers(WMLResource):
             return self._handle_response(200, "getting providers details", response)
 
     def get_available_models_details(self, provider_id: str) -> dict:
+        """Get available models details for given provider.
+
+        :param provider_id: unique provider ID
+        :type provider_id: str
+
+        :returns: details of available models for provider
+        :rtype: dict
+        """
         response = self._client.httpx_client.get(
             self._client._href_definitions.get_gateway_provider_available_models_href(
                 provider_id
@@ -66,6 +100,11 @@ class Providers(WMLResource):
         )
 
     def list(self) -> pd.DataFrame:
+        """List providers.
+
+        :returns: dataframe with providers details
+        :rtype: pandas.DataFrame
+        """
         providers_details = self.get_details()["data"]
 
         providers_values = [
@@ -82,26 +121,42 @@ class Providers(WMLResource):
         return table
 
     def list_available_models(self, provider_id: str) -> pd.DataFrame:
+        """List available models for provider.
+
+        :param provider_id: unique provider ID
+        :type provider_id: str
+
+        :returns: dataframe with available models details
+        :rtype: pandas.DataFrame
+        """
         models_details = self.get_available_models_details(provider_id)["data"]
+
+        if models_details is None:
+            raise WMLClientError(
+                f"Available models not supported for provider=`{provider_id}`."
+            )
 
         models_values = [
             (
-                m["uuid"],
                 m["id"],
-                m.get("alias", ""),
-                datetime.datetime.fromtimestamp(m["created"]),
                 m["owned_by"],
             )
             for m in models_details
         ]
 
-        table = self._list(
-            models_values, ["ID", "MODEL_ID", "ALIAS", "CREATED", "TYPE"], limit=None
-        )
+        table = self._list(models_values, ["MODEL_ID", "TYPE"], limit=None)
 
         return table
 
-    def delete(self, provider_id: str) -> Literal["SUCCESS"]:
+    def delete(self, provider_id: str) -> str:
+        """Delete provider.
+
+        :param provider_id: unique provider ID
+        :type provider_id: str
+
+        :return: status ("SUCCESS" if succeeded)
+        :rtype: str
+        """
         response = self._client.httpx_client.delete(
             self._client._href_definitions.get_gateway_provider_href(provider_id),
             headers=self._client._get_headers(),
@@ -111,33 +166,14 @@ class Providers(WMLResource):
             204, "provider deletion", response, json_response=False
         )
 
-    def update(
-        self, provider_id: str, name: str | None = None, data: dict | None = None
-    ) -> dict:
-        raise WMLClientError(
-            "To be supported soon."
-        )  # waiting for PATCH method to be added to rest api
-        # provider_details = self.get_details(provider_id)
-        # request_json = {"name": provider_details["name"], "data": provider_details["data"]}
-        #
-        # if name:
-        #     request_json["name"] = name
-        #
-        # if data is not None:
-        #     request_json["data"].update(data)
-        #
-        # print(request_json)
-        #
-        # response = self._client.httpx_client.put(
-        #     self._client._href_definitions.get_gateway_update_provider_href(
-        #         provider_id, provider_details["type"]
-        #     ),
-        #     headers=self._client._get_headers(),
-        #     json=request_json,
-        # )
-        #
-        # return self._handle_response(200, "provider update", response)
-
     @staticmethod
     def get_id(provider_details: dict) -> str:
+        """Get provider ID from provider details.
+
+        :param provider_details: details of the provider in Model Gateway
+        :type provider_details: dict
+
+        :returns: unique provider ID
+        :rtype: str
+        """
         return provider_details["uuid"]

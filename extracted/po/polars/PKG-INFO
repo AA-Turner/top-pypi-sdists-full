@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polars
-Version: 1.30.0
+Version: 1.31.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -35,7 +35,7 @@ Requires-Dist: sqlalchemy ; extra == 'sqlalchemy'
 Requires-Dist: polars[pandas] ; extra == 'sqlalchemy'
 Requires-Dist: polars[adbc,connectorx,sqlalchemy] ; extra == 'database'
 Requires-Dist: fsspec ; extra == 'fsspec'
-Requires-Dist: deltalake>=0.19.0 ; extra == 'deltalake'
+Requires-Dist: deltalake>=1.0.0 ; extra == 'deltalake'
 Requires-Dist: pyiceberg>=0.7.1 ; extra == 'iceberg'
 Requires-Dist: gevent ; extra == 'async'
 Requires-Dist: cloudpickle ; extra == 'cloudpickle'

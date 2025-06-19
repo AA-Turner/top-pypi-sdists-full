@@ -1,22 +1,21 @@
 #ifndef AMPL_AMPL_H
 #define AMPL_AMPL_H
 
+#include "ampl/ampl_c.h"
 #include "ampl/cstringref.h"
 #include "ampl/dataframe.h"
 #include "ampl/entity.h"
 #include "ampl/entitymap.h"
 #include "ampl/environment.h"
-#include "ampl/ep/ampl_ep.h"
-#include "ampl/ep/arg.h"
-#include "ampl/ep/dataframe_ep.h"
-#include "ampl/ep/errorinfo_ep.h"
-#include "ampl/ep/scopedarray.h"
+#include "ampl/declarations.h"
+#include "ampl/macros.h"
 #include "ampl/errorhandler.h"
 #include "ampl/optional.h"
 #include "ampl/output.h"
 #include "ampl/runnable.h"
 #include "ampl/string.h"
 #include "ampl/tuple.h"
+
 
 #ifdef __GNUC__
 #define AMPL_DEPRECATED(func) func __attribute__((deprecated))
@@ -93,7 +92,7 @@ class AMPL {
    *             If no valid %AMPL license has been found or
    *             if the translator cannot be started for any other reason.
    */
-  AMPL() { ampl_ = internal::AMPL_Impl_Create(internal::ErrorInfo()); }
+  AMPL() { AMPL_CALL_CPP_W_FREE(AMPL_Create(&ampl_)); }
 
   /*!
    * Constructor: creates a new AMPL instance with the specified environment.
@@ -106,14 +105,14 @@ class AMPL {
    *             if the translator cannot be started for any other reason.
    */
   AMPL(const Environment& e) {
-    ampl_ = internal::AMPL_Impl_Create_With_Env(e.impl_, internal::ErrorInfo());
+    AMPL_CALL_CPP_W_FREE(AMPL_CreateWithEnv(&ampl_, e.impl_));
   }
 
   /** Default destructor
    * Releases all the resources related to the AMPL instance (most notably kills
    * the underlying  interpreter.
    */
-  ~AMPL() { internal::AMPL_Impl_Destroy(ampl_); }
+  ~AMPL() { AMPL_Free(&ampl_); }
 
   /**
    Get the data corresponding to the display statements. The statements can
@@ -144,11 +143,13 @@ class AMPL {
            command in tabular form.
   */
   DataFrame getData(StringArgs statements) const {
-    DataFrame output = DataFrame(0);
-    internal::AMPL_Impl_getData(ampl_, statements.args(), statements.size(),
-                                output.impl(), internal::ErrorInfo());
+    AMPL_DATAFRAME *df;
+    AMPL_CALL_CPP(AMPL_GetData(ampl_, statements.args(), statements.size(), &df));
+    DataFrame output(df);
+
     return output;
   }
+
   /**
    * Take a snapshot of the AMPL session.
    * \param fileName
@@ -160,19 +161,26 @@ class AMPL {
    * \param options
    *              Include options if set to true.
    */
-  std::string snapshot(fmt::CStringRef fileName = "", bool model = true,
+  std::string snapshot(fmt::CStringRef fileName = "", bool model = true, 
                        bool data = true, bool options = true) const {
-    return internal::getStringFromDLL(internal::AMPL_Impl_snapshot(
-        ampl_, fileName.c_str(), model, data, options, internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_Snapshot(ampl_, fileName.c_str(), model, data, options, &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
   }
 
   /**
    * Get the declarations that were made in the current AMPL instance
    */
   std::string exportModel() const {
-    return internal::getStringFromDLL(
-        internal::AMPL_Impl_exportModel(ampl_, "", internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_ExportModel(ampl_, "", &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
   }
+
   /**
    * Write the declarations that were made in the current AMPL instance
    * to a file
@@ -180,24 +188,31 @@ class AMPL {
    *              The file where to write the declarations to
    */
   void exportModel(fmt::CStringRef fileName) const {
-    internal::getStringFromDLL(internal::AMPL_Impl_exportModel(
-        ampl_, fileName.c_str(), internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_ExportModel(ampl_, fileName.c_str(), &output));
+    AMPL_StringFree(&output);
   }
+
   /**
    * Get all data loaded in the current instance
    */
   std::string exportData() const {
-    return internal::getStringFromDLL(
-        internal::AMPL_Impl_exportData(ampl_, "", internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_ExportData(ampl_, "", &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
   }
+
   /**
    * Write all data loaded in the current instance to a file.
    * \param dataFileName
    *              The file where to write the data to
    */
   void exportData(fmt::CStringRef dataFileName) {
-    internal::getStringFromDLL(internal::AMPL_Impl_exportData(
-        ampl_, dataFileName.c_str(), internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_ExportData(ampl_, dataFileName.c_str(), &output));
+    AMPL_StringFree(&output);
   }
 
   /**
@@ -210,8 +225,7 @@ class AMPL {
    * \return The %AMPL entity with the specified name
    */
   Entity getEntity(fmt::CStringRef name) const {
-    return Entity(internal::AMPL_Impl_getEntity(ampl_, name.c_str(),
-                                                internal::ErrorInfo()));
+    return Entity(ampl_, name.c_str());
   }
 
   /**
@@ -221,8 +235,7 @@ class AMPL {
    * exist
    **/
   Variable getVariable(fmt::CStringRef name) const {
-    return Variable(internal::AMPL_Impl_getVariable(ampl_, name.c_str(),
-                                                    internal::ErrorInfo()));
+    return Variable(ampl_, name.c_str());
   }
 
   /**
@@ -232,8 +245,7 @@ class AMPL {
    *exist
    **/
   Constraint getConstraint(fmt::CStringRef name) const {
-    return Constraint(internal::AMPL_Impl_getConstraint(ampl_, name.c_str(),
-                                                        internal::ErrorInfo()));
+    return Constraint(ampl_, name.c_str());
   }
 
   /**
@@ -243,8 +255,7 @@ class AMPL {
    *exist
    **/
   Objective getObjective(fmt::CStringRef name) const {
-    return Objective(internal::AMPL_Impl_getObjective(ampl_, name.c_str(),
-                                                      internal::ErrorInfo()));
+    return Objective(ampl_, name.c_str());
   }
 
   /**
@@ -253,8 +264,7 @@ class AMPL {
    * \throws std::out_of_range exception if the specified set does not exist
    **/
   Set getSet(fmt::CStringRef name) const {
-    return Set(
-        internal::AMPL_Impl_getSet(ampl_, name.c_str(), internal::ErrorInfo()));
+    return Set(ampl_, name.c_str());
   }
 
   /**
@@ -264,8 +274,7 @@ class AMPL {
    *exist
    **/
   Parameter getParameter(fmt::CStringRef name) const {
-    return Parameter(internal::AMPL_Impl_getParameter(ampl_, name.c_str(),
-                                                      internal::ErrorInfo()));
+    return Parameter(ampl_, name.c_str());
   }
 
   /**
@@ -274,8 +283,7 @@ class AMPL {
    * \throws std::out_of_range exception if the specified table does not exist
    **/
   Table getTable(fmt::CStringRef name) const {
-    return Table(internal::AMPL_Impl_getTable(ampl_, name.c_str(),
-                                              internal::ErrorInfo()));
+    return Table(ampl_, name.c_str());
   }
 
   /**
@@ -303,35 +311,38 @@ class AMPL {
    *             interpreter is not running
    */
   void eval(fmt::CStringRef amplstatements) {
-    internal::AMPL_Impl_eval(ampl_, amplstatements.c_str(),
-                             internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_Eval(ampl_, amplstatements.c_str()));
   }
 
   /**
    * Clears all entities in the underlying %AMPL interpreter, clears all maps
    * and invalidates all entities
    */
-  void reset() { internal::AMPL_Impl_reset(ampl_, internal::ErrorInfo()); }
+  void reset() { AMPL_CALL_CPP(AMPL_Reset(ampl_)); }
 
   /**
    * Stops the underlying engine, and release all any further attempt to execute
    * optimisation
    * commands without restarting it will throw an exception.
    */
-  void close() { internal::AMPL_Impl_close(ampl_, internal::ErrorInfo()); }
+  void close() { AMPL_CALL_CPP(AMPL_Close(ampl_)); }
 
   /**
    * Returns true if the underlying engine is running
    */
   bool isRunning() const {
-    return internal::AMPL_Impl_isRunning(ampl_, internal::ErrorInfo());
+    bool running;
+    AMPL_CALL_CPP(AMPL_IsRunning(ampl_, &running));
+    return running;
   }
 
   /**
    * Returns true if the underlying engine is doing an async operation
    */
   bool isBusy() const {
-    return internal::AMPL_Impl_isBusy(ampl_, internal::ErrorInfo());
+    bool busy;
+    AMPL_CALL_CPP(AMPL_IsBusy(ampl_, &busy));
+    return busy;
   }
 
   /**
@@ -339,7 +350,9 @@ class AMPL {
    * @throws std::runtime_error If the underlying interpreter is not running
    *
    */
-  void solve(fmt::CStringRef problem = "", fmt::CStringRef solver = "") { internal::AMPL_Impl_solve(ampl_, problem.c_str(), solver.c_str(), internal::ErrorInfo()); }
+  void solve(fmt::CStringRef problem = "", fmt::CStringRef solver = "") { 
+    AMPL_CALL_CPP(AMPL_Solve(ampl_, problem.c_str(), solver.c_str())); 
+  }
 
   /**
    * Interprets the specified file asynchronously, interpreting it as a model
@@ -354,9 +367,10 @@ class AMPL {
    *            Callback to be executed when the file has been interpreted
    */
   void readAsync(fmt::CStringRef filename, Runnable* cb) {
-    internal::AMPL_Impl_readAsync(ampl_, filename.c_str(),
-                                  &internal::runCallback, cb,
-                                  internal::ErrorInfo());
+    auto runCallback = [](void *cb) -> void {
+      static_cast<Runnable *>(cb)->run(); };
+    AMPL_CALL_CPP(AMPL_ReadAsync(ampl_, filename.c_str(),
+                                  runCallback, cb));
   }
 
   /**
@@ -372,18 +386,21 @@ class AMPL {
    *            Callback to be executed when the file has been interpreted
    */
   void readDataAsync(fmt::CStringRef filename, Runnable* cb) {
-    internal::AMPL_Impl_readDataAsync(ampl_, filename.c_str(),
-                                      &internal::runCallback, cb,
-                                      internal::ErrorInfo());
+    auto runCallback = [](void *cb) -> void {
+      static_cast<Runnable *>(cb)->run(); };
+    AMPL_CALL_CPP(AMPL_ReadDataAsync(ampl_, filename.c_str(),
+                                      runCallback, cb));
   }
 
-  /*! Interpret the given %AMPL statement
+  /**
+   * Interpret the given %AMPL statement
    * Throws runtime_error if the underlying ampl interpreter is not running
    */
   void evalAsync(fmt::CStringRef amplstatement, Runnable* cb) {
-    internal::AMPL_Impl_evalAsync(ampl_, amplstatement.c_str(),
-                                  &internal::runCallback, cb,
-                                  internal::ErrorInfo());
+    auto runCallback = [](void *cb) -> void {
+      static_cast<Runnable *>(cb)->run(); };
+    AMPL_CALL_CPP(AMPL_EvalAsync(ampl_, amplstatement.c_str(),
+                                  runCallback, cb));
   }
 
   /**
@@ -394,8 +411,9 @@ class AMPL {
    *            done
    */
   void solveAsync(Runnable* cb) {
-    internal::AMPL_Impl_solveAsync(ampl_, &internal::runCallback, cb,
-                                   internal::ErrorInfo());
+    auto runCallback = [](void *cb) -> void {
+      static_cast<Runnable *>(cb)->run(); };
+    AMPL_CALL_CPP(AMPL_SolveAsync(ampl_, runCallback, cb));
   }
 
   /**
@@ -405,7 +423,7 @@ class AMPL {
    * the engine and the solver are idle.
    */
   void interrupt() {
-    internal::AMPL_Impl_interrupt(ampl_, internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_Interrupt(ampl_));
   }
 
   /**
@@ -415,8 +433,11 @@ class AMPL {
    * \return Current working directory
    */
   std::string cd() const {
-    return internal::getStringFromDLL(
-        internal::AMPL_Impl_cd(ampl_, internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_Cd(ampl_, &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
   }
 
   /**
@@ -429,8 +450,11 @@ class AMPL {
    * \return Current working directory
    */
   std::string cd(fmt::CStringRef path) {
-    return internal::getStringFromDLL(
-        internal::AMPL_Impl_cd2(ampl_, path.c_str(), internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_Cd2(ampl_, path.c_str(), &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
   }
 
   /**
@@ -444,8 +468,7 @@ class AMPL {
    *             if the option name is not valid
    */
   void setOption(fmt::CStringRef name, fmt::CStringRef value) {
-    internal::AMPL_Impl_setOption(ampl_, name.c_str(), value.c_str(),
-                                  internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_SetOption(ampl_, name.c_str(), value.c_str()));
   }
 
   /**
@@ -463,8 +486,10 @@ class AMPL {
    */
   Optional<std::string> getOption(fmt::CStringRef name) const {
     bool exists;
-    std::string result = internal::getStringFromDLL(AMPL_Impl_getOption(
-        ampl_, name.c_str(), &exists, internal::ErrorInfo()));
+    char *value;
+    AMPL_CALL_CPP(AMPL_GetOption(ampl_, name.c_str(), &exists, &value));
+    std::string result(value);
+    AMPL_StringFree(&value);
     return exists ? Optional<std::string>(result) : Optional<std::string>();
   }
 
@@ -484,8 +509,8 @@ class AMPL {
    */
   Optional<int> getIntOption(fmt::CStringRef name) const {
     bool exists;
-    int result = internal::AMPL_Impl_getIntOption(ampl_, name.c_str(), &exists,
-                                                  internal::ErrorInfo());
+    int result;
+    AMPL_CALL_CPP(AMPL_GetIntOption(ampl_, name.c_str(), &exists, &result));
     return exists ? Optional<int>(result) : Optional<int>();
   }
 
@@ -518,8 +543,8 @@ class AMPL {
    */
   Optional<double> getDblOption(fmt::CStringRef name) const {
     bool exists;
-    double result = internal::AMPL_Impl_getDblOption(
-        ampl_, name.c_str(), &exists, internal::ErrorInfo());
+    double result;
+    AMPL_CALL_CPP(AMPL_GetDblOption(ampl_, name.c_str(), &exists, &result));
     return exists ? Optional<double>(result) : Optional<double>();
   }
 
@@ -534,8 +559,7 @@ class AMPL {
    *             if the option name is not valid
    */
   void setDblOption(fmt::CStringRef name, double value) {
-    internal::AMPL_Impl_setDblOption(ampl_, name.c_str(), value,
-                                     internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_SetDblOption(ampl_, name.c_str(), value));
   }
 
   /**
@@ -555,19 +579,12 @@ class AMPL {
    */
   Optional<bool> getBoolOption(fmt::CStringRef name) const {
     bool exists;
-    int i = static_cast<int>(internal::AMPL_Impl_getDblOption(
-        ampl_, name.c_str(), &exists, internal::ErrorInfo()));
-    bool r;
-    if (i == 0)
-      r = false;
-    else if (i == 1)
-      r = true;
-    else
-      throw std::invalid_argument(
-          "The value of the option cannot be evaluated to a Boolean.");
+    bool result;
+    AMPL_CALL_CPP(AMPL_GetBoolOption(ampl_, name.c_str(), &exists, &result));
 
-    return exists ? Optional<bool>(r) : Optional<bool>();
+    return exists ? Optional<bool>(result) : Optional<bool>();
   }
+
   /**
    * Get the name of the currently active objective
    * (see the ``objective`` command)
@@ -575,9 +592,13 @@ class AMPL {
    * has been declared
    */
   std::string getCurrentObjectiveName() {
-    return internal::getStringFromDLL(
-        internal::AMPL_Impl_getCurrentObjective(ampl_, internal::ErrorInfo()));
+    char *currentObjective;
+    AMPL_CALL_CPP(AMPL_GetCurrentObjective(ampl_, &currentObjective));
+    std::string result(currentObjective);
+    AMPL_StringFree(&currentObjective);
+    return result;
   }
+
   /**
    * Set an %AMPL option to a specified boolean value. Note that in AMPL,
    * boolean options are represented as integer: 0 for false, 1 for true
@@ -590,7 +611,7 @@ class AMPL {
    *             if the option name is not valid
    */
   void setBoolOption(fmt::CStringRef name, bool value) {
-    setDblOption(name, value ? 1 : 0);
+    AMPL_CALL_CPP(AMPL_SetBoolOption(ampl_, name.c_str(), value));
   }
 
   /**
@@ -602,7 +623,7 @@ class AMPL {
    \throws	runtime_error	In case the file does not exist.
    */
   void read(fmt::CStringRef fileName) {
-    internal::AMPL_Impl_read(ampl_, fileName.c_str(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_Read(ampl_, fileName.c_str()));
   }
 
   /**
@@ -615,20 +636,22 @@ class AMPL {
    \throws	std::runtime_error	In case the file does not exist.
    */
   void readData(fmt::CStringRef fileName) {
-    internal::AMPL_Impl_readData(ampl_, fileName.c_str(),
-                                 internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_ReadData(ampl_, fileName.c_str()));
   }
 
   /**
    Get a scalar value from the underlying %AMPL interpreter, as a double or a
    string.
    \param	scalarExpression	An %AMPL expression which evaluates to a
-   scalar value. \return	A Variant which represent the value of the
-   expression.
+   scalar value. 
+   \return	A Variant which represent the value of the expression.
    */
   Variant getValue(fmt::CStringRef scalarExpression) const {
-    return Variant(internal::AMPL_Impl_getValue(ampl_, scalarExpression.c_str(),
-                                                internal::ErrorInfo()));
+    AMPL_VARIANT *v;
+    AMPL_CALL_CPP(AMPL_GetValue(ampl_, scalarExpression.c_str(), &v));
+    Variant vpp = Variant::getVar(v);
+    AMPL_VariantFree(&v);
+    return vpp;
   }
 
   /**
@@ -636,8 +659,11 @@ class AMPL {
   \return	A std::string with the output.
   */
   std::string getOutput(fmt::CStringRef amplstatement) {
-    return internal::getStringFromDLL(internal::AMPL_Impl_getOutput(
-        ampl_, amplstatement.c_str(), internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_GetOutput(ampl_, amplstatement.c_str(), &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
   }
 
   /**
@@ -651,8 +677,7 @@ class AMPL {
    assignment procedure was not successful.
    */
   void setData(const DataFrame& df, fmt::CStringRef setName = "") {
-    internal::AMPL_Impl_setDataAndSet(ampl_, df.impl(), setName.c_str(),
-                                      internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_SetData(ampl_, df.impl(), setName.c_str()));
   }
 
   /**
@@ -663,8 +688,11 @@ class AMPL {
    \return	A std::string that represents this object.
    */
   std::string toString() const {
-    return internal::getStringFromDLL(
-        internal::AMPL_Impl_toString(ampl_, internal::ErrorInfo()));
+    char *output;
+    AMPL_CALL_CPP(AMPL_ToString(ampl_, &output));
+    std::string result(output);
+    AMPL_StringFree(&output);
+    return result;
   }
 
   /**
@@ -681,8 +709,7 @@ class AMPL {
    \param	tableName	Name of the table to be read.
   */
   void readTable(fmt::CStringRef tableName) {
-    internal::AMPL_Impl_readTable(ampl_, tableName.c_str(),
-                                  internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_ReadTable(ampl_, tableName.c_str()));
   }
 
   /**
@@ -699,8 +726,7 @@ class AMPL {
    \param	tableName	 Name of the table to be written.
    */
   void writeTable(fmt::CStringRef tableName) {
-    internal::AMPL_Impl_writeTable(ampl_, tableName.c_str(),
-                                   internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_WriteTable(ampl_, tableName.c_str()));
   }
 
   /**
@@ -723,8 +749,7 @@ class AMPL {
   detected infeasible by the presolver
   */
   void write(fmt::CStringRef filename, fmt::CStringRef auxfiles = nullptr) {
-    internal::AMPL_Impl_write(ampl_, filename.c_str(), auxfiles.c_str(),
-                              internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_Write(ampl_, filename.c_str(), auxfiles.c_str()));
   }
 
   /**
@@ -741,9 +766,7 @@ class AMPL {
    \param	amplExpressions	Expressions to be evaluated.
    */
   void display(StringArgs amplExpressions) {
-    internal::AMPL_Impl_callVisualisationCommandOnNames(
-        ampl_, "display", amplExpressions.args(), amplExpressions.size(),
-        internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_CallVisualisationCommandOnNames(ampl_, "display", amplExpressions.args(), amplExpressions.size()));
   }
 
   /**
@@ -758,9 +781,12 @@ class AMPL {
   \param	entities	The entities to display
   */
   void display(EntityArgs entities) {
-    internal::AMPL_Impl_callVisualisationCommand(
-        ampl_, "display", entities.getArgs(), entities.size(),
-        internal::ErrorInfo());
+    std::vector<const char*> names(entities.size());
+    for (std::size_t i = 0; i < entities.size(); i++) {
+      names[i] = entities.getArgs()[i].name_.c_str();
+    }
+  
+    AMPL_CALL_CPP(AMPL_CallVisualisationCommandOnNames(ampl_, "display", &names[0], entities.size()));
   }
 
   /**
@@ -775,9 +801,12 @@ class AMPL {
   \param	entities	The entities to show
   */
   void show(EntityArgs entities) {
-    internal::AMPL_Impl_callVisualisationCommand(
-        ampl_, "show", entities.getArgs(), entities.size(),
-        internal::ErrorInfo());
+    std::vector<const char*> names(entities.size());
+    for (std::size_t i = 0; i < entities.size(); i++) {
+      names[i] = entities.getArgs()[i].name_.c_str();
+    }
+  
+    AMPL_CALL_CPP(AMPL_CallVisualisationCommandOnNames(ampl_, "show", &names[0], entities.size()));
   }
 
   /**
@@ -792,9 +821,12 @@ class AMPL {
    \param	entities	The entities to expand
   */
   void expand(EntityArgs entities) {
-    internal::AMPL_Impl_callVisualisationCommand(
-        ampl_, "expand", entities.getArgs(), entities.size(),
-        internal::ErrorInfo());
+    std::vector<const char*> names(entities.size());
+    for (std::size_t i = 0; i < entities.size(); i++) {
+      names[i] = entities.getArgs()[i].name_.c_str();
+    }
+  
+    AMPL_CALL_CPP(AMPL_CallVisualisationCommandOnNames(ampl_, "expand", &names[0], entities.size()));
   }
 
   /**
@@ -803,8 +835,9 @@ class AMPL {
    from interpreting user commands.
    */
   void setOutputHandler(OutputHandler* outputhandler) {
-    internal::AMPL_Impl_setOutputHandler(
-        ampl_, outputhandler, &internal::defaultOutputHandlerFunction);
+    auto myCallback = [](AMPL_OUTPUTKIND kind, const char *msg, void *oh) -> void {
+      static_cast<OutputHandler *>(oh)->output(static_cast<ampl::output::Kind>(kind), msg); };
+    AMPL_CALL_CPP(AMPL_SetOutputHandler(ampl_, myCallback, outputhandler)); 
   }
 
   /**
@@ -813,8 +846,16 @@ class AMPL {
    \param [in]	errorhandler	The object handling %AMPL errors and warnings.
    */
   void setErrorHandler(ErrorHandler* errorhandler) {
-    internal::AMPL_Impl_setErrorHandler(ampl_, errorhandler,
-                                        &internal::defaultErrorHandlerFunction);
+    auto myCallback = [](bool isWarning, const char *filename,
+                                        int row, int offset,
+                                        const char *message, void *eh) -> void {
+    ampl::AMPLException e(filename, row, offset, message);
+    if (isWarning)
+      static_cast<ErrorHandler *>(eh)->warning(e);
+    else
+      static_cast<ErrorHandler *>(eh)->error(e);};
+
+    AMPL_CALL_CPP(AMPL_SetErrorHandler(ampl_, myCallback, errorhandler));
   }
 
   /**
@@ -822,8 +863,9 @@ class AMPL {
    \return	A pointer to the current output handler.
    */
   OutputHandler* getOutputHandler() const {
-    return static_cast<OutputHandler*>(
-        internal::AMPL_Impl_getOutputHandler(ampl_));
+    void *usrdata;
+    AMPL_CALL_CPP(AMPL_GetOutputHandler(ampl_, &usrdata));
+    return static_cast<OutputHandler*>(usrdata);
   }
 
   /**
@@ -831,60 +873,63 @@ class AMPL {
    \return	A pointer to the current error handler.
    */
   ErrorHandler* getErrorHandler() const {
-    return static_cast<ErrorHandler*>(
-        internal::AMPL_Impl_getErrorHandler(ampl_));
+    void *usrdata;
+    AMPL_CALL_CPP(AMPL_GetErrorHandler(ampl_, &usrdata));
+    return static_cast<ErrorHandler*>(usrdata);
   }
 
   /**
-   Get all the variables declared.
+   * Get all the variables declared.
    */
   EntityMap<Variable> getVariables() const {
-    return EntityMap<Variable>(
-        internal::AMPL_Impl_getVariables(ampl_, internal::ErrorInfo()));
+    return ampl::EntityMap<ampl::Variable>(ampl_, AMPL_VARIABLE);
   }
 
   /**
-   Get all the constraints declared.
+   * Get all the constraints declared.
    */
   EntityMap<Constraint> getConstraints() const {
-    return EntityMap<Constraint>(
-        internal::AMPL_Impl_getConstraints(ampl_, internal::ErrorInfo()));
+    return ampl::EntityMap<ampl::Constraint>(ampl_, AMPL_CONSTRAINT);
   }
 
   /**
-   Get all the objectives declared.
+   * Get all the objectives declared.
    */
   EntityMap<Objective> getObjectives() const {
-    return EntityMap<Objective>(
-        internal::AMPL_Impl_getObjectives(ampl_, internal::ErrorInfo()));
+    return ampl::EntityMap<ampl::Objective>(ampl_, AMPL_OBJECTIVE);
   }
 
   /**
-   Get all the sets declared.
+   * Get all the sets declared.
    */
   EntityMap<Set> getSets() const {
-    return EntityMap<Set>(
-        internal::AMPL_Impl_getSets(ampl_, internal::ErrorInfo()));
+    return ampl::EntityMap<ampl::Set>(ampl_, AMPL_SET);
   }
 
   /**
-   Get all the parameters declared.
+   * Get all the parameters declared.
    */
   EntityMap<Parameter> getParameters() const {
-    return EntityMap<Parameter>(
-        internal::AMPL_Impl_getParameters(ampl_, internal::ErrorInfo()));
+    return ampl::EntityMap<ampl::Parameter>(ampl_, AMPL_PARAMETER);
   }
 
   /**
- Get all the tables declared.
- */
+   * Get all the tables declared.
+   */
   EntityMap<Table> getTables() const {
-    return EntityMap<Table>(
-        internal::AMPL_Impl_getTables(ampl_, internal::ErrorInfo()));
+    return ampl::EntityMap<ampl::Table>(ampl_, AMPL_TABLE);
+  }
+
+  /**
+  Function to easily add a directory to the current process' system path
+  */
+  static void addToPath(fmt::CStringRef path) {
+    AMPL_AddToPath(path.c_str());
+    //internal::Util_Impl_addToPath(path.c_str(), internal::ErrorInfo());
   }
 
  private:
-  internal::AMPL* ampl_;
+  ::AMPL *ampl_;
   // deny copy constructor and assignment
   AMPL(const AMPL&) {}
   AMPL& operator=(const AMPL&) { return *this; }

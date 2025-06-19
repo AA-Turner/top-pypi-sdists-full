@@ -140,11 +140,7 @@ class SimpleMetricType(PydanticSubtypeSerializable, DatawatchFacade, ABC):
 
     @classmethod
     def get_freshness_metric_types(cls) -> List[SimplePredefinedMetric]:
-        freshness_metric_names = [SimplePredefinedMetricName.HOURS_SINCE_LAST_LOAD,
-                                  SimplePredefinedMetricName.HOURS_SINCE_MAX_DATE,
-                                  SimplePredefinedMetricName.HOURS_SINCE_MAX_TIMESTAMP,
-                                  SimplePredefinedMetricName.FRESHNESS]
-        return [SimplePredefinedMetric(type="PREDEFINED", predefined_metric=i) for i in freshness_metric_names]
+        return cls.__get_simple_predefined_metrics(metric_names=freshness_metrics)
 
     @classmethod
     def get_volume_metric_types(cls) -> List[SimplePredefinedMetric]:
@@ -206,7 +202,9 @@ class SimpleMetricType(PydanticSubtypeSerializable, DatawatchFacade, ABC):
     def is_freshness_volume(cls, predefined_metric):
         return predefined_metric in [
             SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.FRESHNESS),
-            SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.VOLUME)
+            SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.VOLUME),
+            SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.FRESHNESS_DATA),
+            SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.VOLUME_DATA)
         ]
 
     @classmethod
@@ -214,6 +212,8 @@ class SimpleMetricType(PydanticSubtypeSerializable, DatawatchFacade, ABC):
         return predefined_metric in [
             SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.FRESHNESS),
             SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.VOLUME),
+            SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.FRESHNESS_DATA),
+            SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.VOLUME_DATA),
             SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.COUNT_ROWS),
             SimplePredefinedMetric(type="PREDEFINED", predefined_metric=SimplePredefinedMetricName.COUNT_READ_QUERIES),
         ]
@@ -224,7 +224,10 @@ class SimpleMetricType(PydanticSubtypeSerializable, DatawatchFacade, ABC):
                             SimplePredefinedMetricName.FRESHNESS,
                             SimplePredefinedMetricName.VOLUME,
                             SimplePredefinedMetricName.ROWS_INSERTED,
-                            SimplePredefinedMetricName.COUNT_READ_QUERIES]
+                            SimplePredefinedMetricName.COUNT_READ_QUERIES,
+                            SimplePredefinedMetricName.FRESHNESS_DATA,
+                            SimplePredefinedMetricName.VOLUME_DATA
+                            ]
         return [SimplePredefinedMetric(type="PREDEFINED", predefined_metric=i) for i in metadata_metrics]
 
     @classmethod

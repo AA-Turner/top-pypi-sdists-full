@@ -97,7 +97,7 @@ def django_every_request(sender, **kwargs):
     # Lazy import for django
     from contrast.agent.middlewares.route_coverage.django_routes import (
         build_django_signature,
-        get_view_func,
+        get_matched_resolver,
     )
 
     del sender
@@ -111,14 +111,19 @@ def django_every_request(sender, **kwargs):
         return
 
     request_path = _extract_path(kwargs)
-
-    view_func = get_view_func(request_path)
-    if view_func is None:
+    resolved = get_matched_resolver(request_path)
+    if resolved is None:
         logger.debug("did not find django view function for route observation")
         return
 
-    context.view_func_str = build_django_signature(view_func)
-    logger.debug("Observed route: %s", context.view_func_str)
+    context.signature = build_django_signature(resolved.func)
+    if resolved.route is not None:
+        context.path_template = resolved.route
+    logger.debug(
+        "Observed route",
+        signature=context.signature,
+        path_template=context.path_template,
+    )
 
 
 @fail_quietly("Failed to retrieve django application name from settings")
@@ -126,7 +131,15 @@ def get_app_name() -> str:
     # Lazy import for django
     from django.conf import settings
 
-    application = settings.WSGI_APPLICATION or settings.ASGI_APPLICATION or ""
+    application = getattr(
+        settings,
+        "WSGI_APPLICATION",
+        "",
+    ) or getattr(
+        settings,
+        "ASGI_APPLICATION",
+        "",
+    )
 
     return application.split(".")[0]
 

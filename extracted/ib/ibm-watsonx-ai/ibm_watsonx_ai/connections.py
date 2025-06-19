@@ -444,10 +444,10 @@ class Connections(WMLResource):
 
         space_values = [
             (
-                m["entity"]["name"],
-                m["metadata"]["asset_id"],
-                m["entity"]["type"],
-                m["entity"]["status"],
+                m["entity"].get("name"),
+                m["metadata"].get("asset_id"),
+                m["entity"].get("type"),
+                m["entity"].get("status"),
             )
             for m in datasource_details
         ]

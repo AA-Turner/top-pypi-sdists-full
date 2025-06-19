@@ -131,8 +131,8 @@ from bigeye_sdk.generated.com.bigeye.models.generated import (
     LineageSearchResponse, LineageSearchRequest, GetDebugQueriesResponse, ConfigValueType, SourceMetadataOverrides,
     WarehouseType, BulkChangeGroupGrantsRequest, Grant, RoleV2, IdAndDisplayName, BulkChangeGroupGrantsResponse,
     IssuePriorityChangeEvent, TableLineageV2Response, CreateLineageNodeV2BulkRequest, CreateLineageEdgeV2BulkRequest,
-    GetMetricObservedColumnBulkRequest, MessageObservedColumnListResponse, MetricObservedColumnRequest,
-    MetricObservedColumnResponse
+    GetMetricObservedColumnBulkRequest, MetricObservedColumnListResponse, MetricObservedColumnRequest,
+    MetricObservedColumnResponse, GetCustomRuleListRequest
 )
 
 # create logger
@@ -1676,6 +1676,42 @@ class GeneratedDatawatchClient(abc.ABC):
         url = f'/api/v1/custom-rules/{id}'
         return self._call_datawatch(Method.DELETE, url=url)
 
+    def get_custom_rule_list(self,
+                             *,
+                             search: str = "",
+                             page_size: int = 0,
+                             source_id: int = 0,
+                             schema_id: int = 0,
+                             table_id: int = 0,
+                             column_id: int = 0,
+                             collection_id: int = 0,
+                             join_id: int = 0):
+        url = "/api/v1/custom-rules/fetch"
+        request = GetCustomRuleListRequest(
+            search=search,
+            page_size=page_size,
+            source_id=source_id,
+            schema_id=schema_id,
+            table_id=table_id,
+            column_id=column_id,
+            collection_id=collection_id,
+            join_id=join_id
+        )
+
+        rlist_current = GetCustomRuleListResponse().from_dict(
+            self._call_datawatch(method=Method.POST, url=url, body=request.to_json())
+        )
+        rlist_total = GetCustomRuleListResponse()
+        rlist_total.custom_rules.extend(rlist_current.custom_rules)
+
+        while rlist_current.pagination_info.next_cursor:
+            rlist_current.page_cursor = rlist_current.pagination_info.next_cursor
+            response = self._call_datawatch(Method.POST, url=url, body=rlist_current.to_json())
+            rlist_current = GetCustomRuleListResponse().from_dict(response)
+            rlist_total.custom_rules.extend(rlist_current.custom_rules)
+
+        return rlist_total
+
     def get_personal_api_keys(self) -> ListPersonalApiKeyResponse:
         url = "/api/v1/personal-api-keys"
         return ListPersonalApiKeyResponse().from_dict(
@@ -1728,10 +1764,10 @@ class GeneratedDatawatchClient(abc.ABC):
 
     def get_bulk_metric_observed_column(
             self, *, metric_ids: List[int] = [], column_ids: List[int] = []
-    ) -> MessageObservedColumnListResponse:
+    ) -> MetricObservedColumnListResponse:
         url = "/api/v1/metric-observed-column/bulk-list"
         request = GetMetricObservedColumnBulkRequest(metric_ids=metric_ids, column_ids=column_ids)
-        return MessageObservedColumnListResponse().from_dict(
+        return MetricObservedColumnListResponse().from_dict(
             self._call_datawatch(method=Method.POST, url=url, body=request.to_json())
         )
 
@@ -1744,14 +1780,14 @@ class GeneratedDatawatchClient(abc.ABC):
             self._call_datawatch(method=Method.POST, url=url, body=request.to_json())
         )
 
-    def get_metric_observed_column_for_metric(self, *, metric_id: int) -> MessageObservedColumnListResponse:
+    def get_metric_observed_column_for_metric(self, *, metric_id: int) -> MetricObservedColumnListResponse:
         url = f"/api/v1/metric-observed-column/metric/{metric_id}"
-        return MessageObservedColumnListResponse().from_dict(
+        return MetricObservedColumnListResponse().from_dict(
             self._call_datawatch(method=Method.GET, url=url)
         )
 
-    def get_metric_observed_column_for_column(self, *, column_id: int) -> MessageObservedColumnListResponse:
+    def get_metric_observed_column_for_column(self, *, column_id: int) -> MetricObservedColumnListResponse:
         url = f"/api/v1/metric-observed-column/column/{column_id}"
-        return MessageObservedColumnListResponse().from_dict(
+        return MetricObservedColumnListResponse().from_dict(
             self._call_datawatch(method=Method.GET, url=url)
         )

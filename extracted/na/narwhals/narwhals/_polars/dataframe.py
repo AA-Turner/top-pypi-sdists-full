@@ -1,7 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence, Sized
-from typing import TYPE_CHECKING, Any, Literal, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    Literal,
+    Mapping,
+    Sequence,
+    Sized,
+    cast,
+    overload,
+)
 
 import polars as pl
 

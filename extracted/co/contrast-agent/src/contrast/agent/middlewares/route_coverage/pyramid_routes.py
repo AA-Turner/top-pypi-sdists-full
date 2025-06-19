@@ -5,7 +5,6 @@ from contrast.utils.decorators import fail_quietly
 from contrast.agent.middlewares.route_coverage.common import (
     DEFAULT_ROUTE_METHODS,
     build_signature,
-    get_normalized_uri,
 )
 from contrast_fireball import DiscoveredRoute
 from pyramid.interfaces import IView, IViewClassifier, IRouteRequest, IRoutesMapper
@@ -47,12 +46,13 @@ def create_pyramid_routes(registry) -> set[DiscoveredRoute]:
 
         if view_func is not None:
             signature = build_signature(pyramid_route.name, view_func)
+            path_template = pyramid_route.path
             methods = pyramid_route.predicates or DEFAULT_ROUTE_METHODS
             for method_type in methods:
                 routes.add(
                     DiscoveredRoute(
                         verb=method_type,
-                        url=get_normalized_uri(pyramid_route.path),
+                        url=path_template,
                         signature=signature,
                         framework="Pyramid",
                     )
@@ -64,10 +64,12 @@ def create_pyramid_routes(registry) -> set[DiscoveredRoute]:
 
 
 @fail_quietly()
-def get_signature(request_path, routes_list, registry) -> Optional[str]:
+def get_signature_and_path_template(
+    request_path, routes_list, registry
+) -> tuple[Optional[str], Optional[str]]:
     if not request_path:
         logger.debug("No path info for pyramid request")
-        return None
+        return None, None
 
     # Ideally we would like to call get_route but
     # there is no direct relationship between the wsgi
@@ -75,11 +77,13 @@ def get_signature(request_path, routes_list, registry) -> Optional[str]:
     # iterate over all the routes to find it by the path
     # pyramid_route = mapper.get_route(name)
 
+    # TODO: PYT-3826 this is not a robust route matching strategy
     matching_routes = [x for x in routes_list if x.path == request_path]
+
     if not matching_routes:
-        return None
+        return None, None
 
     pyramid_route = matching_routes[0]
     if (view_func := _get_view_func(registry, pyramid_route)) is None:
-        return None
-    return build_signature(pyramid_route.name, view_func)
+        return None, None
+    return build_signature(pyramid_route.name, view_func), pyramid_route.path

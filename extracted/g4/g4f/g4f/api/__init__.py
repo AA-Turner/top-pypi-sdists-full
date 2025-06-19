@@ -10,6 +10,7 @@ from email.utils import formatdate
 import os.path
 import hashlib
 import asyncio
+from contextlib import asynccontextmanager
 from urllib.parse import quote_plus
 from fastapi import FastAPI, Response, Request, UploadFile, Form, Depends
 from fastapi.responses import StreamingResponse, RedirectResponse, HTMLResponse, JSONResponse, FileResponse
@@ -48,13 +49,18 @@ try:
 except ImportError:
     class Annotated:
         pass
+try:
+    from nodriver import util
+    has_nodriver = True
+except ImportError:
+    has_nodriver = False
 
 import g4f
 import g4f.debug
 from g4f.client import AsyncClient, ChatCompletion, ImagesResponse, ClientResponse
 from g4f.providers.response import BaseConversation, JsonConversation
 from g4f.client.helper import filter_none
-from g4f.image import is_data_an_media, process_image, EXTENSIONS_MAP
+from g4f.image import EXTENSIONS_MAP, is_data_an_media, process_image
 from g4f.image.copy_images import get_media_dir, copy_media, get_source_url
 from g4f.errors import ProviderNotFoundError, ModelNotFoundError, MissingAuthError, NoValidHarFileError, MissingRequirementsError
 from g4f.cookies import read_cookie_files, get_cookies_dir
@@ -76,9 +82,21 @@ from g4f import debug
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 1337
+DEFAULT_TIMEOUT = 600
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Read cookie files if not ignored
+    if not AppConfig.ignore_cookie_files:
+        read_cookie_files()
+    yield
+    if has_nodriver:
+        for browser in util.get_registered_instances():
+            if browser.connection:
+                browser.stop()
 
 def create_app():
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
 
     # Add CORS middleware
     app.add_middleware(
@@ -101,10 +119,6 @@ def create_app():
         gui_app = WSGIMiddleware(get_gui_app(AppConfig.demo))
         app.mount("/", gui_app)
 
-    # Read cookie files if not ignored
-    if not AppConfig.ignore_cookie_files:
-        read_cookie_files()
-
     if AppConfig.ignored_providers:
         for provider in AppConfig.ignored_providers:
             if provider in Provider.__map__:
@@ -125,6 +139,7 @@ def create_app_with_demo_and_debug():
     g4f.debug.logging = True
     AppConfig.gui = True
     AppConfig.demo = True
+    AppConfig.timeout = 60
     return create_app()
 
 class ErrorResponse(Response):
@@ -153,6 +168,7 @@ class AppConfig:
     proxy: str = None
     gui: bool = False
     demo: bool = False
+    timeout: int = DEFAULT_TIMEOUT
 
     @classmethod
     def set_config(cls, **data):
@@ -331,6 +347,8 @@ class Api:
                     config.provider = AppConfig.provider if provider is None else provider
                 if config.conversation_id is None:
                     config.conversation_id = conversation_id
+                if config.timeout is None:
+                    config.timeout = AppConfig.timeout
                 if credentials is not None and credentials.credentials != "secret":
                     config.api_key = credentials.credentials
 

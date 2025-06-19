@@ -471,6 +471,7 @@ __all__ = (
     "RecordsEventTypeDef",
     "RedirectAllRequestsToTypeDef",
     "RedirectTypeDef",
+    "RenameObjectRequestTypeDef",
     "ReplicaModificationsTypeDef",
     "ReplicationConfigurationOutputTypeDef",
     "ReplicationConfigurationTypeDef",
@@ -812,6 +813,7 @@ class DeleteBucketEncryptionRequestTypeDef(TypedDict):
 class DeleteBucketIntelligentTieringConfigurationRequestTypeDef(TypedDict):
     Bucket: str
     Id: str
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class DeleteBucketInventoryConfigurationRequestTypeDef(TypedDict):
@@ -978,6 +980,7 @@ class GetBucketEncryptionRequestTypeDef(TypedDict):
 class GetBucketIntelligentTieringConfigurationRequestTypeDef(TypedDict):
     Bucket: str
     Id: str
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class GetBucketInventoryConfigurationRequestTypeDef(TypedDict):
@@ -1264,6 +1267,7 @@ class ListBucketAnalyticsConfigurationsRequestTypeDef(TypedDict):
 class ListBucketIntelligentTieringConfigurationsRequestTypeDef(TypedDict):
     Bucket: str
     ContinuationToken: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class ListBucketInventoryConfigurationsRequestTypeDef(TypedDict):
@@ -1715,6 +1719,7 @@ class HeadObjectOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
     ReplicationStatus: ReplicationStatusType
     PartsCount: int
+    TagCount: int
     ObjectLockMode: ObjectLockModeType
     ObjectLockRetainUntilDate: datetime
     ObjectLockLegalHoldStatus: ObjectLockLegalHoldStatusType
@@ -2094,6 +2099,21 @@ class ObjectIdentifierTypeDef(TypedDict):
 class ObjectLockRetentionTypeDef(TypedDict):
     Mode: NotRequired[ObjectLockRetentionModeType]
     RetainUntilDate: NotRequired[TimestampTypeDef]
+
+
+class RenameObjectRequestTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    RenameSource: str
+    DestinationIfMatch: NotRequired[str]
+    DestinationIfNoneMatch: NotRequired[str]
+    DestinationIfModifiedSince: NotRequired[TimestampTypeDef]
+    DestinationIfUnmodifiedSince: NotRequired[TimestampTypeDef]
+    SourceIfMatch: NotRequired[str]
+    SourceIfNoneMatch: NotRequired[str]
+    SourceIfModifiedSince: NotRequired[TimestampTypeDef]
+    SourceIfUnmodifiedSince: NotRequired[TimestampTypeDef]
+    ClientToken: NotRequired[str]
 
 
 class TransitionTypeDef(TypedDict):
@@ -4002,6 +4022,7 @@ class PutBucketIntelligentTieringConfigurationRequestTypeDef(TypedDict):
     Bucket: str
     Id: str
     IntelligentTieringConfiguration: IntelligentTieringConfigurationUnionTypeDef
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class LifecycleRuleTypeDef(TypedDict):

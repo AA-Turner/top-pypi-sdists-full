@@ -1120,7 +1120,11 @@ def dict_to_input(d, _input, properties_attr, attr_map, capsule_property_units=N
                 v = _common.get(d, k)
 
             if not pd.isna(v):
-                p.value = v
+                if isinstance(v, np.generic):
+                    # This is a NumPy type, so we need to convert it to a Python primitive
+                    p.value = v.item()
+                else:
+                    p.value = v
 
                 if uom is not None:
                     p.unit_of_measure = _common.ensure_unicode(uom)

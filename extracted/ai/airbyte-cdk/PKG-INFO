@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: airbyte-cdk
-Version: 6.56.0
+Version: 6.56.1
 Summary: A framework for writing Airbyte Connectors.
 Home-page: https://airbyte.com
 License: MIT
@@ -23,7 +23,7 @@ Provides-Extra: sql
 Provides-Extra: vector-db-based
 Requires-Dist: Jinja2 (>=3.1.2,<3.2.0)
 Requires-Dist: PyYAML (>=6.0.1,<7.0.0)
-Requires-Dist: airbyte-protocol-models-dataclasses (>=0.15,<0.16)
+Requires-Dist: airbyte-protocol-models-dataclasses (>=0.17.1,<0.18.0)
 Requires-Dist: anyascii (>=0.3.2,<0.4.0)
 Requires-Dist: avro (>=1.11.2,<1.13.0) ; extra == "file-based"
 Requires-Dist: backoff

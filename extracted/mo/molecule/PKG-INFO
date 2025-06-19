@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: molecule
-Version: 25.5.0
+Version: 25.6.0
 Summary: Molecule aids in the development and testing of Ansible roles
 Author-email: Ansible by Red Hat <info@ansible.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -50,6 +50,7 @@ Requires-Dist: linkchecker>=10.4.0; extra == "docs"
 Provides-Extra: test
 Requires-Dist: ansi2html>=1.8.0; extra == "test"
 Requires-Dist: ansible-lint>=6.12.1; extra == "test"
+Requires-Dist: ansible-navigator; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: docker>=7.1.0; extra == "test"
 Requires-Dist: filelock>=3.9.0; extra == "test"

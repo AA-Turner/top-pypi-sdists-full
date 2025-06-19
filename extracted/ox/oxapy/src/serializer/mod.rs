@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 
 use std::{collections::HashMap, sync::Mutex};
 
-use crate::{request::Request, IntoPyException};
+use crate::{json, IntoPyException};
 
 use fields::{
     BooleanField, CharField, DateField, DateTimeField, EmailField, EnumField, Field, IntegerField,
@@ -35,33 +35,38 @@ struct Serializer {
     #[pyo3(get, set)]
     validate_data: Option<Py<PyDict>>,
     #[pyo3(get, set)]
-    request: Option<Request>,
+    raw_data: Option<String>,
+    #[pyo3(get, set)]
+    context: Option<Py<PyDict>>,
 }
 
 #[pymethods]
 impl Serializer {
     #[new]
     #[pyo3(signature = (
-        request = None,
+        data = None,
         instance = None,
         required = true,
         many = false,
         title = None,
-        description = None
+        description = None,
+        context = None
     ))]
     fn new(
-        request: Option<Request>,
+        data: Option<String>,
         instance: Option<Py<PyAny>>,
         required: Option<bool>,
         many: Option<bool>,
         title: Option<String>,
         description: Option<String>,
+        context: Option<Py<PyDict>>,
     ) -> (Self, Field) {
         (
             Self {
                 validate_data: None,
+                raw_data: data,
                 instance,
-                request,
+                context,
             },
             Field {
                 required,
@@ -76,18 +81,16 @@ impl Serializer {
 
     fn schema(slf: Bound<'_, Self>) -> PyResult<Py<PyDict>> {
         let schema_value = Self::json_schema_value(&slf.get_type())?;
-        crate::json::loads(&schema_value.to_string())
+        json::loads(&schema_value.to_string())
     }
 
     fn is_valid(slf: &Bound<'_, Self>) -> PyResult<()> {
-        let request: Request = slf.getattr("request")?.extract()?;
+        let raw_data = slf
+            .getattr("raw_data")?
+            .extract::<Option<String>>()?
+            .ok_or_else(|| PyValueError::new_err("data is empty"))?;
 
-        let json_string: String = request
-            .body
-            .clone()
-            .ok_or_else(|| PyValueError::new_err("Request body is empty"))?;
-
-        let attr = crate::json::loads(&json_string)?;
+        let attr = json::loads(&raw_data)?;
 
         let validated_data: Option<Bound<PyDict>> =
             slf.call_method1("validate", (attr,))?.extract()?;
@@ -97,7 +100,7 @@ impl Serializer {
     }
 
     fn validate<'a>(slf: Bound<'a, Self>, attr: Bound<'a, PyDict>) -> PyResult<Bound<'a, PyDict>> {
-        let data = crate::json::dumps(&attr.clone().into())?;
+        let data = json::dumps(&attr.clone().into())?;
         let json_value: Value = serde_json::from_str(&data).into_py_exception()?;
 
         let schema_value = Self::json_schema_value(&slf.get_type())?;
@@ -204,16 +207,6 @@ impl Serializer {
 static CACHES_JSON_SCHEMA_VALUE: Lazy<Mutex<HashMap<String, Value>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-static TYPE_STR: &str = "type";
-static ARRAY_STR: &str = "array";
-static OBJECT_STR: &str = "object";
-static ITEMS_STR: &str = "items";
-static TITLE_STR: &str = "title";
-static DESC_STR: &str = "description";
-static PROPS_STR: &str = "properties";
-static ADD_PROPS_STR: &str = "additionalProperties";
-static REQUIRED_STR: &str = "required";
-
 impl Serializer {
     fn json_schema_value(cls: &Bound<'_, PyType>) -> PyResult<Value> {
         let mut properties = serde_json::Map::with_capacity(16);
@@ -272,9 +265,8 @@ impl Serializer {
 
                     if is_field_many {
                         let mut array_schema = serde_json::Map::with_capacity(2);
-                        array_schema
-                            .insert(TYPE_STR.to_string(), Value::String(ARRAY_STR.to_string()));
-                        array_schema.insert(ITEMS_STR.to_string(), nested_schema);
+                        array_schema.insert("type".to_string(), Value::String("array".to_string()));
+                        array_schema.insert("items".to_string(), nested_schema);
                         properties.insert(attr_name, Value::Object(array_schema));
                     } else {
                         properties.insert(attr_name, nested_schema);
@@ -290,26 +282,26 @@ impl Serializer {
         }
 
         let mut schema = serde_json::Map::with_capacity(5);
-        schema.insert(TYPE_STR.to_string(), Value::String(OBJECT_STR.to_string()));
-        schema.insert(PROPS_STR.to_string(), Value::Object(properties));
-        schema.insert(ADD_PROPS_STR.to_string(), Value::Bool(false));
+        schema.insert("type".to_string(), Value::String("object".to_string()));
+        schema.insert("properties".to_string(), Value::Object(properties));
+        schema.insert("additionalProperties".to_string(), Value::Bool(false));
 
         if !required_fields.is_empty() {
             let reqs: Vec<Value> = required_fields.into_iter().map(Value::String).collect();
-            schema.insert(REQUIRED_STR.to_string(), Value::Array(reqs));
+            schema.insert("required".to_string(), Value::Array(reqs));
         }
 
         if let Some(t) = title {
-            schema.insert(TITLE_STR.to_string(), Value::String(t));
+            schema.insert("title".to_string(), Value::String(t));
         }
         if let Some(d) = description {
-            schema.insert(DESC_STR.to_string(), Value::String(d));
+            schema.insert("description".to_string(), Value::String(d));
         }
 
         let final_schema = if is_many {
             let mut array_schema = serde_json::Map::with_capacity(2);
-            array_schema.insert(TYPE_STR.to_string(), Value::String(ARRAY_STR.to_string()));
-            array_schema.insert(ITEMS_STR.to_string(), Value::Object(schema));
+            array_schema.insert("type".to_string(), Value::String("array".to_string()));
+            array_schema.insert("items".to_string(), Value::Object(schema));
             Value::Object(array_schema)
         } else {
             Value::Object(schema)

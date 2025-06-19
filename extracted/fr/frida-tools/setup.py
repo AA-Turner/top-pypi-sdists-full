@@ -24,7 +24,7 @@ def main():
         url="https://frida.re",
         install_requires=[
             "colorama >= 0.2.7, < 1.0.0",
-            "frida >= 17.1.0, < 18.0.0",
+            "frida >= 17.2.0, < 18.0.0",
             "prompt-toolkit >= 2.0.0, < 4.0.0",
             "pygments >= 2.0.2, < 3.0.0",
             "websockets >= 13.0.0, < 14.0.0",
@@ -73,6 +73,7 @@ def main():
                 "frida-join = frida_tools.join:main",
                 "frida-create = frida_tools.creator:main",
                 "frida-compile = frida_tools.compiler:main",
+                "frida-pm = frida_tools.pm:main",
                 "frida-apk = frida_tools.apk:main",
             ]
         },

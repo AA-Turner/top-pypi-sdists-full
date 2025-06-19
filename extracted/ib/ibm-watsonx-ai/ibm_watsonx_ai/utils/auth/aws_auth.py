@@ -4,12 +4,15 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Callable
 
+from ibm_watsonx_ai.utils.utils import _requests_retry_session
 from ibm_watsonx_ai.wml_client_error import WMLClientError
-from ibm_watsonx_ai.utils.auth.base_auth import RefreshableTokenAuth, TokenInfo
+from ibm_watsonx_ai.utils.auth.base_auth import (
+    RefreshableTokenAuth,
+    TokenInfo,
+    STATUS_FORCELIST,
+)
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -35,23 +38,12 @@ class AWSTokenAuth(RefreshableTokenAuth):
         on_token_refresh: Callable[[], None] | None = None,
     ) -> None:
         RefreshableTokenAuth.__init__(
-            self, api_client, on_token_creation, on_token_refresh, timedelta(minutes=15)
+            self, api_client, on_token_creation, on_token_refresh
         )
 
         if not api_client._is_IAM():
             raise WMLClientError(
-                "api_key for IAM token is not provided in credentials for the client."
-            )
-
-        self._save_token_data(self._generate_token())
-        if self._on_token_creation:
-            self._on_token_creation()
-
-        # update of minimal expiration datetime based on token expiration datetime
-        delta = self._get_expiration_datetime() - datetime.now()
-        if delta < self._expiration_timedelta:
-            self._expiration_timedelta = (
-                delta - timedelta(minutes=1) if delta > timedelta(minutes=1) else delta
+                "api_key for AWS IAM token is not provided in credentials for the client."
             )
 
     def _generate_token(self) -> TokenInfo:
@@ -60,7 +52,7 @@ class AWSTokenAuth(RefreshableTokenAuth):
         :returns: token info to be used by auth method
         :rtype: TokenInfo
         """
-        response = self._session.post(
+        response = _requests_retry_session(status_forcelist=STATUS_FORCELIST).post(
             self._href_definitions.get_aws_token_url(),
             headers={"Content-Type": "application/json"},
             json={"apikey": self._credentials.api_key},

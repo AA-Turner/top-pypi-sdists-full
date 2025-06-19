@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: trulens-core
-Version: 1.5.1
+Version: 1.5.2
 Summary: Library to systematically track and evaluate LLM based applications.
-Home-page: https://trulens.org/
 License: MIT
 Author: Snowflake Inc.
 Author-email: ml-observability-wg-dl@snowflake.com
@@ -34,7 +33,9 @@ Requires-Dist: rich (>=13.6.0,<14.0.0)
 Requires-Dist: sqlalchemy (>=2.0,<3.0)
 Requires-Dist: trulens-otel-semconv (>=1.4.9,<2.0.0)
 Requires-Dist: typing_extensions (>=4.9,<5.0)
+Requires-Dist: wrapt (>=1.17.0)
 Project-URL: Documentation, https://trulens.org/getting_started/
+Project-URL: Homepage, https://trulens.org/
 Project-URL: Repository, https://github.com/truera/trulens
 Description-Content-Type: text/markdown
 

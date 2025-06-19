@@ -163,12 +163,16 @@ class ScaleDeploymentResponse(_message.Message):
     def __init__(self, deployment: _Optional[_Union[_deployment_pb2.Deployment, _Mapping]] = ...) -> None: ...
 
 class TagDeploymentRequest(_message.Message):
-    __slots__ = ("deployment_id", "tag")
+    __slots__ = ("deployment_id", "tag", "mirror_weight")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     TAG_FIELD_NUMBER: _ClassVar[int]
+    MIRROR_WEIGHT_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     tag: str
-    def __init__(self, deployment_id: _Optional[str] = ..., tag: _Optional[str] = ...) -> None: ...
+    mirror_weight: int
+    def __init__(
+        self, deployment_id: _Optional[str] = ..., tag: _Optional[str] = ..., mirror_weight: _Optional[int] = ...
+    ) -> None: ...
 
 class TagDeploymentResponse(_message.Message):
     __slots__ = ("deployment", "untagged_deployment_id")

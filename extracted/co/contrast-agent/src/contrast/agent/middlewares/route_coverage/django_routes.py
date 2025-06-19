@@ -11,9 +11,8 @@ from copy import copy
 from importlib import import_module
 from types import FunctionType, MethodType
 from contrast_fireball import DiscoveredRoute
-from django.urls import get_resolver
+from django.urls import ResolverMatch, get_resolver
 from django.urls.exceptions import Resolver404
-from django.utils.regex_helper import normalize
 
 from contrast.agent.middlewares.route_coverage.common import (
     DEFAULT_ROUTE_METHODS,
@@ -80,18 +79,6 @@ def get_lowest_function_call(func):
     return next((c for c in closure if isinstance(c, (FunctionType, MethodType))), None)
 
 
-def create_url(pattern_or_resolver):
-    pattern = pattern_or_resolver.pattern.regex.pattern
-
-    try:
-        normalized = normalize(pattern)[0][0]
-        url = normalized.replace("%(", "{").replace(")", "}")
-    except Exception:
-        url = pattern_or_resolver.name
-
-    return url
-
-
 def get_method_info(pattern_or_resolver):
     if not (viewfunc := pattern_or_resolver.callback):
         return DEFAULT_ROUTE_METHODS, "()"
@@ -123,13 +110,13 @@ def create_routes(urlpatterns) -> set[DiscoveredRoute]:
 
         elif isinstance(url_pattern, RegexURLPattern):
             method_types, method_arg_names = get_method_info(url_pattern)
-            url = create_url(url_pattern)
+            path_template = url_pattern.pattern.regex.pattern
             signature = build_django_signature(url_pattern, method_arg_names)
             for method_type in method_types:
                 routes.add(
                     DiscoveredRoute(
                         verb=method_type,
-                        url=url,
+                        url=path_template,
                         signature=signature,
                         framework="Django",
                     )
@@ -196,7 +183,7 @@ def build_django_signature(obj, method_arg_names=None):
 
 
 @fail_quietly("Failed to get view function for django application")
-def get_view_func(path):
+def get_matched_resolver(path) -> Optional[ResolverMatch]:
     from django.conf import settings
 
     try:
@@ -210,8 +197,8 @@ def get_view_func(path):
         and "django.middleware.common.CommonMiddleware" in settings.MIDDLEWARE
         and settings.APPEND_SLASH
     ):
-        result = get_view_func(f"{path}/")
+        result = get_matched_resolver(f"{path}/")
     if result is None:
         return None
 
-    return result.func
+    return result

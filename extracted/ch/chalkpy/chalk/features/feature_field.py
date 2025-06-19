@@ -860,11 +860,17 @@ class Feature(Generic[_TPrim, _TRich]):
 
     def __repr__(self):
         try:
-            return f"Feature(fqn={self.root_fqn}, typ={self.typ})"
+            root_fqn=self.root_fqn
         except:
-            # The above repr requires info that's only set after the feature() object
-            # has been attached to a Features class, so fall back to the default repr instead of throwing
+            # self.root_fqn is a property, if it failed then just return the object repr
             return object.__repr__(self)
+        try:
+            typ_str = str(self.typ)
+        except:
+            # resolving typ requires parsing attributes that sometimes get set lazily; during error handling we
+            # might not have them set but we still want to print out a repr() of this Feature as part of the error message
+            typ_str = "<error>"
+        return f"Feature(fqn={root_fqn}, typ={typ_str})"
 
     @property
     def is_has_one(self) -> bool:

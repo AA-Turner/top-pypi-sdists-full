@@ -1,6 +1,6 @@
 [package]
 name = "py-polars"
-version = "1.30.0"
+version = "1.31.0"
 edition = "2021"
 
 [lib]
@@ -40,7 +40,8 @@ workspace = true
 [features]
 ffi_plugin = ["polars-python/ffi_plugin"]
 csv = ["polars-python/csv"]
-polars_cloud = ["polars-python/polars_cloud"]
+polars_cloud_client = ["polars-python/polars_cloud_client"]
+polars_cloud_server = ["polars-python/polars_cloud_server"]
 object = ["polars-python/object"]
 clipboard = ["polars-python/clipboard"]
 sql = ["polars-python/sql"]
@@ -58,7 +59,6 @@ cross_join = ["polars-python/cross_join"]
 pct_change = ["polars-python/pct_change"]
 repeat_by = ["polars-python/repeat_by"]
 nightly = ["polars-python/nightly"]
-streaming = ["polars-python/streaming"]
 meta = ["polars-python/meta"]
 search_sorted = ["polars-python/search_sorted"]
 decompress = ["polars-python/decompress"]
@@ -98,5 +98,9 @@ dtypes = ["polars-python/dtypes"]
 operations = ["polars-python/operations"]
 io = ["polars-python/io"]
 optimizations = ["polars-python/optimizations"]
-all = ["ffi_plugin", "csv", "polars_cloud", "object", "clipboard", "sql", "trigonometry", "parquet", "ipc", "catalog", "polars-python/all", "performant"]
+all = ["ffi_plugin", "csv", "polars_cloud_client", "object", "clipboard", "sql", "trigonometry", "parquet", "ipc", "catalog", "polars-python/all", "performant"]
+default_alloc = []
 default = ["all", "nightly"]
+
+[lints]
+workspace = true

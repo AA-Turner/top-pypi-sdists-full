@@ -1275,6 +1275,13 @@ class TestHTMLBlocks(TestCase):
             )
         )
 
+    def test_not_actually_cdata(self):
+        # Ensure bug reported in #1534 is avoided.
+        self.assertMarkdownRenders(
+            '<![',
+            '<p>&lt;![</p>'
+        )
+
     def test_raw_cdata_code_span(self):
         self.assertMarkdownRenders(
             self.dedent(
@@ -1643,3 +1650,21 @@ class TestHTMLBlocks(TestCase):
         placeholder = md.htmlStash.get_placeholder(md.htmlStash.html_counter + 1)
         result = md.postprocessors['raw_html'].run(placeholder)
         self.assertEqual(placeholder, result)
+
+    def test_noname_tag(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <div>
+                </>
+                </div>
+                """
+            ),
+            self.dedent(
+                """
+                <div>
+                </>
+                </div>
+                """
+            )
+        )

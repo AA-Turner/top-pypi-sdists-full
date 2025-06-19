@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Callable, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Sequence, TypedDict, TypeVar
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias

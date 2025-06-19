@@ -1,7 +1,7 @@
 import abc
 from abc import abstractmethod
 from typing import Dict, Set, Union, Optional
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 
 from bigeye_sdk.model.protobuf_enum_facade import SimpleIntegrationPartner
 from pydantic.v1 import Field, BaseModel
@@ -86,15 +86,6 @@ class ContainmentNode(LineageNode, abc.ABC):
             containment_node.is_bi_tool = containment_node.partner_type in bi_tool_partners
         return containment_node
 
-    def has_single_upstream_node(self) -> bool:
-        return len(self.upstream_objects) == 1
-
-    def has_multiple_upstream_nodes(self) -> bool:
-        return len(self.upstream_objects) > 1
-
-    def last_element_is_origin(self, index: int) -> bool:
-        return index == len(self.upstream_objects) and self.is_origin
-
     def add_upstream_object(self, upstream_connection: LineageNavigationNodeV2Response):
         containment_object_id = [
             e.upstream_id
@@ -122,6 +113,11 @@ class ContainmentNode(LineageNode, abc.ABC):
                 nav_node.downstream_edges
                 if e.relationship_type == RelationshipType.RELATIONSHIP_TYPE_LINEAGE
             }
+            parent_node_id = next((e.upstream_id for e in nav_node.upstream_edges
+                                   if e.relationship_type == RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT), 0)
+            if parent_node_id:
+                entity_id = graph.nodes.get(parent_node_id).lineage_node.node_entity_id
+                self.parent_entity_id = entity_id
             self.downstream_objects.update(lineage_object_ids)
         else:
             for edge in nav_node.downstream_edges:
@@ -149,7 +145,8 @@ class ContainmentNode(LineageNode, abc.ABC):
                 integration_partner = column_connection.lineage_node.source.integration_partner
                 if integration_partner and integration_partner in bi_tool_partners:
                     self.downstream_objects.add(column_connection.lineage_node.id)
-                    column_node.downstream_objects_ix[column_connection.lineage_node.id].add(column_connection.lineage_node.id)
+                    column_node.downstream_objects_ix[column_connection.lineage_node.id].add(
+                        column_connection.lineage_node.id)
                 else:
                     self.add_downstream_object(downstream_connection=column_connection)
                     column_node.add_downstream_object(downstream_connection=column_connection)
@@ -176,11 +173,9 @@ class ContainmentNode(LineageNode, abc.ABC):
                 self.upstream_connections[column_nav_node.lineage_node.id] = column_node
 
 
-
 class TableNode(ContainmentNode):
     source_id: int
     schema_name: str
-
 
     def is_origin(self) -> bool:
         return len(self.upstream_connections) == 0
@@ -196,7 +191,7 @@ class IntegrationNode(ContainmentNode):
     partner_type: IntegrationPartner
     partner_name: str
     is_bi_tool: bool = False
-
+    parent_entity_id: int = 0
 
     def is_origin(self) -> bool:
         return len(self.upstream_objects) == 0 if not self.is_bi_tool else False
@@ -210,29 +205,9 @@ class IntegrationNode(ContainmentNode):
 
 
 class LineageGraph(BaseModel):
-    equality_value: int = 0
-    largest_key: int = 1.0
-    smallest_key: int = -1.0
-    related_graphs: Dict[int, "LineageGraph"] = Field(default_factory=lambda: {})
-    origin_node: ContainmentNode
-    terminus_nodes: Dict[int, ContainmentNode] = Field(default_factory=lambda: {})
-    table_level_graph: OrderedDict[int, ContainmentNode]
-
-    def __eq__(self, other: "LineageGraph") -> bool:
-        return (self.equality_value == other.equality_value
-                and
-                self.origin_node.id == other.origin_node.id
-                and
-                len(self.terminus_nodes) == len(other.terminus_nodes)
-                and
-                len(self.table_level_graph) == len(other.table_level_graph))
+    node_index: Dict[int, ContainmentNode]
+    contains_bi_tool: bool = False
 
     @classmethod
-    def begin(cls, node: ContainmentNode) -> "LineageGraph":
-        return LineageGraph(equality_value=node.id, origin_node=node, table_level_graph=OrderedDict({node.id: node}))
-
-    def add_downstream(self, node: ContainmentNode):
-        self.equality_value += node.id
-        self.table_level_graph[node.id] = node
-        if node.is_terminus():
-            self.terminus_nodes[node.id] = node
+    def begin(cls, node_index: Dict[int, ContainmentNode]) -> "LineageGraph":
+        return LineageGraph(node_index=node_index)

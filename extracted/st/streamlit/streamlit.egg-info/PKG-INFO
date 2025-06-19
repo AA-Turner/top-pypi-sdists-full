@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.45.1
+Version: 1.46.0
 Summary: A faster way to build and share data apps
 Home-page: https://streamlit.io
 Author: Snowflake Inc
@@ -33,10 +33,10 @@ Requires-Python: >=3.9, !=3.9.7
 Description-Content-Type: text/markdown
 Requires-Dist: altair<6,>=4.0
 Requires-Dist: blinker<2,>=1.5.0
-Requires-Dist: cachetools<6,>=4.0
+Requires-Dist: cachetools<7,>=4.0
 Requires-Dist: click<9,>=7.0
 Requires-Dist: numpy<3,>=1.23
-Requires-Dist: packaging<25,>=20
+Requires-Dist: packaging<26,>=20
 Requires-Dist: pandas<3,>=1.4.0
 Requires-Dist: pillow<12,>=7.1.0
 Requires-Dist: protobuf<7,>=3.20
@@ -48,7 +48,7 @@ Requires-Dist: typing-extensions<5,>=4.4.0
 Requires-Dist: watchdog<7,>=2.1.5; platform_system != "Darwin"
 Requires-Dist: gitpython!=3.1.19,<4,>=3.0.7
 Requires-Dist: pydeck<1,>=0.8.0b4
-Requires-Dist: tornado<7,>=6.0.3
+Requires-Dist: tornado!=6.5.0,<7,>=6.0.3
 Provides-Extra: snowflake
 Requires-Dist: snowflake-snowpark-python[modin]>=1.17.0; python_version < "3.12" and extra == "snowflake"
 Requires-Dist: snowflake-connector-python>=3.3.0; python_version < "3.12" and extra == "snowflake"

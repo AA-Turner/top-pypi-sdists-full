@@ -4,7 +4,6 @@
 #  -----------------------------------------------------------------------------------------
 
 from abc import ABC
-from copy import deepcopy
 
 __all__ = ["BaseConnection"]
 

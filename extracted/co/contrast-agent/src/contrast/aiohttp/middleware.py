@@ -108,8 +108,8 @@ class AioHttpMiddleware(BaseMiddleware):
             logger.debug("unable to get view function for aiohttp route observation")
             return
 
-        context.view_func_str = common.build_signature(view_func.__name__, view_func)
-        logger.debug("Observed aiohttp route: %s", context.view_func_str)
+        context.signature = common.build_signature(view_func.__name__, view_func)
+        logger.debug("Observed aiohttp route", signature=context.signature)
 
     @fail_quietly("Unable to get view func")
     def get_aiohttp_view_func(self, request):

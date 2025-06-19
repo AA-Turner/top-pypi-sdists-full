@@ -149,18 +149,21 @@ class Graph(_message.Message):
     ) -> None: ...
 
 class OverlayGraph(_message.Message):
-    __slots__ = ("feature_sets", "feature_fields", "resolvers")
+    __slots__ = ("feature_sets", "feature_fields", "resolvers", "generated_sql_resolvers")
     FEATURE_SETS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_FIELDS_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    GENERATED_SQL_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     feature_sets: _containers.RepeatedCompositeFieldContainer[FeatureSet]
     feature_fields: _containers.RepeatedCompositeFieldContainer[FeatureType]
     resolvers: _containers.RepeatedCompositeFieldContainer[Resolver]
+    generated_sql_resolvers: _containers.RepeatedCompositeFieldContainer[SQLResolverInfo]
     def __init__(
         self,
         feature_sets: _Optional[_Iterable[_Union[FeatureSet, _Mapping]]] = ...,
         feature_fields: _Optional[_Iterable[_Union[FeatureType, _Mapping]]] = ...,
         resolvers: _Optional[_Iterable[_Union[Resolver, _Mapping]]] = ...,
+        generated_sql_resolvers: _Optional[_Iterable[_Union[SQLResolverInfo, _Mapping]]] = ...,
     ) -> None: ...
 
 class NamedQuery(_message.Message):
@@ -1369,8 +1372,16 @@ class StreamKey(_message.Message):
     ) -> None: ...
 
 class SQLResolverSettings(_message.Message):
-    __slots__ = ("finalizer", "incremental_settings", "fields_root_fqn")
+    __slots__ = ("finalizer", "incremental_settings", "fields_root_fqn", "escaped_param_name_to_fqn")
     class FieldsRootFqnEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class EscapedParamNameToFqnEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1381,14 +1392,17 @@ class SQLResolverSettings(_message.Message):
     FINALIZER_FIELD_NUMBER: _ClassVar[int]
     INCREMENTAL_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     FIELDS_ROOT_FQN_FIELD_NUMBER: _ClassVar[int]
+    ESCAPED_PARAM_NAME_TO_FQN_FIELD_NUMBER: _ClassVar[int]
     finalizer: Finalizer
     incremental_settings: IncrementalSettings
     fields_root_fqn: _containers.ScalarMap[str, str]
+    escaped_param_name_to_fqn: _containers.ScalarMap[str, str]
     def __init__(
         self,
         finalizer: _Optional[_Union[Finalizer, str]] = ...,
         incremental_settings: _Optional[_Union[IncrementalSettings, _Mapping]] = ...,
         fields_root_fqn: _Optional[_Mapping[str, str]] = ...,
+        escaped_param_name_to_fqn: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class IncrementalSettings(_message.Message):
@@ -1407,6 +1421,103 @@ class IncrementalSettings(_message.Message):
         lookback_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         incremental_column: _Optional[str] = ...,
         timestamp_mode: _Optional[_Union[IncrementalTimestampMode, str]] = ...,
+    ) -> None: ...
+
+class SQLResolverCommentDict(_message.Message):
+    __slots__ = (
+        "total",
+        "source",
+        "resolves",
+        "namespace",
+        "incremental",
+        "tags",
+        "environment",
+        "count",
+        "cron",
+        "machine_type",
+        "owner",
+        "type",
+        "timeout",
+        "fields",
+        "unique_on",
+        "partitioned_by",
+    )
+    class FieldsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    TOTAL_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    RESOLVES_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    INCREMENTAL_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    CRON_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    FIELDS_FIELD_NUMBER: _ClassVar[int]
+    UNIQUE_ON_FIELD_NUMBER: _ClassVar[int]
+    PARTITIONED_BY_FIELD_NUMBER: _ClassVar[int]
+    total: bool
+    source: str
+    resolves: str
+    namespace: str
+    incremental: IncrementalSettings
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    environment: _containers.RepeatedScalarFieldContainer[str]
+    count: Finalizer
+    cron: Schedule
+    machine_type: str
+    owner: str
+    type: str
+    timeout: str
+    fields: _containers.ScalarMap[str, str]
+    unique_on: _containers.RepeatedScalarFieldContainer[str]
+    partitioned_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        total: bool = ...,
+        source: _Optional[str] = ...,
+        resolves: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        incremental: _Optional[_Union[IncrementalSettings, _Mapping]] = ...,
+        tags: _Optional[_Iterable[str]] = ...,
+        environment: _Optional[_Iterable[str]] = ...,
+        count: _Optional[_Union[Finalizer, str]] = ...,
+        cron: _Optional[_Union[Schedule, _Mapping]] = ...,
+        machine_type: _Optional[str] = ...,
+        owner: _Optional[str] = ...,
+        type: _Optional[str] = ...,
+        timeout: _Optional[str] = ...,
+        fields: _Optional[_Mapping[str, str]] = ...,
+        unique_on: _Optional[_Iterable[str]] = ...,
+        partitioned_by: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class SQLResolverInfo(_message.Message):
+    __slots__ = ("name", "filepath", "sql_string", "override_comment_dict")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FILEPATH_FIELD_NUMBER: _ClassVar[int]
+    SQL_STRING_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_COMMENT_DICT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    filepath: str
+    sql_string: str
+    override_comment_dict: SQLResolverCommentDict
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        filepath: _Optional[str] = ...,
+        sql_string: _Optional[str] = ...,
+        override_comment_dict: _Optional[_Union[SQLResolverCommentDict, _Mapping]] = ...,
     ) -> None: ...
 
 class CronFilterWithFeatureArgs(_message.Message):

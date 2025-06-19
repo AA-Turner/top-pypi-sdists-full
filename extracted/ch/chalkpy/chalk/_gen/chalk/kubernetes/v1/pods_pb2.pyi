@@ -221,12 +221,111 @@ class KubernetesPodData(_message.Message):
         ) -> None: ...
 
     class EnvVar(_message.Message):
-        __slots__ = ("name", "value")
+        __slots__ = ("name", "value", "value_from")
         NAME_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FROM_FIELD_NUMBER: _ClassVar[int]
         name: str
         value: str
-        def __init__(self, name: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        value_from: KubernetesPodData.EnvVarSource
+        def __init__(
+            self,
+            name: _Optional[str] = ...,
+            value: _Optional[str] = ...,
+            value_from: _Optional[_Union[KubernetesPodData.EnvVarSource, _Mapping]] = ...,
+        ) -> None: ...
+
+    class EnvVarSource(_message.Message):
+        __slots__ = ("field_ref", "resource_field_ref", "config_map_key_ref", "secret_key_ref")
+        FIELD_REF_FIELD_NUMBER: _ClassVar[int]
+        RESOURCE_FIELD_REF_FIELD_NUMBER: _ClassVar[int]
+        CONFIG_MAP_KEY_REF_FIELD_NUMBER: _ClassVar[int]
+        SECRET_KEY_REF_FIELD_NUMBER: _ClassVar[int]
+        field_ref: KubernetesPodData.ObjectFieldSelector
+        resource_field_ref: KubernetesPodData.ResourceFieldSelector
+        config_map_key_ref: KubernetesPodData.ConfigMapKeySelector
+        secret_key_ref: KubernetesPodData.SecretKeySelector
+        def __init__(
+            self,
+            field_ref: _Optional[_Union[KubernetesPodData.ObjectFieldSelector, _Mapping]] = ...,
+            resource_field_ref: _Optional[_Union[KubernetesPodData.ResourceFieldSelector, _Mapping]] = ...,
+            config_map_key_ref: _Optional[_Union[KubernetesPodData.ConfigMapKeySelector, _Mapping]] = ...,
+            secret_key_ref: _Optional[_Union[KubernetesPodData.SecretKeySelector, _Mapping]] = ...,
+        ) -> None: ...
+
+    class ObjectFieldSelector(_message.Message):
+        __slots__ = ("api_version", "field_path")
+        API_VERSION_FIELD_NUMBER: _ClassVar[int]
+        FIELD_PATH_FIELD_NUMBER: _ClassVar[int]
+        api_version: str
+        field_path: str
+        def __init__(self, api_version: _Optional[str] = ..., field_path: _Optional[str] = ...) -> None: ...
+
+    class ResourceFieldSelector(_message.Message):
+        __slots__ = ("container_name", "resource", "divisor")
+        CONTAINER_NAME_FIELD_NUMBER: _ClassVar[int]
+        RESOURCE_FIELD_NUMBER: _ClassVar[int]
+        DIVISOR_FIELD_NUMBER: _ClassVar[int]
+        container_name: str
+        resource: str
+        divisor: KubernetesPodData.Quantity
+        def __init__(
+            self,
+            container_name: _Optional[str] = ...,
+            resource: _Optional[str] = ...,
+            divisor: _Optional[_Union[KubernetesPodData.Quantity, _Mapping]] = ...,
+        ) -> None: ...
+
+    class ConfigMapKeySelector(_message.Message):
+        __slots__ = ("name", "key", "optional")
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        OPTIONAL_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        key: str
+        optional: bool
+        def __init__(self, name: _Optional[str] = ..., key: _Optional[str] = ..., optional: bool = ...) -> None: ...
+
+    class SecretKeySelector(_message.Message):
+        __slots__ = ("name", "key", "optional")
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        OPTIONAL_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        key: str
+        optional: bool
+        def __init__(self, name: _Optional[str] = ..., key: _Optional[str] = ..., optional: bool = ...) -> None: ...
+
+    class EnvFromSource(_message.Message):
+        __slots__ = ("prefix", "config_map_ref", "secret_ref")
+        PREFIX_FIELD_NUMBER: _ClassVar[int]
+        CONFIG_MAP_REF_FIELD_NUMBER: _ClassVar[int]
+        SECRET_REF_FIELD_NUMBER: _ClassVar[int]
+        prefix: str
+        config_map_ref: KubernetesPodData.ConfigMapEnvSource
+        secret_ref: KubernetesPodData.SecretEnvSource
+        def __init__(
+            self,
+            prefix: _Optional[str] = ...,
+            config_map_ref: _Optional[_Union[KubernetesPodData.ConfigMapEnvSource, _Mapping]] = ...,
+            secret_ref: _Optional[_Union[KubernetesPodData.SecretEnvSource, _Mapping]] = ...,
+        ) -> None: ...
+
+    class ConfigMapEnvSource(_message.Message):
+        __slots__ = ("name", "optional")
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        OPTIONAL_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        optional: bool
+        def __init__(self, name: _Optional[str] = ..., optional: bool = ...) -> None: ...
+
+    class SecretEnvSource(_message.Message):
+        __slots__ = ("name", "optional")
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        OPTIONAL_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        optional: bool
+        def __init__(self, name: _Optional[str] = ..., optional: bool = ...) -> None: ...
 
     class Container(_message.Message):
         __slots__ = (
@@ -235,6 +334,7 @@ class KubernetesPodData(_message.Message):
             "command",
             "args",
             "working_dir",
+            "env_from",
             "env",
             "resources",
             "restart_policy",
@@ -250,6 +350,7 @@ class KubernetesPodData(_message.Message):
         COMMAND_FIELD_NUMBER: _ClassVar[int]
         ARGS_FIELD_NUMBER: _ClassVar[int]
         WORKING_DIR_FIELD_NUMBER: _ClassVar[int]
+        ENV_FROM_FIELD_NUMBER: _ClassVar[int]
         ENV_FIELD_NUMBER: _ClassVar[int]
         RESOURCES_FIELD_NUMBER: _ClassVar[int]
         RESTART_POLICY_FIELD_NUMBER: _ClassVar[int]
@@ -264,6 +365,7 @@ class KubernetesPodData(_message.Message):
         command: _containers.RepeatedScalarFieldContainer[str]
         args: _containers.RepeatedScalarFieldContainer[str]
         working_dir: str
+        env_from: _containers.RepeatedCompositeFieldContainer[KubernetesPodData.EnvFromSource]
         env: _containers.RepeatedCompositeFieldContainer[KubernetesPodData.EnvVar]
         resources: KubernetesPodData.ResourceRequirements
         restart_policy: str
@@ -280,6 +382,7 @@ class KubernetesPodData(_message.Message):
             command: _Optional[_Iterable[str]] = ...,
             args: _Optional[_Iterable[str]] = ...,
             working_dir: _Optional[str] = ...,
+            env_from: _Optional[_Iterable[_Union[KubernetesPodData.EnvFromSource, _Mapping]]] = ...,
             env: _Optional[_Iterable[_Union[KubernetesPodData.EnvVar, _Mapping]]] = ...,
             resources: _Optional[_Union[KubernetesPodData.ResourceRequirements, _Mapping]] = ...,
             restart_policy: _Optional[str] = ...,

@@ -1,6 +1,8 @@
 import contextlib
 import os
+import tempfile
 import time
+import zipfile
 from typing import Any
 
 from . import (
@@ -87,13 +89,28 @@ class TestGalaxyInvocations(GalaxyTestBase.GalaxyTestBase):
         invocation = self._invoke_workflow()
 
         invocation_id = invocation["id"]
-        workflow_id = invocation["workflow_id"]
         report = self.gi.invocations.get_invocation_report(invocation_id)
-        assert report["workflows"] == {workflow_id: {"name": "paste_columns"}}
+        assert "paste_columns" in report["markdown"]
         with contextlib.suppress(Exception):
             # This can fail if dependencies as weasyprint are not installed on the Galaxy server
             ret = self.gi.invocations.get_invocation_report_pdf(invocation_id, "report.pdf")
             assert ret is None
+
+    @test_util.skip_unless_galaxy("release_23.0")
+    def test_get_invocation_archive(self):
+        invocation = self._invoke_workflow()
+        self.gi.invocations.wait_for_invocation(invocation["id"])
+        with tempfile.TemporaryDirectory() as folder:
+            file = f"{folder}/temp.rocrate.zip"
+            response = self.gi.invocations.get_invocation_archive(
+                invocation_id=invocation["id"],
+                model_store_format="rocrate.zip",
+            )
+            with open(file, "bw") as archive:
+                for chunk in response.iter_content(chunk_size=8192):
+                    archive.write(chunk)
+            # Verify file is not empty
+            assert zipfile.is_zipfile(file)
 
     @test_util.skip_unless_galaxy("release_20.09")
     def test_get_invocation_biocompute_object(self):

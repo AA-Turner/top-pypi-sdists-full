@@ -235,8 +235,8 @@ mutation addConnection($connectionType:String!, $createWarehouseType:String, $dw
 """
 
 ADD_REDSHIFT_CONSUMER_MUTATION = """
-mutation addRedshiftConsumerConnection($producerResourceId:UUID!, $jobTypes:[String], $key:String!, $jobLimits:JSONString, $name:String, $connectionName:String, $dcId:UUID, $isActive: Boolean) {
-  addRedshiftConsumerConnection(producerResourceId:$producerResourceId,  jobTypes:$jobTypes, key:$key, jobLimits:$jobLimits, name:$name, connectionName:$connectionName, dcId: $dcId, isActive: $isActive){
+mutation addRedshiftConsumerConnection($producerResourceId:UUID!, $jobTypes:[String], $key:String!, $jobLimits:JSONString, $connectionName:String, $dcId:UUID, $isActive: Boolean) {
+  addRedshiftConsumerConnection(producerResourceId:$producerResourceId,  jobTypes:$jobTypes, key:$key, jobLimits:$jobLimits, connectionName:$connectionName, dcId: $dcId, isActive: $isActive){
     connection {
       uuid
     }

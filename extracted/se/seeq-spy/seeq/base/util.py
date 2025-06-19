@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import glob
 import os
 import pathlib
@@ -130,13 +131,25 @@ def get_test_with_file():
         os.path.join(os.path.dirname(__file__), '..', 'sdk', 'test-with.txt'))
 
 
+@functools.lru_cache()
 def get_test_with_root_dir():
     test_with_file = get_test_with_file()
-    test_with = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
-    if safe_exists(test_with_file):
-        with safe_open(test_with_file, 'r') as f:
-            lines = f.readlines()
-            test_with = lines[0]
+
+    test_with = os.path.dirname(__file__)
+    while True:
+        if safe_exists(test_with_file):
+            with safe_open(test_with_file, 'r') as f:
+                lines = f.readlines()
+                test_with = lines[0]
+                break
+
+        if safe_exists(os.path.join(test_with, 'repo-root-dir.txt')):
+            break
+
+        if test_with == os.path.dirname(test_with):
+            break
+
+        test_with = os.path.dirname(test_with)
 
     return test_with
 

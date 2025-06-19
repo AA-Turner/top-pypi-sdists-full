@@ -1,7 +1,7 @@
 [tool]
 [tool.poetry]
 name = "codeflash"
-version = "0.14.3" # Determined by poetry-dynamic-versioning during `poetry build`
+version = "0.14.4" # Determined by poetry-dynamic-versioning during `poetry build`
 description = "Client for codeflash.ai - automatic code performance optimization, powered by AI"
 license = "BSL-1.1"
 authors = ["CodeFlash Inc. <contact@codeflash.ai>"]

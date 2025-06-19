@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 0.1.7
+Version: 0.1.8
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -23,14 +23,19 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: boto3<2.0.0,>=1.26.0
 Requires-Dist: botocore<2.0.0,>=1.29.0
-Requires-Dist: docstring-parser<0.16.0,>=0.15
+Requires-Dist: docstring-parser<1.0,>=0.15
 Requires-Dist: mcp<2.0.0,>=1.8.0
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: watchdog<7.0.0,>=6.0.0
+Provides-Extra: a2a
+Requires-Dist: a2a-sdk>=0.2.6; extra == 'a2a'
+Requires-Dist: fastapi>=0.115.12; extra == 'a2a'
+Requires-Dist: httpx>=0.28.1; extra == 'a2a'
+Requires-Dist: starlette>=0.46.2; extra == 'a2a'
+Requires-Dist: uvicorn>=0.34.2; extra == 'a2a'
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: dev
@@ -42,7 +47,6 @@ Requires-Dist: pre-commit<4.2.0,>=3.2.0; extra == 'dev'
 Requires-Dist: pytest-asyncio<0.27.0,>=0.26.0; extra == 'dev'
 Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'dev'
 Requires-Dist: ruff<0.5.0,>=0.4.4; extra == 'dev'
-Requires-Dist: swagger-parser<2.0.0,>=1.0.2; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'docs'
@@ -55,6 +59,8 @@ Provides-Extra: ollama
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'ollama'
 Provides-Extra: openai
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'openai'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'otel'
 Description-Content-Type: text/markdown
 
 <div align="center">

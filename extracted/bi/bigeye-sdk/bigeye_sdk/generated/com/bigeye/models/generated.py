@@ -559,6 +559,8 @@ class AggregateField(betterproto.Enum):
     AGGREGATE_FIELD_CUSTOM_RULES = 17
     AGGREGATE_FIELD_ISSUE_TYPE = 18
     AGGREGATE_FIELD_IS_ROOT_CAUSE = 19
+    AGGREGATE_FIELD_LINKED_METRICS = 20
+    AGGREGATE_FIELD_LINKED_CUSTOM_RULES = 21
 
 
 class GroupByEntityType(betterproto.Enum):
@@ -729,6 +731,12 @@ class AgentHealthStatus(betterproto.Enum):
     AGENT_HEALTH_STATUS_SLOW_BUT_UP = 2
     AGENT_HEALTH_STATUS_DOWN = 3
     AGENT_HEALTH_STATUS_NO_DATA = 4
+
+
+class AuthType(betterproto.Enum):
+    AUTH_TYPE_UNSPECIFIED = 0
+    AUTH_TYPE_PAT = 1
+    AUTH_TYPE_OAUTH2_M2M = 2
 
 
 class SourceSortField(betterproto.Enum):
@@ -947,9 +955,22 @@ class CustomRulesThresholdType(betterproto.Enum):
     CUSTOM_RULES_THRESHOLD_TYPE_PERCENT_MATCH = 3
 
 
-class CustomRuleListSortField(betterproto.Enum):
-    CUSTOM_RULE_LIST_SORT_FIELD_UNSPECIFIED = 0
-    CUSTOM_RULE_LIST_SORT_FIELD_FAVORITE = 1
+class CustomRuleSortField(betterproto.Enum):
+    CUSTOM_RULE_SORT_FIELD_UNSPECIFIED = 0
+    CUSTOM_RULE_SORT_FIELD_FAVORITE = 1
+    CUSTOM_RULE_SORT_FIELD_NAME = 2
+    CUSTOM_RULE_SORT_FIELD_TYPE = 3
+    CUSTOM_RULE_SORT_FIELD_LEFT_TABLE = 4
+    CUSTOM_RULE_SORT_FIELD_RIGHT_TABLE = 5
+    CUSTOM_RULE_SORT_FIELD_JOIN_TYPE = 6
+    CUSTOM_RULE_SORT_FIELD_KEYS = 7
+
+
+class JoinSortField(betterproto.Enum):
+    JOIN_SORT_FIELD_UNSPECIFIED = 0
+    JOIN_SORT_FIELD_LEFT_TABLE = 1
+    JOIN_SORT_FIELD_RIGHT_TABLE = 2
+    JOIN_SORT_FIELD_KEYS = 3
 
 
 class SystemSearchType(betterproto.Enum):
@@ -2131,6 +2152,12 @@ class CreateLineageNodeV2BulkRequest(betterproto.Message):
 
 
 @dataclass
+class CustomCatalogSource(betterproto.Message):
+    name: str = betterproto.string_field(1)
+    icon_url: str = betterproto.string_field(3)
+
+
+@dataclass
 class CatalogSource(betterproto.Message):
     id: int = betterproto.int32_field(1)
     name: str = betterproto.string_field(2)
@@ -2139,6 +2166,9 @@ class CatalogSource(betterproto.Message):
     )
     integration_partner: "IntegrationPartner" = betterproto.enum_field(
         4, group="catalogSourceType"
+    )
+    custom_catalog_source: "CustomCatalogSource" = betterproto.message_field(
+        5, group="catalogSourceType"
     )
 
 
@@ -4013,6 +4043,10 @@ class Source(betterproto.Message):
     source_metadata_overrides: "SourceMetadataOverrides" = betterproto.message_field(22)
     max_pool_size: int = betterproto.int32_field(23)
     tags: List["Tag"] = betterproto.message_field(24)
+    metric_run_native_temporal_parallelism: int = betterproto.int32_field(25)
+    metric_batch_size_query: int = betterproto.int32_field(26)
+    metric_batch_size_metadata: int = betterproto.int32_field(27)
+    auth_type: "AuthType" = betterproto.enum_field(28)
 
 
 @dataclass
@@ -4039,6 +4073,7 @@ class CreateSourceRequest(betterproto.Message):
     datadotworld_connection_id: str = betterproto.string_field(19)
     source_metadata_overrides: "SourceMetadataOverrides" = betterproto.message_field(20)
     max_pool_size: int = betterproto.int32_field(21)
+    auth_type: "AuthType" = betterproto.enum_field(22)
 
 
 @dataclass
@@ -5356,6 +5391,17 @@ class GetMetricRevisionsResponse(betterproto.Message):
 
 
 @dataclass
+class CustomRuleRevision(betterproto.Message):
+    revision_info: "RevisionInfo" = betterproto.message_field(1)
+    custom_rule: "CustomRule" = betterproto.message_field(2)
+
+
+@dataclass
+class GetCustomRuleRevisionsResponse(betterproto.Message):
+    revisions: List["CustomRuleRevision"] = betterproto.message_field(1)
+
+
+@dataclass
 class CreateCustomRuleRequest(betterproto.Message):
     custom_rule: "CustomRule" = betterproto.message_field(1)
 
@@ -5411,17 +5457,23 @@ class CustomRuleBulkRequest(betterproto.Message):
 
 
 @dataclass
+class CustomRuleSortOption(betterproto.Message):
+    sort_direction: "SortDirection" = betterproto.enum_field(1)
+    sort_field: "CustomRuleSortField" = betterproto.enum_field(2)
+
+
+@dataclass
 class GetCustomRuleListRequest(betterproto.Message):
     search: str = betterproto.string_field(1)
-    sort_field: "CustomRuleListSortField" = betterproto.enum_field(2)
-    sort_direction: "SortDirection" = betterproto.enum_field(3)
-    page_size: int = betterproto.int32_field(4)
-    page_cursor: str = betterproto.string_field(5)
-    source_id: int = betterproto.int32_field(6)
-    schema_id: int = betterproto.int32_field(7)
-    table_id: int = betterproto.int32_field(8)
-    column_id: int = betterproto.int32_field(9)
-    collection_id: int = betterproto.int32_field(10)
+    sort_option: List["CustomRuleSortOption"] = betterproto.message_field(2)
+    page_size: int = betterproto.int32_field(3)
+    page_cursor: str = betterproto.string_field(4)
+    source_id: int = betterproto.int32_field(5)
+    schema_id: int = betterproto.int32_field(6)
+    table_id: int = betterproto.int32_field(7)
+    column_id: int = betterproto.int32_field(8)
+    collection_id: int = betterproto.int32_field(9)
+    join_id: int = betterproto.int32_field(10)
 
 
 @dataclass
@@ -5436,9 +5488,19 @@ class SinglePathParamCustomRuleIdRequest(betterproto.Message):
 
 
 @dataclass
+class SinglePathParamJoinIdRequest(betterproto.Message):
+    join_id: int = betterproto.int32_field(1)
+
+
+@dataclass
 class GetMetricObservedColumnBulkRequest(betterproto.Message):
     metric_ids: List[int] = betterproto.int32_field(1)
     column_ids: List[int] = betterproto.int32_field(2)
+    table_ids: List[int] = betterproto.int32_field(3)
+    schema_ids: List[int] = betterproto.int32_field(4)
+    is_for_custom_rule: bool = betterproto.bool_field(5)
+    remove_duplicate_metrics: bool = betterproto.bool_field(6)
+    source_ids: List[int] = betterproto.int32_field(7)
 
 
 @dataclass
@@ -5449,18 +5511,26 @@ class MetricObservedColumnRequest(betterproto.Message):
 
 
 @dataclass
+class DeleteMetricObservedColumnRequest(betterproto.Message):
+    column_id: int = betterproto.int32_field(1)
+    metric_id: int = betterproto.int32_field(2)
+
+
+@dataclass
 class MetricObservedColumnResponse(betterproto.Message):
     column: "ColumnWithTable" = betterproto.message_field(1)
     metric: "MetricInfo" = betterproto.message_field(2)
     comments: str = betterproto.string_field(3)
     entity_info: "EntityInfo" = betterproto.message_field(4)
+    custom_rule: "CustomRuleInfo" = betterproto.message_field(5)
 
 
 @dataclass
-class MessageObservedColumnListResponse(betterproto.Message):
+class MetricObservedColumnListResponse(betterproto.Message):
     metric_observed_columns: List["MetricObservedColumnResponse"] = (
         betterproto.message_field(1)
     )
+    suggested_columns: List["ColumnWithTable"] = betterproto.message_field(2)
 
 
 @dataclass
@@ -5472,12 +5542,28 @@ class JoinColumnPairing(betterproto.Message):
 
 
 @dataclass
+class RowCreationTimeFilter(betterproto.Message):
+    rct_column: "IdAndDisplayName" = betterproto.message_field(1)
+    lookback: "TimeInterval" = betterproto.message_field(2)
+
+
+@dataclass
+class JoinTableFilter(betterproto.Message):
+    where_clause: str = betterproto.string_field(1, group="filter_option")
+    rct_filter: "RowCreationTimeFilter" = betterproto.message_field(
+        2, group="filter_option"
+    )
+
+
+@dataclass
 class Join(betterproto.Message):
     id: int = betterproto.int32_field(1)
     left_table: "Table" = betterproto.message_field(2)
     right_table: "Table" = betterproto.message_field(3)
     key_columns: List["JoinColumnPairing"] = betterproto.message_field(4)
     entity_info: "EntityInfo" = betterproto.message_field(5)
+    left_filter: "JoinTableFilter" = betterproto.message_field(6)
+    right_filter: "JoinTableFilter" = betterproto.message_field(7)
 
 
 @dataclass
@@ -5491,11 +5577,25 @@ class CreateOrUpdateJoinRequest(betterproto.Message):
     left_table_id: int = betterproto.int32_field(1)
     right_table_id: int = betterproto.int32_field(2)
     key_columns: List["JoinColumnIdPairing"] = betterproto.message_field(4)
+    left_filter: "JoinTableFilter" = betterproto.message_field(5)
+    right_filter: "JoinTableFilter" = betterproto.message_field(6)
+
+
+@dataclass
+class CreateOrUpdateJoinRequestWrapper(betterproto.Message):
+    join_id: int = betterproto.int32_field(1)
+    request: "CreateOrUpdateJoinRequest" = betterproto.message_field(2)
 
 
 @dataclass
 class CreateOrUpdateJoinResponse(betterproto.Message):
     join: "Join" = betterproto.message_field(1)
+
+
+@dataclass
+class JoinSortOption(betterproto.Message):
+    sort_direction: "SortDirection" = betterproto.enum_field(1)
+    sort_field: "JoinSortField" = betterproto.enum_field(2)
 
 
 @dataclass
@@ -5505,11 +5605,15 @@ class GetJoinsRequest(betterproto.Message):
     table_id: int = betterproto.int32_field(3)
     column_id: int = betterproto.int32_field(4)
     search: str = betterproto.string_field(5)
+    sort_option: List["JoinSortOption"] = betterproto.message_field(6)
+    page_size: int = betterproto.int32_field(7)
+    page_cursor: str = betterproto.string_field(8)
 
 
 @dataclass
 class GetJoinsResponse(betterproto.Message):
     joins: List["Join"] = betterproto.message_field(1)
+    pagination_info: "PaginationInfo" = betterproto.message_field(2)
 
 
 @dataclass
@@ -6250,6 +6354,54 @@ class ColumnToProfile(betterproto.Message):
     result_set_column_name: str = betterproto.string_field(2)
     stats_to_profile: List["PredefinedMetricName"] = betterproto.enum_field(3)
     potential_patterns: List["PredefinedMetricName"] = betterproto.enum_field(4)
+
+
+@dataclass
+class RunJoinRuleRequest(betterproto.Message):
+    # Represents a single request from Datawatch to the agent, to run a batch of
+    # join rules in one activity. Initially the join rules will not be batched,
+    # so join_conditions will be a singleton-list for now.
+    fetch_left: "JoinRuleFetchSql" = betterproto.message_field(1)
+    fetch_right: "JoinRuleFetchSql" = betterproto.message_field(2)
+    key_columns: List["JoinColumnNamePairing"] = betterproto.message_field(3)
+    join_conditions: List["JoinRuleJoinCondition"] = betterproto.message_field(4)
+    user_id: int = betterproto.int32_field(5)
+    is_outbound: bool = betterproto.bool_field(6)
+    collection_queue: str = betterproto.string_field(7)
+    workspace_id: int = betterproto.int32_field(8)
+
+
+@dataclass
+class JoinRuleFetchSql(betterproto.Message):
+    source: "JdbcInfo" = betterproto.message_field(1)
+    sql: str = betterproto.string_field(2)
+    alias: str = betterproto.string_field(3)
+
+
+@dataclass
+class JoinColumnNamePairing(betterproto.Message):
+    left_column_name: str = betterproto.string_field(1)
+    right_column_name: str = betterproto.string_field(2)
+
+
+@dataclass
+class JoinRuleJoinCondition(betterproto.Message):
+    rule_id: int = betterproto.int32_field(1)
+    join_type: "JoinType" = betterproto.enum_field(2)
+    where_clause: str = betterproto.string_field(3)
+
+
+@dataclass
+class RunJoinRuleResponse(betterproto.Message):
+    query_error: "QueryError" = betterproto.message_field(1)
+    results: List["RunSingleJoinRuleResult"] = betterproto.message_field(2)
+
+
+@dataclass
+class RunSingleJoinRuleResult(betterproto.Message):
+    rule_id: int = betterproto.int32_field(1)
+    rows_scanned: int = betterproto.int64_field(2)
+    rows_matched: int = betterproto.int64_field(3)
 
 
 class MetricServiceStub(betterproto.ServiceStub):
@@ -8173,6 +8325,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         datadotworld_connection_id: str = "",
         source_metadata_overrides: Optional["SourceMetadataOverrides"] = None,
         max_pool_size: int = 0,
+        auth_type: "AuthType" = 0,
     ) -> SourceValidationResponse:
         """Validate source"""
 
@@ -8199,6 +8352,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         if source_metadata_overrides is not None:
             request.source_metadata_overrides = source_metadata_overrides
         request.max_pool_size = max_pool_size
+        request.auth_type = auth_type
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.SourceService/ValidateSource",
@@ -8230,6 +8384,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         datadotworld_connection_id: str = "",
         source_metadata_overrides: Optional["SourceMetadataOverrides"] = None,
         max_pool_size: int = 0,
+        auth_type: "AuthType" = 0,
     ) -> CreateSourceResponse:
         """Create or update source"""
 
@@ -8256,6 +8411,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         if source_metadata_overrides is not None:
             request.source_metadata_overrides = source_metadata_overrides
         request.max_pool_size = max_pool_size
+        request.auth_type = auth_type
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.SourceService/CreateOrUpdateSource",
@@ -9783,6 +9939,55 @@ class CustomRuleServiceStub(betterproto.ServiceStub):
             GetCustomRuleListResponse,
         )
 
+    async def get_custom_rules(
+        self,
+        *,
+        search: str = "",
+        sort_option: List["CustomRuleSortOption"] = [],
+        page_size: int = 0,
+        page_cursor: str = "",
+        source_id: int = 0,
+        schema_id: int = 0,
+        table_id: int = 0,
+        column_id: int = 0,
+        collection_id: int = 0,
+        join_id: int = 0,
+    ) -> GetCustomRuleListResponse:
+        """Get custom rules"""
+
+        request = GetCustomRuleListRequest()
+        request.search = search
+        if sort_option is not None:
+            request.sort_option = sort_option
+        request.page_size = page_size
+        request.page_cursor = page_cursor
+        request.source_id = source_id
+        request.schema_id = schema_id
+        request.table_id = table_id
+        request.column_id = column_id
+        request.collection_id = collection_id
+        request.join_id = join_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.CustomRuleService/GetCustomRules",
+            request,
+            GetCustomRuleListResponse,
+        )
+
+    async def get_custom_rule_revisions(
+        self, *, custom_rule_id: int = 0
+    ) -> GetCustomRuleRevisionsResponse:
+        """Get custom rule revisions"""
+
+        request = SinglePathParamCustomRuleIdRequest()
+        request.custom_rule_id = custom_rule_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.CustomRuleService/GetCustomRuleRevisions",
+            request,
+            GetCustomRuleRevisionsResponse,
+        )
+
 
 class GroupServiceStub(betterproto.ServiceStub):
     """Groups"""
@@ -10142,4 +10347,104 @@ class ObjectOwnerServiceStub(betterproto.ServiceStub):
             "/com.bigeye.models.generated.ObjectOwnerService/DeleteObjectOwner",
             request,
             ObjectOwnerResponse,
+        )
+
+
+class JoinServiceStub(betterproto.ServiceStub):
+    async def create_join(
+        self,
+        *,
+        left_table_id: int = 0,
+        right_table_id: int = 0,
+        key_columns: List["JoinColumnIdPairing"] = [],
+        left_filter: Optional["JoinTableFilter"] = None,
+        right_filter: Optional["JoinTableFilter"] = None,
+    ) -> CreateOrUpdateJoinResponse:
+        """Create join"""
+
+        request = CreateOrUpdateJoinRequest()
+        request.left_table_id = left_table_id
+        request.right_table_id = right_table_id
+        if key_columns is not None:
+            request.key_columns = key_columns
+        if left_filter is not None:
+            request.left_filter = left_filter
+        if right_filter is not None:
+            request.right_filter = right_filter
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.JoinService/CreateJoin",
+            request,
+            CreateOrUpdateJoinResponse,
+        )
+
+    async def get_join(self, *, join_id: int = 0) -> Join:
+        """Get join"""
+
+        request = SinglePathParamJoinIdRequest()
+        request.join_id = join_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.JoinService/GetJoin",
+            request,
+            Join,
+        )
+
+    async def get_joins(
+        self,
+        *,
+        source_id: int = 0,
+        schema_id: int = 0,
+        table_id: int = 0,
+        column_id: int = 0,
+        search: str = "",
+        sort_option: List["JoinSortOption"] = [],
+        page_size: int = 0,
+        page_cursor: str = "",
+    ) -> GetJoinsResponse:
+        """Get joins"""
+
+        request = GetJoinsRequest()
+        request.source_id = source_id
+        request.schema_id = schema_id
+        request.table_id = table_id
+        request.column_id = column_id
+        request.search = search
+        if sort_option is not None:
+            request.sort_option = sort_option
+        request.page_size = page_size
+        request.page_cursor = page_cursor
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.JoinService/GetJoins",
+            request,
+            GetJoinsResponse,
+        )
+
+    async def update_join(
+        self, *, join_id: int = 0, request: Optional["CreateOrUpdateJoinRequest"] = None
+    ) -> CreateOrUpdateJoinResponse:
+        """Update join"""
+
+        request = CreateOrUpdateJoinRequestWrapper()
+        request.join_id = join_id
+        if request is not None:
+            request.request = request
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.JoinService/UpdateJoin",
+            request,
+            CreateOrUpdateJoinResponse,
+        )
+
+    async def delete_join(self, *, join_id: int = 0) -> Empty:
+        """Delete join"""
+
+        request = SinglePathParamJoinIdRequest()
+        request.join_id = join_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.JoinService/DeleteJoin",
+            request,
+            Empty,
         )

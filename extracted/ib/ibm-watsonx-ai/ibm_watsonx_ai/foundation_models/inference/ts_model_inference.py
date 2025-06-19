@@ -116,7 +116,8 @@ class TSModelInference(WMLResource):
                 reason="None of the arguments were provided.",
             )
 
-        self.params = params
+        self.params = deepcopy(params) if params is not None else None
+
         TSModelInference._validate_type(
             params, "params", [dict, TSForecastParameters], False, True
         )
@@ -150,7 +151,7 @@ class TSModelInference(WMLResource):
         self,
         data: dict | pd.DataFrame,
         params: dict | TSForecastParameters | None = None,
-        **kwargs: dict | pd.DataFrame,
+        future_data: dict | pd.DataFrame | None = None,
     ) -> dict:
         """
         Generates a forecast based on the provided data and model parameters.
@@ -160,6 +161,9 @@ class TSModelInference(WMLResource):
 
         :param params: Contains basic metadata about your time series data input. These metadata are used by the server to understand which field represents a time stamp or which are unique identifiers for separating time series from different input channels.
         :type params: dict, TSForecastParameters, optional
+
+        :param future_data: Available only for deployment (BYOM). Exogenous or supporting features that extend into the forecasting horizon (e.g., a weather forecast or calendar of special promotions) which are known in advance. future_data would be in the same format as data except that all timestamps would be in the forecast horizon and it would not include previously specified target_columns.
+        :type future_data: dict, pd.DataFrame, optional
 
         **Example:**
 
@@ -181,6 +185,21 @@ class TSModelInference(WMLResource):
                     ]
                 }
 
+            future_data = {
+                    "date": [
+                        "2018-10-02T16:00:00",
+                        "2018-10-02T17:00:00",
+                        "2018-10-02T18:00:00"
+                        ...
+                    ],
+                    "HUFL": [
+                        10.10,
+                        20.20,
+                        30.30
+                        ...
+                    ]
+                }
+
             params =  {
                 "timestamp_column": "date",
                 "target_columns": [
@@ -192,7 +211,7 @@ class TSModelInference(WMLResource):
 
             # The number of elements in the array for each field must be the prediction length of the model depending on the model; for example 96 for ibm/granite-ttm-512-96-r2,
 
-            response = ts_model.forecast(data=data, params=params)
+            response = ts_model.forecast(data=data, params=params, future_data=future_data)
 
             # Print all response
             print(response)
@@ -213,10 +232,10 @@ class TSModelInference(WMLResource):
         )
 
         if params is not None:
-            parameters = params
+            parameters = deepcopy(params)
 
         elif self.params is not None:
-            parameters = deepcopy(self.params)
+            parameters = self.params
 
         else:
             parameters = None
@@ -237,22 +256,11 @@ class TSModelInference(WMLResource):
 
         payload["schema"] = parameters
 
-        if kwargs:
-            allowed_key = {"future_data"}
-            kwargs_keys = set(kwargs.keys())
-            diff = kwargs_keys.difference(allowed_key)
-            if diff:
-                raise ValueError(
-                    f"Unsupported argument{'s'if len(diff) > 1 else ''} provided: "
-                    + ", ".join(diff)
-                )
+        if future_data is not None:
+            if isinstance(future_data, pd.DataFrame):
+                future_data = future_data.to_dict(orient="list")
 
-            future_data = kwargs.get("future_data")
-            if future_data is not None:
-                if isinstance(future_data, pd.DataFrame):
-                    future_data = future_data.to_dict(orient="list")
-
-                payload["future_data"] = future_data
+            payload["future_data"] = future_data
 
         if not self.deployment_id:
             if self._client.default_project_id:

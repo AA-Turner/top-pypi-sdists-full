@@ -767,7 +767,7 @@ class InfoModule(BaseIntegrationModule):
         if not hasattr(model, "model_json_schema"):
             raise ValueError(f"Model {name} does not have a model_json_schema method")
 
-        schema = model.model_json_schema()
+        schema = self._get_model_extended_json_schema(model)
         spec["components"]["schemas"]["Settings"] = schema
         used_refs.add("Settings")
 

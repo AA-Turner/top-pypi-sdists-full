@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import functools
 import re
-from collections.abc import Sized
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sized, TypeVar
 
 import pandas as pd
 
@@ -147,11 +146,18 @@ def set_index(
         obj.index = index  # type: ignore[attr-defined]
         return obj
     if implementation is Implementation.PANDAS and (
+        backend_version < (1,)
+    ):  # pragma: no cover
+        kwargs = {"inplace": False}
+    else:
+        kwargs = {}
+    if implementation is Implementation.PANDAS and (
         (1, 5) <= backend_version < (3,)
     ):  # pragma: no cover
-        return obj.set_axis(index, axis=0, copy=False)  # type: ignore[attr-defined]
+        kwargs["copy"] = False
     else:  # pragma: no cover
-        return obj.set_axis(index, axis=0)  # type: ignore[attr-defined]
+        pass
+    return obj.set_axis(index, axis=0, **kwargs)  # type: ignore[attr-defined]
 
 
 def rename(

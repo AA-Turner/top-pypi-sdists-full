@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: contrast-agent
-Version: 10.8.0
+Version: 10.9.0
 Summary: Contrast Security's agent for Python web frameworks
 Author-email: "Contrast Security, Inc." <python@contrastsecurity.com>
 License-Expression: LicenseRef-ContrastSecurity-ContrastPlatformLicense
@@ -18,7 +18,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: requests<3,>=2.4.2
 Requires-Dist: contrast-agent-lib~=0.10.0
-Requires-Dist: contrast-fireball==0.1.11
+Requires-Dist: contrast-fireball==0.1.12
 Provides-Extra: debug
 Requires-Dist: viztracer<1.1.0,>=0.16.3; extra == "debug"
 Dynamic: license-file

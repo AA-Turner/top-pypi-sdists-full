@@ -14,18 +14,19 @@ namespace ampl {
 class AMPLException : public std::runtime_error {
  public:
   /**
-  Copy constructor
-  */
+   * Copy constructor
+   */
   AMPLException(const AMPLException &e) : std::runtime_error(e.what()) {
     message_ = e.message_;
     line_ = e.line_;
     offset_ = e.offset_;
     filename_ = e.filename_;
   }
+
   /**
-  Constructor
-  \param cause Cause of the exception
-  */
+   * Constructor
+   * \param cause Cause of the exception
+   */
   explicit AMPLException(fmt::CStringRef cause = fmt::CStringRef(""))
       : std::runtime_error(cause.c_str()) {
     line_ = -1;
@@ -34,12 +35,12 @@ class AMPLException : public std::runtime_error {
   }
 
   /**
-  Constructor for %AMPL errors
-  \param filename Name of the file in which the exception occurred
-  \param row Row where the error is detected
-  \param offset Offset where the error is detected
-  \param message Message to be embedded in the exception
-  */
+   * Constructor for %AMPL errors
+   * \param filename Name of the file in which the exception occurred
+   * \param row Row where the error is detected
+   * \param offset Offset where the error is detected
+   * \param message Message to be embedded in the exception
+   */
   AMPLException(fmt::CStringRef filename, int row, int offset,
                 fmt::CStringRef message)
       : std::runtime_error(
@@ -51,34 +52,35 @@ class AMPLException : public std::runtime_error {
   }
 
   /**
-  Here to avoid the error looser throw specifier for virtual
-  AMPLException::~AMPLException()
-  in some old c++ compilers
-  */
+   * Here to avoid the error looser throw specifier for virtual
+   * AMPLException::~AMPLException()
+   * in some old c++ compilers
+   */
   ~AMPLException() throw() {}
 
   /**
-  Get the name of the file where the error was detected
-  */
+   * Get the name of the file where the error was detected
+   */
   const std::string &getSourceName() const { return filename_; }
 
   /**
-  Get the row where the error is located
-  */
+   * Get the row where the error is located
+   */
   int getLineNumber() const { return line_; }
 
   /**
-  Get the offset where the error is located
-  */
+   * Get the offset where the error is located
+   */
   int getOffset() const { return offset_; }
 
   /**
-  Get the error message
-  */
+   * Get the error message
+   */
   const std::string &getMessage() const { return message_; }
+
   /**
-  Overwrites the source name for this error
-  */
+   * Overwrites the source name for this error
+   */
   void setSourceName(const std::string &sourceName) { filename_ = sourceName; }
 
  private:
@@ -103,6 +105,7 @@ class AMPLException : public std::runtime_error {
     if (s) cursor = s + SIZE - 1;
     return s;
   }
+
   template <std::size_t SIZE>
   int getIntegerAfterMarker(const char *&cursor, const char (&marker)[SIZE]) {
     int value = 0;
@@ -113,6 +116,7 @@ class AMPLException : public std::runtime_error {
     }
     return value;
   }
+
   void parseMessage(fmt::CStringRef msg) {
     try {
       const char *cursor = msg.c_str();
@@ -131,14 +135,15 @@ class AMPLException : public std::runtime_error {
     }
   }
 };
+
 /**
  * Thrown if AMPL could not be started because of licensing errors
  */
 class LicenseException : public std::runtime_error {
  public:
   /**
-  Constructor
-  */
+   * Constructor
+   */
   LicenseException(const std::string &cause) : std::runtime_error(cause) {}
 };
 
@@ -148,72 +153,83 @@ class LicenseException : public std::runtime_error {
 class FileIOException : public std::runtime_error {
  public:
   /**
-  Constructor
-  */
+   * Constructor
+   */
   FileIOException(const std::string &cause) : std::runtime_error(cause) {}
 };
 
 /**
-Thrown when accessing entities with the wrong number of indices,
-e.g. accessing an indexed entity with Entity.get()
-*/
+ * Thrown when accessing entities with the wrong number of indices,
+ * e.g. accessing an indexed entity with Entity.get()
+ */
 class UnsupportedOperationException : public std::runtime_error {
  public:
   /**
-  Constructor
-  */
+   * Constructor
+   */
   UnsupportedOperationException(const std::string &cause)
       : std::runtime_error(cause) {}
 };
+
 /**
-Thrown when an invalid subscript is accessed
-*/
+ * Thrown when an invalid subscript is accessed
+ */
 class InvalidSubscriptException : public AMPLException {
  public:
   /**
-  Constructor
-  */
+   * Constructor
+   */
   InvalidSubscriptException(fmt::CStringRef filename, int row, int offset,
                             fmt::CStringRef message)
       : AMPLException(filename, row, offset, message) {}
 };
+
 /**
-Thrown when a syntax error is detected
-*/
+ * Thrown when a syntax error is detected
+ */
 class SyntaxErrorException : public AMPLException {
  public:
   /**
-  Constructor
-  */
+   * Constructor
+   */
   SyntaxErrorException(fmt::CStringRef filename, int row, int offset,
                        fmt::CStringRef message)
       : AMPLException(filename, row, offset, message) {}
 };
+
 /**
-Thrown when an entity is accessed when no data has been
-assigned yet
-*/
+ * Thrown when an entity is accessed when no data has been
+ * assigned yet
+ */
 class NoDataException : public std::runtime_error {
  public:
   /**
-  Constructor
-  */
+   * Constructor
+   */
   NoDataException(fmt::CStringRef msg) : std::runtime_error(msg.c_str()) {}
 };
+
 /**
-* Thrown when presolver encounters some difficulties.
-* This often leads to a failed "write" command.
-*/
+ * Thrown when presolver encounters some difficulties.
+ * This often leads to a failed "write" command.
+ */
 class PresolveException : public std::runtime_error {
  public:
+  /**
+   * Constructor
+   */
   PresolveException(fmt::CStringRef msg) : std::runtime_error(msg.c_str()) {}
 };
+
 /**
  * Thrown when the presolver detects an unfeasible model.
  * This leads to a failed "write" command.
  */
 class InfeasibilityException : public PresolveException {
  public:
+  /**
+   * Constructor
+   */
   InfeasibilityException(fmt::CStringRef msg) : PresolveException(msg) {}
 };
  

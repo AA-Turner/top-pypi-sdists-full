@@ -26,11 +26,6 @@ class ErrorHandler {
   virtual void warning(const AMPLException&) = 0;
 };
 
-namespace internal {
-typedef void (*ErrorHandlerCbPtr)(bool isWarning, const char* filename, int row,
-                                  int offset, const char* message,
-                                  void* errorHandler);
-}
 }  // namespace ampl
 
 #endif  // AMPL_ERRORHANDLER_H

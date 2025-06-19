@@ -78,6 +78,12 @@ class FMModelInference(BaseModelInference):
                 spec["model_id"] for spec in model_specs.get("resources", [])
             ]
 
+            if self._client._use_fm_ga_api and self.model_id not in supported_models:
+                model_specs = self._client.foundation_models.get_chat_model_specs()  # type: ignore[assignment]
+                supported_models = [
+                    spec["model_id"] for spec in model_specs.get("resources", [])
+                ]
+
             if self.model_id not in supported_models:
                 if self._client._use_fm_ga_api:
                     model_specs = self._client.foundation_models.get_model_specs(  # type: ignore[assignment]

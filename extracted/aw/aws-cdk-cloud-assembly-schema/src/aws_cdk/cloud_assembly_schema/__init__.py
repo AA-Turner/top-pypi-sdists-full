@@ -107,7 +107,7 @@ class ArtifactManifest:
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union["AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''A manifest for a single artifact within the cloud assembly.
 
@@ -193,13 +193,13 @@ class ArtifactManifest:
     @builtins.property
     def properties(
         self,
-    ) -> typing.Optional[typing.Union["AwsCloudFormationStackProperties", "AssetManifestProperties", "TreeArtifactProperties", "NestedCloudAssemblyProperties"]]:
+    ) -> typing.Optional[typing.Union["AwsCloudFormationStackProperties", "AssetManifestProperties", "TreeArtifactProperties", "NestedCloudAssemblyProperties", "FeatureFlagReportProperties"]]:
         '''The set of properties for this artifact (depends on type).
 
         :default: - no properties.
         '''
         result = self._values.get("properties")
-        return typing.cast(typing.Optional[typing.Union["AwsCloudFormationStackProperties", "AssetManifestProperties", "TreeArtifactProperties", "NestedCloudAssemblyProperties"]], result)
+        return typing.cast(typing.Optional[typing.Union["AwsCloudFormationStackProperties", "AssetManifestProperties", "TreeArtifactProperties", "NestedCloudAssemblyProperties", "FeatureFlagReportProperties"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -247,6 +247,8 @@ class ArtifactType(enum.Enum):
     '''Manifest for all assets in the Cloud Assembly.'''
     NESTED_CLOUD_ASSEMBLY = "NESTED_CLOUD_ASSEMBLY"
     '''Nested Cloud Assembly.'''
+    FEATURE_FLAG_REPORT = "FEATURE_FLAG_REPORT"
+    '''Feature flag report.'''
 
 
 @jsii.data_type(
@@ -3972,6 +3974,142 @@ class EndpointServiceAvailabilityZonesContextQuery(ContextLookupRoleOptions):
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.FeatureFlag",
+    jsii_struct_bases=[],
+    name_mapping={
+        "explanation": "explanation",
+        "recommended_value": "recommendedValue",
+        "user_value": "userValue",
+    },
+)
+class FeatureFlag:
+    def __init__(
+        self,
+        *,
+        explanation: typing.Optional[builtins.str] = None,
+        recommended_value: typing.Any = None,
+        user_value: typing.Any = None,
+    ) -> None:
+        '''A single feature flag.
+
+        :param explanation: Explanation about the purpose of this flag that can be shown to the user. Default: - No description
+        :param recommended_value: The library-recommended value for this flag, if any. It is possible that there is no recommended value. Default: - No recommended value.
+        :param user_value: The value configured by the user. This is the value configured at the root of the tree. Users may also have configured values at specific locations in the tree; we don't report on those. Default: - Not configured by the user
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3319304c04d8505cf9982ecfa24f47834cf139c61f72ec4ae0183b015fff5eb7)
+            check_type(argname="argument explanation", value=explanation, expected_type=type_hints["explanation"])
+            check_type(argname="argument recommended_value", value=recommended_value, expected_type=type_hints["recommended_value"])
+            check_type(argname="argument user_value", value=user_value, expected_type=type_hints["user_value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if explanation is not None:
+            self._values["explanation"] = explanation
+        if recommended_value is not None:
+            self._values["recommended_value"] = recommended_value
+        if user_value is not None:
+            self._values["user_value"] = user_value
+
+    @builtins.property
+    def explanation(self) -> typing.Optional[builtins.str]:
+        '''Explanation about the purpose of this flag that can be shown to the user.
+
+        :default: - No description
+        '''
+        result = self._values.get("explanation")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recommended_value(self) -> typing.Any:
+        '''The library-recommended value for this flag, if any.
+
+        It is possible that there is no recommended value.
+
+        :default: - No recommended value.
+        '''
+        result = self._values.get("recommended_value")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def user_value(self) -> typing.Any:
+        '''The value configured by the user.
+
+        This is the value configured at the root of the tree. Users may also have
+        configured values at specific locations in the tree; we don't report on
+        those.
+
+        :default: - Not configured by the user
+        '''
+        result = self._values.get("user_value")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FeatureFlag(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.FeatureFlagReportProperties",
+    jsii_struct_bases=[],
+    name_mapping={"flags": "flags", "module": "module"},
+)
+class FeatureFlagReportProperties:
+    def __init__(
+        self,
+        *,
+        flags: typing.Mapping[builtins.str, typing.Union[FeatureFlag, typing.Dict[builtins.str, typing.Any]]],
+        module: builtins.str,
+    ) -> None:
+        '''Artifact properties for a feature flag report.
+
+        A feature flag report is small enough that all the properties can be inlined
+        here, and doesn't need an additional file.
+
+        :param flags: Information about every feature flag supported by this library.
+        :param module: The library that this feature flag report applies to.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1aba385c39bebe2c936684e9457255825ef604100d21a8db42669bf04a741197)
+            check_type(argname="argument flags", value=flags, expected_type=type_hints["flags"])
+            check_type(argname="argument module", value=module, expected_type=type_hints["module"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flags": flags,
+            "module": module,
+        }
+
+    @builtins.property
+    def flags(self) -> typing.Mapping[builtins.str, FeatureFlag]:
+        '''Information about every feature flag supported by this library.'''
+        result = self._values.get("flags")
+        assert result is not None, "Required property 'flags' is missing"
+        return typing.cast(typing.Mapping[builtins.str, FeatureFlag], result)
+
+    @builtins.property
+    def module(self) -> builtins.str:
+        '''The library that this feature flag report applies to.'''
+        result = self._values.get("module")
+        assert result is not None, "Required property 'module' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FeatureFlagReportProperties(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/cloud-assembly-schema.FileAsset",
     jsii_struct_bases=[],
     name_mapping={
@@ -7363,6 +7501,8 @@ __all__ = [
     "DockerImageDestination",
     "DockerImageSource",
     "EndpointServiceAvailabilityZonesContextQuery",
+    "FeatureFlag",
+    "FeatureFlagReportProperties",
     "FileAsset",
     "FileAssetMetadataEntry",
     "FileAssetPackaging",
@@ -7404,7 +7544,7 @@ def _typecheckingstub__8929e1c8fa42a2da90248ef476a9635f914a58bd1f9f1e211137b8ee5
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7727,6 +7867,23 @@ def _typecheckingstub__294168e37bcda14debc206d75185efc2faf88ad9549471172c3c48fae
     lookup_role_arn: typing.Optional[builtins.str] = None,
     lookup_role_external_id: typing.Optional[builtins.str] = None,
     service_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3319304c04d8505cf9982ecfa24f47834cf139c61f72ec4ae0183b015fff5eb7(
+    *,
+    explanation: typing.Optional[builtins.str] = None,
+    recommended_value: typing.Any = None,
+    user_value: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aba385c39bebe2c936684e9457255825ef604100d21a8db42669bf04a741197(
+    *,
+    flags: typing.Mapping[builtins.str, typing.Union[FeatureFlag, typing.Dict[builtins.str, typing.Any]]],
+    module: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

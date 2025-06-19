@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.3.8
+Version: 0.3.12
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -176,6 +176,13 @@ To **upgrade** to the latest version from source:
     upgrade.bat      # On Windows
 
 This pulls the latest updates from the `main` branch and refreshes dependencies.
+
+To make GWAY available from any directory (requires root access):
+
+.. code-block:: bash
+
+    sudo ln -s /home/arthe/gway/gway.sh /usr/local/bin/gway
+
 
 Project Structure
 -----------------

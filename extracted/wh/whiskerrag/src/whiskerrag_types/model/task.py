@@ -54,6 +54,9 @@ class Task(TimeStampedModel):
     tenant_id: str = Field(
         ..., description="Identifier for the tenant", alias="tenant_id"
     )
+    task_type: str = Field(
+        default="knowledge_chunk", description="Type of the task", alias="task_type"
+    )
 
     def update(self, **kwargs: Any) -> "Task":
         if "created_at" in kwargs:

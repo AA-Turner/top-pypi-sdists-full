@@ -64,6 +64,9 @@ class AnnotationAreaInfo(DataClassJsonMixin):
     input_data_id: str
     input_data_name: str
 
+    updated_datetime: Optional[str]
+    """アノテーションJSONに格納されているアノテーションの更新日時"""
+
     label: str
     annotation_id: str
     annotation_area: int
@@ -77,7 +80,7 @@ def calculate_bounding_box_area(data: dict[str, Any]) -> int:
 
 def calculate_segmentation_area(outer_file: Path) -> int:
     nd_array = read_binary_image(outer_file)
-    return numpy.count_nonzero(nd_array)
+    return int(numpy.count_nonzero(nd_array))
 
 
 def get_annotation_area_info_list(parser: SimpleAnnotationParser, simple_annotation: dict[str, Any]) -> list[AnnotationAreaInfo]:
@@ -103,6 +106,7 @@ def get_annotation_area_info_list(parser: SimpleAnnotationParser, simple_annotat
                 label=detail["label"],
                 annotation_id=detail["annotation_id"],
                 annotation_area=annotation_area,
+                updated_datetime=simple_annotation["updated_datetime"],
             )
         )
 
@@ -144,6 +148,7 @@ def create_df(
         "task_phase_stage",
         "input_data_id",
         "input_data_name",
+        "updated_datetime",
         "label",
         "annotation_id",
         "annotation_area",

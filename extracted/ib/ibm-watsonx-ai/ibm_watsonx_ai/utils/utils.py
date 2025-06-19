@@ -4,25 +4,25 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-import re
-import os
-import sys
-import shutil
-import tarfile
-import logging
-import importlib.util
-import json
-import platform
-from enum import Enum
-import inspect
 
-import httpx
-import numpy
-import importlib
 import base64
-from datetime import datetime
+import importlib
+import functools
+import importlib.util
+import mimetypes
+import inspect
+import json
+import logging
+import os
+import platform
+import re
+import shutil
+import sys
+import tarfile
 from dataclasses import dataclass, field
-
+from datetime import datetime
+from enum import Enum
+from subprocess import check_call
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,12 +33,15 @@ from typing import (
     TypeAlias,
     cast,
 )
-from subprocess import check_call
-from packaging import version
 from warnings import warn
+from pathlib import Path
 
-from ibm_watsonx_ai import package_name, __version__ as package_version
+import httpx
+import numpy
+from packaging import version
+
 import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai import package_name, __version__ as package_version
 from ibm_watsonx_ai._wrappers.requests import HTTPX_DEFAULT_TIMEOUT, HTTPX_DEFAULT_LIMIT
 from ibm_watsonx_ai.href_definitions import HrefDefinitions
 from ibm_watsonx_ai.wml_client_error import (
@@ -1116,3 +1119,54 @@ def _handle_fl_removal(client: APIClient):
         FL_DEPRECATED_WARNING = "Federated Learning is deprecated and will be removed in IBM Cloud Pak for Data 5.2."
 
         warn(FL_DEPRECATED_WARNING, category=DeprecationWarning)
+
+
+def _requests_retry_session(
+    retries: int = 3,
+    backoff_factor: float = 0.3,
+    status_forcelist: Iterable[int] = (500, 502, 503, 504, 520, 521, 524),
+    session: requests.Session | None = None,
+) -> requests.Session:
+    from requests.adapters import HTTPAdapter
+    from requests.packages.urllib3.util.retry import Retry
+
+    session = session or requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def raise_exception_about_unsupported_on_cloud(func: Callable) -> Callable:
+    from ibm_watsonx_ai.wml_resource import WMLResource
+
+    @functools.wraps(func)
+    def wrapper(resource: WMLResource, *args: Any, **kwargs: Any) -> Any:
+        if resource._client.CLOUD_PLATFORM_SPACES:
+            raise WMLClientError(
+                error_msg=f"{resource.__class__} is not supported on IBM watsonx.ai for IBM Cloud!"
+            )
+        return func(resource, *args, **kwargs)
+
+    return wrapper
+
+
+def content_type_for(filepath: str, default: str = "application/octet-stream") -> str:
+    """
+    Return the best‐guess Content-Type for a file path, falling back to `default` if unknown.
+    """
+    # 1) Make sure .yaml/.yml map to text/yaml
+    mimetypes.add_type("text/yaml", ".yaml")
+    mimetypes.add_type("text/yaml", ".yml")
+
+    ext = Path(filepath).suffix
+    mime = mimetypes.types_map.get(ext.lower())
+    return mime or default

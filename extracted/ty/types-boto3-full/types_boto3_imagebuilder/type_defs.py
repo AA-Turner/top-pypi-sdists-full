@@ -241,30 +241,43 @@ __all__ = (
     "LifecyclePolicyResourceSelectionUnionTypeDef",
     "LifecyclePolicySummaryTypeDef",
     "LifecyclePolicyTypeDef",
+    "ListComponentBuildVersionsRequestPaginateTypeDef",
     "ListComponentBuildVersionsRequestTypeDef",
     "ListComponentBuildVersionsResponseTypeDef",
+    "ListComponentsRequestPaginateTypeDef",
     "ListComponentsRequestTypeDef",
     "ListComponentsResponseTypeDef",
+    "ListContainerRecipesRequestPaginateTypeDef",
     "ListContainerRecipesRequestTypeDef",
     "ListContainerRecipesResponseTypeDef",
+    "ListDistributionConfigurationsRequestPaginateTypeDef",
     "ListDistributionConfigurationsRequestTypeDef",
     "ListDistributionConfigurationsResponseTypeDef",
+    "ListImageBuildVersionsRequestPaginateTypeDef",
     "ListImageBuildVersionsRequestTypeDef",
     "ListImageBuildVersionsResponseTypeDef",
+    "ListImagePackagesRequestPaginateTypeDef",
     "ListImagePackagesRequestTypeDef",
     "ListImagePackagesResponseTypeDef",
+    "ListImagePipelineImagesRequestPaginateTypeDef",
     "ListImagePipelineImagesRequestTypeDef",
     "ListImagePipelineImagesResponseTypeDef",
+    "ListImagePipelinesRequestPaginateTypeDef",
     "ListImagePipelinesRequestTypeDef",
     "ListImagePipelinesResponseTypeDef",
+    "ListImageRecipesRequestPaginateTypeDef",
     "ListImageRecipesRequestTypeDef",
     "ListImageRecipesResponseTypeDef",
+    "ListImageScanFindingAggregationsRequestPaginateTypeDef",
     "ListImageScanFindingAggregationsRequestTypeDef",
     "ListImageScanFindingAggregationsResponseTypeDef",
+    "ListImageScanFindingsRequestPaginateTypeDef",
     "ListImageScanFindingsRequestTypeDef",
     "ListImageScanFindingsResponseTypeDef",
+    "ListImagesRequestPaginateTypeDef",
     "ListImagesRequestTypeDef",
     "ListImagesResponseTypeDef",
+    "ListInfrastructureConfigurationsRequestPaginateTypeDef",
     "ListInfrastructureConfigurationsRequestTypeDef",
     "ListInfrastructureConfigurationsResponseTypeDef",
     "ListLifecycleExecutionResourcesRequestPaginateTypeDef",
@@ -284,8 +297,10 @@ __all__ = (
     "ListWorkflowBuildVersionsRequestPaginateTypeDef",
     "ListWorkflowBuildVersionsRequestTypeDef",
     "ListWorkflowBuildVersionsResponseTypeDef",
+    "ListWorkflowExecutionsRequestPaginateTypeDef",
     "ListWorkflowExecutionsRequestTypeDef",
     "ListWorkflowExecutionsResponseTypeDef",
+    "ListWorkflowStepExecutionsRequestPaginateTypeDef",
     "ListWorkflowStepExecutionsRequestTypeDef",
     "ListWorkflowStepExecutionsResponseTypeDef",
     "ListWorkflowsRequestPaginateTypeDef",
@@ -836,6 +851,12 @@ class LifecyclePolicySummaryTypeDef(TypedDict):
     tags: NotRequired[Dict[str, str]]
 
 
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
 class ListComponentBuildVersionsRequestTypeDef(TypedDict):
     componentVersionArn: str
     maxResults: NotRequired[int]
@@ -846,12 +867,6 @@ class ListImagePackagesRequestTypeDef(TypedDict):
     imageBuildVersionArn: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
 
 
 class ListLifecycleExecutionResourcesRequestTypeDef(TypedDict):
@@ -1706,6 +1721,84 @@ class ListLifecyclePoliciesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListComponentBuildVersionsRequestPaginateTypeDef(TypedDict):
+    componentVersionArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListComponentsRequestPaginateTypeDef(TypedDict):
+    owner: NotRequired[OwnershipType]
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    byName: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListContainerRecipesRequestPaginateTypeDef(TypedDict):
+    owner: NotRequired[OwnershipType]
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListDistributionConfigurationsRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListImageBuildVersionsRequestPaginateTypeDef(TypedDict):
+    imageVersionArn: str
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListImagePackagesRequestPaginateTypeDef(TypedDict):
+    imageBuildVersionArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListImagePipelineImagesRequestPaginateTypeDef(TypedDict):
+    imagePipelineArn: str
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListImagePipelinesRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListImageRecipesRequestPaginateTypeDef(TypedDict):
+    owner: NotRequired[OwnershipType]
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+ListImageScanFindingAggregationsRequestPaginateTypeDef = TypedDict(
+    "ListImageScanFindingAggregationsRequestPaginateTypeDef",
+    {
+        "filter": NotRequired[FilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+
+class ListImageScanFindingsRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[Sequence[ImageScanFindingsFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListImagesRequestPaginateTypeDef(TypedDict):
+    owner: NotRequired[OwnershipType]
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    byName: NotRequired[bool]
+    includeDeprecated: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListInfrastructureConfigurationsRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListLifecycleExecutionResourcesRequestPaginateTypeDef(TypedDict):
     lifecycleExecutionId: str
     parentResourceId: NotRequired[str]
@@ -1728,6 +1821,16 @@ class ListWaitingWorkflowStepsRequestPaginateTypeDef(TypedDict):
 
 class ListWorkflowBuildVersionsRequestPaginateTypeDef(TypedDict):
     workflowVersionArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListWorkflowExecutionsRequestPaginateTypeDef(TypedDict):
+    imageBuildVersionArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListWorkflowStepExecutionsRequestPaginateTypeDef(TypedDict):
+    workflowExecutionId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

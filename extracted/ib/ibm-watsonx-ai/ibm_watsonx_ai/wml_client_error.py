@@ -454,3 +454,7 @@ class MissingToolRequiredProperties(WMLClientError, KeyError):
 class VectorStoreSerializationError(
     TypeError, ValueError
 ): ...  # Keep ValueError for backward compatibility
+
+
+class HybridSemanticChunkerException(WMLClientError):
+    pass

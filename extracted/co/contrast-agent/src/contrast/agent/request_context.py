@@ -79,7 +79,19 @@ class RequestContext:
         self.response = None
         self.do_not_track = False
 
-        self.view_func_str: str | None = None
+        self.signature: str | None = None
+        self.path_template: str | None = None
+        """
+        Framework-specific representation of the URL structure for this request. This
+        must exactly match the corresponding discovered route's URL. It also must not
+        contain any user-specific data (ie never requires masking).
+
+        This is not a normalized URL. Using Contrast's normalization algorithm on the
+        concrete path for this request will not produce a correct path template. If a
+        path template cannot be obtained from the framework, do not set this value.
+
+        Example (flask): "/users/<user_id>/posts/<int:post_id>"
+        """
 
         self.observed_route = ObservedRoute("", "", "", [])
 

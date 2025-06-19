@@ -11,9 +11,10 @@ namespace ampl {
 class Runnable {
  public:
   /**
-  Destructor
-  */
+   * Destructor
+   */
   virtual ~Runnable() {}
+
   /**
    * Function called when the execution of the async operation
    * is finished
@@ -21,9 +22,6 @@ class Runnable {
   virtual void run() = 0;
 };
 
-namespace internal {
-typedef void (*RunnablePtr)(void* runnable);
-}
 }  // namespace ampl
 
 #endif  // AMPL_RUNNABLE_H

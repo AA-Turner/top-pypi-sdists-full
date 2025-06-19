@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: seeq_spy
-Version: 196.13
+Version: 197.0
 Summary: Easy-to-use Python interface for Seeq
 Home-page: https://www.seeq.com
 Author: Seeq Corporation
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: Other/Proprietary License
 Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Provides-Extra: widgets
 Provides-Extra: templates
@@ -39,7 +40,7 @@ The SPy module is the best choice if you're trying to do any of the following:
 - Create an asset model
 - Programmatically create and manipulate Workbench Analyses or Organizer Topics
 
-**Use of the SPy module requires Python 3.7 or later.**
+**Use of the SPy module requires Python 3.8 or later.**
 
 **SPy version 187 and higher is compatible with Pandas 2.x.**
 

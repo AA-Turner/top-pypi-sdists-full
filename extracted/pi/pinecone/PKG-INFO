@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pinecone
-Version: 7.1.0
+Version: 7.2.0
 Summary: Pinecone client and SDK
 License: Apache-2.0
 Keywords: Pinecone,vector,database,cloud

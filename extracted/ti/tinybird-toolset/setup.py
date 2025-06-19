@@ -1,7 +1,7 @@
 from setuptools import setup, Extension
 
 NAME = 'tinybird-toolset'
-VERSION = '1.1.1'
+VERSION = '1.2.0'
 
 try:
     from conf import *
@@ -33,7 +33,7 @@ try:
         author_email='support@tinybird.co',
         packages=['chtoolset'],
         package_dir={'': 'src'},
-        python_requires='>=3.8, <3.14',
+        python_requires='>=3.9, <3.14',
         install_requires=[],
         extras_require={
             'test': requirements_from_file('requirements-test.txt')

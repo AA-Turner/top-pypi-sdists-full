@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-ibm-models
-Version: 3.4.4
+Version: 3.5.0
 Summary: This package contains the AI models used by the Docling PDF conversion package
 Author-email: Nikos Livathinos <nli@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -11,11 +11,17 @@ Project-URL: changelog, https://github.com/docling-project/docling-ibm-models/bl
 Keywords: docling,convert,document,pdf,layout model,segmentation,table structure,table former
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4.0,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -31,6 +37,7 @@ Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: docling-core<3.0.0,>=2.19.0
 Requires-Dist: transformers<5.0.0,>=4.42.0
 Requires-Dist: numpy<3.0.0,>=1.24.4
+Requires-Dist: rtree>=1.0.0
 Dynamic: license-file
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-ibm-models)](https://pypi.org/project/docling-ibm-models/)

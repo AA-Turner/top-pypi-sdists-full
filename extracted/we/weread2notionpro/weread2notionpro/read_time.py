@@ -11,7 +11,6 @@ from weread2notionpro.utils import (
     get_date,
     get_icon,
     get_number,
-    get_relation,
     get_title,
     upload_image
 )
@@ -31,28 +30,8 @@ def insert_to_notion(page_id, timestamp, duration):
         ),
         "时长": get_number(duration),
         "时间戳": get_number(timestamp),
-        "年": get_relation(
-            [
-                notion_helper.get_year_relation_id(
-                    datetime.utcfromtimestamp(timestamp) + timedelta(hours=8)
-                ),
-            ]
-        ),
-        "月": get_relation(
-            [
-                notion_helper.get_month_relation_id(
-                    datetime.utcfromtimestamp(timestamp) + timedelta(hours=8)
-                ),
-            ]
-        ),
-        "周": get_relation(
-            [
-                notion_helper.get_week_relation_id(
-                    datetime.utcfromtimestamp(timestamp) + timedelta(hours=8)
-                ),
-            ]
-        ),
     }
+    notion_helper.get_date_relation(datetime.utcfromtimestamp(timestamp) + timedelta(hours=8))
     if page_id != None:
         notion_helper.update_page(page_id=page_id, properties=properties)
     else:

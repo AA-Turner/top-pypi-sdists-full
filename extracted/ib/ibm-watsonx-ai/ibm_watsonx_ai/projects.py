@@ -130,7 +130,10 @@ class Projects(WMLResource):
         )
 
         location = self._handle_response(
-            201, "creating new project", creation_response
+            201,
+            "creating new project",
+            creation_response,
+            _silent_response_logging=True,
         )["location"]
 
         project_details = self.get_details(location.split("/")[-1])
@@ -234,6 +237,7 @@ class Projects(WMLResource):
         asynchronous: bool | None = False,
         get_all: bool | None = False,
         project_name: str | None = None,
+        **kwargs: Any,
     ) -> dict:
         """Get metadata of stored project(s).
 
@@ -270,13 +274,22 @@ class Projects(WMLResource):
 
         href = self._client._href_definitions.get_project_href(project_id)
 
-        if project_id is not None:
-            response_get = requests.get(href, headers=self._client._get_headers())
+        query_params = {}
+        if extra_query_params := kwargs.get("extra_query_params"):
+            query_params.update(extra_query_params)
 
-            return self._handle_response(200, "Get project", response_get)
+        if project_id is not None:
+            response_get = requests.get(
+                href, headers=self._client._get_headers(), params=query_params
+            )
+
+            return self._handle_response(
+                200, "Get project", response_get, _silent_response_logging=True
+            )
 
         else:
-            query_params = {"name": project_name} if project_name else None
+            if project_name:
+                query_params.update({"name": project_name})
 
             return self._get_with_or_without_limit(
                 self._client._href_definitions.get_projects_href(),
@@ -288,6 +301,7 @@ class Projects(WMLResource):
                 query_params=query_params,
                 _async=asynchronous,
                 _all=get_all,
+                _silent_response_logging=True,
             )
 
     def list(

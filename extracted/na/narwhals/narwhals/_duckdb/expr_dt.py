@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from duckdb import FunctionExpression
 
@@ -9,8 +9,6 @@ from narwhals._duration import parse_interval_string
 from narwhals._utils import not_implemented
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from duckdb import Expression
 
     from narwhals._duckdb.dataframe import DuckDBLazyFrame

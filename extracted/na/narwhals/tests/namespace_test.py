@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import deque
-from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence, TypeVar, cast
 
 import pytest
 

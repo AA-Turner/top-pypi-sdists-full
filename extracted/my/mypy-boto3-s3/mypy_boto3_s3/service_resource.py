@@ -580,7 +580,8 @@ class Bucket(ServiceResource):
         self, **kwargs: Unpack[CreateBucketRequestBucketCreateTypeDef]
     ) -> CreateBucketOutputTypeDef:
         """
-        This action creates an Amazon S3 bucket.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/create.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#bucketcreate-method)
@@ -607,7 +608,8 @@ class Bucket(ServiceResource):
 
     def put_object(self, **kwargs: Unpack[PutObjectRequestBucketPutObjectTypeDef]) -> _Object:
         """
-        Adds an object to a bucket.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/put_object.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#bucketput_object-method)
@@ -834,7 +836,8 @@ class BucketAcl(ServiceResource):
 
     def put(self, **kwargs: Unpack[PutBucketAclRequestBucketAclPutTypeDef]) -> None:
         """
-        This operation is not supported for directory buckets.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucketacl/put.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#bucketaclput-method)
@@ -1071,7 +1074,8 @@ class BucketLogging(ServiceResource):
 
     def put(self, **kwargs: Unpack[PutBucketLoggingRequestBucketLoggingPutTypeDef]) -> None:
         """
-        This operation is not supported for directory buckets.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucketlogging/put.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#bucketloggingput-method)
@@ -1631,6 +1635,7 @@ class Object(ServiceResource):
     request_charged: Literal["requester"]
     replication_status: ReplicationStatusType
     parts_count: int
+    tag_count: int
     object_lock_mode: ObjectLockModeType
     object_lock_retain_until_date: datetime
     object_lock_legal_hold_status: ObjectLockLegalHoldStatusType
@@ -1648,7 +1653,8 @@ class Object(ServiceResource):
         self, **kwargs: Unpack[CopyObjectRequestObjectCopyFromTypeDef]
     ) -> CopyObjectOutputTypeDef:
         """
-        Creates a copy of an object that is already stored in Amazon S3.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/object/copy_from.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#objectcopy_from-method)
@@ -1676,7 +1682,8 @@ class Object(ServiceResource):
         self, **kwargs: Unpack[CreateMultipartUploadRequestObjectInitiateMultipartUploadTypeDef]
     ) -> _MultipartUpload:
         """
-        This action initiates a multipart upload and returns an upload ID.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/object/initiate_multipart_upload.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#objectinitiate_multipart_upload-method)
@@ -1684,7 +1691,8 @@ class Object(ServiceResource):
 
     def put(self, **kwargs: Unpack[PutObjectRequestObjectPutTypeDef]) -> PutObjectOutputTypeDef:
         """
-        Adds an object to a bucket.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/object/put.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#objectput-method)
@@ -1920,7 +1928,8 @@ class ObjectSummary(ServiceResource):
         self, **kwargs: Unpack[CopyObjectRequestObjectSummaryCopyFromTypeDef]
     ) -> CopyObjectOutputTypeDef:
         """
-        Creates a copy of an object that is already stored in Amazon S3.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/objectsummary/copy_from.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#objectsummarycopy_from-method)
@@ -1951,7 +1960,8 @@ class ObjectSummary(ServiceResource):
         **kwargs: Unpack[CreateMultipartUploadRequestObjectSummaryInitiateMultipartUploadTypeDef],
     ) -> _MultipartUpload:
         """
-        This action initiates a multipart upload and returns an upload ID.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/objectsummary/initiate_multipart_upload.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#objectsummaryinitiate_multipart_upload-method)
@@ -1961,7 +1971,8 @@ class ObjectSummary(ServiceResource):
         self, **kwargs: Unpack[PutObjectRequestObjectSummaryPutTypeDef]
     ) -> PutObjectOutputTypeDef:
         """
-        Adds an object to a bucket.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/objectsummary/put.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#objectsummaryput-method)
@@ -2144,7 +2155,8 @@ class S3ServiceResource(ServiceResource):
         self, **kwargs: Unpack[CreateBucketRequestServiceResourceCreateBucketTypeDef]
     ) -> _Bucket:
         """
-        This action creates an Amazon S3 bucket.
+        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
+        support for creating new Email Grantee Access Control Lists (ACL).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/service-resource/create_bucket.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/service_resource/#s3serviceresourcecreate_bucket-method)

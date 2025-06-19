@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
+from chalk._gen.chalk.nodepools.v1 import gke_pb2 as _gke_pb2
 from chalk._gen.chalk.nodepools.v1 import karpenter_pb2 as _karpenter_pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
 from chalk._gen.chalk.server.v1 import log_pb2 as _log_pb2
@@ -679,6 +680,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
         "bq_upload_bucket",
         "bq_upload_topic",
         "include_chalk_node_selector",
+        "bus_writer_image_rust",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     BUS_WRITER_IMAGE_GO_FIELD_NUMBER: _ClassVar[int]
@@ -708,6 +710,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
     BQ_UPLOAD_BUCKET_FIELD_NUMBER: _ClassVar[int]
     BQ_UPLOAD_TOPIC_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CHALK_NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    BUS_WRITER_IMAGE_RUST_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     bus_writer_image_go: str
     bus_writer_image_python: str
@@ -736,6 +739,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
     bq_upload_bucket: str
     bq_upload_topic: str
     include_chalk_node_selector: bool
+    bus_writer_image_rust: str
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -766,6 +770,7 @@ class BackgroundPersistenceCommonSpecs(_message.Message):
         bq_upload_bucket: _Optional[str] = ...,
         bq_upload_topic: _Optional[str] = ...,
         include_chalk_node_selector: bool = ...,
+        bus_writer_image_rust: _Optional[str] = ...,
     ) -> None: ...
 
 class BackgroundPersistenceWriterHpaSpecs(_message.Message):
@@ -1018,6 +1023,83 @@ class GetKafkaTopicsResponse(_message.Message):
     topics: _containers.RepeatedCompositeFieldContainer[KafkaTopic]
     def __init__(self, topics: _Optional[_Iterable[_Union[KafkaTopic, _Mapping]]] = ...) -> None: ...
 
+class GetNodepoolsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetNodepoolsResponse(_message.Message):
+    __slots__ = ("karpenter_nodepools", "gke_nodepools")
+    KARPENTER_NODEPOOLS_FIELD_NUMBER: _ClassVar[int]
+    GKE_NODEPOOLS_FIELD_NUMBER: _ClassVar[int]
+    karpenter_nodepools: _containers.RepeatedCompositeFieldContainer[_karpenter_pb2.KarpenterNodepool]
+    gke_nodepools: _containers.RepeatedCompositeFieldContainer[_gke_pb2.GKENodePool]
+    def __init__(
+        self,
+        karpenter_nodepools: _Optional[_Iterable[_Union[_karpenter_pb2.KarpenterNodepool, _Mapping]]] = ...,
+        gke_nodepools: _Optional[_Iterable[_Union[_gke_pb2.GKENodePool, _Mapping]]] = ...,
+    ) -> None: ...
+
+class AddNodepoolRequest(_message.Message):
+    __slots__ = ("karpenter_nodepool", "gke_nodepool")
+    KARPENTER_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    GKE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    karpenter_nodepool: _karpenter_pb2.KarpenterNodepool
+    gke_nodepool: _gke_pb2.GKENodePool
+    def __init__(
+        self,
+        karpenter_nodepool: _Optional[_Union[_karpenter_pb2.KarpenterNodepool, _Mapping]] = ...,
+        gke_nodepool: _Optional[_Union[_gke_pb2.GKENodePool, _Mapping]] = ...,
+    ) -> None: ...
+
+class AddNodepoolResponse(_message.Message):
+    __slots__ = ("karpenter_nodepool", "gke_nodepool")
+    KARPENTER_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    GKE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    karpenter_nodepool: _karpenter_pb2.KarpenterNodepool
+    gke_nodepool: _gke_pb2.GKENodePool
+    def __init__(
+        self,
+        karpenter_nodepool: _Optional[_Union[_karpenter_pb2.KarpenterNodepool, _Mapping]] = ...,
+        gke_nodepool: _Optional[_Union[_gke_pb2.GKENodePool, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateNodepoolRequest(_message.Message):
+    __slots__ = ("name", "gke_nodepool", "karpenter_nodepool")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    GKE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    KARPENTER_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    gke_nodepool: _gke_pb2.GKENodePool
+    karpenter_nodepool: _karpenter_pb2.KarpenterNodepool
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        gke_nodepool: _Optional[_Union[_gke_pb2.GKENodePool, _Mapping]] = ...,
+        karpenter_nodepool: _Optional[_Union[_karpenter_pb2.KarpenterNodepool, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateNodepoolResponse(_message.Message):
+    __slots__ = ("karpenter_nodepool", "gke_nodepool")
+    KARPENTER_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    GKE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    karpenter_nodepool: _karpenter_pb2.KarpenterNodepool
+    gke_nodepool: _gke_pb2.GKENodePool
+    def __init__(
+        self,
+        karpenter_nodepool: _Optional[_Union[_karpenter_pb2.KarpenterNodepool, _Mapping]] = ...,
+        gke_nodepool: _Optional[_Union[_gke_pb2.GKENodePool, _Mapping]] = ...,
+    ) -> None: ...
+
+class DeleteNodepoolRequest(_message.Message):
+    __slots__ = ("name",)
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class DeleteNodepoolResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetKarpenterNodepoolsRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -1087,15 +1169,21 @@ class GetKarpenterInstallationMetadataResponse(_message.Message):
     def __init__(self, deployment_labels: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class DeploymentTag(_message.Message):
-    __slots__ = ("tag", "weight", "deployment_id")
+    __slots__ = ("tag", "weight", "deployment_id", "mirror_weight")
     TAG_FIELD_NUMBER: _ClassVar[int]
     WEIGHT_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MIRROR_WEIGHT_FIELD_NUMBER: _ClassVar[int]
     tag: str
     weight: int
     deployment_id: str
+    mirror_weight: int
     def __init__(
-        self, tag: _Optional[str] = ..., weight: _Optional[int] = ..., deployment_id: _Optional[str] = ...
+        self,
+        tag: _Optional[str] = ...,
+        weight: _Optional[int] = ...,
+        deployment_id: _Optional[str] = ...,
+        mirror_weight: _Optional[int] = ...,
     ) -> None: ...
 
 class GetTagWeightsRequest(_message.Message):

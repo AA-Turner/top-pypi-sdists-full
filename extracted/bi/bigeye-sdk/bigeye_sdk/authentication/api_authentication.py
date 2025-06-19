@@ -175,7 +175,8 @@ class APIKeyAuth(ApiAuth):
     """The full API Key provided by Bigeye"""
 
     def get_auth_headers(self) -> dict:
-        return {'Authorization': f'apikey {self.api_key}'}
+        auth_key: str = os.environ.get('BIGEYE_APIKEYAUTH_AUTH_HEADER_KEY', 'Authorization')
+        return {auth_key: f'apikey {self.api_key}'}
 
 
 @dataclass

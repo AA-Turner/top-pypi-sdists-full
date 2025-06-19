@@ -376,22 +376,8 @@ impl GrpcLog {
         Ok(self.client.clone())
     }
 
-    fn client_for_purge(
-        &mut self,
-        collection_id: CollectionUuid,
-    ) -> Option<LogServiceClient<chroma_tracing::GrpcTraceService<tonic::transport::Channel>>> {
-        match &mut self.alt_client_assigner {
-            Some(assigner) => assigner
-                .clients(&collection_id.to_string())
-                .unwrap_or_default()
-                .first()
-                .cloned(),
-            None => None,
-        }
-    }
-
     // ScoutLogs returns the offset of the next record to be inserted into the log.
-    #[tracing::instrument(skip(self), ret)]
+    #[tracing::instrument(skip(self))]
     pub(super) async fn scout_logs(
         &mut self,
         tenant: &str,
@@ -531,17 +517,31 @@ impl GrpcLog {
         &mut self,
         min_compaction_size: u64,
     ) -> Result<Vec<CollectionInfo>, GrpcGetCollectionsWithNewDataError> {
-        let mut norm = self
+        let mut norm = match self
             ._get_collections_with_new_data(false, min_compaction_size)
-            .await?;
+            .await
+        {
+            Ok(colls) => colls,
+            Err(err) => {
+                tracing::error!("could not contact old log: {err:?}");
+                vec![]
+            }
+        };
         if self.config.alt_host_threshold.is_some()
             || !self.config.use_alt_for_tenants.is_empty()
             || !self.config.use_alt_for_collections.is_empty()
         {
-            let alt = self
+            let alt = match self
                 ._get_collections_with_new_data(true, min_compaction_size)
-                .await?;
-            norm.extend(alt)
+                .await
+            {
+                Ok(alt) => alt,
+                Err(err) => {
+                    tracing::error!("could not contact new log: {err:?}");
+                    vec![]
+                }
+            };
+            norm.extend(alt);
         }
         norm.sort_by_key(|n| n.collection_id);
         norm.dedup_by_key(|n| n.collection_id);
@@ -671,20 +671,27 @@ impl GrpcLog {
         &mut self,
         collection_id: CollectionUuid,
     ) -> Result<(), GrpcPurgeDirtyForCollectionError> {
-        if let Some(mut client) = self.client_for_purge(collection_id) {
-            let request =
-                client.purge_dirty_for_collection(chroma_proto::PurgeDirtyForCollectionRequest {
-                    // NOTE(rescrv):  Use the untyped string representation of the collection ID.
-                    collection_id: collection_id.0.to_string(),
-                });
-            let response = request.await;
-            match response {
-                Ok(_) => Ok(()),
-                Err(e) => Err(GrpcPurgeDirtyForCollectionError::FailedToPurgeDirty(e)),
-            }
-        } else {
-            Ok(())
+        let Some(assigner) = self.alt_client_assigner.as_mut() else {
+            return Ok(());
+        };
+        let mut futures = vec![];
+        for client in assigner.all().into_iter() {
+            let mut client = client.clone();
+            let request = async move {
+                client
+                    .purge_dirty_for_collection(chroma_proto::PurgeDirtyForCollectionRequest {
+                        // NOTE(rescrv):  Use the untyped string representation of the collection ID.
+                        collection_id: collection_id.0.to_string(),
+                    })
+                    .await
+                    .map_err(GrpcPurgeDirtyForCollectionError::FailedToPurgeDirty)
+            };
+            futures.push(request);
         }
+        if !futures.is_empty() {
+            futures::future::try_join_all(futures.into_iter()).await?;
+        }
+        Ok(())
     }
 
     pub async fn seal_log(
@@ -722,6 +729,18 @@ impl GrpcLog {
             Ok(())
         } else {
             Err(GrpcMigrateLogError::NotSupported)
+        }
+    }
+
+    /// If the log client is configured to use a memberlist-based client assigner,
+    /// this function checks if the client assigner is ready to serve requests.
+    /// This is useful to ensure that the client assigner has enough information about the cluster
+    /// before making requests to the log service.
+    pub fn is_ready(&self) -> bool {
+        if let Some(client_assigner) = &self.alt_client_assigner {
+            !client_assigner.is_empty()
+        } else {
+            true // If no client assigner is configured, we assume it's ready.
         }
     }
 }

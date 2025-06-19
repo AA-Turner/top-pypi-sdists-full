@@ -1,15 +1,14 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import sys
+
+from contrast_fireball import DiscoveredRoute
 from contrast_vendor import wrapt
 
 import contrast
 from contrast.agent import scope
 from contrast.agent.assess.policy.analysis import analyze
 from contrast.agent.policy import registry
-from contrast.agent.middlewares.route_coverage.starlette_routes import (
-    create_starlette_routes,
-)
 from contrast.agent.policy import patch_manager
 from contrast.agent.middlewares.route_coverage import common
 from contrast.utils.decorators import fail_quietly
@@ -24,6 +23,7 @@ from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
 
+DEFAULT_STARLETTE_ROUTE_METHODS = common.DEFAULT_ROUTE_METHODS + ("HEAD",)
 
 STARLETTE_ROUTING = "starlette.routing"
 STARLETTE_REQUESTS = "starlette.requests"
@@ -83,6 +83,40 @@ def do_starlette_route_discovery(starlette_router_instance):
     )
 
 
+def create_starlette_routes(starlette_router) -> set[DiscoveredRoute]:
+    """
+    Returns all the routes registered to a Starlette router.
+    """
+    from starlette.routing import Mount, Route
+
+    routes = set()
+
+    for app_route in starlette_router.routes:
+        if isinstance(app_route, Mount):
+            mnt_routes = create_starlette_routes(app_route)
+            routes.update(mnt_routes)
+        elif isinstance(app_route, Route):
+            view_func = app_route.endpoint
+
+            signature = common.build_signature(app_route.name, view_func)
+            path_template = app_route.path
+            methods = app_route.methods or DEFAULT_STARLETTE_ROUTE_METHODS
+
+            for method_type in methods:
+                routes.add(
+                    DiscoveredRoute(
+                        verb=method_type,
+                        url=path_template,
+                        signature=signature,
+                        framework="Starlette",
+                    )
+                )
+        # In the future we may need more cases for other BaseRoute types we don't
+        # currently support, such as WebSocketRoute
+
+    return routes
+
+
 @fail_quietly("unable to perform starlette route observation")
 @scope.contrast_scope()
 def do_starlette_route_observation(
@@ -105,19 +139,24 @@ def do_starlette_route_observation(
         return
 
     if route := asgi_scope.get("route"):
-        context.view_func_str = common.build_signature(route.name, route.endpoint)
+        context.signature = common.build_signature(route.name, route.endpoint)
+        context.path_template = route.path
     else:
         if (endpoint := asgi_scope.get("endpoint")) and isinstance(
             endpoint, StaticFiles
         ):
-            context.view_func_str = f"StaticFiles(directory={endpoint.directory})"
+            context.signature = f"StaticFiles(directory={endpoint.directory})"
         else:
             logger.debug(
                 "WARNING: did not find endpoint for starlette route observation"
             )
             return
 
-    logger.debug("Found starlette view function", view_func=context.view_func_str)
+    logger.debug(
+        "Found starlette route",
+        signature=context.signature,
+        path_template=context.path_template,
+    )
 
 
 class ContrastSessionDictProxy(wrapt.ObjectProxy):

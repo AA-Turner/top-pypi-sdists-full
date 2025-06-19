@@ -40,6 +40,16 @@ class Agent(ConfigBuilder):
                 type_cast=str_to_bool,
             ),
             ConfigOption(
+                canonical_name="agent.logger.backups",
+                default_value=10,
+                type_cast=int,
+            ),
+            ConfigOption(
+                canonical_name="agent.logger.roll_size",
+                default_value=100,  # specified in MB
+                type_cast=int,
+            ),
+            ConfigOption(
                 canonical_name="agent.logger.progname",
                 default_value=DEFAULT_PROGNAME,
                 type_cast=str,

@@ -59,6 +59,30 @@ class AWSSecretManagerConfig(_message.Message):
         secret_prefix: _Optional[str] = ...,
     ) -> None: ...
 
+class GCPSecretReplicationReplica(_message.Message):
+    __slots__ = ("location",)
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    def __init__(self, location: _Optional[str] = ...) -> None: ...
+
+class GCPRegionConfig(_message.Message):
+    __slots__ = ("scope_type",)
+    SCOPE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    scope_type: str
+    def __init__(self, scope_type: _Optional[str] = ...) -> None: ...
+
+class GCPSecretManagerConfig(_message.Message):
+    __slots__ = ("secret_region", "replicas")
+    SECRET_REGION_FIELD_NUMBER: _ClassVar[int]
+    REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    secret_region: str
+    replicas: _containers.RepeatedCompositeFieldContainer[GCPSecretReplicationReplica]
+    def __init__(
+        self,
+        secret_region: _Optional[str] = ...,
+        replicas: _Optional[_Iterable[_Union[GCPSecretReplicationReplica, _Mapping]]] = ...,
+    ) -> None: ...
+
 class GCPWorkloadIdentity(_message.Message):
     __slots__ = ("gcp_project_number", "gcp_service_account", "pool_id", "provider_id")
     GCP_PROJECT_NUMBER_FIELD_NUMBER: _ClassVar[int]
@@ -172,21 +196,34 @@ class AWSCloudConfig(_message.Message):
     ) -> None: ...
 
 class GCPCloudConfig(_message.Message):
-    __slots__ = ("project_id", "region", "management_service_account", "docker_build_config")
+    __slots__ = (
+        "project_id",
+        "region",
+        "management_service_account",
+        "docker_build_config",
+        "secretmanager_config",
+        "region_config",
+    )
     PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
     MANAGEMENT_SERVICE_ACCOUNT_FIELD_NUMBER: _ClassVar[int]
     DOCKER_BUILD_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    SECRETMANAGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    REGION_CONFIG_FIELD_NUMBER: _ClassVar[int]
     project_id: str
     region: str
     management_service_account: str
     docker_build_config: DockerBuildConfig
+    secretmanager_config: GCPSecretManagerConfig
+    region_config: GCPRegionConfig
     def __init__(
         self,
         project_id: _Optional[str] = ...,
         region: _Optional[str] = ...,
         management_service_account: _Optional[str] = ...,
         docker_build_config: _Optional[_Union[DockerBuildConfig, _Mapping]] = ...,
+        secretmanager_config: _Optional[_Union[GCPSecretManagerConfig, _Mapping]] = ...,
+        region_config: _Optional[_Union[GCPRegionConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class CloudConfig(_message.Message):

@@ -1,3 +1,4 @@
+from django.core.cache.backends.redis import RedisCache as DjangoRedisCache
 from django_redis import cache, exceptions
 
 from django_prometheus.cache.metrics import (
@@ -20,7 +21,7 @@ class RedisCache(cache.RedisCache):
             django_cache_get_fail_total.labels(backend="redis").inc()
             if self._ignore_exceptions:
                 if self._log_ignored_exceptions:
-                    cache.logger.error(str(e))
+                    self.logger.error(str(e))
                 return default
             raise
         else:
@@ -30,3 +31,19 @@ class RedisCache(cache.RedisCache):
             else:
                 django_cache_misses_total.labels(backend="redis").inc()
                 return default
+
+
+class NativeRedisCache(DjangoRedisCache):
+    def get(self, key, default=None, version=None):
+        django_cache_get_total.labels(backend="native_redis").inc()
+        try:
+            result = super().get(key, default=None, version=version)
+        except Exception:
+            django_cache_get_fail_total.labels(backend="native_redis").inc()
+            raise
+        if result is not None:
+            django_cache_hits_total.labels(backend="native_redis").inc()
+            return result
+        else:
+            django_cache_misses_total.labels(backend="native_redis").inc()
+            return default

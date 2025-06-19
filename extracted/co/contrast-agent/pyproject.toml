@@ -13,7 +13,7 @@ dynamic = ["version"]
 dependencies = [
     "requests>=2.4.2,<3",
     "contrast-agent-lib~=0.10.0",
-    "contrast-fireball==0.1.11"
+    "contrast-fireball==0.1.12"
 ]
 description = "Contrast Security's agent for Python web frameworks"
 keywords = ["security development"]
@@ -97,9 +97,8 @@ filterwarnings = [
   "error:.*Call to deprecated.*",
   "error::PendingDeprecationWarning",
   "error::pytest.PytestUnhandledThreadExceptionWarning",
-  "error::pytest.PytestUnhandledCoroutineWarning",
   "error::pytest.PytestUnraisableExceptionWarning",
-  "error::RuntimeWarning:asyncio.*",
+  "error::RuntimeWarning",
   "ignore::DeprecationWarning:pip._vendor.*",
   "ignore::DeprecationWarning:wrapt.*",
   "ignore::DeprecationWarning:jinja2.*",

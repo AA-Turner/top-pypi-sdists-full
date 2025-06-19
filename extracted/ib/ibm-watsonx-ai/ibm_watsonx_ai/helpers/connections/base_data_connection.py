@@ -127,6 +127,12 @@ class BaseDataConnection(ABC):
 
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
             if self._check_if_connection_asset_is_s3():
+                from .connections import _AmazonS3Connection
+
+                if isinstance(self.connection, _AmazonS3Connection):
+                    raise NotImplementedError(
+                        f"The operation is not supported for AmazonS3 connection. Try with Flight Service enabled"
+                    )
                 cos_client = self._init_cos_client()
 
                 try:
@@ -223,6 +229,12 @@ class BaseDataConnection(ABC):
 
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
             if self._check_if_connection_asset_is_s3():
+                from .connections import _AmazonS3Connection
+
+                if isinstance(self.connection, _AmazonS3Connection):
+                    raise NotImplementedError(
+                        f"The operation is not supported for AmazonS3 connection. Try with Flight Service enabled"
+                    )
                 cos_client = self._init_cos_client()
 
                 try:
@@ -297,80 +309,10 @@ class BaseDataConnection(ABC):
 
             return response.json()
 
-    def _prepare_connection_and_attachment_details(self) -> tuple[dict, dict]:
+    def _prepare_connection_details(self) -> tuple[dict, dict]:
         connection_details = {}
-        attachment_details = {}
 
-        if self.type == DataConnectionTypes.DS:
-            items = (
-                self.connection.href.split("/")
-                if self.connection is not None and hasattr(self.connection, "href")
-                else self.location.href.split("/")
-            )
-
-            data_asset_id = items[-1].split("?")[0]
-
-            if self._api_client is not None:
-                attachment_details = self._get_attachment_details(data_asset_id)
-                if "connection_id" not in attachment_details:
-                    if (
-                        "handle" in attachment_details
-                        and "bucket" in attachment_details["handle"]
-                    ):
-                        connection_details = self._create_conn_details_for_container()
-                        attachment_details["connection_path"] = (
-                            f"/{attachment_details['handle']['bucket']}"
-                            f"/{attachment_details['handle']['key']}"
-                        )
-                    elif all(
-                        key in attachment_details for key in ["url", "name", "bucket"]
-                    ):
-                        connection_details = self._create_conn_details_for_container()
-                        attachment_details["connection_path"] = (
-                            f"/{attachment_details['bucket']['bucket_name']}"
-                            f"/{attachment_details['name']}"
-                        )
-                    else:
-                        raise NotS3Connection(_internal=True)
-
-                else:
-                    connection_details = self._api_client.connections.get_details(
-                        attachment_details["connection_id"]
-                    )
-
-            else:
-                try:
-                    from ibm_watson_studio_lib import access_project_or_space
-
-                    wslib = access_project_or_space()
-
-                    # note: Check if asset is located directly in the project files
-                    #       If yes it is not a connected data.
-                    #       [Prevents unnecessary logging].
-                    if any(
-                        file["asset_id"] == data_asset_id
-                        for file in wslib.list_stored_data()
-                    ):
-                        raise NotS3Connection
-                    # --- end note
-
-                    try:
-                        connection_details = wslib.by_id.get_connected_data(
-                            data_asset_id
-                        )
-                    except RuntimeError:  # when data asset is normal not s3 or database
-                        raise NotS3Connection
-
-                    attachment_details = {
-                        "connection_path": connection_details.get("datapath")
-                    }
-
-                except ModuleNotFoundError:
-                    raise NotImplementedError(
-                        f"This functionality can be run only on Watson Studio."
-                    )
-
-        elif self.type == DataConnectionTypes.CA:
+        if self.type == DataConnectionTypes.CA:
             if self._api_client is not None:
                 connection_details = self._api_client.connections.get_details(
                     self.connection.id
@@ -390,7 +332,10 @@ class BaseDataConnection(ABC):
         elif self.type == DataConnectionTypes.CN:
             connection_details = self._create_conn_details_for_container()
 
-        return connection_details, attachment_details
+        else:
+            raise NotS3Connection(_internal=True)
+
+        return connection_details
 
     def _check_if_connection_asset_is_s3(self) -> bool:
         try:
@@ -407,17 +352,19 @@ class BaseDataConnection(ABC):
             ):
                 return True
 
-            if self.type in [DataConnectionTypes.S3, DataConnectionTypes.FS]:
+            if self.type in {
+                DataConnectionTypes.S3,
+                DataConnectionTypes.FS,
+                DataConnectionTypes.DS,
+            }:
                 return False
 
             try:
-                connection_details, attachment_details = (
-                    self._prepare_connection_and_attachment_details()
-                )
+                connection_details = self._prepare_connection_details()
             except NotS3Connection:
                 return False
 
-            # Note: Check with project libs if connection points to S3
+            # Note: Check with project libs if connection points to S3 (COS or AWS)
             if self._api_client is not None:
                 datasource_type = connection_details["entity"]["datasource_type"]
                 self._datasource_type = datasource_type
@@ -432,12 +379,13 @@ class BaseDataConnection(ABC):
                     )
                 )
 
-                if datasource_type in [
+                if self._datasource_type in {
                     datasource_type_id_ibm_cos,
                     datasource_type_id_aws_cos,
                     "bluemixcloudobjectstorage",
                     "cloudobjectstorage",
-                ]:
+                    "amazons3",
+                }:
                     is_s3 = True
 
                 else:
@@ -455,7 +403,10 @@ class BaseDataConnection(ABC):
             # --- end note
 
             if is_s3:
-                self._init_s3_connection(connection_details, attachment_details)
+                if self._datasource_type == "amazons3":
+                    self._init_s3_aws_connection(connection_details)
+                else:
+                    self._init_s3_cos_connection(connection_details)
 
             return is_s3
 
@@ -469,9 +420,11 @@ class BaseDataConnection(ABC):
             else:
                 return False  # if we are in WS, ignore this check even if there was some error
 
-    def _init_s3_connection(
-        self, connection_details: dict, attachment_details: dict
-    ) -> None:
+    def _init_s3_cos_connection(self, connection_details: dict) -> None:
+        """
+        Helper function that initializes internal `S3Connection` object based on connection_details retrieved
+         from connection asset or container (IBM Cloud).
+        """
         connection_props = connection_details["entity"]["properties"]
 
         connection_values = {
@@ -513,30 +466,38 @@ class BaseDataConnection(ABC):
         if self.type == DataConnectionTypes.CN:
             self.location.bucket = connection_props["bucket_name"]
 
-        if self.type == DataConnectionTypes.DS:
-            connection_path = attachment_details["connection_path"]
-            try:
-                # Workaround for connected data assets promoted from catalog
-                if not connection_path.startswith("/"):
-                    connection_path = "/" + connection_path
-                self.location.bucket = connection_path.split("/")[1]
-
-                # Remove excel sheet name from connection_path if data asset is excel file:
-                if ".xlsx/" in connection_path or ".xls/" in connection_path:
-                    excel_sheet = connection_path.split("/")[-1]
-                    # note: set recognized excel sheet in params
-                    if not self.auto_pipeline_params.get("excel_sheet"):
-                        self.auto_pipeline_params["excel_sheet"] = excel_sheet
-                    # end note
-                    self.location.path = "/".join(connection_path.split("/")[2:-1])
-                else:
-                    self.location.path = "/".join(connection_path.split("/")[2:])
-
-            except IndexError:
-                self.location.bucket = connection_props["bucket"]
-                self.location.path = connection_path
-
         self.connection.is_s3 = True
+
+    def _init_s3_aws_connection(self, connection_details: dict) -> None:
+        """
+        Helper function that initializes internal `AmazonS3Connection` object based on connection_details retrieved
+         from container (IBM Cloud on AWS).
+        """
+        from .connections import _AmazonS3Connection
+
+        connection_props = connection_details["entity"].get("properties", {})
+
+        self.connection = _AmazonS3Connection(
+            access_key=connection_props["credentials"]["access_key_id"],
+            bucket=connection_props["bucket_name"],
+            region=connection_props["bucket_region"],
+            secret_key=connection_props["credentials"]["secret_access_key"],
+            session_token=connection_props["credentials"]["session_token"],
+            shared_credentials=connection_props.get("shared", True),
+        )
+
+        if (
+            self.type == DataConnectionTypes.CN
+            and self.connection._shared_credentials
+            and self._api_client is not None
+        ):
+            container_path_prefix = (
+                self._api_client.default_project_id or self._api_client.default_space_id
+            )
+            if container_path_prefix and not self.location.path.startswith(
+                container_path_prefix
+            ):
+                self.location.path = f"{container_path_prefix}/{self.location.path}"
 
     def _is_data_asset_normal(self) -> bool:
         """Returns `True` if data asset is normal data asset - not connected data asset."""
@@ -1043,42 +1004,60 @@ class BaseDataConnection(ABC):
 
     def _create_conn_details_for_container(self) -> dict:
         if self._api_client is not None:
+            self._api_client._check_if_either_is_set()  # Space or project is required to use Container.
             if self._api_client.default_space_id is not None:
                 details = self._api_client.spaces.get_details(
-                    self._api_client.default_space_id
+                    self._api_client.default_space_id,
+                    extra_query_params=dict(include="everything,credentials"),
                 )
             else:
                 details = self._api_client.projects.get_details(
-                    self._api_client.default_project_id
+                    self._api_client.default_project_id,
+                    extra_query_params=dict(include="everything,credentials"),
                 )
 
-            properties = details["entity"]["storage"]["properties"]
-            creds = details["entity"]["storage"]["properties"]["credentials"].get(
-                "admin"
-            )
+            match details["entity"]["storage"]["type"]:
+                case "bmcos_object_storage":
+                    properties = details["entity"]["storage"]["properties"]
+                    creds = details["entity"]["storage"]["properties"][
+                        "credentials"
+                    ].get("admin")
 
-            if (
-                creds
-                and creds.get("access_key_id", False)
-                and creds.get("secret_access_key", False)
-            ):
-                pass
-            else:  # missing admin credentials
-                creds = details["entity"]["storage"]["properties"]["credentials"].get(
-                    "editor"
-                )
+                    if (
+                        creds
+                        and creds.get("access_key_id", False)
+                        and creds.get("secret_access_key", False)
+                    ):
+                        pass
+                    else:  # missing admin credentials
+                        creds = details["entity"]["storage"]["properties"][
+                            "credentials"
+                        ].get("editor")
 
-            properties.update(creds)
-            properties["url"] = properties["endpoint_url"]
-            properties["access_key"] = properties.get("access_key_id")
-            properties["secret_key"] = properties.get("secret_access_key")
+                    properties.update(creds)
+                    properties["url"] = properties["endpoint_url"]
+                    properties["access_key"] = properties.get("access_key_id")
+                    properties["secret_key"] = properties.get("secret_access_key")
 
-            connection_details = {
-                "entity": {
-                    "datasource_type": "bluemixcloudobjectstorage",
-                    "properties": properties,
-                }
-            }
+                    connection_details = {
+                        "entity": {
+                            "datasource_type": "bluemixcloudobjectstorage",
+                            "properties": properties,
+                        }
+                    }
+                case "amazon_s3":
+                    properties = details["entity"]["storage"]["properties"]
+                    connection_details = {
+                        "entity": {
+                            "datasource_type": "amazons3",
+                            "properties": properties,
+                        }
+                    }
+
+                case _:
+                    raise ValueError(
+                        f'Container type not supported in the project with storage {details["entity"]["storage"]["type"]}.'
+                    )
 
         else:
             try:

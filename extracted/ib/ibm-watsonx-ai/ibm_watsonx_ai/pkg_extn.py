@@ -14,7 +14,7 @@ from requests import Response
 from ibm_watsonx_ai._wrappers import requests
 
 from ibm_watsonx_ai.metanames import PkgExtnMetaNames
-from ibm_watsonx_ai.utils import PKG_EXTN_DETAILS_TYPE
+from ibm_watsonx_ai.utils import PKG_EXTN_DETAILS_TYPE, content_type_for
 from ibm_watsonx_ai.wml_client_error import (
     WMLClientError,
     ApiRequestFailure,
@@ -190,7 +190,12 @@ class PkgExtn(WMLResource):
 
                 with open(file_path, "rb") as file_object:
                     if not self._client.ICP_PLATFORM_SPACES:
-                        put_response = requests.put(href, data=file_object.read())
+                        content_type = content_type_for(filepath=file_path)
+                        put_response = requests.put(
+                            href,
+                            data=file_object.read(),
+                            headers={"Content-Type": content_type},
+                        )
                     else:
                         put_response = requests.put(
                             href,

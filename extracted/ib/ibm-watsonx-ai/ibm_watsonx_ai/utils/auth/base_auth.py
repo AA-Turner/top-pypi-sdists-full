@@ -4,6 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
+import threading
 from abc import ABC
 import json
 import base64
@@ -16,6 +17,8 @@ from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
+
+STATUS_FORCELIST = (401, 500, 502, 503, 504, 520, 521, 524)
 
 
 class BaseAuth(ABC):
@@ -61,8 +64,8 @@ class RefreshableTokenAuth(BaseAuth, ABC):
     :param on_token_refresh: callback which allows to notify about token refresh
     :type on_token_refresh: function which takes no params and returns nothing
 
-    :param expiration_timedelta: minimal time to token expiration, when the token refresh should be triggered
-    :type expiration_timedelta: timedelta, optional
+    :param refreshing_timedelta: time to expiration below which the token will be refreshed before use
+    :type refreshing_timedelta: timedelta, optional
     """
 
     _hardcoded_expiration_datetime: datetime | None = None
@@ -72,48 +75,52 @@ class RefreshableTokenAuth(BaseAuth, ABC):
         api_client: APIClient,
         on_token_creation: Callable[[], None] | None,
         on_token_refresh: Callable[[], None] | None,
-        expiration_timedelta: timedelta | None = None,
+        refreshing_timedelta: timedelta | None = None,
     ) -> None:
         self._session = api_client._session
         self._credentials = api_client.credentials
         self._href_definitions = api_client._href_definitions
         self._on_token_creation = on_token_creation
         self._on_token_refresh = on_token_refresh
-        self._expiration_timedelta = expiration_timedelta
-
-    def _get_expiration_timedelta(
-        self, generation_datetime: datetime, expiration_datetime: datetime
-    ) -> timedelta:
-        delta = expiration_datetime - generation_datetime
-        if not self._expiration_timedelta or delta < self._expiration_timedelta:
-            return (
-                delta - timedelta(minutes=1) if delta > timedelta(minutes=1) else delta
-            )
-        else:
-            return self._expiration_timedelta
+        self._refreshing_timedelta = refreshing_timedelta
+        self._lock = threading.Lock()
 
     def get_token(self) -> str:
-        """Returns the token. If the token will be under minimal expiration timedelta, it will be refreshed.
+        """Returns the token. If the token will be about to expire, it will be refreshed.
 
         :returns: token to be used with service
         :rtype: str
         """
-        if self._token is None:
-            self._save_token_data(self._generate_token())
-            if not self._expiration_timedelta:
-                self._expiration_timedelta = self._get_expiration_timedelta(
-                    datetime.now(), self._get_expiration_datetime()
-                )
-            if self._on_token_creation:
-                self._on_token_creation()
+        with self._lock:
+            if self._token is None:
+                self._save_token_data(self._generate_token())
+                self._set_refreshing_timedelta_if_needed()
+
+                if self._on_token_creation:
+                    self._on_token_creation()
+                return self._token
+
+            if self._is_refresh_needed():
+                self._save_token_data(self._refresh_token())
+                if self._on_token_refresh:
+                    self._on_token_refresh()
+
             return self._token
 
-        if self._is_refresh_needed():
-            self._save_token_data(self._refresh_token())
-            if self._on_token_refresh:
-                self._on_token_refresh()
+    def _set_refreshing_timedelta_if_needed(self):
+        """Set refreshing timedelta basing on expiration time if no refreshing timedelta was passed in constructor."""
+        time_to_expiration = self._get_expiration_datetime() - datetime.now()
 
-        return self._token
+        if self._refreshing_timedelta is None:
+            if time_to_expiration > timedelta(minutes=30):
+                self._refreshing_timedelta = timedelta(minutes=15)
+            elif time_to_expiration > timedelta(minutes=3):
+                # for minimal cloud token expiration = 15 min, the refreshing timedelta will be 5 min
+                self._refreshing_timedelta = (time_to_expiration) / 3
+            else:
+                # for token expiration time < 3 min, the refreshing time is always 1 min,
+                # which sometimes triggers refresh always (for expiration time < 1 min)
+                self._refreshing_timedelta = timedelta(minutes=1)
 
     def _generate_token(self) -> TokenInfo:
         """Generate token from scratch using user provided credentials.
@@ -141,7 +148,7 @@ class RefreshableTokenAuth(BaseAuth, ABC):
         :rtype: bool
         """
         if exp_datetime := self._get_expiration_datetime():
-            return exp_datetime - self._expiration_timedelta < datetime.now()
+            return exp_datetime - datetime.now() < self._refreshing_timedelta
         else:
             return True
 

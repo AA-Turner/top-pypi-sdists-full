@@ -62,12 +62,13 @@ def insert_book_to_notion(books, index, bookId):
         book["ISBN"] = book.get("isbn")
         book["链接"] = weread_api.get_url(bookId)
         book["简介"] = book.get("intro")
-        book["作者"] = [
-            notion_helper.get_relation_id(
-                x, notion_helper.author_database_id, USER_ICON_URL
-            )
-            for x in book.get("author").split(" ")
-        ]
+        if notion_helper.author_database_id is not None:
+            book["作者"] = [
+                notion_helper.get_relation_id(
+                    x, notion_helper.author_database_id, USER_ICON_URL
+                )
+                for x in book.get("author").split(" ")
+            ]
         if book.get("categories"):
             book["分类"] = [
                 notion_helper.get_relation_id(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 1.20.0
+Version: 1.21.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache-2.0
@@ -25,6 +25,7 @@ Requires-Dist: google-auth<3.0.0,>=2.14.1
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: requests<3.0.0,>=2.28.1
+Requires-Dist: tenacity<9.0.0,>=8.2.3
 Requires-Dist: websockets<15.1.0,>=13.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.11.0
 Provides-Extra: aiohttp
@@ -140,6 +141,49 @@ client = genai.Client(
     api_key='GEMINI_API_KEY',
     http_options=types.HttpOptions(api_version='v1alpha')
 )
+```
+
+### Faster async client option: Aiohttp
+
+By default we use httpx for both sync and async client implementations. In order
+to have faster performance, you may install `google-genai[aiohttp]`. In Gen AI
+SDK we configure `trust_env=True` to match with the default behavior of httpx.
+Additional args of `aiohttp.ClientSession.request()` ([see _RequestOptions args](https://github.com/aio-libs/aiohttp/blob/v3.12.13/aiohttp/client.py#L170)) can be passed
+through the following way:
+
+```python
+
+http_options = types.HttpOptions(
+    async_client_args={'cookies': ..., 'ssl': ...},
+)
+
+client=Client(..., http_options=http_options)
+```
+
+### Proxy
+
+Both httpx and aiohttp libraries use `urllib.request.getproxies` from
+environment variables. Before client initialization, you may set proxy (and
+optional SSL_CERT_FILE) by setting the environment variables:
+
+
+```bash
+export HTTPS_PROXY='http://username:password@proxy_uri:port'
+export SSL_CERT_FILE='client.pem'
+```
+
+If you need `socks5` proxy, httpx [supports](https://www.python-httpx.org/advanced/proxies/#socks) `socks5` proxy if you pass it via
+args to `httpx.Client()`. You may install `httpx[socks]` to use it.
+Then, you can pass it through the following way:
+
+```python
+
+http_options = types.HttpOptions(
+    client_args={'proxy': 'socks5://user:pass@host:port'},
+    async_client_args={'proxy': 'socks5://user:pass@host:port'},,
+)
+
+client=Client(..., http_options=http_options)
 ```
 
 ## Types

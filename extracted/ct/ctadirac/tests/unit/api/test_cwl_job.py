@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
-
+from cwl_utils.parser import save
 from CTADIRAC.Interfaces.API.CWLJob import CWLJob
 from CTADIRAC.Interfaces.Utilities.CWL_utils import (
     LFN_DIRAC_PREFIX,
@@ -224,6 +224,12 @@ def test_datapipe_cwl_job(mock_submit_job):
         job.input_data[0]
         == "LFN:/ctao/simpipe/prod6/gamma-diffuse/010xxx/gamma_cone10_run010000.simtel.zst"
     )
+
+    assert save(job.transformed_inputs) == {
+        "dl0": {"class": "File", "path": "gamma_cone10_run010000.simtel.zst"},
+        "processing_config": {"class": "File", "path": "process_config.yaml"},
+        "dl1_filename": "test.dl1.h5",
+    }
 
     result = job.submit()
     mock_submit_job.assert_called_once_with(job)

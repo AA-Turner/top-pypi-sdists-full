@@ -110,6 +110,7 @@ class FeatureMetadata(_message.Message):
         "max_staleness",
         "etl_offline_to_online",
         "pa_dtype",
+        "nullable",
     )
     FQN_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -120,6 +121,7 @@ class FeatureMetadata(_message.Message):
     MAX_STALENESS_FIELD_NUMBER: _ClassVar[int]
     ETL_OFFLINE_TO_ONLINE_FIELD_NUMBER: _ClassVar[int]
     PA_DTYPE_FIELD_NUMBER: _ClassVar[int]
+    NULLABLE_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     name: str
     namespace: str
@@ -129,6 +131,7 @@ class FeatureMetadata(_message.Message):
     max_staleness: str
     etl_offline_to_online: bool
     pa_dtype: _arrow_pb2.ArrowType
+    nullable: bool
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -140,6 +143,7 @@ class FeatureMetadata(_message.Message):
         max_staleness: _Optional[str] = ...,
         etl_offline_to_online: bool = ...,
         pa_dtype: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
+        nullable: bool = ...,
     ) -> None: ...
 
 class GetFeaturesMetadataResponse(_message.Message):

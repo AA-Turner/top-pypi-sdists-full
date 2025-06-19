@@ -257,11 +257,10 @@ class BaseMiddleware:
             if context.assess_enabled:
                 self._handle_observed_route(context, request)
                 update_preflight_hashes(context)
-            if context.observe_enabled:
-                # TODO: PYT-3802 update http.route here, or possibly elsewhere, once
-                # we're capturing template URLs. Probably will involve calling
-                # `update_span_attributes`.
-                pass
+            if context.observe_enabled and context.path_template is not None:
+                self.reporting_client.update_span_attributes(
+                    {"http.route": context.path_template}
+                )
 
         logger.debug("Sending final messages for reporting.")
         for msg in self.final_ts_messages(context):
@@ -490,24 +489,24 @@ class BaseMiddleware:
         )
         self._append_route_to_findings(context.observed_route, context.findings)
 
-    def _get_signature(self, context, request) -> str:
+    def _get_signature(self, context: RequestContext, request) -> str:
         """
         There are a few different strategies we might use to obtain a route signature.
         In order of preference:
 
         1.  Obtain a signature at some point during the request; this string is set on
-            `context.view_func_str`. For supported frameworks, this is accomplished with
+            `context.signature`. For supported frameworks, this is accomplished with
             framework-specific patches. One exception to this is aiohttp, where it
             happens directly in the middleware. It is essential that for a particular
             route this signature exactly matches the one found during route discovery.
 
-        2.  If context.view_func_str isn't set, we didn't get any framework-specific
+        2.  If context.signature isn't set, we didn't get any framework-specific
             information about the view function. In this case we use the request's
             normalized URI as the signature. We expect to hit this case in pure WSGI /
             ASGI.
         """
-        if context.view_func_str:
-            return context.view_func_str
+        if context.signature:
+            return context.signature
 
         logger.debug(
             "Did not find a view function signature for the current request. "

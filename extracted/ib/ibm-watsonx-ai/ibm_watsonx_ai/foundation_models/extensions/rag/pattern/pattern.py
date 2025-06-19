@@ -4,7 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 
 from typing import Any, Callable, cast
-from warnings import simplefilter, warn
+from warnings import warn
 from pathlib import Path
 import json
 import os
@@ -105,7 +105,7 @@ class RAGPattern:
         will use default function template for querying and deployment. If custom ``inference_function`` is
         specified, the pattern's components are not utilized.
 
-        .. hint:: Both default function template and custom ``inference_function`` provided by user can by modified
+        .. hint:: Both default function template and custom ``inference_function`` provided by user can be modified
         by changing :meth:`pretty_print`'s output.
 
         :param space_id: ID of the Watson Studio space
@@ -130,10 +130,10 @@ class RAGPattern:
             Required to have ``{question}`` and ``{reference_documents}`` input variables when used with default python function, defaults to None
         :type prompt_id: str, optional
 
-        :param indexing_function: custom python function generator containing document indexing, defaults to None
+        :param indexing_function: custom python function generator containing document indexing, deprecated since 1.3.26, defaults to None
         :type indexing_function: Callable, optional
 
-        :param inference_function: custom python function generator containing RAG logic, defaults to None
+        :param inference_function: custom python function generator containing RAG logic, deprecated since 1.3.26 - use ``inference_service`` instead, defaults to None
         :type inference_function: Callable, optional
 
         :param inference_service: custom AI-Service containing RAG logic, defaults to None
@@ -234,24 +234,6 @@ class RAGPattern:
         .. code-block:: python
 
             from ibm_watsonx_ai import Credentials
-            from ibm_watsonx_ai.foundation_models.extensions.rag import RAGPattern
-
-            def custom_inference_function(custom_arg='value', params=None):
-                def score(payload):
-                    return payload
-                return score
-
-            pattern = RAGPattern(
-                space_id="<ID of the space>",
-                inference_function=custom_inference_function,
-                credentials=Credentials(
-                                api_key = IAM_API_KEY,
-                                url = "https://us-south.ml.cloud.ibm.com")
-            )
-
-        .. code-block:: python
-
-            from ibm_watsonx_ai import Credentials
             from ibm_watsonx_ai.foundation_models import ModelInference
             from ibm_watsonx_ai.foundation_models.extensions.rag import RAGPattern, VectorStore
 
@@ -331,6 +313,13 @@ class RAGPattern:
                     params_names_list=["space_id", "project_id"],
                     reason="None of the arguments were provided or set in api_client/credentials.",
                 )
+        if inference_function is not None:
+            deprecated_warning = "`inference_function` is deprecated, please use `RAGPattern.inference_service` instead."
+            warn(deprecated_warning, category=DeprecationWarning, stacklevel=2)
+
+        if indexing_function is not None:
+            deprecated_warning = "`indexing_function` is deprecated and will be removed in a future release."
+            warn(deprecated_warning, category=DeprecationWarning, stacklevel=2)
 
         if inference_function is None and inference_service is None:
             inference_custom_asset = None
@@ -572,12 +561,19 @@ class RAGPattern:
     def indexing_function(self) -> RAGPatternFunction | None:
         """Indexing function object.
 
-        :raises WMLClientError: raise when vector_store is of type different than
+        .. deprecated:: 1.3.26
+
+        :raises WMLClientError: raise when vector_store is of type different from
                                  ibm_watsonx_ai.foundation_models.extensions.rag.VectorStore
 
         :return: indexing function instance
         :rtype: RAGPatternFunction | None
         """
+        deprecated_warning = (
+            "`indexing_function` is deprecated and will be removed in a future release."
+        )
+        warn(deprecated_warning, category=DeprecationWarning, stacklevel=2)
+
         if self._indexing_function_error:
             raise WMLClientError(
                 "`indexing_function` not available for the type of provided Vector Store"
@@ -589,12 +585,18 @@ class RAGPattern:
     def inference_function(self) -> RAGPatternFunction | None:
         """Inference function object.
 
-        :raises WMLClientError: raise when vector_store is of type different than
+        .. deprecated:: 1.3.26
+            Use ``RAGPattern.inference_service`` instead.
+
+        :raises WMLClientError: raise when vector_store is of type different from
                                  ibm_watsonx_ai.foundation_models.extensions.rag.VectorStore
 
         :return: inference function instance
         :rtype: RAGPatternFunction | None
         """
+        deprecated_warning = "`inference_function` is deprecated, please use `RAGPattern.inference_service` instead."
+        warn(deprecated_warning, category=DeprecationWarning, stacklevel=2)
+
         if self._inference_function_error:
             raise WMLClientError(
                 "`inference_function` not available for the type of provided Vector Store"
@@ -646,10 +648,10 @@ class RAGPattern:
             )
 
         """
-
         deploy_method_deprecated_warning = "`deploy` method is deprecated, please use `inference_function.deploy(...)` instead"
-        warn(deploy_method_deprecated_warning, category=DeprecationWarning)
-        simplefilter("ignore", category=DeprecationWarning)
+        warn(
+            deploy_method_deprecated_warning, category=DeprecationWarning, stacklevel=2
+        )
 
         if not space_id and not self.space_id:
             raise MissingValue(
@@ -727,13 +729,10 @@ class RAGPattern:
             result = pattern.query(payload)
 
         """
-
-        simplefilter("default", category=DeprecationWarning)
         query_method_deprecated_warning = (
             "`query` method is deprecated, please use `inference_function(...)` instead"
         )
-        warn(query_method_deprecated_warning, category=DeprecationWarning)
-        simplefilter("ignore", category=DeprecationWarning)
+        warn(query_method_deprecated_warning, category=DeprecationWarning, stacklevel=2)
 
         input_data = payload[self._client.deployments.ScoringMetaNames.INPUT_DATA]
         if not "access_token" in input_data[0]:
@@ -764,7 +763,9 @@ class RAGPattern:
             "Instead, please use `api_client.deployments.delete(deployment_id)` and `api_client.repository.delete(asset_id)` "
             "to delete the deployment and asset in the repository, respectively."
         )
-        warn(delete_method_deprecated_warning, category=DeprecationWarning)
+        warn(
+            delete_method_deprecated_warning, category=DeprecationWarning, stacklevel=2
+        )
 
         if self.deployment_function:
             self._delete_function(self.deployment_function, delete_stored_function)

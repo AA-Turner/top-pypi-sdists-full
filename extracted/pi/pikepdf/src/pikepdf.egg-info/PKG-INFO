@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pikepdf
-Version: 9.8.1
+Version: 9.9.0
 Summary: Read and write PDFs with Python, powered by qpdf
 Author-email: "James R. Barlow" <james@purplerock.ca>
 License-Expression: MPL-2.0
@@ -14,7 +14,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
@@ -65,7 +64,7 @@ pikepdf
 
 **pikepdf** is a Python library for reading and writing PDF files.
 
-[![Build Status](https://github.com/pikepdf/pikepdf/actions/workflows/build.yml/badge.svg)](https://github.com/pikepdf/pikepdf/actions/workflows/build.yml) [![PyPI](https://img.shields.io/pypi/v/pikepdf.svg)](https://pypi.org/project/pikepdf/) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pikepdf) ![PyPy](https://img.shields.io/badge/3.9-blue) ![PyPI - License](https://img.shields.io/pypi/l/pikepdf) ![PyPI - Downloads](https://img.shields.io/pypi/dm/pikepdf)  [![codecov](https://codecov.io/gh/pikepdf/pikepdf/branch/main/graph/badge.svg?token=8FJ755317J)](https://codecov.io/gh/pikepdf/pikepdf)
+[![Build Status](https://github.com/pikepdf/pikepdf/actions/workflows/build.yml/badge.svg)](https://github.com/pikepdf/pikepdf/actions/workflows/build.yml) [![PyPI](https://img.shields.io/pypi/v/pikepdf.svg)](https://pypi.org/project/pikepdf/) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pikepdf)  ![PyPI - License](https://img.shields.io/pypi/l/pikepdf) ![PyPI - Downloads](https://img.shields.io/pypi/dm/pikepdf)  [![codecov](https://codecov.io/gh/pikepdf/pikepdf/branch/main/graph/badge.svg?token=8FJ755317J)](https://codecov.io/gh/pikepdf/pikepdf)
 
 pikepdf is based on [qpdf](https://github.com/qpdf/qpdf), a powerful PDF manipulation and repair library.
 

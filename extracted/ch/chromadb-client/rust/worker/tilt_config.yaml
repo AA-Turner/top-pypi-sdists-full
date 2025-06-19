@@ -169,6 +169,7 @@ compaction_service:
             policy: "full_rebuild"
 
 log_service:
+    num_records_before_backpressure: 100000
     opentelemetry:
         service_name: "rust-log-service"
         endpoint: "http://otel-collector:4317"
@@ -185,6 +186,9 @@ log_service:
                 count_based_policy:
                     max_concurrent_requests: 500
                     bandwidth_allocation: [1.0]
+    cache:
+        memory:
+          capacity: 100000000 # 100 MB
     writer:
         throttle_fragment:
             batch_interval_us: 100000

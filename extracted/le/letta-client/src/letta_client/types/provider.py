@@ -32,12 +32,22 @@ class Provider(UncheckedBaseModel):
 
     api_key: typing.Optional[str] = pydantic.Field(default=None)
     """
-    API key used for requests to the provider.
+    API key or secret key used for requests to the provider.
     """
 
     base_url: typing.Optional[str] = pydantic.Field(default=None)
     """
     Base URL for the provider.
+    """
+
+    access_key: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Access key used for requests to the provider.
+    """
+
+    region: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Region used for requests to the provider.
     """
 
     updated_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)

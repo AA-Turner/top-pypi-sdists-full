@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: adversarial-robustness-toolbox
-Version: 1.19.1
+Version: 1.19.2
 Summary: Toolbox for adversarial machine learning.
 Home-page: https://github.com/Trusted-AI/adversarial-robustness-toolbox
 Author: Irina Nicolae
@@ -21,24 +21,134 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Security
 Description-Content-Type: text/markdown
-Provides-Extra: docs
-Provides-Extra: catboost
-Provides-Extra: gpy
-Provides-Extra: keras
-Provides-Extra: lightgbm
-Provides-Extra: mxnet
-Provides-Extra: tensorflow
-Provides-Extra: tensorflow_image
-Provides-Extra: tensorflow_audio
-Provides-Extra: pytorch
-Provides-Extra: pytorch_image
-Provides-Extra: pytorch_audio
-Provides-Extra: xgboost
-Provides-Extra: lingvo_asr
-Provides-Extra: all
-Provides-Extra: non_framework
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: numpy>=1.18.0
+Requires-Dist: scipy>=1.4.1
+Requires-Dist: scikit-learn>=0.22.2
+Requires-Dist: six
+Requires-Dist: setuptools
+Requires-Dist: tqdm
+Provides-Extra: docs
+Requires-Dist: sphinx>=1.4; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Requires-Dist: sphinx-autodoc-annotation; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
+Requires-Dist: matplotlib; extra == "docs"
+Requires-Dist: numpy>=1.18.0; extra == "docs"
+Requires-Dist: scipy>=1.4.1; extra == "docs"
+Requires-Dist: six>=1.13.0; extra == "docs"
+Requires-Dist: scikit-learn>=0.22.2; extra == "docs"
+Requires-Dist: Pillow>=6.0.0; extra == "docs"
+Provides-Extra: catboost
+Requires-Dist: catboost; extra == "catboost"
+Provides-Extra: gpy
+Requires-Dist: GPy; extra == "gpy"
+Provides-Extra: keras
+Requires-Dist: keras; extra == "keras"
+Requires-Dist: h5py; extra == "keras"
+Provides-Extra: lightgbm
+Requires-Dist: lightgbm; extra == "lightgbm"
+Provides-Extra: mxnet
+Requires-Dist: mxnet; extra == "mxnet"
+Provides-Extra: tensorflow
+Requires-Dist: tensorflow; extra == "tensorflow"
+Requires-Dist: tensorflow_addons; extra == "tensorflow"
+Requires-Dist: h5py; extra == "tensorflow"
+Provides-Extra: tensorflow-image
+Requires-Dist: tensorflow; extra == "tensorflow-image"
+Requires-Dist: tensorflow_addons; extra == "tensorflow-image"
+Requires-Dist: h5py; extra == "tensorflow-image"
+Requires-Dist: Pillow; extra == "tensorflow-image"
+Requires-Dist: ffmpeg-python; extra == "tensorflow-image"
+Requires-Dist: opencv-python; extra == "tensorflow-image"
+Provides-Extra: tensorflow-audio
+Requires-Dist: tensorflow; extra == "tensorflow-audio"
+Requires-Dist: tensorflow_addons; extra == "tensorflow-audio"
+Requires-Dist: h5py; extra == "tensorflow-audio"
+Requires-Dist: pydub; extra == "tensorflow-audio"
+Requires-Dist: resampy; extra == "tensorflow-audio"
+Requires-Dist: librosa; extra == "tensorflow-audio"
+Provides-Extra: pytorch
+Requires-Dist: torch; extra == "pytorch"
+Requires-Dist: torchvision; extra == "pytorch"
+Provides-Extra: pytorch-image
+Requires-Dist: torch; extra == "pytorch-image"
+Requires-Dist: torchvision; extra == "pytorch-image"
+Requires-Dist: kornia; extra == "pytorch-image"
+Requires-Dist: Pillow; extra == "pytorch-image"
+Requires-Dist: ffmpeg-python; extra == "pytorch-image"
+Requires-Dist: opencv-python; extra == "pytorch-image"
+Provides-Extra: pytorch-audio
+Requires-Dist: torch; extra == "pytorch-audio"
+Requires-Dist: torchvision; extra == "pytorch-audio"
+Requires-Dist: torchaudio; extra == "pytorch-audio"
+Requires-Dist: pydub; extra == "pytorch-audio"
+Requires-Dist: resampy; extra == "pytorch-audio"
+Requires-Dist: librosa; extra == "pytorch-audio"
+Provides-Extra: xgboost
+Requires-Dist: xgboost; extra == "xgboost"
+Provides-Extra: lingvo-asr
+Requires-Dist: tensorflow-gpu==2.1.0; extra == "lingvo-asr"
+Requires-Dist: lingvo==0.6.4; extra == "lingvo-asr"
+Requires-Dist: pydub; extra == "lingvo-asr"
+Requires-Dist: resampy; extra == "lingvo-asr"
+Requires-Dist: librosa; extra == "lingvo-asr"
+Provides-Extra: all
+Requires-Dist: mxnet; extra == "all"
+Requires-Dist: catboost; extra == "all"
+Requires-Dist: lightgbm; extra == "all"
+Requires-Dist: tensorflow; extra == "all"
+Requires-Dist: tensorflow-addons; extra == "all"
+Requires-Dist: h5py; extra == "all"
+Requires-Dist: torch; extra == "all"
+Requires-Dist: torchvision; extra == "all"
+Requires-Dist: xgboost; extra == "all"
+Requires-Dist: pandas; extra == "all"
+Requires-Dist: kornia; extra == "all"
+Requires-Dist: matplotlib; extra == "all"
+Requires-Dist: Pillow; extra == "all"
+Requires-Dist: statsmodels; extra == "all"
+Requires-Dist: pydub; extra == "all"
+Requires-Dist: resampy; extra == "all"
+Requires-Dist: ffmpeg-python; extra == "all"
+Requires-Dist: cma; extra == "all"
+Requires-Dist: librosa; extra == "all"
+Requires-Dist: opencv-python; extra == "all"
+Requires-Dist: numba; extra == "all"
+Provides-Extra: non-framework
+Requires-Dist: matplotlib; extra == "non-framework"
+Requires-Dist: Pillow; extra == "non-framework"
+Requires-Dist: statsmodels; extra == "non-framework"
+Requires-Dist: pydub; extra == "non-framework"
+Requires-Dist: resampy; extra == "non-framework"
+Requires-Dist: ffmpeg-python; extra == "non-framework"
+Requires-Dist: cma; extra == "non-framework"
+Requires-Dist: pandas; extra == "non-framework"
+Requires-Dist: librosa; extra == "non-framework"
+Requires-Dist: opencv-python; extra == "non-framework"
+Requires-Dist: pytest; extra == "non-framework"
+Requires-Dist: pytest-flake8; extra == "non-framework"
+Requires-Dist: pytest-mock; extra == "non-framework"
+Requires-Dist: pytest-cov; extra == "non-framework"
+Requires-Dist: requests; extra == "non-framework"
+Requires-Dist: sortedcontainers; extra == "non-framework"
+Requires-Dist: numba; extra == "non-framework"
+Requires-Dist: timm; extra == "non-framework"
+Requires-Dist: multiprocess; extra == "non-framework"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 # Adversarial Robustness Toolbox (ART) v1.19
 <p align="center">

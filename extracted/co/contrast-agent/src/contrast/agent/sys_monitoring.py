@@ -74,7 +74,10 @@ def enable() -> None:
 def _strlike_call_specialization_disabler(
     code: CodeType, instruction_offset: int, callable: object, arg0: object
 ) -> Any:
-    if callable not in SUPPORTED_TYPES:
+    # We need to check SUPPORTED_TYPES is not None because this callback will
+    # still be installed during interpreter shutdown, when global variables may be
+    # set to None.
+    if SUPPORTED_TYPES is not None and callable not in SUPPORTED_TYPES:
         return sys.monitoring.DISABLE
 
 

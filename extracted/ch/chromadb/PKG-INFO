@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: chromadb
-Version: 1.0.12
+Version: 1.0.13
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Dist: build>=1.0.3
 Requires-Dist: pydantic>=1.9
-Requires-Dist: fastapi==0.115.9
+Requires-Dist: pybase64>=1.4.1
 Requires-Dist: uvicorn[standard]>=0.18.3
 Requires-Dist: numpy>=1.22.5
 Requires-Dist: posthog>=2.4.0
@@ -14,7 +14,6 @@ Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: onnxruntime>=1.14.1
 Requires-Dist: opentelemetry-api>=1.2.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.2.0
-Requires-Dist: opentelemetry-instrumentation-fastapi>=0.41b0
 Requires-Dist: opentelemetry-sdk>=1.2.0
 Requires-Dist: tokenizers>=0.13.2
 Requires-Dist: pypika>=0.48.9
@@ -34,6 +33,8 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: rich>=10.11.0
 Requires-Dist: jsonschema>=4.19.0
 Requires-Dist: chroma-hnswlib==0.7.6 ; extra == 'dev'
+Requires-Dist: fastapi>=0.115.9 ; extra == 'dev'
+Requires-Dist: opentelemetry-instrumentation-fastapi>=0.41b0 ; extra == 'dev'
 Provides-Extra: dev
 License-File: LICENSE
 Summary: Chroma.
@@ -74,7 +75,7 @@ pip install chromadb # python client
 # for client-server mode, chroma run --path /chroma_db_path
 ```
 
-The core API is only 4 functions (run our [💡 Google Colab](https://colab.research.google.com/drive/1QEzFyqnoFxq7LUGyP1vzR4iLt9PpCDXv?usp=sharing) or [Replit template](https://replit.com/@swyx/BasicChromaStarter?v=1)):
+The core API is only 4 functions (run our [💡 Google Colab](https://colab.research.google.com/drive/1QEzFyqnoFxq7LUGyP1vzR4iLt9PpCDXv?usp=sharing) or [Replit template](https://replit.com/@chroma/Chroma-Pluggable-knowledge-for-AI?v=1)):
 
 ```python
 import chromadb

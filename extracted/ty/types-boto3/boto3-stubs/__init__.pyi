@@ -16,6 +16,7 @@ from types_boto3_accessanalyzer.client import AccessAnalyzerClient
 from types_boto3_account.client import AccountClient
 from types_boto3_acm.client import ACMClient
 from types_boto3_acm_pca.client import ACMPCAClient
+from types_boto3_aiops.client import AIOpsClient
 from types_boto3_amp.client import PrometheusServiceClient
 from types_boto3_amplify.client import AmplifyClient
 from types_boto3_amplifybackend.client import AmplifyBackendClient
@@ -533,6 +534,24 @@ def client(
 ) -> ACMPCAClient:
     """
     Create client for ACMPCA service.
+    """
+
+@overload
+def client(
+    service_name: Literal["aiops"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> AIOpsClient:
+    """
+    Create client for AIOps service.
     """
 
 @overload

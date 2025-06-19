@@ -1,8 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence, Sized
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    Literal,
+    Mapping,
+    Protocol,
+    Sequence,
+    Sized,
+    TypeVar,
+    overload,
+)
 
 from narwhals._compliant.typing import (
     CompliantDataFrameAny,

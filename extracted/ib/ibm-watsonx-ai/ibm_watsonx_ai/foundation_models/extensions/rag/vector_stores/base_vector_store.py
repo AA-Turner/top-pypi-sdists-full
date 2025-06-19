@@ -200,11 +200,11 @@ class BaseVectorStore(ABC):
                 "`api_client` is required if connecting by connection asset."
             )
 
-    def _get_connection_type(self, connection_details: dict[str, list | dict]) -> str:
+    def _get_connection_type(self, connection_details: dict[str, dict]) -> str:
         """Determine the connection type from the connection details by comparing it to the available list of data source types.
 
         :param connection_details: dict containing the connection details
-        :type connection_details: dict[str, list]
+        :type connection_details: dict[str, dict]
 
         :raises KeyError: if the connection data source is invalid
 
@@ -212,14 +212,13 @@ class BaseVectorStore(ABC):
         :rtype: str
         """
         if self._client is not None:
-            with contextlib.redirect_stdout(None):
-                datasource_types_df = self._client.connections.list_datasource_types()
-            datasource_id_to_name_mapping = datasource_types_df.set_index(
-                "DATASOURCE_ID"
-            )["NAME"].to_dict()
-            datasource_type = datasource_id_to_name_mapping.get(
-                connection_details["entity"]["datasource_type"], None  # type: ignore[call-overload]
+
+            datasource_type_details = (
+                self._client.connections.get_datasource_type_details_by_id(
+                    connection_details["entity"]["datasource_type"]
+                )
             )
+            datasource_type = datasource_type_details["entity"].get("name")
 
             if datasource_type is None:
                 raise WMLClientError("Connection type not found or not supported.")

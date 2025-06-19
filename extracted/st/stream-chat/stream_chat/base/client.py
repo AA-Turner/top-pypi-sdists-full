@@ -9,6 +9,7 @@ from typing import Any, Awaitable, Dict, Iterable, List, Optional, TypeVar, Unio
 
 from stream_chat.types.base import SortParam
 from stream_chat.types.campaign import CampaignData, QueryCampaignsOptions
+from stream_chat.types.draft import QueryDraftsFilter, QueryDraftsOptions
 from stream_chat.types.segment import (
     QuerySegmentsOptions,
     QuerySegmentTargetsOptions,
@@ -355,6 +356,37 @@ class StreamChatInterface(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def block_user(
+        self, blocked_user_id: str, user_id: str, **options: Any
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Blocks a user. When a user is blocked, they will not be able to communicate with the
+        blocking user in 1-on-1 channels, and will not be able to add the blocking user to channels.
+        To unblock a user, use `unblock_user` method.
+        """
+        pass
+
+    @abc.abstractmethod
+    def unblock_user(
+        self, blocked_user_id: str, user_id: str, **options: Any
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Unblocks a user. This allows the previously blocked user to communicate with the
+        unblocking user in 1-on-1 channels again, and all previous messages become visible.
+        To block a user, use `block_user` method.
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_blocked_users(
+        self, user_id: str, **options: Any
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Retrieves the list of users that have been blocked by the specified user.
+        """
+        pass
+
+    @abc.abstractmethod
     def run_message_action(
         self, message_id: str, data: Dict
     ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
@@ -559,6 +591,19 @@ class StreamChatInterface(abc.ABC):
     ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
         """
         Queries message history.
+        """
+        pass
+
+    @abc.abstractmethod
+    def query_threads(
+        self, filter: Dict = None, sort: List[Dict] = None, **options: Any
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Allows you to query threads using filter and sort. You can find the complete list of supported operators in the query syntax section of the docs.
+
+        :param filter: Filter conditions for the query
+        :param sort: Sort conditions for the query
+        :return: StreamResponse containing the threads
         """
         pass
 
@@ -1381,6 +1426,82 @@ class StreamChatInterface(abc.ABC):
     ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
         """
         Get unread counts for multiple users at once.
+        """
+        pass
+
+    @abc.abstractmethod
+    def query_drafts(
+        self,
+        user_id: str,
+        filter: Optional[QueryDraftsFilter] = None,
+        sort: Optional[List[SortParam]] = None,
+        options: Optional[QueryDraftsOptions] = None,
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        pass
+
+    @abc.abstractmethod
+    def create_reminder(
+        self,
+        message_id: str,
+        user_id: str,
+        remind_at: Optional[datetime.datetime] = None,
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Creates a reminder for a message.
+
+        :param message_id: The ID of the message to create a reminder for
+        :param user_id: The ID of the user creating the reminder
+        :param remind_at: When to remind the user (optional)
+        :return: API response
+        """
+        pass
+
+    @abc.abstractmethod
+    def update_reminder(
+        self,
+        message_id: str,
+        user_id: str,
+        remind_at: Optional[datetime.datetime] = None,
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Updates a reminder for a message.
+
+        :param message_id: The ID of the message with the reminder
+        :param user_id: The ID of the user who owns the reminder
+        :param remind_at: When to remind the user (optional)
+        :return: API response
+        """
+        pass
+
+    @abc.abstractmethod
+    def delete_reminder(
+        self, message_id: str, user_id: str
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Deletes a reminder for a message.
+
+        :param message_id: The ID of the message with the reminder
+        :param user_id: The ID of the user who owns the reminder
+        :return: API response
+        """
+        pass
+
+    @abc.abstractmethod
+    def query_reminders(
+        self,
+        user_id: str,
+        filter_conditions: Dict = None,
+        sort: List[Dict] = None,
+        **options: Any,
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Queries reminders based on filter conditions.
+
+        :param user_id: The ID of the user whose reminders to query
+        :param filter_conditions: Conditions to filter reminders
+        :param sort: Sort parameters (default: [{ field: 'remind_at', direction: 1 }])
+        :param options: Additional query options like limit, offset
+        :return: API response with reminders
         """
         pass
 

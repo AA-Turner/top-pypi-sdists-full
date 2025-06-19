@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Final, Literal
+from typing import TYPE_CHECKING, Callable, Final, Literal, cast
 from urllib.parse import urljoin
 
 from streamlit import config, net_util, url_util
@@ -25,10 +25,14 @@ from streamlit.runtime.secrets import secrets_singleton
 if TYPE_CHECKING:
     from tornado.web import RequestHandler
 
-# The port reserved for internal development.
+# The port used for internal development.
 DEVELOPMENT_PORT: Final = 3000
 
 AUTH_COOKIE_NAME: Final = "_streamlit_user"
+
+
+def allowlisted_origins() -> set[str]:
+    return {origin.strip() for origin in config.get_option("server.corsAllowedOrigins")}
 
 
 def is_url_from_allowed_origins(url: str) -> bool:
@@ -47,10 +51,14 @@ def is_url_from_allowed_origins(url: str) -> bool:
 
     hostname = url_util.get_hostname(url)
 
-    allowed_domains: list[str | Callable[[], str | None]] = [
+    allowlisted_domains = [
+        url_util.get_hostname(origin) for origin in allowlisted_origins()
+    ]
+
+    allowed_domains: list[str | None | Callable[[], str | None]] = [
         # Check localhost first.
         "localhost",
-        "0.0.0.0",
+        "0.0.0.0",  # noqa: S104
         "127.0.0.1",
         # Try to avoid making unnecessary HTTP requests by checking if the user
         # manually specified a server address.
@@ -58,6 +66,7 @@ def is_url_from_allowed_origins(url: str) -> bool:
         # Then try the options that depend on HTTP requests or opening sockets.
         net_util.get_internal_ip,
         net_util.get_external_ip,
+        *allowlisted_domains,
     ]
 
     for allowed_domain in allowed_domains:
@@ -87,12 +96,12 @@ def get_cookie_secret() -> str:
     return cookie_secret
 
 
-def is_xsrf_enabled():
+def is_xsrf_enabled() -> bool:
     csrf_enabled = config.get_option("server.enableXsrfProtection")
     if not csrf_enabled and secrets_singleton.load_if_toml_exists():
         auth_section = secrets_singleton.get("auth", None)
         csrf_enabled = csrf_enabled or auth_section is not None
-    return csrf_enabled
+    return cast("bool", csrf_enabled)
 
 
 def _get_server_address_if_manually_set() -> str | None:
@@ -102,17 +111,18 @@ def _get_server_address_if_manually_set() -> str | None:
 
 
 def make_url_path_regex(
-    *path, trailing_slash: Literal["optional", "required", "prohibited"] = "optional"
+    *path: str,
+    trailing_slash: Literal["optional", "required", "prohibited"] = "optional",
 ) -> str:
     """Get a regex of the form ^/foo/bar/baz/?$ for a path (foo, bar, baz)."""
-    path = [x.strip("/") for x in path if x]  # Filter out falsely components.
+    filtered_paths = [x.strip("/") for x in path if x]  # Filter out falsely components.
     path_format = r"^/%s$"
     if trailing_slash == "optional":
         path_format = r"^/%s/?$"
     elif trailing_slash == "required":
         path_format = r"^/%s/$"
 
-    return path_format % "/".join(path)
+    return path_format % "/".join(filtered_paths)
 
 
 def get_url(host_ip: str) -> str:

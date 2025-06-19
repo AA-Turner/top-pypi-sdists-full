@@ -32,7 +32,8 @@ from yaml.scanner import ScannerError
 
 from chalk import Environments, OfflineResolver, OnlineResolver, Tags
 from chalk._lsp.error_builder import SQLFileResolverErrorBuilder
-from chalk.features import DataFrame, Feature, FeatureNotFoundException, Features, FeatureSetBase
+from chalk.features import DataFrame, Feature, FeatureNotFoundException, Features
+from chalk.features.feature_set import CURRENT_FEATURE_REGISTRY
 from chalk.features.namespace_context import build_namespaced_name
 from chalk.features.namespace_context import namespace as namespace_ctx
 from chalk.features.pseudofeatures import Now
@@ -347,6 +348,8 @@ def get_sql_file_resolver(
 ) -> ResolverResult:
     from chalk.sql import SQLSourceGroup
 
+    registry_features = CURRENT_FEATURE_REGISTRY.get().get_feature_sets()
+
     assert sql_string_result.sql_string is not None, f"SQL string from path {sql_string_result.path} should not be None"
     error_builder = SQLFileResolverErrorBuilder(
         uri=sql_string_result.path, sql_string=sql_string_result.sql_string, has_import_errors=has_import_errors
@@ -405,16 +408,14 @@ def get_sql_file_resolver(
                 inputs.append(Feature.from_root_fqn(build_namespaced_name(name=arg)))
             except FeatureNotFoundException:  # other exceptions will be caught eventually
                 message = f"SQL file resolver references an input feature '{arg}' which does not exist."
-                if arg in FeatureSetBase.registry:
+                if arg in registry_features:
                     message += f" It appears '{arg}' is a feature class, not a feature."
                 try:
                     error_builder.add_diagnostic_with_spellcheck(
                         spellcheck_item=arg,
                         spellcheck_candidates=[
                             feature.fqn
-                            for feature in FeatureSetBase.registry[
-                                build_namespaced_name(name=parsed.namespace)
-                            ].features
+                            for feature in registry_features[build_namespaced_name(name=parsed.namespace)].features
                         ],
                         message=message,
                         code="152",
@@ -442,7 +443,7 @@ def get_sql_file_resolver(
         for variable, output in parsed.fields.items():
             message = f"SQL file resolver references an output feature '{output}' which does not exist. "
             if output.endswith("*"):
-                features = FeatureSetBase.registry[build_namespaced_name(name=parsed.namespace)].features
+                features = registry_features[build_namespaced_name(name=parsed.namespace)].features
                 for feature in features:
                     if (
                         feature.is_scalar
@@ -497,9 +498,7 @@ def get_sql_file_resolver(
                         spellcheck_item=output,
                         spellcheck_candidates=[
                             feature.fqn
-                            for feature in FeatureSetBase.registry[
-                                build_namespaced_name(name=parsed.namespace)
-                            ].features
+                            for feature in registry_features[build_namespaced_name(name=parsed.namespace)].features
                         ],
                         message=message,
                         code="153",
@@ -689,6 +688,7 @@ def get_sql_file_resolver(
                     finalizer=finalizer if finalizer is not None else Finalizer.ALL,
                     fields_root_fqn=query_fields,
                     incremental_settings=incremental_settings,
+                    params_to_root_fqn=glot_result.args,
                 ),
             )
         except Exception as e:
@@ -813,21 +813,31 @@ def _get_data_lineage(sql: str) -> Dict[str, Dict[str, List[str]]]:
         return {}
 
 
-def _get_sql_glot(
+@dataclasses.dataclass
+class EscapedSqlString:
+    escaped_sql_string: str
+    args: dict[str, str]  # sql string -> input feature string
+    default_args: List[Union[str, None, ellipsis]]
+    errors: List[ResolverError]
+
+
+def escape_sql_params(
     sql_string: str,
     path: str,
-    sources: Iterable[BaseSQLSource | SQLSourceGroup],
     error_builder: SQLFileResolverErrorBuilder,
-    override_comment_dict: Optional[CommentDict] = None,
-) -> GlotResult:
-    """Get sqlglot from sql string and gracefully exit if unable to"""
-    try:
-        import sqlglot
-        import sqlglot.errors
-        import sqlglot.expressions
-        import sqlglot.optimizer.scope
-    except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
+) -> EscapedSqlString:
+    """
+    Chalk allows people to write SQL resolvers that reference features using ${} syntax, such as:
+    ```
+    SELECT id, burrito_name FROM burritos_table where id=${burrito.id}
+    ```
+
+    However this isn't valid sql -- we replace each occurrence of ${} w/ a placeholder name and
+    return the escaped SQL string w/ additional info about the params & relevant Chalk features.
+    :param sql_string: String of hte original SQL resolver
+    :param path: For error reporting, filepath of the SQL resolver
+    :param error_builder: For LSP errors
+    """
     args = {}  # sql string -> input feature string
 
     # In order to ensure that the variables are ordered deterministically, we use a `dict`
@@ -875,6 +885,32 @@ def _get_sql_glot(
         sql_safe_str = f"__chalk_{period_replaced}__"
         sql_string = sql_string.replace(variable_pattern, f":{sql_safe_str}")
         args[sql_safe_str] = variable
+
+    return EscapedSqlString(escaped_sql_string=sql_string, args=args, errors=errors, default_args=default_args)
+
+
+def _get_sql_glot(
+    sql_string: str,
+    path: str,
+    sources: Iterable[BaseSQLSource | SQLSourceGroup],
+    error_builder: SQLFileResolverErrorBuilder,
+    override_comment_dict: Optional[CommentDict] = None,
+) -> GlotResult:
+    """Get sqlglot from sql string and gracefully exit if unable to"""
+    try:
+        import sqlglot
+        import sqlglot.errors
+        import sqlglot.expressions
+        import sqlglot.optimizer.scope
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+    errors: List[ResolverError] = []
+    escaped_sql = escape_sql_params(sql_string=sql_string, path=path, error_builder=error_builder)
+    errors.extend(escaped_sql.errors)
+    args = escaped_sql.args
+    default_args = escaped_sql.default_args
+    sql_string = escaped_sql.escaped_sql_string
+
     comments = ""
     docstring = ""
     comment_row_to_file_row: Dict[int, int] = {}
@@ -1257,7 +1293,7 @@ def _parse_glot(
     # get resolver fields: which columns selected will match to which chalk feature?
     assert comment_dict.resolves is not None, "comment dict failed to parse"
     namespace = build_namespaced_name(namespace=comment_dict.namespace, name=to_snake_case(comment_dict.resolves))
-    if namespace not in FeatureSetBase.registry:
+    if namespace not in CURRENT_FEATURE_REGISTRY.get().get_feature_sets():
         message = f"No @features class with the name '{namespace}'"
         error_builder.add_diagnostic(
             message=message,
@@ -1420,7 +1456,10 @@ def _validate_feature_strings_in_comments(
             error_builder.add_diagnostic_with_spellcheck(
                 spellcheck_item=f,
                 spellcheck_candidates=[
-                    feature.fqn for feature in FeatureSetBase.registry[build_namespaced_name(name=namespace)].features
+                    feature.fqn
+                    for feature in CURRENT_FEATURE_REGISTRY.get()
+                    .get_feature_sets()[build_namespaced_name(name=namespace)]
+                    .features
                 ],
                 message=message,
                 code="153a",
@@ -1783,6 +1822,7 @@ def make_sql_file_resolver(
                 f"Failed to parse notebook-defined SQL resolver '{name}'. Found the following errors:\n{err_message}"
             )
         NOTEBOOK_DEFINED_SQL_RESOLVERS[name] = resolver_result
+        return resolver_result
 
 
 def _convert_incremental_settings(settings: IncrementalSettings) -> IncrementalSettingsSQLFileResolver:

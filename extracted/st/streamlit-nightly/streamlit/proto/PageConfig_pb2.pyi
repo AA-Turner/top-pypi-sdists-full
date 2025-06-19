@@ -47,12 +47,20 @@ class PageConfig(google.protobuf.message.Message):
         """Render page elements in a centered block, roughly 730px wide."""
         WIDE: PageConfig._Layout.ValueType  # 1
         """Use the full browser width to render elements."""
+        LAYOUT_UNSET: PageConfig._Layout.ValueType  # 2
+        """Unset distinguishes that config was not provided - on initial call, will
+        set to centered as default. Otherwise, inherit value from previous call
+        """
 
     class Layout(_Layout, metaclass=_LayoutEnumTypeWrapper): ...
     CENTERED: PageConfig.Layout.ValueType  # 0
     """Render page elements in a centered block, roughly 730px wide."""
     WIDE: PageConfig.Layout.ValueType  # 1
     """Use the full browser width to render elements."""
+    LAYOUT_UNSET: PageConfig.Layout.ValueType  # 2
+    """Unset distinguishes that config was not provided - on initial call, will
+    set to centered as default. Otherwise, inherit value from previous call
+    """
 
     class _SidebarState:
         ValueType = typing.NewType("ValueType", builtins.int)
@@ -66,6 +74,10 @@ class PageConfig(google.protobuf.message.Message):
         """Force the sidebar to be shown."""
         COLLAPSED: PageConfig._SidebarState.ValueType  # 2
         """Force the sidebar to be hidden."""
+        SIDEBAR_UNSET: PageConfig._SidebarState.ValueType  # 3
+        """Unset distinguishes that config was not provided - on initial call, will
+        set to auto as default. Otherwise, inherit value from previous call
+        """
 
     class SidebarState(_SidebarState, metaclass=_SidebarStateEnumTypeWrapper): ...
     AUTO: PageConfig.SidebarState.ValueType  # 0
@@ -74,6 +86,10 @@ class PageConfig(google.protobuf.message.Message):
     """Force the sidebar to be shown."""
     COLLAPSED: PageConfig.SidebarState.ValueType  # 2
     """Force the sidebar to be hidden."""
+    SIDEBAR_UNSET: PageConfig.SidebarState.ValueType  # 3
+    """Unset distinguishes that config was not provided - on initial call, will
+    set to auto as default. Otherwise, inherit value from previous call
+    """
 
     @typing.final
     class MenuItems(google.protobuf.message.Message):

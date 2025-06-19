@@ -25,7 +25,7 @@ pub enum PlCredentialProvider {
     /// Prefer using [`PlCredentialProvider::from_func`] instead of constructing this directly
     Function(CredentialProviderFunction),
     #[cfg(feature = "python")]
-    Python(python_impl::PythonCredentialProvider),
+    Python(PythonCredentialProvider),
 }
 
 impl PlCredentialProvider {
@@ -374,17 +374,32 @@ impl serde::Serialize for PlCredentialProvider {
             return v.serialize(_serializer);
         }
 
-        Err(S::Error::custom(format!("cannot serialize {:?}", self)))
+        Err(S::Error::custom(format!("cannot serialize {self:?}")))
+    }
+}
+
+#[cfg(feature = "dsl-schema")]
+impl schemars::JsonSchema for PlCredentialProvider {
+    fn schema_name() -> String {
+        "PlCredentialProvider".to_owned()
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!(module_path!(), "::", "PlCredentialProvider"))
+    }
+
+    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        Vec::<u8>::json_schema(generator)
     }
 }
 
 /// Avoids calling the credential provider function if we have not yet passed the expiry time.
 #[derive(Debug)]
-struct FetchedCredentialsCache<C>(tokio::sync::Mutex<(C, u64)>);
+struct FetchedCredentialsCache<C>(tokio::sync::Mutex<(C, u64, bool)>);
 
 impl<C: Clone> FetchedCredentialsCache<C> {
     fn new(init_creds: C) -> Self {
-        Self(tokio::sync::Mutex::new((init_creds, 0)))
+        Self(tokio::sync::Mutex::new((init_creds, 0, true)))
     }
 
     async fn get_maybe_update(
@@ -409,7 +424,7 @@ impl<C: Clone> FetchedCredentialsCache<C> {
         }
 
         let mut inner = self.0.lock().await;
-        let (last_fetched_credentials, last_fetched_expiry) = &mut *inner;
+        let (last_fetched_credentials, last_fetched_expiry, log_use_cached) = &mut *inner;
 
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -432,6 +447,7 @@ impl<C: Clone> FetchedCredentialsCache<C> {
 
             *last_fetched_credentials = credentials;
             *last_fetched_expiry = expiry;
+            *log_use_cached = true;
 
             if expiry < current_time && expiry != 0 {
                 polars_bail!(
@@ -456,7 +472,8 @@ impl<C: Clone> FetchedCredentialsCache<C> {
                     )
                 )
             }
-        } else if verbose {
+        } else if verbose && *log_use_cached {
+            *log_use_cached = false;
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -682,8 +699,7 @@ mod python_impl {
                                 },
                                 v => {
                                     return pyo3::PyResult::Err(PyValueError::new_err(format!(
-                                        "unknown configuration key for azure: {}, {}",
-                                        v, VALID_KEYS_MSG
+                                        "unknown configuration key for azure: {v}, {VALID_KEYS_MSG}"
                                     )));
                                 },
                             }
@@ -695,8 +711,7 @@ mod python_impl {
                     let Some(credentials) = credentials else {
                         return Err(PolarsError::ComputeError(
                             format!(
-                                "did not find a valid configuration key for azure, {}",
-                                VALID_KEYS_MSG
+                                "did not find a valid configuration key for azure, {VALID_KEYS_MSG}"
                             )
                             .into(),
                         ));

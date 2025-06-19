@@ -64,6 +64,7 @@ With `amplpy` you can model and solve large scale optimization problems in Pytho
 * PyPI Repository: https://pypi.python.org/pypi/amplpy
 '''
 from setuptools import setup, Extension
+from Cython.Build import cythonize
 import platform
 import sys
 import os
@@ -87,6 +88,7 @@ else:
     LIBRARY_EXT = ".dll"
 
 CPP_BASE = os.path.join("amplpy", "amplpython", "cppinterface")
+RPATH_BASE = os.path.join("amplpython", "cppinterface", "lib")
 LIBRARY_BASE = os.path.join(CPP_BASE, "lib")
 LIBRARY_DIR = os.path.join(LIBRARY_BASE, LIBRARY)
 
@@ -106,7 +108,12 @@ def package_content():
         lst = all_files
     else:
         source_only = [
-            fpath for fpath in all_files if not fpath.startswith(LIBRARY_BASE)
+            fpath for fpath in all_files 
+            if not fpath.startswith(LIBRARY_BASE)
+            if not fpath.endswith(".pxi")
+            if not fpath.endswith(".pxd")
+            if not fpath.endswith(".pyx")
+            if not fpath.endswith(".c")
         ]
         library_only = [
             fpath
@@ -127,7 +134,7 @@ def compile_args():
             "-Wno-catch-value",
             "-Wno-unused-variable",
         ]
-        return ["-std=c++11"] + ignore_warnings
+        return ignore_warnings
     elif OSTYPE == "Darwin":
         ignore_warnings = [
             "-Wno-unused-variable",
@@ -140,7 +147,6 @@ def compile_args():
             ]
         return (
             [
-                "-std=c++11",
                 "-mmacosx-version-min=10.9",
             ]
             + debug
@@ -151,9 +157,9 @@ def compile_args():
 
 
 def link_args():
-    rpath = os.path.join(LIBRARY_BASE, LIBRARY)
+    rpath = os.path.join(RPATH_BASE, LIBRARY)
     if OSTYPE == "Darwin":
-        return ["-Wl,-rpath,@loader_path/" + rpath]
+        return ["-Wl,-headerpad_max_install_names,-rpath,@loader_path/" + rpath]
     elif OSTYPE == "Linux":
         return ["-Wl,-rpath,$ORIGIN/" + rpath]
     else:
@@ -165,7 +171,7 @@ def link_args():
 
 setup(
     name="amplpy",
-    version="0.14.0",
+    version="0.15.0",
     description="Python API for AMPL",
     long_description=__doc__,
     long_description_content_type="text/markdown",
@@ -187,30 +193,32 @@ setup(
         "Operating System :: Unix",
         "Operating System :: MacOS",
         "Operating System :: Microsoft :: Windows",
-        "Programming Language :: C++",
+        "Programming Language :: C",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
     packages=["amplpy"],
-    ext_modules=[
-        Extension(
-            "_amplpython",
-            libraries=["ampl"],
-            library_dirs=[os.path.join(LIBRARY_BASE, LIBRARY)],
-            include_dirs=[os.path.join(CPP_BASE, "include")],
-            extra_compile_args=compile_args(),
-            extra_link_args=link_args(),
-            sources=[os.path.join(CPP_BASE, "amplpythonPYTHON_wrap.cxx")],
-        )
-    ],
+    ext_modules=cythonize(
+        [
+            Extension(
+                "amplpy.ampl",
+                libraries=["ampl"],
+                library_dirs=[os.path.join(LIBRARY_BASE, LIBRARY)],
+                include_dirs=[os.path.join(CPP_BASE, "include")],
+                extra_compile_args=compile_args(),
+                extra_link_args=link_args(),
+                sources=[os.path.join("amplpy", "ampl.pyx")],
+            )
+        ], compiler_directives={"language_level": "3", "binding": True, "embedsignature": True,
+                                "boundscheck": False, "wraparound": False},
+    ),
     package_data={"": package_content()},
     install_requires=["ampltools >= 0.7.5"],
 )

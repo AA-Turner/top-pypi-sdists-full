@@ -8,8 +8,8 @@ exported_symbol_list = glide.__all__
 
 
 def _get_export_rename_map():
-    exported_list = glide.__all__
-    root_init_file = Path(__file__).parent.parent / "glide" / "__init__.py"
+    glide.__all__
+    root_init_file = Path(__file__).parent.parent / "python" / "glide" / "__init__.py"
     source_code = root_init_file.read_text()
     tree = ast.parse(source_code)
     rename_map = {}
@@ -30,6 +30,8 @@ excluded_symbol_list = [
     "TRequest",  # Union
     # python/python/glide/glide_client.py
     "get_request_error_class",  # FunctionDef
+    "_CompatFuture",  # ClassDef
+    "_get_new_future_instance",  # FunctionDef
     "BaseClient",  # ClassDef
     # python/python/glide/routes.py
     "to_protobuf_slot_type",  # FunctionDef
@@ -39,8 +41,10 @@ excluded_symbol_list = [
     # python/python/glide/protobuf_codec.py
     "ProtobufCodec",  # ClassDef
     "PartialMessageException",  # Exception
-    # python/python/glide/async_commands/transaction.py
-    "BaseTransaction",  # ClassDef
+    # python/python/glide/async_commands/batch.py
+    "BaseBatch",  # ClassDef
+    # python/python/glide/async_commands/batch_options.py
+    "BaseBatchOptions",  # ClassDef
     # python/python/glide/async_commands/standalone_commands.py
     "StandaloneCommands",  # ClassDef
     # python/python/glide/async_commands/cluster_commands.py
@@ -142,7 +146,7 @@ class TestAPIExport:
             + "Please review and either export it, or add it to the excluded_symbol_list.\n"
             + "\n".join(
                 [
-                    f"{key}:\n    " + "\n    ".join(value)
+                    f"{key}" + ":" + "\n    " + "\n    ".join(value)
                     for key, value in aggregated_anomalous_symbols.items()
                 ]
             )

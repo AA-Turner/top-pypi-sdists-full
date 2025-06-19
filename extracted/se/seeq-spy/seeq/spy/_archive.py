@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import datetime
 import types
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pandas as pd
@@ -117,11 +117,11 @@ def archive(items: pd.DataFrame,
         raise SPyValueError('The items DataFrame must contain an "ID" column.')
 
     if note is None:
-        note = f'Archived from SPy by {session.user.username} at {datetime.datetime.now(datetime.UTC).isoformat()}.'
+        note = f'Archived from SPy by {session.user.username} at {datetime.now(timezone.utc).isoformat()}.'
 
     item_count = len(items)
     results_list = list()
-    status.df = pd.DataFrame([{'Count': 0, 'Time': datetime.timedelta(0)}])
+    status.df = pd.DataFrame([{'Count': 0, 'Time': timedelta(0)}])
     status.update(f'Archiving 0 of {item_count} items', Status.RUNNING)
 
     items_api = ItemsApi(session.client)

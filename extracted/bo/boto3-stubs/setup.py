@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs",
-    version="1.38.38",
+    version="1.38.39",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.38.38 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.38.39 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,12 +55,13 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.38.0, <1.39.0"],
-        "boto3": ["boto3==1.38.38"],
+        "boto3": ["boto3==1.38.39"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.38.0, <1.39.0",
             "mypy-boto3-account>=1.38.0, <1.39.0",
             "mypy-boto3-acm>=1.38.0, <1.39.0",
             "mypy-boto3-acm-pca>=1.38.0, <1.39.0",
+            "mypy-boto3-aiops>=1.38.0, <1.39.0",
             "mypy-boto3-amp>=1.38.0, <1.39.0",
             "mypy-boto3-amplify>=1.38.0, <1.39.0",
             "mypy-boto3-amplifybackend>=1.38.0, <1.39.0",
@@ -476,6 +477,7 @@ setup(
         "account": ["mypy-boto3-account>=1.38.0, <1.39.0"],
         "acm": ["mypy-boto3-acm>=1.38.0, <1.39.0"],
         "acm-pca": ["mypy-boto3-acm-pca>=1.38.0, <1.39.0"],
+        "aiops": ["mypy-boto3-aiops>=1.38.0, <1.39.0"],
         "amp": ["mypy-boto3-amp>=1.38.0, <1.39.0"],
         "amplify": ["mypy-boto3-amplify>=1.38.0, <1.39.0"],
         "amplifybackend": ["mypy-boto3-amplifybackend>=1.38.0, <1.39.0"],

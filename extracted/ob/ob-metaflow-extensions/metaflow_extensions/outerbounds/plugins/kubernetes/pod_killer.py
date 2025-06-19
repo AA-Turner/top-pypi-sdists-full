@@ -39,7 +39,7 @@ def derive_job_outcome(job_status: "V1JobStatus"):
 
     # This means that the job has neither finished or succedded.
     if job_status.active:
-        return JobOutcomes.KILL
+        return JobOutcomes.DELETE
 
     # This means that the job is not active. Had started. There is not succedded/fail.
     # This is a weird state. Better to just kill the job
@@ -47,7 +47,7 @@ def derive_job_outcome(job_status: "V1JobStatus"):
 
 
 class PodKiller:
-    def __init__(self, kubernetes_client, echo_func, namespace):
+    def __init__(self, kubernetes_client, echo_func, namespace, progress_bar=None):
         self.client = kubernetes_client
         self.echo = echo_func
         self.api_instance = self.client.CoreV1Api()
@@ -55,6 +55,7 @@ class PodKiller:
         self._namespace = namespace
         self.jobset_api = None
         self.jobset_api = self.client.CustomObjectsApi()
+        self.progress_bar = progress_bar
 
     def _delete_jobset(self, owner_ref, namespace):
         """Delete a JobSet if it's the owner of a job."""
@@ -147,20 +148,31 @@ class PodKiller:
 
     def _find_matching_jobs(self, flow_name, run_id=None, user=None):
         """Find jobs that match the flow_name, run_id, and user criteria using similar logic to _find_active_pods"""
-        try:
-            jobs = self.job_api.list_namespaced_job(namespace=self._namespace)
-            matching_jobs = []
-            for _job in jobs.items:
-                job = _job.to_dict()
-                _match = self._metaflow_matching_spec(
-                    run_id=run_id,
-                    user=user,
-                    flow_name=flow_name,
-                    annotations=job.get("metadata", {}).get("annotations", {}),
-                    labels=job.get("metadata", {}).get("labels", {}),
+
+        def paginated_job_finder(namespace):
+            continue_token = None
+            while True:
+                response = self.job_api.list_namespaced_job(
+                    namespace=namespace, limit=100, _continue=continue_token
                 )
-                if _match:
-                    matching_jobs.append(_job)
+                yield response.items
+                continue_token = response.metadata._continue
+                if not continue_token:
+                    break
+
+        try:
+            matching_jobs = []
+            for _jobs in paginated_job_finder(self._namespace):
+                for job in _jobs:
+                    _match = self._metaflow_matching_spec(
+                        run_id=run_id,
+                        user=user,
+                        flow_name=flow_name,
+                        annotations=job.metadata.annotations,
+                        labels=job.metadata.labels,
+                    )
+                    if _match:
+                        matching_jobs.append(job)
             return matching_jobs
         except Exception as e:
             self.echo(f"Error finding jobs: {str(e)}\n")
@@ -171,25 +183,38 @@ class PodKiller:
         if not self.jobset_api:
             return []
 
+        def paginated_jobset_finder(namespace):
+            continue_token = None
+            responses = []
+            while True:
+                response = self.jobset_api.list_namespaced_custom_object(
+                    group="jobset.x-k8s.io",
+                    version="v1alpha2",
+                    namespace=namespace,
+                    plural="jobsets",
+                    limit=100,
+                    **({"_continue": continue_token} if continue_token else {}),
+                )
+                continue_token = response.get("metadata", {}).get("continue", None)
+                responses.append(response)
+                if not continue_token:
+                    break
+            return responses
+
         try:
-            jobsets = self.jobset_api.list_namespaced_custom_object(
-                group="jobset.x-k8s.io",
-                version="v1alpha2",
-                namespace=self._namespace,
-                plural="jobsets",
-            )
             matching_jobsets = []
 
-            for jobset in jobsets.get("items", []):
-                _match = self._metaflow_matching_spec(
-                    run_id=run_id,
-                    user=user,
-                    flow_name=flow_name,
-                    annotations=jobset.get("metadata", {}).get("annotations", {}),
-                    labels=jobset.get("metadata", {}).get("labels", {}),
-                )
-                if _match:
-                    matching_jobsets.append(jobset)
+            for jobset_response in paginated_jobset_finder(self._namespace):
+                for jobset in jobset_response.get("items", []):
+                    _match = self._metaflow_matching_spec(
+                        run_id=run_id,
+                        user=user,
+                        flow_name=flow_name,
+                        annotations=jobset.get("metadata", {}).get("annotations", {}),
+                        labels=jobset.get("metadata", {}).get("labels", {}),
+                    )
+                    if _match:
+                        matching_jobsets.append(jobset)
 
             return matching_jobsets
         except Exception as e:
@@ -270,9 +295,20 @@ class PodKiller:
             self.echo(f"Unknown outcome {outcome} for JobSet {jobset_name}")
             return False
 
+    def extract_matching_jobs_and_jobsets(self, flow_name, run_id, user):
+        """Extract matching jobs and jobsets based on the flow_name, run_id, and user criteria"""
+        jobs = self._find_matching_jobs(flow_name, run_id, user)
+        jobsets = self._find_matching_jobsets(flow_name, run_id, user)
+        return [(j, derive_job_outcome(j.status)) for j in jobs], [
+            (j, derive_jobset_outcome(j.get("status", {}))) for j in jobsets
+        ]
+
     def process_matching_jobs_and_jobsets(self, flow_name, run_id, user):
         """Process all matching jobs and jobsets based on their derived outcomes"""
         results = []
+        progress_update = lambda x: x
+        if self.progress_bar:
+            progress_update = lambda x: self.progress_bar.update(1, x)
 
         # Process matching jobs
         _jobs, _jobsets = [], []
@@ -282,6 +318,7 @@ class PodKiller:
             result = self._handle_job_outcome(job, outcome)
             # results.append(result)
             if result is not None:
+                progress_update("💀 Killing Job %s" % job.metadata.name)
                 results.append(result)
                 _jobs.append(result)
 
@@ -292,7 +329,46 @@ class PodKiller:
             outcome = derive_jobset_outcome(jobset_status)
             result = self._handle_jobset_outcome(jobset, outcome)
             if result is not None:
+                progress_update(
+                    "💀 Deleting JobSet %s"
+                    % jobset.get("metadata", {}).get("name", "unknown")
+                )
                 results.append(result)
                 _jobsets.append(result)
+
+        return results, len(_jobs), len(_jobsets)
+
+    def process_matching_jobs_and_jobsets_force_all(self, flow_name, run_id, user):
+        """Force process ALL matching jobs and jobsets regardless of their status/outcome"""
+        results = []
+        progress_update = lambda x: x
+        if self.progress_bar:
+            progress_update = lambda x: self.progress_bar.update(1, x)
+
+        # Process matching jobs - FORCE DELETE ALL
+        _jobs, _jobsets = [], []
+        jobs = self._find_matching_jobs(flow_name, run_id, user)
+        for job in jobs:
+            # Force DELETE outcome regardless of actual status
+            result = self._handle_job_outcome(job, JobOutcomes.DELETE)
+            progress_update("🔥 FORCE Deleting Job %s" % job.metadata.name)
+            results.append(
+                result if result is not None else True
+            )  # Treat None as success for force mode
+            _jobs.append(result if result is not None else True)
+
+        # Process matching jobsets - FORCE DELETE ALL
+        jobsets = self._find_matching_jobsets(flow_name, run_id, user)
+        for jobset in jobsets:
+            # Force DELETE outcome regardless of actual status
+            result = self._handle_jobset_outcome(jobset, JobOutcomes.DELETE)
+            progress_update(
+                "🔥 FORCE Deleting JobSet %s"
+                % jobset.get("metadata", {}).get("name", "unknown")
+            )
+            results.append(
+                result if result is not None else True
+            )  # Treat None as success for force mode
+            _jobsets.append(result if result is not None else True)
 
         return results, len(_jobs), len(_jobsets)

@@ -1,6 +1,6 @@
 [project]
 name = "docling-ibm-models"
-version = "3.4.4" # DO NOT EDIT, updated automatically
+version = "3.5.0" # DO NOT EDIT, updated automatically
 description = "This package contains the AI models used by the Docling PDF conversion package"
 license = "MIT"
 keywords = ["docling", "convert", "document", "pdf", "layout model", "segmentation", "table structure", "table former"]
@@ -16,11 +16,17 @@ authors = [
 classifiers = [
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
 requires-python = '>=3.9,<4.0'
 dependencies = [
@@ -36,6 +42,7 @@ dependencies = [
   'docling-core (>=2.19.0,<3.0.0)',
   'transformers (>=4.42.0,<5.0.0)',
   'numpy (>=1.24.4,<3.0.0)',
+  "rtree>=1.0.0",
 ]
 
 [project.urls]

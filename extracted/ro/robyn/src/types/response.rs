@@ -4,6 +4,7 @@ use pyo3::{
     exceptions::PyIOError,
     prelude::*,
     types::{PyBytes, PyDict},
+    IntoPyObject,
 };
 
 use crate::io_helpers::{apply_hashmap_headers, read_file};
@@ -26,8 +27,9 @@ impl Responder for Response {
     type Body = BoxBody;
 
     fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
-        let mut response_builder =
-            HttpResponseBuilder::new(StatusCode::from_u16(self.status_code).unwrap());
+        let mut response_builder = HttpResponseBuilder::new(
+            StatusCode::from_u16(self.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+        );
         apply_hashmap_headers(&mut response_builder, &self.headers);
         response_builder.body(self.description)
     }
@@ -35,54 +37,54 @@ impl Responder for Response {
 
 impl Response {
     pub fn not_found(headers: Option<&Headers>) -> Self {
-        let headers = match headers {
-            Some(headers) => headers.clone(),
-            None => Headers::new(None),
-        };
+        const NOT_FOUND_BYTES: &[u8] = b"Not found";
 
         Self {
             status_code: 404,
             response_type: "text".to_string(),
-            headers,
-            description: "Not found".to_owned().into_bytes(),
+            headers: headers.cloned().unwrap_or_else(|| Headers::new(None)),
+            description: NOT_FOUND_BYTES.to_vec(),
             file_path: None,
         }
     }
 
     pub fn internal_server_error(headers: Option<&Headers>) -> Self {
-        let headers = match headers {
-            Some(headers) => headers.clone(),
-            None => Headers::new(None),
-        };
+        const SERVER_ERROR_BYTES: &[u8] = b"Internal server error";
 
         Self {
             status_code: 500,
             response_type: "text".to_string(),
-            headers,
-            description: "Internal server error".to_owned().into_bytes(),
+            headers: headers.cloned().unwrap_or_else(|| Headers::new(None)),
+            description: SERVER_ERROR_BYTES.to_vec(),
             file_path: None,
         }
     }
 }
 
-impl ToPyObject for Response {
-    fn to_object(&self, py: Python) -> PyObject {
-        let headers = self.headers.clone().into_py(py).extract(py).unwrap();
-        // The description should only be either string or binary.
-        // it should raise an exception otherwise
-        let description = match String::from_utf8(self.description.to_vec()) {
-            Ok(description) => description.to_object(py),
-            Err(_) => PyBytes::new(py, &self.description.to_vec()).into(),
+impl<'py> IntoPyObject<'py> for Response {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let headers = self.headers.into_pyobject(py)?.extract()?;
+
+        let description = if self.description.is_empty() {
+            "".into_pyobject(py)?.into_any()
+        } else {
+            match String::from_utf8(self.description.clone()) {
+                Ok(description) => description.into_pyobject(py)?.into_any(),
+                Err(_) => PyBytes::new(py, &self.description).into_any(),
+            }
         };
 
         let response = PyResponse {
             status_code: self.status_code,
-            response_type: self.response_type.clone(),
+            response_type: self.response_type,
             headers,
-            description,
-            file_path: self.file_path.clone(),
+            description: description.into(),
+            file_path: self.file_path,
         };
-        Py::new(py, response).unwrap().into()
+        Ok(Py::new(py, response)?.into_bound(py).into_any())
     }
 }
 

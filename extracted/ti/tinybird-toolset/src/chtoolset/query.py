@@ -12,6 +12,7 @@ from chtoolset._query import replace_tables, \
     explain_ast, \
     create_row_binary_encoder, \
     apply_row_binary_encoder, \
+    apply_row_binary_encoder_bytes, \
     delete_row_binary_encoder
 
 
@@ -49,6 +50,19 @@ class RowBinaryEncoder():
 
         try:
             result = apply_row_binary_encoder(self._encoder_ptr, block)
+            return result
+        except Exception as e:
+            raise RowBinaryEncoderError(f"Error encoding block: {str(e)}") from e
+
+    def encode_bytes(self, block: bytes) -> bytes:
+        if not isinstance(block, bytes):
+            raise TypeError("Block must be bytes")
+
+        if not self._encoder_ptr:
+            raise RowBinaryEncoderError("Encoder was already closed")
+
+        try:
+            result = apply_row_binary_encoder_bytes(self._encoder_ptr, block)
             return result
         except Exception as e:
             raise RowBinaryEncoderError(f"Error encoding block: {str(e)}") from e

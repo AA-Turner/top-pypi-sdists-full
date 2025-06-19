@@ -1,6 +1,8 @@
 import asyncio
 import typing as t
+from contextlib import contextmanager
 from functools import wraps
+from threading import Thread
 
 F = t.TypeVar("F")
 
@@ -39,3 +41,29 @@ def run_with_asyncio(f: t.Callable[..., t.Coroutine[t.Any, t.Any, F]]) -> t.Call
         return asyncio.run(f(*args, **kwargs))
 
     return wrapper
+
+
+@contextmanager
+def running_event_loop(
+    thread_name: str = "tobikodata-event-loop",
+) -> t.Iterator[asyncio.AbstractEventLoop]:
+    """Creates a new event loop and runs it in a separate thread.
+
+    This is useful when you need to run an event loop in a synchronous context.
+
+    Args:
+        thread_name (str): The name of the thread to run the event loop in.
+    """
+    loop = asyncio.new_event_loop()
+
+    def _run_loop() -> None:
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+
+    thread = Thread(target=_run_loop, name=thread_name, daemon=True)
+    try:
+        thread.start()
+        yield loop
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join()

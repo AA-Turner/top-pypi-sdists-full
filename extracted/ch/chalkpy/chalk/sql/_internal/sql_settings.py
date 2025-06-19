@@ -14,3 +14,4 @@ class SQLResolverSettings:
     finalizer: Finalizer
     incremental_settings: IncrementalSettings | None
     fields_root_fqn: Mapping[str, str]  # column name -> root fqn of output feature
+    params_to_root_fqn: Mapping[str, str]  # escaped param name -> root fqn of input feature

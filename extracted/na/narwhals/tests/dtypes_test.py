@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 import numpy as np
 import pandas as pd
@@ -13,8 +13,6 @@ import narwhals as nw
 from tests.utils import PANDAS_VERSION, POLARS_VERSION, PYARROW_VERSION
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from narwhals.typing import IntoSeries
     from tests.utils import Constructor
 
@@ -463,6 +461,7 @@ def test_enum_hash() -> None:
 
 def test_datetime_w_tz_duckdb() -> None:
     pytest.importorskip("duckdb")
+    pytest.importorskip("zoneinfo")
     import duckdb
 
     duckdb.sql("""set timezone = 'Europe/Amsterdam'""")
@@ -489,6 +488,7 @@ def test_datetime_w_tz_pyspark(constructor: Constructor) -> None:  # pragma: no 
     if "pyspark" not in str(constructor) or "sqlframe" in str(constructor):
         pytest.skip()
     pytest.importorskip("pyspark")
+    pytest.importorskip("zoneinfo")
     from pyspark.sql import SparkSession
 
     session = SparkSession.builder.config(

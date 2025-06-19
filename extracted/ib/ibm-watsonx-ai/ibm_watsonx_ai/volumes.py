@@ -13,8 +13,9 @@ from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import VolumeMetaNames
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_client_error import WMLClientError, UnsupportedOperation
 from ibm_watsonx_ai.wml_resource import WMLResource
+from ibm_watsonx_ai.utils.utils import raise_exception_about_unsupported_on_cloud
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -30,6 +31,7 @@ class Volume(WMLResource):
     def __init__(self, client: APIClient) -> None:
         WMLResource.__init__(self, __name__, client)
 
+    @raise_exception_about_unsupported_on_cloud
     def get_details(self, volume_id: str) -> dict:
         """Get volume details.
 
@@ -59,6 +61,7 @@ class Volume(WMLResource):
             warn(f"{response.status_code} {response.text}")
             raise WMLClientError("Failed to Get the volume details. Try again.")
 
+    @raise_exception_about_unsupported_on_cloud
     def create(self, meta_props: dict[str, Any]) -> dict:
         """Create a volume asset.
 
@@ -166,24 +169,19 @@ class Volume(WMLResource):
                 "display_name": meta_props[self.ConfigurationMetaNames.NAME],
             }
 
-        try:
-            if self._client.CLOUD_PLATFORM_SPACES:
-                creation_response = requests.post(
-                    self._client._href_definitions.volumes_href(),
-                    headers=self._client._get_headers(zen=True),
-                    json=input_meta,
-                )
+        if self._client.CLOUD_PLATFORM_SPACES:  # CLOUD
+            raise UnsupportedOperation(f"NFS Volume creation not supported for CLOUD!")
 
-            else:
-                creation_response = requests.post(
-                    self._client._href_definitions.volumes_href(),
-                    headers=self._client._get_headers(zen=True),
-                    json=input_meta,
-                )
+        else:  # CPD
+            creation_response = requests.post(
+                url=self._client._href_definitions.volumes_href(),
+                headers=self._client._get_headers(zen=True),
+                json=input_meta,
+            )
             if creation_response.status_code == 200:
                 volume_id_details = (
                     creation_response.json()
-                )  # messy details returned for backward compability
+                )  # messy details returned for backward compatibility
                 import copy
 
                 volume_details = copy.deepcopy(input_meta)
@@ -192,12 +190,13 @@ class Volume(WMLResource):
                 volume_details.update(actual_details)
                 return volume_details
             else:
-                warn(f"{creation_response.status_code} {creation_response.text}")
-                raise WMLClientError("Failed to create a volume. Try again.")
-        except Exception as e:
-            warn(f"Exception: {e}")
-            raise WMLClientError("Failed to create a volume. Try again.")
+                raise WMLClientError(
+                    f"Failed to create a volume with message:\n"
+                    f"{creation_response.text}\n"
+                    f"and status_code:{creation_response.status_code}\n"
+                )
 
+    @raise_exception_about_unsupported_on_cloud
     def start(
         self, name: str, wait_for_available: bool = False
     ) -> Literal["SUCCESS", "FAILED"]:
@@ -265,6 +264,7 @@ class Volume(WMLResource):
             warn(f"Exception: {e}")
             raise WMLClientError("Failed to start the file to  volume. Try again.")
 
+    @raise_exception_about_unsupported_on_cloud
     def get_volume_status(self, name: str) -> bool:
         """Monitor a volume's file server status.
 
@@ -303,6 +303,7 @@ class Volume(WMLResource):
             warn(f"Exception: {e}")
             raise WMLClientError("Cannot retrieve status of the volume.")
 
+    @raise_exception_about_unsupported_on_cloud
     def upload_file(self, name: str, file_path: str) -> Literal["SUCCESS", "FAILED"]:
         """Upload the data file into stored volume.
 
@@ -363,6 +364,7 @@ class Volume(WMLResource):
         warn("Failed to upload the file to volume. Try again.")
         return "FAILED"
 
+    @raise_exception_about_unsupported_on_cloud
     def list(self) -> pandas.DataFrame:
         """Lists stored volumes in a table format.
 
@@ -375,7 +377,6 @@ class Volume(WMLResource):
 
             client.volumes.list()
         """
-
         href = self._client._href_definitions.volumes_href()
         params = {}
         params.update({"addon_type": "volumes"})
@@ -461,6 +462,7 @@ class Volume(WMLResource):
                 volume_details, "volume_assets_details", ["display_name"]
             )
 
+    @raise_exception_about_unsupported_on_cloud
     def delete(self, volume_id: str) -> Literal["SUCCESS", "FAILED"]:
         """Delete a volume.
 
@@ -492,6 +494,7 @@ class Volume(WMLResource):
             warn(f"{response.status_code} {response.text}")
             return "FAILED"
 
+    @raise_exception_about_unsupported_on_cloud
     def stop(self, volume_name: str) -> Literal["SUCCESS", "FAILED"]:
         """Stop the volume service.
 

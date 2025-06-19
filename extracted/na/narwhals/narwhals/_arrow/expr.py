@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 import pyarrow.compute as pc
 
@@ -14,8 +14,6 @@ from narwhals._utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from typing_extensions import Self
 
     from narwhals._arrow.dataframe import ArrowDataFrame
@@ -203,8 +201,5 @@ class ArrowExpr(EagerExpr["ArrowDataFrame", ArrowSeries]):
 
     def exp(self) -> Self:
         return self._reuse_series("exp")
-
-    def sqrt(self) -> Self:
-        return self._reuse_series("sqrt")
 
     ewm_mean = not_implemented()

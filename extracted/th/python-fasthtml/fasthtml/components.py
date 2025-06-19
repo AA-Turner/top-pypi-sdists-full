@@ -19,7 +19,7 @@ __all__ = ['named', 'html_attrs', 'hx_attrs', 'hx_evts', 'js_evts', 'hx_attrs_an
 # %% ../nbs/api/01_components.ipynb
 from dataclasses import dataclass, asdict, is_dataclass, make_dataclass, replace, astuple, MISSING
 from bs4 import BeautifulSoup, Comment
-from typing import Literal, Optional
+from typing import Literal, Mapping, Optional
 
 from fastcore.utils import *
 from fastcore.xml import *
@@ -84,7 +84,7 @@ fh_cfg['auto_name']=True
 
 # %% ../nbs/api/01_components.ipynb
 def ft_html(tag: str, *c, id=None, cls=None, title=None, style=None, attrmap=None, valmap=None, ft_cls=None, **kwargs):
-    ds,c = partition(c, risinstance(dict))
+    ds,c = partition(c, risinstance(Mapping))
     for d in ds: kwargs = {**kwargs, **d}
     if ft_cls is None: ft_cls = fh_cfg.ft_cls
     if attrmap is None: attrmap=fh_cfg.attrmap
@@ -217,7 +217,8 @@ def html2ft(html, attr1st=False):
               for c in cts if str(c).strip()]
         attrs, exotic_attrs  = [], {}
         for key, value in sorted(elm.attrs.items(), key=lambda x: x[0]=='class'):
-            if isinstance(value,(tuple,list)): value = " ".join(value)
+            if value is None or value == True: value = True  # handle boolean attributes
+            elif isinstance(value,(tuple,list)): value = " ".join(value)
             key, value = rev_map.get(key, key), value or True
             if _re_h2x_attr_key.match(key): attrs.append(f'{key.replace("-", "_")}={value!r}')
             else: exotic_attrs[key] = value

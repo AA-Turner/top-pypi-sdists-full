@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic
+from typing import Generic, Sequence
 
 from narwhals._compliant.typing import NativeExprT_co
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 
 class WindowInputs(Generic[NativeExprT_co]):

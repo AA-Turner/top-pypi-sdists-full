@@ -20,6 +20,7 @@ from marimo._runtime.packages.package_manager import (
 )
 from marimo._runtime.packages.utils import split_packages
 from marimo._utils.platform import is_pyodide
+from marimo._utils.uv import find_uv_bin
 
 PY_EXE = sys.executable
 
@@ -135,14 +136,21 @@ class UvPackageManager(PypiPackageManager):
     name = "uv"
     docs_url = "https://docs.astral.sh/uv/"
 
+    @cached_property
+    def _uv_bin(self) -> str:
+        return find_uv_bin()
+
+    def is_manager_installed(self) -> bool:
+        return self._uv_bin != "uv" or super().is_manager_installed()
+
     async def _install(self, package: str, *, upgrade: bool) -> bool:
         install_cmd: list[str]
         if self.is_in_uv_project:
             LOGGER.info(f"Installing in {package} with 'uv add'")
-            install_cmd = ["uv", "add"]
+            install_cmd = [self._uv_bin, "add"]
         else:
             LOGGER.info(f"Installing in {package} with 'uv pip install'")
-            install_cmd = ["uv", "pip", "install"]
+            install_cmd = [self._uv_bin, "pip", "install"]
 
         if upgrade:
             install_cmd.append("--upgrade")
@@ -228,7 +236,7 @@ class UvPackageManager(PypiPackageManager):
         packages_to_remove: list[str],
         upgrade: bool,
     ) -> None:
-        from marimo._cli.convert.markdown import extract_frontmatter
+        from marimo._convert.markdown.markdown import extract_frontmatter
         from marimo._utils import yaml
         from marimo._utils.inline_script_metadata import (
             get_headers_from_frontmatter,
@@ -291,14 +299,14 @@ class UvPackageManager(PypiPackageManager):
         upgrade: bool,
     ) -> None:
         if packages_to_add:
-            cmd = ["uv", "--quiet", "add", "--script", filepath]
+            cmd = [self._uv_bin, "--quiet", "add", "--script", filepath]
             if upgrade:
                 cmd.append("--upgrade")
             cmd.extend(packages_to_add)
             self.run(cmd)
         if packages_to_remove:
             self.run(
-                ["uv", "--quiet", "remove", "--script", filepath]
+                [self._uv_bin, "--quiet", "remove", "--script", filepath]
                 + packages_to_remove
             )
 
@@ -321,6 +329,9 @@ class UvPackageManager(PypiPackageManager):
         - The "uv.lock" file exists where the "VIRTUAL_ENV" is
         - The "pyproject.toml" file exists where the "VIRTUAL_ENV" is
 
+        OR
+        - The "UV_PROJECT_ENVIRONMENT" is equal to "VIRTUAL_ENV"
+
         If at least one of these conditions are not met,
         we are in a temporary virtual environment (e.g. `uvx marimo edit` or `uv --with=marimo run marimo edit`)
         or in the currently activated virtual environment (e.g. `uv venv`).
@@ -329,6 +340,12 @@ class UvPackageManager(PypiPackageManager):
         venv_path = os.environ.get("VIRTUAL_ENV", None)
         if not venv_path:
             return False
+
+        # Check that the "UV_PROJECT_ENVIRONMENT" is equal to "VIRTUAL_ENV"
+        uv_project_environment = os.environ.get("UV_PROJECT_ENVIRONMENT", None)
+        if uv_project_environment == venv_path:
+            return True
+
         # Check that the `UV` environment variable is set
         # This tells us that marimo was run by uv
         uv_env_exists = os.environ.get("UV", None)
@@ -343,10 +360,10 @@ class UvPackageManager(PypiPackageManager):
         uninstall_cmd: list[str]
         if self.is_in_uv_project:
             LOGGER.info(f"Uninstalling {package} with 'uv remove'")
-            uninstall_cmd = ["uv", "remove"]
+            uninstall_cmd = [self._uv_bin, "remove"]
         else:
             LOGGER.info(f"Uninstalling {package} with 'uv pip uninstall'")
-            uninstall_cmd = ["uv", "pip", "uninstall"]
+            uninstall_cmd = [self._uv_bin, "pip", "uninstall"]
 
         return self.run(
             uninstall_cmd + [*split_packages(package), "-p", PY_EXE]
@@ -354,7 +371,7 @@ class UvPackageManager(PypiPackageManager):
 
     def list_packages(self) -> list[PackageDescription]:
         LOGGER.info("Listing packages with 'uv pip list'")
-        cmd = ["uv", "pip", "list", "--format=json", "-p", PY_EXE]
+        cmd = [self._uv_bin, "pip", "list", "--format=json", "-p", PY_EXE]
         return self._list_packages_from_cmd(cmd)
 
 

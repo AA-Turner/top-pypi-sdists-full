@@ -1557,7 +1557,7 @@ CompilerDiagnosticsCallback = Callable[[List[CompilerDiagnostic]], None]
 
 class Compiler:
     def __init__(self) -> None:
-        self._impl = _frida.Compiler(get_device_manager()._impl)
+        self._impl = _frida.Compiler()
 
     def __repr__(self) -> str:
         return repr(self._impl)
@@ -1635,6 +1635,84 @@ class Compiler:
 
     @overload
     def off(self, signal: Literal["diagnostics"], callback: CompilerDiagnosticsCallback) -> None: ...
+
+    @overload
+    def off(self, signal: str, callback: Callable[..., Any]) -> None: ...
+
+    def off(self, signal: str, callback: Callable[..., Any]) -> None:
+        self._impl.off(signal, callback)
+
+
+PackageManagerInstallProgressCallback = Callable[
+    [
+        Literal[
+            "initializing",
+            "preparing-dependencies",
+            "resolving-package",
+            "using-lockfile-data",
+            "metadata-fetched",
+            "fetching-resource",
+            "package-already-installed",
+            "downloading-package",
+            "package-installed",
+            "resolving-and-installing-all",
+            "awaiting-completion",
+            "dependencies-processed",
+            "finalizing-manifests",
+            "complete",
+        ],
+        float,
+        Optional[str],
+    ],
+    None,
+]
+
+
+class PackageManager:
+    def __init__(self) -> None:
+        self._impl = _frida.PackageManager()
+
+    def __repr__(self) -> str:
+        return repr(self._impl)
+
+    @cancellable
+    def search(
+        self,
+        query: str,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> _frida.PackageSearchResult:
+        kwargs = {
+            "offset": offset,
+            "limit": limit,
+        }
+        _filter_missing_kwargs(kwargs)
+        return self._impl.search(query, **kwargs)
+
+    @cancellable
+    def install(
+        self,
+        project_root: Optional[str] = None,
+        specs: Optional[Sequence[str]] = None,
+    ) -> _frida.PackageInstallResult:
+        kwargs: Dict[str, Any] = {
+            "project_root": project_root,
+            "specs": specs,
+        }
+        _filter_missing_kwargs(kwargs)
+        return self._impl.install(**kwargs)
+
+    @overload
+    def on(self, signal: Literal["install-progress"], callback: PackageManagerInstallProgressCallback) -> None: ...
+
+    @overload
+    def on(self, signal: str, callback: Callable[..., Any]) -> None: ...
+
+    def on(self, signal: str, callback: Callable[..., Any]) -> None:
+        self._impl.on(signal, callback)
+
+    @overload
+    def off(self, signal: Literal["install-progress"], callback: PackageManagerInstallProgressCallback) -> None: ...
 
     @overload
     def off(self, signal: str, callback: Callable[..., Any]) -> None: ...

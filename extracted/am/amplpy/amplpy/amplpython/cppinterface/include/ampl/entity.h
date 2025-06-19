@@ -2,23 +2,21 @@
 #define AMPL_ENTITY_H
 
 #include <iterator>
+#include <map>
 #include <string>
 #include <vector>
 
-#include "ampl/ep/arg.h"
-#include "ampl/ep/countediterator.h"
-#include "ampl/ep/entity_ep.h"
-#include "ampl/ep/scopedarray.h"
+#include "ampl/ampl_c.h"
 #include "ampl/cstringref.h"
+#include "ampl/arg.h"
+#include "ampl/declarations.h"
+#include "ampl/macros.h"
 #include "ampl/instance.h"
 #include "ampl/string.h"
 #include "ampl/tuple.h"
 #include "ampl/variant.h"
 
 namespace ampl {
-namespace internal {
-class EntityBase;
-}
 
 // Forward declaration
 class DataFrame;
@@ -49,15 +47,15 @@ class Entity {
   /**
    * Get the name of this entity
    */
-  std::string name() const {
-    return internal::AMPL_EntityBase_name(impl_, internal::ErrorInfo());
-  }
+  std::string name() const { return name_; }
 
   /**
    * Get the type of this entity
    */
   std::string type() const {
-    return internal::AMPL_EntityBase_type(impl_, internal::ErrorInfo());
+    const char *typestr;
+    AMPL_CALL_CPP(AMPL_EntityGetTypeString(ampl_, name_.c_str(), &typestr));
+    return typestr;
   }
 
   /**
@@ -80,7 +78,9 @@ class Entity {
   entity is not indexed
   */
   std::size_t indexarity() const {
-    return internal::AMPL_EntityBase_indexarity(impl_, internal::ErrorInfo());
+    size_t indexarity;
+    AMPL_CALL_CPP(AMPL_EntityGetIndexarity(ampl_, name_.c_str(), &indexarity));
+    return indexarity;
   }
 
   /**
@@ -89,15 +89,19 @@ class Entity {
    * \return True if the entity is scalar (not indexed over any set)
    */
   bool isScalar() const {
-    return (internal::AMPL_EntityBase_indexarity(impl_,
-                                                 internal::ErrorInfo()) == 0);
+    size_t indexarity;
+    AMPL_CALL_CPP(AMPL_EntityGetIndexarity(ampl_, name_.c_str(), &indexarity));
+    return (indexarity == 0);
   }
 
   /**
    * Get the number of instances in this entity
    */
   std::size_t numInstances() const {
-    return internal::AMPL_Entity_numInstances(impl_, internal::ErrorInfo());
+    size_t numInstances;
+    AMPL_CALL_CPP(AMPL_EntityGetNumInstances(ampl_, name_.c_str(),
+                               &numInstances));
+    return numInstances;
   }
 
   /**
@@ -109,23 +113,28 @@ class Entity {
    *         an empty array if the entity is scalar
    */
   StringArray getIndexingSets() const {
-    std::size_t n;
-    internal::ScopedArray<const char*> strings(
-        internal::AMPL_EntityBase_getIndexingSets(impl_, &n,
-                                                  internal::ErrorInfo()));
-    return internal::move(strings.release(), n);
+    size_t n;
+    char **indexingsets;
+    AMPL_CALL_CPP(AMPL_EntityGetIndexingSets(ampl_, name_.c_str(), &indexingsets, &n));
+    ampl::StringArray strings((const char**)indexingsets, n);
+    for (size_t i = 0; i < n; i++) AMPL_StringFree(&indexingsets[i]);
+    free(indexingsets);
+    return strings;
   }
 
-   /**
+  /**
    * Get the names of all entities which depend on this one.
    *
    * \return An array with the names of all entities which depend on this one.
    */
   StringArray xref() const {
-    std::size_t n;
-    internal::ScopedArray<const char*> strings(
-        internal::AMPL_EntityBase_xref(impl_, &n, internal::ErrorInfo()));
-    return internal::move(strings.release(), n);
+    size_t n;
+    char **xref;
+    AMPL_CALL_CPP(AMPL_EntityGetXref(ampl_, name_.c_str(), &xref, &n));
+    ampl::StringArray strings((const char**)xref, n);
+    for (size_t i = 0; i < n; i++) AMPL_StringFree(&xref[i]);
+    free(xref);
+    return strings;
   }
 
   /**
@@ -151,6 +160,9 @@ class Entity {
   \return A DataFrame containing the specified values
   */
   DataFrame getValues(StringArgs suffixes) const;
+
+  void setSuffixes(DataFrame data);
+
   /**
   \rst
 
@@ -179,20 +191,27 @@ class Entity {
   Returns a string representation of this entity (its declaration)
   */
   std::string toString() const {
-    return internal::AMPL_EntityBase_toString(impl_);
+    char *declaration_c;
+    AMPL_CALL_CPP(AMPL_EntityGetDeclaration(ampl_, name_.c_str(), &declaration_c));
+    std::string declaration = declaration_c;
+    AMPL_StringFree(&declaration_c);
+    return declaration;
   }
 
   /**
-  Constructor to allow implicit conversion
-  */
+   * Constructor to allow implicit conversion
+   */
   template <class I>
-  Entity(BasicEntity<I> other) : impl_(other.impl_) {}
+  Entity(BasicEntity<I> other)
+      : ampl_(other.ampl_), name_(other.name_), type_(other.type_) {}
 
   /**
-  Assignment operator
-  */
-  Entity& operator=(const Entity& rhs) {
-    impl_ = rhs.impl_;
+   * Assignment operator
+   */
+  Entity &operator=(const Entity &rhs) {
+    ampl_ = rhs.ampl_;
+    name_ = rhs.name_;
+    type_ = rhs.type_;
     return *this;
   }
 
@@ -201,13 +220,19 @@ class Entity {
   friend class EntityArgs;
   friend class Instance;
   /**
-  Constructor to allow the construction of arrays of entities
-  */
+   * Constructor to allow the construction of arrays of entities
+   */
   Entity() {}
 
  protected:
-  internal::EntityBase* impl_;
-  explicit Entity(internal::EntityBase* entity) { impl_ = entity; }
+  ::AMPL *ampl_;
+  std::string name_;
+  EntityType type_;
+  explicit Entity(::AMPL *ampl, std::string name) : ampl_(ampl), name_(name) {
+    AMPL_ENTITYTYPE type;
+    AMPL_CALL_CPP(AMPL_EntityGetType(ampl, name.c_str(), &type));
+    type_ = static_cast<EntityType>(type);
+  }
 };
 
 /**
@@ -226,36 +251,13 @@ class BasicEntity : INHERITANCE Entity {
   using Entity::setValues;
   using Entity::toString;
   using Entity::xref;
+  using Entity::setSuffixes;
+
   /**
   Iterator for entities, represented by an iterator pointing to elements of type
-  std::pair<TupleRef, InstanceClass>
+  std::pair<Tuple, InstanceClass>
   */
-  typedef internal::CountedIterator<internal::EntityWrapper<InstanceClass> >
-      iterator;
-
-  /**
-  Get an iterator pointing to the first instance in this entity.
-  */
-  iterator begin() const {
-    return iterator(internal::EntityWrapper<InstanceClass>::begin(impl()));
-  }
-
-  /**
-  Get an iterator pointing after the last instance in this entity.
-  */
-  iterator end() const {
-    return iterator(internal::EntityWrapper<InstanceClass>::end(impl()));
-  }
-
-  /**
-  Searches the current entity for an instance with the specified index.
-  \return an iterator to the wanted entity if found, otherwise an iterator to
-          BasicEntity::end.
-  */
-  iterator find(TupleRef t) const {
-    return iterator(
-        internal::EntityWrapper<InstanceClass>::find(impl(), t.impl()));
-  }
+  // typedef typename std::map<Tuple, InstanceClass>::iterator iterator;
 
   /** @name Instance access
    * Methods to access the instances which are part of this Entity
@@ -271,11 +273,12 @@ class BasicEntity : INHERITANCE Entity {
 
     */
   InstanceClass get() const {
-    return InstanceClass(internal::EntityWrapper<InstanceClass>::get(
-        impl(), internal::Tuple(), internal::ErrorInfo()));
+    if (!isScalar())
+      throw ampl::UnsupportedOperationException("Not valid for not scalar entities.");
+    return InstanceClass(ampl_, NULL, name_);
   }
 
-  InstanceClass operator[](TupleRef index) const { return get(index); }
+  InstanceClass operator[](Tuple index) const { return get(index); }
 
   /**
    * Get the instance with the specified index
@@ -287,75 +290,115 @@ class BasicEntity : INHERITANCE Entity {
    * interpreter
    * @throws ampl::UnsupportedOperationException if the entity is scalar
    */
-  InstanceClass get(TupleRef index) const {
-    return InstanceClass(internal::EntityWrapper<InstanceClass>::get(
-        impl(), index.impl(), internal::ErrorInfo()));
+  InstanceClass get(Tuple index) const {
+    if (isScalar())
+      throw ampl::UnsupportedOperationException("Not valid for scalar entities.");
+    return InstanceClass(ampl_, index.impl(), name_);
   }
 
-  InstanceClass operator[](VariantRef v1) const { return get(v1); }
+  InstanceClass operator[](Variant v1) const { return get(v1); }
 
   /**
    * Get the instance with the specified index
    */
-  InstanceClass get(VariantRef v1) const {
-    internal::Variant v[] = {v1.impl()};
-    return get(internal::MakeTempTuple(v));
-  }
-
-  /**
-   * Get the instance with the specified index
-   */
-  InstanceClass get(VariantRef v1, VariantRef v2) const {
-    internal::Variant v[2] = {v1.impl(), v2.impl()};
-    return get(internal::MakeTempTuple(v));
+  InstanceClass get(Variant v1) const {
+    Tuple t(v1);
+    return get(t);
   }
 
   /**
    * Get the instance with the specified index
    */
-  InstanceClass get(VariantRef v1, VariantRef v2, VariantRef v3) const {
-    internal::Variant v[3] = {v1.impl(), v2.impl(), v3.impl()};
-    return get(internal::MakeTempTuple(v));
+  InstanceClass get(Variant v1, Variant v2) const {
+    Tuple t(v1, v2);
+    return get(t);
+  }
+
+  /**
+   * Get the instance with the specified index
+   */
+  InstanceClass get(Variant v1, Variant v2, Variant v3) const {
+    Tuple t(v1, v2, v3);
+    return get(t);
   }
 
   /**
    * Get the instance with the specified index
    *
-   * \param v1 The VariantRef specifying the first element of the indexing tuple
-   * \param v2 The VariantRef specifying the second element of the indexing
-   * tuple \param v3 The VariantRef specifying the third element of the indexing
-   * tuple \param v4 The VariantRef specifying the fourth element of the
+   * \param v1 The Variant specifying the first element of the indexing tuple
+   * \param v2 The Variant specifying the second element of the indexing
+   * tuple \param v3 The Variant specifying the third element of the indexing
+   * tuple \param v4 The Variant specifying the fourth element of the
    * indexing tuple \return The corresponding instance
    * @throws out_of_range if an instance with the specified index does not exist
    * @throws runtime_error if the entity has been deleted in the underlying
    * %AMPL interpreter
    * @throws ampl::UnsupportedOperationException if the entity is scalar
    */
-  InstanceClass get(VariantRef v1, VariantRef v2, VariantRef v3,
-                    VariantRef v4) const {
-    internal::Variant v[4] = {v1.impl(), v2.impl(), v3.impl(), v4.impl()};
-    return get(internal::MakeTempTuple(v));
+  InstanceClass get(Variant v1, Variant v2, Variant v3, Variant v4) const {
+    Tuple t(v1, v2, v3, v4);
+    return get(t);
+  }
+
+  std::map<Tuple, InstanceClass> getInstances() const {
+    std::map<Tuple, InstanceClass> instances;
+    if (isScalar()) {
+      instances.insert(std::pair<Tuple, InstanceClass>(Tuple(), get()));
+      return instances;
+    }
+    AMPL_TUPLE **tuples;
+    size_t size;
+    AMPL_CALL_CPP(AMPL_EntityGetTuples(ampl_, name_.c_str(),
+                         &tuples, &size));
+    for (size_t i = 0; i < size; i++) {
+      Tuple tuple(tuples[i]);
+      InstanceClass instance(ampl_, tuple.impl(), name_);
+      instances.insert(std::pair<Tuple, InstanceClass>(tuple, instance));
+    }
+    for (size_t i = 0; i < size; i++) AMPL_TupleFree(&tuples[i]);
+    free(tuples);
+    return instances;
+  }
+
+  double getDoubleSuffix(std::string suffix) {
+    if (!isScalar())
+      throw ampl::UnsupportedOperationException("Not valid for not scalar entities.");
+    return get().getDoubleSuffix(suffix);
+  }
+
+  std::string getStringSuffix(std::string suffix) {
+    if (!isScalar())
+      throw ampl::UnsupportedOperationException("Not valid for not scalar entities.");
+    return get().getStringSuffix(suffix);
+  }
+
+  void setSuffix(std::string suffix, double value) {
+    if (!isScalar())
+      throw ampl::UnsupportedOperationException("Not valid for not scalar entities.");
+    get().setSuffix(suffix, value);
+  }
+
+  void setSuffix(std::string suffix, std::string value) {
+    if (!isScalar())
+      throw ampl::UnsupportedOperationException("Not valid for not scalar entities.");
+    get().setSuffix(suffix, value);
   }
 
   //@}
 
   /**
-  Constructor allowing cross conversions
-  */
-  explicit BasicEntity(internal::EntityBase* entity) : Entity(entity) {}
-
- protected:
-  internal::EntityBase* impl() const { return impl_; }
+   * Constructor allowing cross conversions
+   */
+  explicit BasicEntity(::AMPL *ampl, std::string name) : Entity(ampl, name) {}
 
  private:
-  typedef typename internal::EntityWrapper<InstanceClass>::Inner InnerInstance;
   friend class Entity;
 };
 
 /**
-Represents a list of entities, to be passed as arguments to various API
-functions
-*/
+ * Represents a list of entities, to be passed as arguments to various API
+ *functions
+ */
 class EntityArgs {
  public:
   /**
@@ -363,7 +406,7 @@ class EntityArgs {
    *
    * @param arg0 First entity
    */
-  EntityArgs(Entity arg0) { entities_.push_back(arg0.impl_); }
+  EntityArgs(Entity arg0) { entities_.push_back(arg0); }
 
   /**
    * Constructor from entities
@@ -372,8 +415,8 @@ class EntityArgs {
    * @param arg1 Second entity
    */
   EntityArgs(Entity arg0, Entity arg1) {
-    entities_.push_back(arg0.impl_);
-    entities_.push_back(arg1.impl_);
+    entities_.push_back(arg0);
+    entities_.push_back(arg1);
   }
 
   /**
@@ -384,9 +427,9 @@ class EntityArgs {
    * @param arg2 Third entity
    */
   EntityArgs(Entity arg0, Entity arg1, Entity arg2) {
-    entities_.push_back(arg0.impl_);
-    entities_.push_back(arg1.impl_);
-    entities_.push_back(arg2.impl_);
+    entities_.push_back(arg0);
+    entities_.push_back(arg1);
+    entities_.push_back(arg2);
   }
 
   /**
@@ -398,10 +441,10 @@ class EntityArgs {
    * @param arg3 Fourth entity
    */
   EntityArgs(Entity arg0, Entity arg1, Entity arg2, Entity arg3) {
-    entities_.push_back(arg0.impl_);
-    entities_.push_back(arg1.impl_);
-    entities_.push_back(arg2.impl_);
-    entities_.push_back(arg3.impl_);
+    entities_.push_back(arg0);
+    entities_.push_back(arg1);
+    entities_.push_back(arg2);
+    entities_.push_back(arg3);
   }
 
   /**
@@ -410,14 +453,14 @@ class EntityArgs {
    * @param args An array of entities
    * @param size Size of the array
    */
-  EntityArgs(const Entity args[], std::size_t size) {
-    for (std::size_t i = 0; i < size; i++) entities_.push_back(args[i].impl_);
+  EntityArgs(Entity args[], std::size_t size) {
+    for (std::size_t i = 0; i < size; i++) entities_.push_back(args[i]);
   }
 
   /**
   Get access to the represented entities
   */
-  const internal::EntityBase* const* getArgs() const { return &entities_[0]; }
+  const Entity *getArgs() const { return &entities_[0]; }
 
   /**
   Number of represented entities
@@ -425,7 +468,7 @@ class EntityArgs {
   std::size_t size() const { return entities_.size(); }
 
  private:
-  std::vector<internal::EntityBase*> entities_;
+  std::vector<Entity> entities_;
 };
 
 /**
@@ -454,6 +497,20 @@ ampl::DataFrame class.
 */
 class Constraint : public BasicEntity<ConstraintInstance> {
  public:
+  /** 
+   *
+   */
+  double getDoubleSuffix(std::string suffix) {
+    return get().getDoubleSuffix(suffix);
+  }
+
+  /** 
+   *
+   */
+  std::string getStringSuffix(std::string suffix) {
+    return get().getStringSuffix(suffix);
+  }
+
   /**
    * Check if the constraint is a logical constraint. The available suffixes
    * differ between logical and non logical constraints. See
@@ -465,7 +522,9 @@ class Constraint : public BasicEntity<ConstraintInstance> {
    * \return True if logical
    */
   bool isLogical() const {
-    return internal::AMPL_Constraint_isLogical(impl(), internal::ErrorInfo());
+    bool isLogical;
+    AMPL_CALL_CPP(AMPL_ConstraintIsLogical(ampl_, name_.c_str(), &isLogical));
+    return isLogical;
   }
   // *************************************** SCALAR constraints
   // *****************************************
@@ -474,15 +533,13 @@ class Constraint : public BasicEntity<ConstraintInstance> {
    * Drop all instances in this constraint entity, corresponding to the %AMPL
    * code: `drop constraintname;`
    */
-  void drop() { internal::AMPL_Constraint_drop(impl(), internal::ErrorInfo()); }
+  void drop() { AMPL_CALL_CPP(AMPL_EntityDrop(ampl_, name_.c_str())); }
 
   /**
    * Restore all instances in this constraint entity, corresponding to the
    * %AMPL code: `restore constraintname;`
    */
-  void restore() {
-    return internal::AMPL_Constraint_restore(impl(), internal::ErrorInfo());
-  }
+  void restore() { AMPL_CALL_CPP(AMPL_EntityRestore(ampl_, name_.c_str())); }
 
   /**
    * Get the current value of the constraint's body
@@ -598,17 +655,12 @@ class Constraint : public BasicEntity<ConstraintInstance> {
   double val() const { return get().val(); }
 
  private:
-  explicit Constraint(internal::Constraint* c)
-      : BasicEntity<ConstraintInstance>(
-            reinterpret_cast<internal::EntityBase*>(c)) {}
+  explicit Constraint(::AMPL *ampl, std::string name)
+      : BasicEntity<ConstraintInstance>(ampl, name) {}
 
-  internal::Constraint* impl() const {
-    return reinterpret_cast<internal::Constraint*>(impl_);
-  }
-  /*
-  Corresponding class inside the DLL boundary
-  */
-  typedef internal::Constraint Inner;
+  /**
+   * Corresponding class inside the DLL boundary
+   */
   friend class AMPL;
   friend class EntityMap<Constraint>;
 };
@@ -630,6 +682,20 @@ class Constraint : public BasicEntity<ConstraintInstance> {
  */
 class Objective : public BasicEntity<ObjectiveInstance> {
  public:
+  /** 
+   *
+   */
+  double getDoubleSuffix(std::string suffix) {
+    return get().getDoubleSuffix(suffix);
+  }
+
+  /** 
+   *
+   */
+  std::string getStringSuffix(std::string suffix) {
+    return get().getStringSuffix(suffix);
+  }
+
   /**
    * Get the value of the objective instance
    */
@@ -665,33 +731,28 @@ class Objective : public BasicEntity<ObjectiveInstance> {
   /**
    * Drop this objective
    */
-  void drop() { internal::AMPL_Objective_drop(impl(), internal::ErrorInfo()); }
+  void drop() { AMPL_CALL_CPP(AMPL_EntityDrop(ampl_, name_.c_str())); }
 
   /**
    * Restore this objective  (if it had been dropped, no effect
    * otherwise)
    */
-  void restore() {
-    internal::AMPL_Objective_restore(impl(), internal::ErrorInfo());
-  }
+  void restore() { AMPL_CALL_CPP(AMPL_EntityRestore(ampl_, name_.c_str())); }
 
   /**
    * Get the sense of this objective
    * \return true if minimize, false if maximize
    */
   bool minimization() const {
-    return (internal::AMPL_Objective_sense(impl(), internal::ErrorInfo()) != 0);
+    int sense;
+    AMPL_CALL_CPP(AMPL_ObjectiveSense(ampl_, name_.c_str(), &sense));
+    return (sense != 0);
   }
 
  private:
-  explicit Objective(internal::Objective* o)
-      : BasicEntity<ObjectiveInstance>(
-            reinterpret_cast<internal::EntityBase*>(o)) {}
+  explicit Objective(::AMPL *ampl, std::string name)
+      : BasicEntity<ObjectiveInstance>(ampl, name) {}
 
-  internal::Objective* impl() const {
-    return reinterpret_cast<internal::Objective*>(impl_);
-  }
-  typedef internal::Objective Inner;
   friend class AMPL;
   friend class EntityMap<Objective>;
 };
@@ -704,17 +765,150 @@ class Objective : public BasicEntity<ObjectiveInstance> {
  * Parameter::setValues directly from objects of this class or using
  * AMPL::setData and a DataFrame object.
  */
-class Parameter : public BasicEntity<VariantRef> {
+class Parameter : public BasicEntity<Variant> {
  public:
   using Entity::getValues;
   using Entity::setValues;
+
+  /** @name Instance access
+   * Methods to access the instances which are part of this Entity
+   */
+  //@{
+  /**
+    * Get the instance corresponding to a scalar entity.
+    *
+    * \return The corresponding instance.
+    * @throws runtime_error if the entity has been deleted in the underlying
+    %AMPL interpreter
+    * @throws logic_error if the entity is not scalar
+    */
+  Variant get() const {
+    AMPL_VARIANT *v;
+    AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
+    Variant vpp = Variant::getVar(v);
+    AMPL_VariantFree(&v);
+    return vpp;
+  }
+
+  /**
+   * Get the instance with the specified index
+   *
+   * \param index The tuple specifying the index
+   * \return The corresponding instance
+   * @throws out_of_range if an instance with the specified index does not exist
+   * @throws out_of_range if the entity has been deleted in the underlying %AMPL
+   * interpreter
+   * @throws ampl::UnsupportedOperationException if the entity is scalar
+   */
+  Variant get(Tuple index) const {
+    if (isScalar())
+      throw ampl::UnsupportedOperationException("Not valid for scalar entities.");
+    char *name_c;
+    AMPL_VARIANT *v;
+    AMPL_ERRORINFO *err;
+    AMPL_CALL_CPP(AMPL_InstanceGetName(ampl_, name_.c_str(), index.impl(), &name_c));
+    err = AMPL_GetValue(ampl_, name_c, &v);
+    AMPL_StringFree(&name_c);
+    AMPL_CALL_CPP(err);
+    Variant vpp = Variant::getVar(v);
+    AMPL_VariantFree(&v);
+    return vpp;
+  }
+
+  Variant operator[](Tuple index) const { return get(index); }
+
+  Variant operator[](Variant v1) { return get(v1); }
+
+  /**
+   * Get the instance with the specified index
+   */
+  Variant get(Variant v1) const {
+    Tuple t(v1);
+    return get(t);
+  }
+
+  /**
+   * Get the instance with the specified index
+   */
+  Variant get(Variant v1, Variant v2) const {
+    Tuple t(v1, v2);
+    return get(t);
+  }
+
+  /**
+   * Get the instance with the specified index
+   */
+  Variant get(Variant v1, Variant v2, Variant v3) const {
+    Tuple t(v1, v2, v3);
+    return get(t);
+  }
+
+  /**
+   * Get the instance with the specified index
+   *
+   * \param v1 The Variant specifying the first element of the indexing tuple
+   * \param v2 The Variant specifying the second element of the indexing
+   * tuple \param v3 The Variant specifying the third element of the indexing
+   * tuple \param v4 The Variant specifying the fourth element of the
+   * indexing tuple \return The corresponding instance
+   * @throws out_of_range if an instance with the specified index does not exist
+   * @throws runtime_error if the entity has been deleted in the underlying
+   * %AMPL interpreter
+   * @throws ampl::UnsupportedOperationException if the entity is scalar
+   */
+  Variant get(Variant v1, Variant v2, Variant v3, Variant v4) const {
+    Tuple t(v1, v2, v3, v4);
+    return get(t);
+  }
+
+  std::map<Tuple, Variant> getInstances() const {
+    std::map<Tuple, Variant> instances;
+    if (isScalar()) {
+      AMPL_VARIANT *v;
+      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
+      Variant vpp = Variant::getVar(v);
+      AMPL_VariantFree(&v);
+      instances.insert(std::pair<Tuple, Variant>(ampl::Tuple(), vpp));
+      return instances;
+    }
+    AMPL_TUPLE **tuples;
+    size_t size;
+    AMPL_CALL_CPP(AMPL_EntityGetTuples(ampl_, name_.c_str(), &tuples, &size));
+    for (size_t i = 0; i < size; i++) {
+      char *name_c;
+      AMPL_VARIANT *v;
+      AMPL_CALL_CPP(AMPL_InstanceGetName(ampl_, name_.c_str(), tuples[i], &name_c));
+      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_c, &v));
+      Variant vpp = Variant::getVar(v);
+      AMPL_VariantFree(&v);
+      Tuple tuple(tuples[i]);
+      instances.insert(std::pair<Tuple, Variant>(tuple, vpp));
+      AMPL_StringFree(&name_c);
+      releaseTuple(tuples[i]);
+    }
+    if (tuples) free(tuples);
+
+    if (size == 0) {
+      AMPL_VARIANT *v;
+      AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
+      Variant vpp = Variant::getVar(v);
+      AMPL_VariantFree(&v);
+      instances.insert(std::pair<Tuple, Variant>(ampl::Tuple(), vpp));
+    }
+
+    return instances;
+  }
+
+  //@}
 
   /**
    * Returns true if the parameter is declared as symbolic
    * (can store both numerical and string values)
    */
   bool isSymbolic() const {
-    return internal::AMPL_Parameter_isSymbolic(impl());
+    bool isSymbolic;
+    AMPL_CALL_CPP(AMPL_ParameterIsSymbolic(ampl_, name_.c_str(), &isSymbolic));
+    return isSymbolic;
   }
 
   /**
@@ -735,7 +929,9 @@ class Parameter : public BasicEntity<VariantRef> {
           another parameter which value is not defined, this will return true.
   */
   bool hasDefault() const {
-    return internal::AMPL_Parameter_hasDefault(impl());
+    bool hasDefault;
+    AMPL_CALL_CPP(AMPL_ParameterHasDefault(ampl_, name_.c_str(), &hasDefault));
+    return hasDefault;
   }
 
   /**
@@ -758,12 +954,15 @@ class Parameter : public BasicEntity<VariantRef> {
   @throws logic_error
               If called on a scalar parameter
   */
-  void setValues(const Tuple indices[], internal::Args values,
+  void setValues(const Tuple indices[], Args values,
                  std::size_t nvalues) {
-    std::vector<internal::Tuple> toPass =
-        internal::getInternalTupleArray(indices, nvalues);
-    internal::AMPL_Parameter_setValues(impl(), &toPass[0], values.data(),
-                                       nvalues, internal::ErrorInfo());
+    AMPL_ERRORINFO *err = NULL;
+    AMPL_TUPLE **index = (AMPL_TUPLE **)malloc(nvalues * sizeof(AMPL_TUPLE *));
+    for (std::size_t i = 0; i < nvalues; i++) index[i] = indices[i].impl();
+    err = AMPL_ParameterSetSomeArgsValues(ampl_, name_.c_str(), nvalues, index,
+                                   values.data());
+    free(index);
+    AMPL_CALL_CPP(err);
   }
 
   /**
@@ -825,13 +1024,12 @@ class Parameter : public BasicEntity<VariantRef> {
               If the size of 'values' do not correspond to the sizes of
               the underlying indices
   */
-
-  void setValues(std::size_t num_rows, internal::Args row_indices,
-                 std::size_t num_cols, internal::Args col_indices,
-                 const double* data, bool transpose) {
-    internal::AMPL_Parameter_setValuesMatrix(
-        impl(), num_rows, row_indices.data(), num_cols, col_indices.data(),
-        data, transpose, internal::ErrorInfo());
+  void setValues(std::size_t num_rows, Args row_indices,
+                 std::size_t num_cols, Args col_indices,
+                 const double *data, bool transpose) {
+    AMPL_CALL_CPP(AMPL_ParameterSetValuesMatrix(ampl_, name_.c_str(), num_rows,
+                                  row_indices.data(), num_cols,
+                                  col_indices.data(), data, transpose));
   }
 
   /**
@@ -850,9 +1048,8 @@ class Parameter : public BasicEntity<VariantRef> {
   @throws logic_error If the number of arguments is not equal to the number
                       of instances in this parameter
   */
-  void setValues(internal::Args values, std::size_t n) {
-    internal::AMPL_Parameter_setValuesOrdered(impl(), values.data(), n,
-                                              internal::ErrorInfo());
+  void setValues(Args values, std::size_t n) {
+    AMPL_CALL_CPP(AMPL_ParameterSetArgsValues(ampl_, name_.c_str(), n, values.data()));
   }
 
   /**
@@ -863,9 +1060,8 @@ class Parameter : public BasicEntity<VariantRef> {
   @throws logic_error
               if this parameter is not scalar.
   */
-  void set(VariantRef value) {
-    internal::AMPL_Parameter_setScalar(impl(), value.impl(),
-                                       internal::ErrorInfo());
+  void set(Variant value) {
+    AMPL_CALL_CPP(AMPL_ParameterSetValue(ampl_, name_.c_str(), value.impl()));
   }
 
   /**
@@ -873,11 +1069,9 @@ class Parameter : public BasicEntity<VariantRef> {
   @throws runtime_error
               if the entity has been deleted in the underlying %AMPL
   */
-  void set(VariantRef index, VariantRef value) {
-    internal::Variant v[] = {index.impl()};
-    internal::Tuple t = {v, 1};
-    internal::AMPL_Parameter_set(impl(), t, value.impl(),
-                                 internal::ErrorInfo());
+  void set(Variant index, Variant value) {
+    Tuple t(index);
+    AMPL_CALL_CPP(AMPL_ParameterInstanceSetValue(ampl_, name_.c_str(), t.impl(), value.impl()));
   }
 
   /**
@@ -886,23 +1080,19 @@ class Parameter : public BasicEntity<VariantRef> {
   @throws runtime_error
               if the entity has been deleted in the underlying %AMPL
   */
-  void set(TupleRef index, VariantRef value) {
-    internal::AMPL_Parameter_set(impl(), index.impl(), value.impl(),
-                                 internal::ErrorInfo());
+  void set(Tuple index, Variant value) {
+    AMPL_CALL_CPP(AMPL_ParameterInstanceSetValue(ampl_, name_.c_str(), index.impl(), value.impl()));
   }
 
  private:
-  explicit Parameter(internal::Parameter* o)
-      : BasicEntity<VariantRef>(reinterpret_cast<internal::EntityBase*>(o)) {}
+  explicit Parameter(::AMPL *ampl, std::string name) : 
+  BasicEntity<Variant>(ampl, name) {}
 
-  internal::Parameter* impl() const {
-    return reinterpret_cast<internal::Parameter*>(impl_);
-  }
   /*
   Corresponding class inside the shared library boundary
   */
-  typedef internal::Parameter Inner;
   friend class AMPL;
+  friend class Entity;
   friend class EntityMap<Parameter>;
 };
 
@@ -941,46 +1131,54 @@ class Set : public BasicEntity<SetInstance> {
 
   \endrst
   */
-  class InstanceRange {
-    friend class Set;
-    const Set* parent_;
-    explicit InstanceRange(const Set* parent) : parent_(parent) {}
-
-   public:
-    /**
-    Iterator over instances of an indexed set
-    */
-    typedef Set::iterator iterator;
-
-    /**
-    Get an iterator pointing to the first instance in this set.
-    */
-    iterator begin() const { return parent_->begin(); }
-
-    /**
-    Get an iterator pointing after the last instance in this entity.
-    */
-    iterator end() const { return parent_->end(); }
-
-    /**
-    Searches the current entity for an instance with the
-    specified index.
-    \return an iterator to the SetInstance if found, otherwise
-            InstanceRange::end.
-    */
-    iterator find(TupleRef t) const { return parent_->find(t); }
-  };
+//  class InstanceRange {
+//    friend class Set;
+//    const Set *parent_;
+//    std::map<Tuple, SetInstance> instances_;
+//    explicit InstanceRange(const Set *parent) : parent_(parent) {
+//      instances_ = parent->instances();
+//    }
+//
+//   public:
+//    /**
+//    Iterator over instances of an indexed set
+//    */
+//    typedef std::map<Tuple, SetInstance>::iterator iterator;
+//
+//    /**
+//    Get an iterator pointing to the first instance in this set.
+//    */
+//    iterator begin() const { return parent_->getInstances().begin(); }
+//
+//    /**
+//    Get an iterator pointing after the last instance in this entity.
+//    */
+//    iterator end() const { return parent_->getInstances().end(); }
+//
+//    /**
+//    Searches the current entity for an instance with the
+//    specified index.
+//    \return an iterator to the SetInstance if found, otherwise
+//            InstanceRange::end.
+//    */
+//    iterator find(Tuple t) const { return parent_->getInstances().find(t); }
+//  };
 
   /**
    * Get the InstanceRange used to iterate over all the instances in
    * a %Set
    */
-  InstanceRange instances() const { return InstanceRange(this); }
+  std::map<ampl::Tuple, SetInstance> instances() { return this->getInstances(); }
 
   /**
   The arity of s, or number of components in each member of this set
   */
-  std::size_t arity() const { return internal::AMPL_Set_arity(impl()); }
+  std::size_t arity() const {
+    size_t arity;
+    AMPL_CALL_CPP(AMPL_SetGetArity(ampl_, name_.c_str(), &arity));
+    return arity;
+  }
+
   // **************** SCALAR SETS *******************
   /**
   Get values of this set in a DataFrame. Valid only for non indexed sets.
@@ -1004,13 +1202,13 @@ class Set : public BasicEntity<SetInstance> {
   Valid only for non indexed sets.
   \param t Tuple to be found
   */
-  bool contains(TupleRef t) const { return get().contains(t); }
+  bool contains(Tuple t) const { return get().contains(t); }
 
   /**
   %Set values. Valid only for non indexed sets.
   \see SetInstance::setValues()
   */
-  void setValues(internal::Args objects, std::size_t n) {
+  void setValues(Args objects, std::size_t n) {
     get().setValues(objects, n);
   }
 
@@ -1021,6 +1219,7 @@ class Set : public BasicEntity<SetInstance> {
   void setValues(const Tuple objects[], std::size_t n) {
     get().setValues(objects, n);
   }
+
   /**
   %Set values. Valid only for non indexed sets.
   \see SetInstance::setValues()
@@ -1028,24 +1227,16 @@ class Set : public BasicEntity<SetInstance> {
   void setValues(DataFrame data);
 
  private:
-  DataFrame getValues(StringArgs suffixes) const;
+  // DataFrame getValues(StringArgs suffixes) const;
 
-  explicit Set(internal::Set* o)
-      : BasicEntity<SetInstance>(reinterpret_cast<internal::EntityBase*>(o)) {}
+  explicit Set(::AMPL *ampl, std::string name)
+      : BasicEntity<SetInstance>(ampl, name) {}
 
-  internal::Set* impl() const {
-    return reinterpret_cast<internal::Set*>(impl_);
-  }
   /*
   Corresponding class inside the shared library boundary
   */
-  typedef internal::Set Inner;
   friend class AMPL;
   friend class EntityMap<Set>;
-
-  using BasicEntity<SetInstance>::begin;
-  using BasicEntity<SetInstance>::end;
-  using BasicEntity<SetInstance>::find;
 };
 
 namespace var {
@@ -1086,10 +1277,26 @@ enum Integrality {
  */
 class Variable : public BasicEntity<VariableInstance> {
  public:
+  /** 
+   *
+   */
+  double getDoubleSuffix(std::string suffix) {
+    return get().getDoubleSuffix(suffix);
+  }
+
+  /** 
+   *
+   */
+  std::string getStringSuffix(std::string suffix) {
+    return get().getStringSuffix(suffix);
+  }
+
   /**
    * Get the current value of this variable
    */
-  double value() const { return get().value(); }
+  double value() const { 
+    return get().value(); 
+  }
 
   /**
    * Get the integrality type for this variable
@@ -1097,26 +1304,27 @@ class Variable : public BasicEntity<VariableInstance> {
    * \return Type of integrality (integer, binary, continuous)
    */
   var::Integrality integrality() const {
-    return static_cast<var::Integrality>(
-        internal::AMPL_Variable_integrality(impl(), internal::ErrorInfo()));
+    int integrality;
+    AMPL_CALL_CPP(AMPL_VariableGetIntegrality(ampl_, name_.c_str(), &integrality));
+    return static_cast<var::Integrality>(integrality);
   }
 
   /**
-   * Fix all instances of this variable  to their current value
+   * Fix all instances of this variable to their current value
    */
-  void fix() { internal::AMPL_Variable_fix(impl(), internal::ErrorInfo()); }
+  void fix() { AMPL_CALL_CPP(AMPL_VariableFix(ampl_, name_.c_str())); }
 
   /**
    * Fix all instances of this variable to the specified value
    */
   void fix(double value) {
-    internal::AMPL_Variable_fix_value(impl(), value, internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_VariableFixWithValue(ampl_, name_.c_str(), value));
   }
 
   /**
    * Unfix this variable instances
    */
-  void unfix() { internal::AMPL_Variable_unfix(impl(), internal::ErrorInfo()); }
+  void unfix() { AMPL_CALL_CPP(AMPL_VariableUnfix(ampl_, name_.c_str())); }
 
   // *************************************** SCALAR VARIABLES
   // *****************************************
@@ -1246,17 +1454,12 @@ class Variable : public BasicEntity<VariableInstance> {
   std::string status() const { return get().status(); }
 
  private:
-  explicit Variable(internal::Variable* v)
-      : BasicEntity<VariableInstance>(
-            reinterpret_cast<internal::EntityBase*>(v)) {}
+  explicit Variable(::AMPL *ampl, std::string name)
+      : BasicEntity<VariableInstance>(ampl, name) {}
 
-  internal::Variable* impl() const {
-    return reinterpret_cast<internal::Variable*>(impl_);
-  }
   /*
   Corresponding class inside the shared library boundary
   */
-  typedef internal::Variable Inner;
   friend class AMPL;
   friend class EntityMap<Variable>;
 };
@@ -1272,14 +1475,9 @@ class Variable : public BasicEntity<VariableInstance> {
  */
 class Table : public BasicEntity<TableInstance> {
  private:
-  explicit Table(internal::Table* o)
-      : BasicEntity<TableInstance>(reinterpret_cast<internal::EntityBase*>(o)) {
-  }
+  explicit Table(::AMPL *ampl, std::string name)
+      : BasicEntity<TableInstance>(ampl, name) {}
 
-  internal::Table* impl() const {
-    return reinterpret_cast<internal::Table*>(impl_);
-  }
-  typedef internal::Table Inner;
   friend class AMPL;
   friend class EntityMap<Table>;
 
@@ -1287,11 +1485,11 @@ class Table : public BasicEntity<TableInstance> {
   /**
   Read from the table (equivalent to the %AMPL code `read table tablename;`)
   */
-  void read() { internal::AMPL_Table_read(impl(), internal::ErrorInfo()); }
+  void read() { AMPL_CALL_CPP(AMPL_TableRead(ampl_, name_.c_str())); }
   /**
   Write to the table (equivalent to the %AMPL code `write table tablename;`)
   */
-  void write() { internal::AMPL_Table_write(impl(), internal::ErrorInfo()); }
+  void write() { AMPL_CALL_CPP(AMPL_TableWrite(ampl_, name_.c_str())); }
 };
 
 }  // namespace ampl
@@ -1300,16 +1498,17 @@ class Table : public BasicEntity<TableInstance> {
 
 namespace ampl {
 inline DataFrame Entity::getValues() const {
-  DataFrame df(0);
-  internal::AMPL_EntityBase_getValues(impl_, NULL, 0, df.impl(),
-                                      internal::ErrorInfo());
+  AMPL_DATAFRAME *dataframe;
+  AMPL_CALL_CPP(AMPL_EntityGetValues(ampl_, name_.c_str(), NULL, 0, &dataframe));
+  DataFrame df(dataframe);
   return df;
 }
 
 inline DataFrame Entity::getValues(StringArgs suffixes) const {
-  DataFrame df(0);
-  internal::AMPL_EntityBase_getValues(impl_, suffixes.args(), suffixes.size(),
-                                      df.impl(), internal::ErrorInfo());
+  AMPL_DATAFRAME *dataframe;
+  AMPL_CALL_CPP(AMPL_EntityGetValues(ampl_, name_.c_str(), suffixes.args(), suffixes.size(),
+                       &dataframe));
+  DataFrame df(dataframe);
   return df;
 }
 
@@ -1325,26 +1524,27 @@ inline void Set::setValues(DataFrame data) {
   get().setValues(data);
 }
 
+inline void Entity::setSuffixes(DataFrame data) { 
+  AMPL_CALL_CPP(AMPL_EntitySetSuffixes(ampl_, name_.c_str(), data.impl()));
+}
+
 inline DataFrame SetInstance::getValues() const {
-  DataFrame df(0);
-  internal::AMPL_SetInstance_getValues(impl(), df.impl(),
-                                       internal::ErrorInfo());
+  AMPL_DATAFRAME *df_c;
+  AMPL_CALL_CPP(AMPL_SetInstanceGetValuesDataframe(ampl_, entityname_.c_str(), key_, &df_c));
+  DataFrame df(df_c);
   return df;
 }
 
 inline void SetInstance::setValues(DataFrame data) {
-  internal::AMPL_SetInstance_setValues_Dataframe(impl(), data.impl(),
-                                                 internal::ErrorInfo());
+  AMPL_CALL_CPP(AMPL_SetInstanceSetValuesDataframe(ampl_, entityname_.c_str(), key_,
+                                     data.impl()));
 }
 
 inline void Entity::setValues(DataFrame data) {
-  internal::AMPL_EntityBase_setValues(impl_, data.impl(),
-                                      internal::ErrorInfo());
+  AMPL_CALL_CPP(AMPL_EntitySetValues(ampl_, name_.c_str(), data.impl()));
 }
 
-inline Entity Instance::entity() const {
-  return Entity(internal::AMPL_Instance_entity(impl_));
-}
+inline Entity Instance::entity() const { return Entity(ampl_, entityname_); }
 }  // namespace ampl
 
 #endif  // AMPL_ENTITY_H

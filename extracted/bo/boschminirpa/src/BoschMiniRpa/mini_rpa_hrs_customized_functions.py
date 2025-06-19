@@ -488,6 +488,11 @@ def hrs_compare_excel_data(username, password, server_name, share_name, from_dat
     from_column_by_data = set(from_data[from_key_column].tolist())
     update_column_by_data = set(update_data[update_key_column].tolist())
 
+    print('from_column_by_data')
+    print(from_column_by_data)
+    print('update_column_by_data')
+    print(update_column_by_data)
+
     check_result_list = []
 
     common_column_by_data = from_column_by_data.intersection(update_column_by_data)

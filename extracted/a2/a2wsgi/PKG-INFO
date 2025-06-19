@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: a2wsgi
-Version: 1.10.9
+Version: 1.10.10
 Summary: Convert WSGI app to ASGI app or ASGI app to WSGI app.
 Author-Email: abersheeran <me@abersheeran.com>
 License: Apache-2.0

@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, Protocol
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Iterable,
+    Iterator,
+    Mapping,
+    Protocol,
+    Sequence,
+)
 
 from narwhals._compliant.any_namespace import (
     CatNamespace,
@@ -25,7 +34,6 @@ from narwhals._utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping, Sequence
     from types import ModuleType
 
     import pandas as pd
@@ -167,7 +175,6 @@ class CompliantSeries(
         ignore_nulls: bool,
     ) -> Self: ...
     def exp(self) -> Self: ...
-    def sqrt(self) -> Self: ...
     def fill_null(
         self,
         value: Self | NonNestedLiteral,
@@ -197,7 +204,6 @@ class CompliantSeries(
     def is_sorted(self, *, descending: bool) -> bool: ...
     def is_unique(self) -> Self: ...
     def item(self, index: int | None) -> Any: ...
-    def kurtosis(self) -> float | None: ...
     def len(self) -> int: ...
     def log(self, base: float) -> Self: ...
     def max(self) -> Any: ...

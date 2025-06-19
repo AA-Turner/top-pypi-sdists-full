@@ -118,7 +118,7 @@ def do_falcon_first_request_analysis(falcon_instance):
 @scope.contrast_scope()
 def do_falcon_routes_observation(falcon_app_instance, request_args):
     from contrast.agent.middlewares.route_coverage.falcon_routes import (
-        get_falcon_signature,
+        get_falcon_signature_and_template,
     )
 
     context = contrast.CS__CONTEXT_TRACKER.current()
@@ -132,12 +132,16 @@ def do_falcon_routes_observation(falcon_app_instance, request_args):
         request_path = request_args[0]["PATH_INFO"]
         request_method = request_args[0]["REQUEST_METHOD"]
 
-    context.view_func_str = get_falcon_signature(
+    context.signature, context.path_template = get_falcon_signature_and_template(
         request_path,
         falcon_app_instance,
         request_method,
     )
-    logger.debug("Found Falcon view function", view_func=context.view_func_str)
+    logger.debug(
+        "Found Falcon view function",
+        signature=context.signature,
+        path_template=context.path_template,
+    )
 
 
 @fail_quietly("failed to apply Falcon config scanning rules")

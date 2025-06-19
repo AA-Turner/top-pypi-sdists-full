@@ -3005,6 +3005,8 @@ impl BinaryOperator {
         }
     }
 
+    /// The operator associativity of the operator (as in the parsing sense, not the mathematical sense of associativity).
+    ///
     /// Follow JS definitions of each operator.
     /// Taken from <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence#table>
     pub fn associativity(&self) -> Associativity {
@@ -3014,6 +3016,12 @@ impl BinaryOperator {
             Self::Gt | Self::Gte | Self::Lt | Self::Lte | Self::Eq | Self::Neq => Associativity::Left, // I don't know if this is correct
             Self::And | Self::Or => Associativity::Left,
         }
+    }
+
+    /// Whether an operator is mathematically associative. If it is, then the operator associativity (given by the
+    /// `associativity` method) is mostly irrelevant.
+    pub fn associative(&self) -> bool {
+        matches!(self, Self::Add | Self::Mul | Self::And | Self::Or)
     }
 }
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, ts_rs::TS, JsonSchema)]
@@ -3151,8 +3159,8 @@ pub enum PrimitiveType {
     /// A boolean type.
     #[serde(rename = "bool")]
     Boolean,
-    /// A tag.
-    Tag,
+    /// A tag declaration.
+    TagDecl,
     /// Imported from other CAD system.
     ImportedGeometry,
     /// `fn`, type of functions.
@@ -3167,7 +3175,7 @@ impl PrimitiveType {
             ("any", None) => Some(PrimitiveType::Any),
             ("string", None) => Some(PrimitiveType::String),
             ("bool", None) => Some(PrimitiveType::Boolean),
-            ("tag", None) => Some(PrimitiveType::Tag),
+            ("TagDecl", None) => Some(PrimitiveType::TagDecl),
             ("number", None) => Some(PrimitiveType::Number(NumericSuffix::None)),
             ("number", Some(s)) => Some(PrimitiveType::Number(s)),
             ("ImportedGeometry", None) => Some(PrimitiveType::ImportedGeometry),
@@ -3184,7 +3192,7 @@ impl PrimitiveType {
             PrimitiveType::ImportedGeometry => "imported geometries".to_owned(),
             PrimitiveType::Function(_) => "functions".to_owned(),
             PrimitiveType::Named { id } => format!("`{}`s", id.name),
-            PrimitiveType::Tag => "tags".to_owned(),
+            PrimitiveType::TagDecl => "tag declarations".to_owned(),
         }
     }
 }
@@ -3202,7 +3210,7 @@ impl fmt::Display for PrimitiveType {
             }
             PrimitiveType::String => write!(f, "string"),
             PrimitiveType::Boolean => write!(f, "bool"),
-            PrimitiveType::Tag => write!(f, "tag"),
+            PrimitiveType::TagDecl => write!(f, "TagDecl"),
             PrimitiveType::ImportedGeometry => write!(f, "ImportedGeometry"),
             PrimitiveType::Function(t) => {
                 write!(f, "fn")?;

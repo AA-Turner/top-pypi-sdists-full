@@ -1211,11 +1211,13 @@ def list_support_requests(ctx, **kwargs):
     return query_results.support_requests
 
 
-def add_support_request(ctx, org_id, supporting_user_email, **kwargs):
+def create_support_request(ctx, org_id=None, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
+    token = context.get_token(ctx)
+    if org_id is None:
+        org_id = context.get_org_id(ctx, token)
     spec = agilicus.SupportRequestSpec(
         org_id=org_id,
-        supporting_user_email=agilicus.Email(supporting_user_email),
         **input_helpers.strip_none(kwargs),
     )
     model = agilicus.SupportRequest(spec=spec)

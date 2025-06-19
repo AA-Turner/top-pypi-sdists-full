@@ -8,6 +8,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use log::debug;
 use pyo3::prelude::*;
+use pyo3::{BoundObject, IntoPyObject};
 use pyo3_async_runtimes::TaskLocals;
 
 use crate::types::{
@@ -21,11 +22,22 @@ fn get_function_output<'a, T>(
     function_args: &T,
 ) -> Result<pyo3::Bound<'a, pyo3::PyAny>, PyErr>
 where
-    T: ToPyObject,
+    T: Clone + for<'py> IntoPyObject<'py>,
+    for<'py> <T as IntoPyObject<'py>>::Error: std::fmt::Debug,
 {
     let handler = function.handler.bind(py).downcast()?;
     let kwargs = function.kwargs.bind(py);
-    let function_args = function_args.to_object(py);
+    let function_args: PyObject = function_args
+        .clone()
+        .into_pyobject(py)
+        .map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to convert args: {:?}",
+                e
+            ))
+        })?
+        .into_any()
+        .unbind();
     debug!("Function args: {:?}", function_args);
 
     match function.number_of_params {
@@ -55,7 +67,8 @@ pub async fn execute_middleware_function<T>(
     function: &FunctionInfo,
 ) -> Result<MiddlewareReturn>
 where
-    T: for<'a> FromPyObject<'a> + ToPyObject,
+    T: Clone + for<'a> FromPyObject<'a> + for<'py> IntoPyObject<'py>,
+    for<'py> <T as IntoPyObject<'py>>::Error: std::fmt::Debug,
 {
     if function.is_async {
         let output: Py<PyAny> = Python::with_gil(|py| {
@@ -64,19 +77,26 @@ where
         .await?;
 
         Python::with_gil(|py| -> Result<MiddlewareReturn> {
-            let output_response = output.extract::<Response>(py);
-            match output_response {
-                Ok(o) => Ok(MiddlewareReturn::Response(o)),
-                Err(_) => Ok(MiddlewareReturn::Request(output.extract::<Request>(py)?)),
+            // Try response extraction first, then request
+            match output.extract::<Response>(py) {
+                Ok(response) => Ok(MiddlewareReturn::Response(response)),
+                Err(_) => match output.extract::<Request>(py) {
+                    Ok(request) => Ok(MiddlewareReturn::Request(request)),
+                    Err(e) => Err(e.into()),
+                },
             }
         })
     } else {
         Python::with_gil(|py| -> Result<MiddlewareReturn> {
             let output = get_function_output(function, py, input)?;
             debug!("Middleware output: {:?}", output);
+
             match output.extract::<Response>() {
-                Ok(o) => Ok(MiddlewareReturn::Response(o)),
-                Err(_) => Ok(MiddlewareReturn::Request(output.extract::<Request>()?)),
+                Ok(response) => Ok(MiddlewareReturn::Response(response)),
+                Err(_) => match output.extract::<Request>() {
+                    Ok(request) => Ok(MiddlewareReturn::Request(request)),
+                    Err(e) => Err(e.into()),
+                },
             }
         })
     }
@@ -94,12 +114,12 @@ pub async fn execute_http_function(
         })?
         .await?;
 
-        return Python::with_gil(|py| -> PyResult<Response> { output.extract(py) });
-    };
-
-    Python::with_gil(|py| -> PyResult<Response> {
-        get_function_output(function, py, request)?.extract()
-    })
+        Python::with_gil(|py| -> PyResult<Response> { output.extract(py) })
+    } else {
+        Python::with_gil(|py| -> PyResult<Response> {
+            get_function_output(function, py, request)?.extract()
+        })
+    }
 }
 
 pub async fn execute_startup_handler(

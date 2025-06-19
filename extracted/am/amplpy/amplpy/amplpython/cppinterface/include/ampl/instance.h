@@ -4,8 +4,7 @@
 #include <set>
 #include <string>
 
-#include "ampl/ep/instance_ep.h"
-#include "ampl/ep/scopedarray.h"
+#include "ampl/ampl_c.h"
 #include "ampl/tuple.h"
 
 #ifdef SWIGJAVA
@@ -25,7 +24,7 @@ class BasicEntity;
 Base class for instances of modelling entities.
 */
 class Instance {
-  template <class InstanceClass>
+  template <typename InstanceClass>
   friend class BasicEntity;
 
  public:
@@ -38,95 +37,123 @@ class Instance {
   Returns the key of this instance
   */
   Tuple key() const {
-    return Tuple(internal::AMPL_Instance_key(impl_, internal::ErrorInfo()));
+    return Tuple(key_);
   }
 
   /**
   Returns the name of this instance
   */
   std::string name() const {
-    return internal::getStringFromDLL(
-        internal::AMPL_Instance_name(impl_, internal::ErrorInfo()));
+    char *name_c;
+    AMPL_CALL_CPP(AMPL_InstanceGetName(ampl_, entityname_.c_str(), key_, &name_c));
+    std::string name(name_c);
+    AMPL_StringFree(&name_c);
+    return name;
   }
 
   /**
   Returns a string representation of this instance
   */
   std::string toString() const {
-    return internal::getStringFromDLL(
-        internal::AMPL_Instance_toString(impl_, internal::ErrorInfo()));
+    char *c_str;
+    AMPL_CALL_CPP(AMPL_InstanceToString(ampl_, entityname_.c_str(), key_, &c_str));
+    std::string str(c_str);
+    AMPL_StringFree(&c_str);
+    return str;
   }
 
   /**
   Constructor for base class conversions
   */
-  template <class InnerInstance>
+  template <typename InnerInstance>
   Instance(BasicInstance<InnerInstance> instance);
+
   /**
   Operator for base class conversions
   */
-  template <class InnerInstance>
+  template <typename InnerInstance>
   Instance& operator=(BasicInstance<InnerInstance> instance);
 
+  /**
+   * Destructor
+   */
+  ~Instance() {
+    if (key_) releaseTuple(key_);
+  }
+
+  Instance(const Instance& other) { 
+    ampl_ = other.ampl_;
+    key_ = other.key_;
+    entityname_ = other.entityname_;
+    if (other.key_) retainTuple(other.key_);
+  }
+
+  Instance& operator=(const Instance& other) {
+    if (key_) releaseTuple(key_);
+    ampl_ = other.ampl_;
+    key_ = other.key_;
+    entityname_ = other.entityname_;
+    if (key_) retainTuple(key_);
+    return *this;
+  }
+
  protected:
-  internal::Instance* impl_;
-  explicit Instance(internal::Instance* instance) { impl_ = instance; }
+  ::AMPL *ampl_;
+  AMPL_TUPLE *key_;
+  std::string entityname_;
+
+  explicit Instance(::AMPL *ampl, AMPL_TUPLE *key, std::string entityname) 
+                    : ampl_(ampl), key_(key), entityname_(entityname) {
+                      if (key_) retainTuple(key_);
+                    }
+
 
   /**
   Get a string suffix value
   */
-  std::string strvalue(internal::suffix::StringSuffix kind) const {
-    internal::PODStringRef returned = internal::AMPL_Instance_StringSuffix(
-        impl_, kind, internal::ErrorInfo());
-    return std::string(returned.ptr_, returned.size_);
+  std::string strvalue(suffix::StringSuffix kind) const {
+    char *value;
+    AMPL_CALL_CPP(AMPL_InstanceGetStringSuffix(ampl_, entityname_.c_str(), key_, static_cast<AMPL_STRINGSUFFIX>(kind), &value));
+    std::string suffix(value);
+    AMPL_StringFree(&value);
+
+    return suffix;
   }
 
   /**
   Get a double suffix value
   */
-  double dblvalue(internal::suffix::NumericSuffix kind) const {
-    return internal::AMPL_Instance_getDoubleSuffix(impl_, kind,
-                                                   internal::ErrorInfo());
+  double dblvalue(suffix::NumericSuffix kind) const {
+    double value;
+    AMPL_CALL_CPP(AMPL_InstanceGetDoubleSuffix(ampl_, entityname_.c_str(), key_, static_cast<AMPL_NUMERICSUFFIX>(kind), &value));
+    return value;
   }
 
   /**
   Get an integer suffix value
   */
-  int intvalue(internal::suffix::NumericSuffix kind) const {
-    return internal::AMPL_Instance_getIntSuffix(impl_, kind,
-                                                internal::ErrorInfo());
+  int intvalue(suffix::NumericSuffix kind) const {
+    int value;
+    AMPL_CALL_CPP(AMPL_InstanceGetIntSuffix(ampl_, entityname_.c_str(), key_, static_cast<AMPL_NUMERICSUFFIX>(kind), &value));
+    return value;
+  }
+
+  void setSuffix(std::string suffix, std::string value) {
+    AMPL_CALL_CPP(AMPL_InstanceSetStringSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), value.c_str()));
+  }
+
+  void setSuffix(std::string suffix, double value) {
+    AMPL_CALL_CPP(AMPL_InstanceSetDoubleSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), value));
   }
 };
 
-/**
-Templated class (infrastructure)
-*/
-template <class InnerInstance>
-class BasicInstance : INHERITANCE Instance {
-  friend class Instance;
-
- protected:
-  typedef InnerInstance Inner;
-  InnerInstance* impl() const {
-    return reinterpret_cast<InnerInstance*>(Instance::impl_);
-  }
-  using Instance::dblvalue;
-  using Instance::intvalue;
-  using Instance::strvalue;
-  explicit BasicInstance(internal::Instance* i) : Instance(i) {}
-
- public:
-  using Instance::entity;
-  using Instance::key;
-  using Instance::name;
-  using Instance::toString;
-};
 
 /**
  * This class represent an instance of a constraint.
  * <p>
  * In general, all %AMPL suffixes for a constraint are available through methods
- * with the same
+ * with the same==145510==    by 0x24CA67: testing::internal::MakeAndRegisterTestInfo(char const*, char const*, char const*, char const*, testing::internal::CodeLocation, void const*, void (*)(), void (*)(), testing::internal::TestFactoryBase*) (gtest.cc:2770)
+
  * name in this class. See http://www.ampl.com/NEW/suffbuiltin.html
  * for a list of the available suffixes.
  * <p>
@@ -137,14 +164,38 @@ class BasicInstance : INHERITANCE Instance {
  * std::runtime_error if the instance has been deleted in the underlying %AMPL
  * interpreter.
  */
-class ConstraintInstance : public BasicInstance<internal::ConstraintInstance> {
+class ConstraintInstance : public Instance {
  public:
+  /** 
+   *
+   */
+  double getDoubleSuffix(std::string suffix) {
+    double value;
+    AMPL_CALL_CPP(
+      AMPL_InstanceGetUserDefinedDoubleSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), &value)
+    );
+    return value;
+  }
+
+  /** 
+   *
+   */
+  std::string getStringSuffix(std::string suffix) {
+    char *c_str;
+    AMPL_CALL_CPP(
+      AMPL_InstanceGetUserDefinedStringSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), &c_str)
+    );
+    std::string str(c_str);
+    AMPL_StringFree(&c_str);
+    return str;
+  }
+  
   /**
    Drop this constraint instance, corresponding to the %AMPL code:
    `drop constraintname;`.
    */
   void drop() {
-    internal::AMPL_ConstraintInstance_drop(impl(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_InstanceDrop(ampl_, entityname_.c_str(), key_));
   }
 
   /**
@@ -152,34 +203,34 @@ class ConstraintInstance : public BasicInstance<internal::ConstraintInstance> {
    * %AMPL code: `restore constraintname;`.
    */
   void restore() {
-    internal::AMPL_ConstraintInstance_restore(impl(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_InstanceRestore(ampl_, entityname_.c_str(), key_));
   }
 
   /**
    * Get the current value of the constraint's body
    */
-  double body() const { return dblvalue(internal::suffix::body); }
+  double body() const { return dblvalue(suffix::body); }
 
   /**
    * Get the current %AMPL status (dropped, presolved, or substituted out)
    */
-  std::string astatus() const { return strvalue(internal::suffix::astatus); }
+  std::string astatus() const { return strvalue(suffix::astatus); }
 
   /**
    * Get the index in `_var` of "defined variable" substituted out by
    * the constraint
    */
-  int defvar() const { return intvalue(internal::suffix::defvar); }
+  int defvar() const { return intvalue(suffix::defvar); }
 
   /**
    * Get the current initial guess for the constraint's dual variable
    */
-  double dinit() const { return dblvalue(internal::suffix::dinit); }
+  double dinit() const { return dblvalue(suffix::dinit); }
 
   /**
    * Get the original initial guess for the constraint's dual variable
    */
-  double dinit0() const { return dblvalue(internal::suffix::dinit0); }
+  double dinit0() const { return dblvalue(suffix::dinit0); }
 
   /**
    * Get the current value of the constraint's dual variable.
@@ -188,65 +239,65 @@ class ConstraintInstance : public BasicInstance<internal::ConstraintInstance> {
    * by the presolve functionalities triggered by some methods. A possible
    * workaround is to set the option `presolve;` to `false` (see setBoolOption).
    */
-  double dual() const { return dblvalue(internal::suffix::dual); }
+  double dual() const { return dblvalue(suffix::dual); }
 
   /**
    * Get the current value of the constraint's lower bound
    */
-  double lb() const { return dblvalue(internal::suffix::lb); }
+  double lb() const { return dblvalue(suffix::lb); }
 
   /**
    * Get the current value of the constraint's upper bound
    */
-  double ub() const { return dblvalue(internal::suffix::ub); }
+  double ub() const { return dblvalue(suffix::ub); }
 
   /**
    * Get the constraint lower bound sent to the solver (reflecting adjustment
    * for fixed variables)
    */
-  double lbs() const { return dblvalue(internal::suffix::lbs); }
+  double lbs() const { return dblvalue(suffix::lbs); }
 
   /**
    * Get the constraint upper bound sent to the solver (reflecting adjustment
    * for fixed variables)
    */
-  double ubs() const { return dblvalue(internal::suffix::ubs); }
+  double ubs() const { return dblvalue(suffix::ubs); }
 
   /**
    * Get the current dual value associated with the lower bound
    */
-  double ldual() const { return dblvalue(internal::suffix::ldual); }
+  double ldual() const { return dblvalue(suffix::ldual); }
 
   /**
    * Get the current dual value associated with the upper bounds
    */
-  double udual() const { return dblvalue(internal::suffix::udual); }
+  double udual() const { return dblvalue(suffix::udual); }
 
   /**
    * Get the slack at lower bound `body - lb`
    */
-  double lslack() const { return dblvalue(internal::suffix::lslack); }
+  double lslack() const { return dblvalue(suffix::lslack); }
 
   /**
    * Get the slack at upper bound `ub - body`
    */
-  double uslack() const { return dblvalue(internal::suffix::uslack); }
+  double uslack() const { return dblvalue(suffix::uslack); }
 
   /**
    * Constraint slack (the lesser of lslack and uslack)
    */
-  double slack() const { return dblvalue(internal::suffix::slack); }
+  double slack() const { return dblvalue(suffix::slack); }
 
   /**
    * Get the solver status (basis status of constraint's %slack or artificial
    * variable)
    */
-  std::string sstatus() const { return strvalue(internal::suffix::sstatus); }
+  std::string sstatus() const { return strvalue(suffix::sstatus); }
 
   /**
    * Get the %AMPL status if not `in`, otherwise solver status
    */
-  std::string status() const { return strvalue(internal::suffix::status); }
+  std::string status() const { return strvalue(suffix::status); }
 
   /**
    * Set the value of the dual variable associated to this constraint.
@@ -262,20 +313,19 @@ class ConstraintInstance : public BasicInstance<internal::ConstraintInstance> {
    *            The value to be assigned to the dual variable
    */
   void setDual(double dual) {
-    internal::AMPL_ConstraintInstance_setDual(impl(), dual,
-                                              internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_ConstraintInstanceSetDual(ampl_, entityname_.c_str(), key_, dual));
   }
 
   /**
    * Get the AMPL val suffix. Valid only for logical constraints.
    */
-  double val() const { return dblvalue(internal::suffix::val); }
+  double val() const { return dblvalue(suffix::val); }
 
  private:
   friend class BasicEntity<ConstraintInstance>;
-  friend class internal::EntityWrapper<ConstraintInstance>;
-  explicit ConstraintInstance(internal::Instance* ci)
-      : BasicInstance<internal::ConstraintInstance>(ci) {}
+  friend class Constraint;
+  explicit ConstraintInstance(::AMPL *ampl, AMPL_TUPLE *key, std::string name)
+      : Instance(ampl, key, name) {}
 };
 
 /**
@@ -288,45 +338,69 @@ class ConstraintInstance : public BasicInstance<internal::ConstraintInstance> {
  * All the accessors in this class throw an std::runtime_error if the instance
  * has been deleted in the underlying AMPL interpreter.
  */
-class ObjectiveInstance : public BasicInstance<internal::ObjectiveInstance> {
+class ObjectiveInstance : public Instance {
  public:
+  /** 
+   *
+   */
+  double getDoubleSuffix(std::string suffix) {
+    double value;
+    AMPL_CALL_CPP(
+      AMPL_InstanceGetUserDefinedDoubleSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), &value)
+    );
+    return value;
+  }
+
+  /** 
+   *
+   */
+  std::string getStringSuffix(std::string suffix) {
+    char *c_str;
+    AMPL_CALL_CPP(
+      AMPL_InstanceGetUserDefinedStringSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), &c_str)
+    );
+    std::string str(c_str);
+    AMPL_StringFree(&c_str);
+    return str;
+  }
+
   /**
    * Get the value of the objective instance
    */
-  double value() const { return dblvalue(internal::suffix::value); }
+  double value() const { return dblvalue(suffix::value); }
 
   /**
    * Return the %AMPL status
    */
-  std::string astatus() const { return strvalue(internal::suffix::astatus); }
+  std::string astatus() const { return strvalue(suffix::astatus); }
 
   /**
    * Return the solver status
    */
-  std::string sstatus() const { return strvalue(internal::suffix::sstatus); }
+  std::string sstatus() const { return strvalue(suffix::sstatus); }
 
   /**
    * Exit code returned by solver after most recent solve with this objective
    */
-  int exitcode() const { return intvalue(internal::suffix::exitcode); }
+  int exitcode() const { return intvalue(suffix::exitcode); }
 
   /**
    * Result message returned by solver after most recent solve with this
    * objective
    */
-  std::string message() const { return strvalue(internal::suffix::message); }
+  std::string message() const { return strvalue(suffix::message); }
 
   /**
    * Result string returned by solver after most recent solve with this
    * objective
    */
-  std::string result() const { return strvalue(internal::suffix::result); }
+  std::string result() const { return strvalue(suffix::result); }
 
   /**
    * Drop this objective instance
    */
   void drop() {
-    internal::AMPL_ObjectiveInstance_drop(impl(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_InstanceDrop(ampl_, entityname_.c_str(), key_));
   }
 
   /**
@@ -334,7 +408,7 @@ class ObjectiveInstance : public BasicInstance<internal::ObjectiveInstance> {
    * otherwise)
    */
   void restore() {
-    internal::AMPL_ObjectiveInstance_restore(impl(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_InstanceRestore(ampl_, entityname_.c_str(), key_));
   }
 
   /**
@@ -342,15 +416,14 @@ class ObjectiveInstance : public BasicInstance<internal::ObjectiveInstance> {
    * \return true if minimize, false if maximize
    */
   bool minimization() const {
-    std::string sense = strvalue(internal::suffix::sense);
+    std::string sense = strvalue(suffix::sense);
     return (sense.compare("minimize") == 0);
   }
 
  private:
   friend class BasicEntity<ObjectiveInstance>;
-  friend class internal::EntityWrapper<ObjectiveInstance>;
-  explicit ObjectiveInstance(internal::Instance* ci)
-      : BasicInstance<internal::ObjectiveInstance>(ci) {}
+  explicit ObjectiveInstance(::AMPL *ampl, AMPL_TUPLE *key, std::string name)
+      : Instance(ampl, key, name) {}
 };
 
 class DataFrame;  // forward declaration for setValues below
@@ -367,25 +440,45 @@ class DataFrame;  // forward declaration for setValues below
  * All the accessors in this class throw an std::runtime_error if
  * the instance has been deleted in the underlying %AMPL interpreter.
  */
-class SetInstance : public BasicInstance<internal::SetInstance> {
+class SetInstance : public Instance {
  public:
+  /**
+  Returns a string representation of this set instance
+  */
+  std::string toString() const {
+    char *c_str;
+    AMPL_CALL_CPP(AMPL_SetInstanceToString(ampl_, entityname_.c_str(), key_, &c_str));
+    std::string str(c_str);
+    AMPL_StringFree(&c_str);
+    return str;
+  }
+
   /**
   Get the number of tuples in this set instance
   */
-  std::size_t size() { return internal::AMPL_SetInstance_size(impl()); }
+  std::size_t size() { 
+    size_t size;
+    AMPL_CALL_CPP(AMPL_SetInstanceGetSize(ampl_, entityname_.c_str(), key_, &size));
+    return size;
+  }
 
   /**
   The arity of s, or number of components in each member of this set
   */
-  std::size_t arity() const { return internal::AMPL_SetInstance_arity(impl()); }
+  std::size_t arity() const { 
+    size_t arity;
+    AMPL_CALL_CPP(AMPL_SetGetArity(ampl_, entityname_.c_str(), &arity));
+    return arity;
+  }
 
   /**
   Check wether this set instance contains the specified Tuple
   \param t Tuple to be found
   */
-  bool contains(TupleRef t) const {
-    return internal::AMPL_SetInstance_contains(impl(), t.impl(),
-                                               internal::ErrorInfo());
+  bool contains(Tuple t) const {
+    bool contains;
+    AMPL_CALL_CPP(AMPL_SetInstanceContains(ampl_, entityname_.c_str(), key_, t.impl(), &contains));
+    return contains;
   }
 
   /**
@@ -393,16 +486,24 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
   */
   class MemberRange {
    private:
-    const internal::Tuple* members_;
+    AMPL_TUPLE **members_;
     std::size_t size_;
 
    public:
     /**
     Constructor
     */
-    explicit MemberRange(internal::SetInstance* impl_) : size_(0) {
-      members_ =
-          internal::AMPL_SetInstance_data(impl_, &size_, internal::ErrorInfo());
+    explicit MemberRange(SetInstance* impl_) : size_(0) {
+      AMPL_CALL_CPP(AMPL_SetInstanceGetValues(impl_->ampl_, impl_->entityname_.c_str(), impl_->key_, &members_, &size_));
+    }
+
+    /**
+     * Destructor
+     */
+    ~MemberRange() {
+      for (std::size_t i = 0; i < size_; i++)
+        AMPL_TupleFree(&members_[i]);
+      free(members_);
     }
 
     /**
@@ -411,22 +512,22 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
     class iterator {
      public:
       using iterator_category = std::forward_iterator_tag;
-      using value_type = TupleRef;
+      using value_type = Tuple;
       using difference_type = std::ptrdiff_t;
       using pointer = value_type*;
       using reference = value_type&;
 
      private:
       friend class SetInstance::MemberRange;
-      const internal::Tuple* ptr_;
-      explicit iterator(const internal::Tuple* ptr) : ptr_(ptr) {}
+      AMPL_TUPLE **ptr_;
+      explicit iterator(AMPL_TUPLE **ptr) : ptr_(ptr) {}
 
      public:
       /**
-      Dereference operator. Gains access to the ampl::TupleRef which iterators
+      Dereference operator. Gains access to the ampl::Tuple which iterators
       points to.
       */
-      TupleRef operator*() const { return TupleRef(*ptr_); }
+      Tuple operator*() const { return Tuple(*ptr_); }
 
       /**
       Postfix increment
@@ -479,7 +580,7 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
   /**
   Get all members (tuples) in this set instance
   */
-  MemberRange members() { return MemberRange(impl()); }
+  MemberRange members() { return MemberRange(this); }
 
   /**
   Set the tuples in this set instance using a flattened array.
@@ -489,9 +590,8 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
   \param objects An array of doubles or strings to be grouped into tuples
   \param n The number of objects in the array
   */
-  void setValues(internal::Args objects, std::size_t n) {
-    internal::AMPL_SetInstance_setValues_Arg(impl(), objects.data(), n,
-                                             internal::ErrorInfo());
+  void setValues(Args objects, std::size_t n) {
+    AMPL_CALL_CPP(AMPL_SetInstanceSetValues(ampl_, entityname_.c_str(), key_, objects.data(), n));
   }
 
   /**
@@ -501,10 +601,10 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
   \param n The number of tuples in the array
   */
   void setValues(const Tuple objects[], std::size_t n) {
-    std::vector<internal::Tuple> toPass =
-        internal::getInternalTupleArray(objects, n);
-    internal::AMPL_SetInstance_setValues_Tuple(impl(), &toPass[0], n,
-                                               internal::ErrorInfo());
+    std::vector<AMPL_TUPLE*> tuples(n);
+    for (std::size_t i = 0; i < n; i++)
+      tuples[i] = objects[i].impl();
+    AMPL_CALL_CPP(AMPL_SetInstanceSetValuesTuples(ampl_, entityname_.c_str(), key_, tuples.data(), n));
   }
 
   /**
@@ -529,6 +629,7 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
   \endrst
   */
   void setValues(DataFrame data);
+
   /**
   Get all the tuples in this set instance in a DataFrame
   */
@@ -536,9 +637,8 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
 
  private:
   friend class BasicEntity<SetInstance>;
-  friend class internal::EntityWrapper<SetInstance>;
-  explicit SetInstance(internal::Instance* ci)
-      : BasicInstance<internal::SetInstance>(ci) {}
+  explicit SetInstance(::AMPL *ampl, AMPL_TUPLE *key, std::string name)
+      : Instance(ampl, key, name) {}
 };
 
 /**
@@ -552,33 +652,56 @@ class SetInstance : public BasicInstance<internal::SetInstance> {
  * std::runtime_error if the instance has been deleted in the underlying %AMPL
  * interpreter.
  */
-class VariableInstance : public BasicInstance<internal::VariableInstance> {
+class VariableInstance : public Instance {
  public:
-  /**
-   * Get the current value of this variable
+  /** 
+   *
    */
-  double value() const { return dblvalue(internal::suffix::value); }
+  double getDoubleSuffix(std::string suffix) {
+    double value;
+    AMPL_CALL_CPP(
+      AMPL_InstanceGetUserDefinedDoubleSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), &value)
+    );
+    return value;
+  }
 
-  /**
-   * Fix all instances of this variable  to their current value
+  /** 
+   *
    */
-  void fix() {
-    internal::AMPL_VariableInstance_fix(impl(), internal::ErrorInfo());
+  std::string getStringSuffix(std::string suffix) {
+    char *c_str;
+    AMPL_CALL_CPP(
+      AMPL_InstanceGetUserDefinedStringSuffix(ampl_, entityname_.c_str(), key_, suffix.c_str(), &c_str)
+    );
+    std::string str(c_str);
+    AMPL_StringFree(&c_str);
+    return str;
   }
 
   /**
-   * Fix all instances of this variable to the specified value
+   * Get the current value of this variable
+   */
+  double value() const { return dblvalue(suffix::value); }
+
+  /**
+   * Fix this variable instance to their current value
+   */
+  void fix() {
+    AMPL_CALL_CPP(AMPL_VariableInstanceFix(ampl_, entityname_.c_str(), key_));
+  }
+
+  /**
+   * Fix this variable instance to the specified value
    */
   void fix(double value) {
-    internal::AMPL_VariableInstance_fixToValue(impl(), value,
-                                               internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_VariableInstanceFixToValue(ampl_, entityname_.c_str(), key_, value));
   }
 
   /**
    * Unfix this variable instances
    */
   void unfix() {
-    internal::AMPL_VariableInstance_unfix(impl(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_VariableInstanceUnfix(ampl_, entityname_.c_str(), key_));
   }
 
   // *************************************** SCALAR VARIABLES
@@ -589,109 +712,108 @@ class VariableInstance : public BasicInstance<internal::VariableInstance> {
   \param value Value to be set
   */
   void setValue(double value) {
-    internal::AMPL_VariableInstance_setValue(impl(), value,
-                                             internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_VariableInstanceSetValue(ampl_, entityname_.c_str(), key_, value));
   }
 
   /**
   Get the %AMPL status (fixed, presolved, or substituted out)
   */
-  std::string astatus() const { return strvalue(internal::suffix::astatus); }
+  std::string astatus() const { return strvalue(suffix::astatus); }
 
   /**
    * Get the index in `_con` of "defining constraint" used to substitute
    * variable out
    */
-  int defeqn() const { return intvalue(internal::suffix::defeqn); }
+  int defeqn() const { return intvalue(suffix::defeqn); }
 
   /**
    * Get the dual value on defining constraint of variable substituted out
    */
-  double dual() const { return dblvalue(internal::suffix::dual); }
+  double dual() const { return dblvalue(suffix::dual); }
 
   /**
    * Get the current initial guess
    */
-  double init() const { return dblvalue(internal::suffix::init); }
+  double init() const { return dblvalue(suffix::init); }
 
   /**
    * Get the original initial guess (set by `:=` or`default` or by a data
    * statement)
    */
-  double init0() const { return dblvalue(internal::suffix::init0); }
+  double init0() const { return dblvalue(suffix::init0); }
 
   /**
    * \rststar
    * Returns the current lower bound. See :ref:`secVariableSuffixesNotes`.
    * \endrststar
    */
-  double lb() const { return dblvalue(internal::suffix::lb); }
+  double lb() const { return dblvalue(suffix::lb); }
 
   /**
    * \rststar
    * Returns the current upper bound. See :ref:`secVariableSuffixesNotes`.
    * \endrststar
    */
-  double ub() const { return dblvalue(internal::suffix::ub); }
+  double ub() const { return dblvalue(suffix::ub); }
 
   /**
    * Returns the initial lower bounds, from the var declaration
    */
-  double lb0() const { return dblvalue(internal::suffix::lb0); }
+  double lb0() const { return dblvalue(suffix::lb0); }
 
   /**
    * Returns the initial upper bound, from the var declaration
    */
-  double ub0() const { return dblvalue(internal::suffix::ub0); }
+  double ub0() const { return dblvalue(suffix::ub0); }
 
   /**
    * Returns the weaker lower bound from %AMPL's presolve phase
    */
-  double lb1() const { return dblvalue(internal::suffix::lb1); }
+  double lb1() const { return dblvalue(suffix::lb1); }
 
   /**
    * Returns the weaker upper bound from %AMPL's presolve phase
    */
-  double ub1() const { return dblvalue(internal::suffix::ub1); }
+  double ub1() const { return dblvalue(suffix::ub1); }
 
   /**
    * Returns the stronger lower bound from %AMPL's presolve phase
    */
-  double lb2() const { return dblvalue(internal::suffix::lb2); }
+  double lb2() const { return dblvalue(suffix::lb2); }
 
   /**
    * Returns the stronger upper bound from %AMPL's presolve phase
    */
-  double ub2() const { return dblvalue(internal::suffix::ub2); }
+  double ub2() const { return dblvalue(suffix::ub2); }
 
   /**
    * Returns the reduced cost at lower bound
    */
-  double lrc() const { return dblvalue(internal::suffix::lrc); }
+  double lrc() const { return dblvalue(suffix::lrc); }
 
   /**
    * Returns the reduced cost at upper bound
    */
-  double urc() const { return dblvalue(internal::suffix::urc); }
+  double urc() const { return dblvalue(suffix::urc); }
 
   /**
    * \rststar
    * Return the slack at lower bound (``val - lb``). See
    * :ref:`secVariableSuffixesNotes`. \endrststar
    */
-  double lslack() const { return dblvalue(internal::suffix::lslack); }
+  double lslack() const { return dblvalue(suffix::lslack); }
 
   /**
    * \rststar
    *  Return the slack at upper bound (``ub - val``). See
    * :ref:`secVariableSuffixesNotes`. \endrststar
    */
-  double uslack() const { return dblvalue(internal::suffix::uslack); }
+  double uslack() const { return dblvalue(suffix::uslack); }
 
   /**
    * Get the reduced cost (at the nearer bound)
    */
-  double rc() const { return dblvalue(internal::suffix::rc); }
+  double rc() const { return dblvalue(suffix::rc); }
 
   /**
    * \rststar
@@ -699,17 +821,17 @@ class VariableInstance : public BasicInstance<internal::VariableInstance> {
    * uslack(). See :ref:`secVariableSuffixesNotes`.
    * \endrststar
    */
-  double slack() const { return dblvalue(internal::suffix::slack); }
+  double slack() const { return dblvalue(suffix::slack); }
 
   /**
    * Solver status (basis status of variable)
    */
-  std::string sstatus() const { return strvalue(internal::suffix::sstatus); }
+  std::string sstatus() const { return strvalue(suffix::sstatus); }
 
   /**
    * %AMPL status if not `in`, otherwise solver status
    */
-  std::string status() const { return strvalue(internal::suffix::status); }
+  std::string status() const { return strvalue(suffix::status); }
 
   /**
    Returns a string representation of this VariableInstance object.
@@ -740,14 +862,17 @@ class VariableInstance : public BasicInstance<internal::VariableInstance> {
    If the variable is binary, the attributes contain ``binary``.
   */
   std::string toString() const {
-    return BasicInstance<internal::VariableInstance>::toString();
+    char *c_str;
+    AMPL_CALL_CPP(AMPL_VariableInstanceToString(ampl_, entityname_.c_str(), key_, &c_str));
+    std::string str(c_str);
+    AMPL_StringFree(&c_str);
+    return str;
   }
 
  private:
   friend class BasicEntity<VariableInstance>;
-  friend class internal::EntityWrapper<VariableInstance>;
-  explicit VariableInstance(internal::Instance* vi)
-      : BasicInstance<internal::VariableInstance>(vi) {}
+  explicit VariableInstance(::AMPL *ampl, AMPL_TUPLE *key, std::string name)
+      : Instance(ampl, key, name) {}
 };
 
 /**
@@ -757,12 +882,11 @@ class VariableInstance : public BasicInstance<internal::VariableInstance> {
  * this class throw an std::runtime_error if the instance has been deleted in
  * the underlying %AMPL interpreter.
  */
-class TableInstance : public BasicInstance<internal::TableInstance> {
+class TableInstance : public Instance {
  private:
   friend class BasicEntity<TableInstance>;
-  friend class internal::EntityWrapper<TableInstance>;
-  explicit TableInstance(internal::Instance* ti)
-      : BasicInstance<internal::TableInstance>(ti) {}
+  explicit TableInstance(::AMPL *ampl, AMPL_TUPLE *key, std::string name)
+      : Instance(ampl, key, name) {}
 
  public:
   /**
@@ -770,7 +894,7 @@ class TableInstance : public BasicInstance<internal::TableInstance> {
   `read table tablename[tableindex];`.
  */
   void read() {
-    internal::AMPL_TableInstance_read(impl(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_TableInstanceRead(ampl_, entityname_.c_str(), key_));
   }
 
   /**
@@ -778,17 +902,21 @@ class TableInstance : public BasicInstance<internal::TableInstance> {
   `write table tablename[tableindex];`.
  */
   void write() {
-    internal::AMPL_TableInstance_write(impl(), internal::ErrorInfo());
+    AMPL_CALL_CPP(AMPL_TableInstanceWrite(ampl_, entityname_.c_str(), key_));
   }
 };
 
 template <class InnerInstance>
 inline Instance::Instance(BasicInstance<InnerInstance> instance)
-    : impl_(instance.impl_) {}
+    : ampl_(instance.ampl_), key_(instance.key_), 
+    entityname_(instance.entityname_)
+    {}
 
 template <class InnerInstance>
 inline Instance& Instance::operator=(BasicInstance<InnerInstance> instance) {
-  impl_ = instance.impl_;
+  ampl_ = instance.ampl_;
+  key_ = instance.key_;
+  entityname_ = instance.entityname_;
   return *this;
 }
 }  // namespace ampl

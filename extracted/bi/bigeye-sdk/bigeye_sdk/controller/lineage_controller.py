@@ -39,7 +39,6 @@ class LineageController:
         self.custom_nodes_ix_by_id: Dict[int, LineageNodeV2] = {}
         self.custom_node_search_cache: Dict[str, List[LineageNodeV2]] = {}
         self.lineage_node_ix_by_id: Dict[int, ContainmentNode] = {}
-        self.lineage_graph_ix: Dict[int, LineageGraph] = {}
 
     def get_table_by_name(self, entity_name: str) -> Table:
         warehouse, schema, entity_name = fully_qualified_table_to_elements(entity_name)
@@ -997,24 +996,6 @@ class LineageController:
                         )
                     )
 
-    def build_graph_for_table(self, table_id: int):
-        table = self.client.search_tables(ids=[table_id], ignore_fields=True, include_data_node_ids=True).tables[0]
-        self.build_graph_for_data_node(data_node_id=table.data_node_id)
-
-    def build_filtered_graph_for_data_node(self, data_node_id: int):
-        self.find_origins_filtered(data_node_id=data_node_id)
-
-        for graph in self.lineage_graph_ix.values():
-            self.traverse_downstream_filtered(graph=graph, starting_node_id=data_node_id)
-
-    def build_graph_for_data_node(self, data_node_id: int):
-        log.info(f"Searching for origins for data node: {data_node_id}...")
-        self.find_origins_for_data_node(data_node_id=data_node_id)
-
-        log.info(f"Traversing downstream for data node: {data_node_id}...")
-        for graph in self.lineage_graph_ix.values():
-            self.traverse_graph_downstream(graph=graph, starting_node_id=data_node_id)
-
     def search_nodes_for_table(self, table_id: int):
         table = self.client.search_tables(ids=[table_id], ignore_fields=True, include_data_node_ids=True).tables[0]
         self.continuous_search_from_data_node(data_node_id=table.data_node_id)
@@ -1036,121 +1017,3 @@ class LineageController:
 
             to_search.update({up_id for up_id in current_node.upstream_objects if up_id not in searched_nodes})
             to_search.update({down_id for down_id in current_node.downstream_objects if down_id not in searched_nodes})
-
-
-    def find_origins_for_data_node(self, data_node_id: int):
-        to_search = [data_node_id]
-
-        while to_search:
-            node_id = to_search.pop()
-            graph = self.client.get_lineage_graph_from_data_node(data_node_id=node_id)
-            node = ContainmentNode.build(node_id=node_id, graph=graph)
-            self.lineage_node_ix_by_id[node.id] = node
-            if node.is_origin():
-                lineage_graph = LineageGraph.begin(node=node)
-                self.lineage_graph_ix[lineage_graph.origin_node.id] = lineage_graph
-            else:
-                to_search.extend(
-                    [upstream_id
-                     for upstream_id in node.upstream_objects
-                     if upstream_id not in self.lineage_node_ix_by_id]
-                )
-
-    def find_origins_filtered(self, data_node_id: int):
-        to_search = [data_node_id]
-
-        while to_search:
-            node_id = to_search.pop()
-            graph = self.client.get_lineage_graph_from_data_node(data_node_id=node_id)
-            current_node = ContainmentNode.build(node_id=node_id, graph=graph)
-            if current_node.id != data_node_id:
-                # This is not the node that was searched first. Filter out downstream connections
-                for d_id in list(current_node.downstream_objects):
-                    downstream_node = self.lineage_node_ix_by_id.get(d_id, None)
-                    if not downstream_node:
-                        # This exists downstream of the current node but not upstream of the original, remove.
-                        current_node.downstream_objects.remove(d_id)
-            self.lineage_node_ix_by_id[current_node.id] = current_node
-
-            if current_node.is_origin():
-                lineage_graph = LineageGraph.begin(node=current_node)
-                self.lineage_graph_ix[lineage_graph.origin_node.id] = lineage_graph
-            else:
-                to_search.extend(
-                    [upstream_id
-                     for upstream_id in current_node.upstream_objects
-                     if upstream_id not in self.lineage_node_ix_by_id]
-                )
-
-    def traverse_graph_downstream(self, graph: LineageGraph, starting_node_id: int):
-        to_search: list = list(graph.origin_node.downstream_objects)
-
-        while to_search:
-            node_id = to_search.pop()
-            downstream_node = self.lineage_node_ix_by_id.get(node_id, None)
-            if not downstream_node:
-                downstream_graph = self.client.get_lineage_graph_from_data_node(data_node_id=node_id)
-                downstream_node = ContainmentNode.build(node_id=node_id, graph=downstream_graph)
-                self.lineage_node_ix_by_id[downstream_node.id] = downstream_node
-
-            graph.add_downstream(node=downstream_node)
-            to_search.extend(
-                [downstream_id
-                 for downstream_id in downstream_node.downstream_objects
-                 if downstream_id not in self.lineage_node_ix_by_id or downstream_id == starting_node_id]
-            )
-
-    def traverse_downstream_filtered(self, graph: LineageGraph, starting_node_id: int):
-        to_search: list = list(graph.origin_node.downstream_objects)
-
-        while to_search:
-            node_id = to_search.pop()
-            current_node = self.lineage_node_ix_by_id.get(node_id, None)
-            if not current_node:
-                downstream_graph = self.client.get_lineage_graph_from_data_node(data_node_id=node_id)
-                current_node = ContainmentNode.build(node_id=node_id, graph=downstream_graph)
-                self.lineage_node_ix_by_id[current_node.id] = current_node
-                # BI tools treat higher level objects as columns; e.g. Tableau worksheets, PowerBI reports
-                # when they should be treated as tables. Filtering is handled when building the ContainmentNode.
-                if isinstance(current_node, IntegrationNode) and current_node.is_bi_tool:
-                    pass
-
-                else:
-                    # Filter out objects that are not upstream of the original
-                    for u_id in list(current_node.upstream_objects):
-                        upstream_node = self.lineage_node_ix_by_id.get(u_id, None)
-                        if not upstream_node:
-                            # There is an upstream object from this node that is not upstream of the original, filter.
-                            current_node.upstream_objects.remove(u_id)
-
-                    # Remove connections that haven't come from upstream objects
-                    for u_id in current_node.upstream_objects:
-                        current_node.upstream_connections = {
-                            c_id: c for c_id, c in current_node.upstream_connections.items()
-                            if u_id in c.upstream_objects_ix
-                        }
-
-                    # Remove downstream connections that don't propagate from anything upstream
-                    columns_not_propagated = set()
-                    propagated_columns = set()
-                    for c in list(current_node.downstream_connections.values()):
-                        if c.id not in current_node.upstream_connections:
-                            columns_not_propagated.update(set(c.downstream_objects_ix.keys()))
-                            current_node.downstream_connections.pop(c.id)
-                        else:
-                            propagated_columns.update(set(c.downstream_objects_ix.keys()))
-
-                    if not propagated_columns:
-                        current_node.downstream_objects.clear()
-                    else:
-                        current_node.downstream_objects = current_node.downstream_objects - columns_not_propagated
-                        current_node.downstream_objects.update(propagated_columns)
-                        columns_not_propagated.clear()
-                        propagated_columns.clear()
-
-            graph.add_downstream(node=current_node)
-            to_search.extend(
-                [downstream_id
-                 for downstream_id in current_node.downstream_objects
-                 if downstream_id not in self.lineage_node_ix_by_id or downstream_id == starting_node_id]
-            )

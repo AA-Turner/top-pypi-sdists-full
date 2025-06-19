@@ -53,7 +53,6 @@ from streamlit.web.server.routes import (
     StaticFileHandler,
 )
 from streamlit.web.server.server_util import (
-    DEVELOPMENT_PORT,
     get_cookie_secret,
     is_xsrf_enabled,
     make_url_path_regex,
@@ -112,7 +111,7 @@ AUTH_LOGIN_ENDPOINT: Final = "/auth/login"
 AUTH_LOGOUT_ENDPOINT: Final = "/auth/logout"
 
 
-class RetriesExceeded(Exception):
+class RetriesExceededError(Exception):
     pass
 
 
@@ -175,7 +174,7 @@ def _get_ssl_options(cert_file: str | None, key_file: str | None) -> SSLContext 
         try:
             ssl_ctx.load_cert_chain(cert_file, key_file)
         except ssl.SSLError:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "Failed to load SSL certificate. Make sure "
                 "cert file '%s' and key file '%s' are correct.",
                 cert_file,
@@ -203,14 +202,6 @@ def start_listening_tcp_socket(http_server: HTTPServer) -> None:
         address = config.get_option("server.address")
         port = config.get_option("server.port")
 
-        if int(port) == DEVELOPMENT_PORT:
-            _LOGGER.warning(
-                "Port %s is reserved for internal development. "
-                "It is strongly recommended to select an alternative port "
-                "for `server.port`.",
-                DEVELOPMENT_PORT,
-            )
-
         try:
             http_server.listen(port, address)
             break  # It worked! So let's break out of the loop.
@@ -218,16 +209,13 @@ def start_listening_tcp_socket(http_server: HTTPServer) -> None:
         except OSError as e:
             if e.errno == errno.EADDRINUSE:
                 if server_port_is_manually_set():
-                    _LOGGER.error("Port %s is already in use", port)
+                    _LOGGER.error("Port %s is already in use", port)  # noqa: TRY400
                     sys.exit(1)
                 else:
                     _LOGGER.debug(
                         "Port %s already in use, trying to use the next one.", port
                     )
                     port += 1
-                    # Don't use the development port here:
-                    if port == DEVELOPMENT_PORT:
-                        port += 1
 
                     config.set_option(
                         "server.port", port, ConfigOption.STREAMLIT_DEFINITION
@@ -237,14 +225,14 @@ def start_listening_tcp_socket(http_server: HTTPServer) -> None:
                 raise
 
     if call_count >= MAX_PORT_SEARCH_RETRIES:
-        raise RetriesExceeded(
+        raise RetriesExceededError(
             f"Cannot start Streamlit server. Port {port} is already in use, and "
             f"Streamlit was unable to find a free port after {MAX_PORT_SEARCH_RETRIES} attempts.",
         )
 
 
 class Server:
-    def __init__(self, main_script_path: str, is_hello: bool):
+    def __init__(self, main_script_path: str, is_hello: bool) -> None:
         """Create the server. It won't be started yet."""
         _set_tornado_log_levels()
         self.initialize_mimetypes()
@@ -428,7 +416,7 @@ class Server:
                         make_url_path_regex(base, "(.*)"),
                         StaticFileHandler,
                         {
-                            "path": "%s/" % static_path,
+                            "path": f"{static_path}/",
                             "default_filename": "index.html",
                             "reserved_paths": [
                                 # These paths are required for identifying

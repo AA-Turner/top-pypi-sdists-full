@@ -1,13 +1,15 @@
 # Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
-import os
 import subprocess
 import sys
-from typing import List, Optional, Union
+from pathlib import Path
+from typing import List, Optional
 
 from glide.config import NodeAddress
 
-SCRIPT_FILE = os.path.abspath(f"{__file__}/../../../../../utils/cluster_manager.py")
+SCRIPT_FILE = (
+    Path(__file__).parent.parent.parent.parent / "utils" / "cluster_manager.py"
+)
 
 
 class ValkeyCluster:
@@ -24,7 +26,7 @@ class ValkeyCluster:
             self.init_from_existing_cluster(addresses)
         else:
             self.tls = tls
-            args_list = [sys.executable, SCRIPT_FILE]
+            args_list = [sys.executable, str(SCRIPT_FILE)]
             if tls:
                 args_list.append("--tls")
             args_list.append("start")
@@ -47,7 +49,9 @@ class ValkeyCluster:
             )
             output, err = p.communicate(timeout=80)
             if p.returncode != 0:
-                raise Exception(f"Failed to create a cluster. Executed: {p}:\n{err}")
+                raise Exception(
+                    f"Failed to create a cluster. Executed: {p}" + ":" + f"\n{err}"
+                )
             self.parse_cluster_script_start_output(output)
 
     def parse_cluster_script_start_output(self, output: str):
@@ -90,5 +94,7 @@ class ValkeyCluster:
             output, err = p.communicate(timeout=20)
             if p.returncode != 0:
                 raise Exception(
-                    f"Failed to stop a cluster {self.cluster_folder}. Executed: {p}:\n{err}"
+                    f"Failed to stop a cluster {self.cluster_folder}. Executed: {p}"
+                    + ":"
+                    + f"\n{err}"
                 )

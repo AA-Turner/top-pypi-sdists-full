@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
+from typing import Sequence
 
 import pytest
 
 import narwhals as nw
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 
 # https://github.com/narwhals-dev/narwhals/issues/1486

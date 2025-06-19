@@ -47,7 +47,7 @@ Current order of precedence:
 
 # Valid options are defined in the spec:
 # https://github.com/Contrast-Security-Inc/assess-specifications/blob/master/vulnerability/capture-stacktrace.md
-STACKTRACE_OPTIONS = ["ALL", "SOME", "NONE"]
+STACKTRACE_OPTIONS = ["ALL", "SOME", "NONE", "SINK"]
 
 
 @lru_cache(maxsize=1)

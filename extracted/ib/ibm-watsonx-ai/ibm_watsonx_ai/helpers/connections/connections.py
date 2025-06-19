@@ -384,7 +384,6 @@ class DataConnection(BaseDataConnection):
 
         try:
             with self._prepare_flight_connection_for_discovery() as flight_conn:
-
                 if isinstance(self.location, NFSLocation):
                     paths = [
                         r["path"]
@@ -392,11 +391,16 @@ class DataConnection(BaseDataConnection):
                         if r["type"] in include_types
                     ]
                 else:
+                    bucket = getattr(self.location, "bucket", None) or getattr(
+                        self.connection, "bucket", None
+                    )
+                    if bucket is None:
+                        raise ValueError(
+                            "Missing `bucket` attribute in DataConnection.location."
+                        )
                     paths = [
-                        r["path"].replace(f"/{self.location.bucket}/", "", 1)
-                        for r in flight_conn.discovery(
-                            f"/{self.location.bucket}/{prefix}"
-                        )["assets"]
+                        r["path"].replace(f"/{bucket}/", "", 1)
+                        for r in flight_conn.discovery(f"/{bucket}/{prefix}")["assets"]
                         if r["type"] in include_types
                     ]
 
@@ -1167,15 +1171,53 @@ class DataConnection(BaseDataConnection):
                 self._api_client._iam_id = _iam_id
 
                 try:
-                    if self._check_if_connection_asset_is_s3():
-                        # note: update flight parameters only if `connection_properties` was not set earlier
-                        #       (e.x. by wml/autoi)
-                        if not flight_parameters.get("connection_properties"):
-                            flight_parameters = (
-                                self._update_flight_parameters_with_connection_details(
-                                    flight_parameters, binary
+                    if (
+                        file_format := self._get_file_format(is_binary=binary)
+                    ) is not None:
+                        # prepare interaction_properties for data asset reading
+                        interaction_properties = {}
+
+                        match file_format:
+                            case "csv":
+                                encoding = self.auto_pipeline_params.get(
+                                    "encoding", "utf-8"
                                 )
-                            )
+                                if encoding != "utf-8":
+                                    interaction_properties["encoding"] = encoding
+
+                                if (
+                                    input_file_separator := self.auto_pipeline_params.get(
+                                        "csv_separator", ","
+                                    )
+                                    != ","
+                                ):
+                                    file_format = "delimited"
+                                    interaction_properties["field_delimiter"] = (
+                                        input_file_separator
+                                    )
+
+                                    if quote_character := self.auto_pipeline_params.get(
+                                        "quote_character"
+                                    ):
+                                        interaction_properties["quote_character"] = str(
+                                            quote_character
+                                        )
+
+                            case "excel":
+                                if self.auto_pipeline_params.get("excel_sheet"):
+                                    interaction_properties["sheet_name"] = str(
+                                        self.auto_pipeline_params.get("excel_sheet")
+                                    )
+
+                        interaction_properties["file_format"] = file_format
+
+                        if not isinstance(
+                            flight_parameters.get("interaction_properties"), dict
+                        ):
+                            flight_parameters["interaction_properties"] = {}
+                        flight_parameters["interaction_properties"].update(
+                            interaction_properties
+                        )
 
                     data = self._download_data_from_flight_service(
                         data_location=self,
@@ -1372,6 +1414,9 @@ class DataConnection(BaseDataConnection):
                     "secret_access_key",
                     "access_key_id",
                     "endpoint_url",
+                    "access_key",
+                    "secret_key",
+                    "session_token",
                     "is_s3",
                 ]
                 if hasattr(self.connection, attr)
@@ -1641,6 +1686,9 @@ class DataConnection(BaseDataConnection):
                         "secret_access_key",
                         "access_key_id",
                         "endpoint_url",
+                        "access_key",
+                        "secret_key",
+                        "session_token",
                         "is_s3",
                     ]
                     if hasattr(self.connection, attr)
@@ -1764,20 +1812,29 @@ class DataConnection(BaseDataConnection):
         with all_logging_disabled():
             self._check_if_connection_asset_is_s3()
 
-        connection_properties = {
-            "bucket": self.location.bucket,
-            "url": self.connection.endpoint_url,
-        }
+            if isinstance(self.connection, S3Connection):
+                connection_properties = {
+                    "bucket": self.location.bucket,
+                    "url": self.connection.endpoint_url,
+                }
 
-        if all(hasattr(self.connection, key) for key in ["auth_endpoint", "api_key"]):
-            connection_properties["iam_url"] = self.connection.auth_endpoint
-            connection_properties["api_key"] = self.connection.api_key
-            connection_properties["resource_instance_id"] = (
-                self.connection.resource_instance_id
-            )
-        else:
-            connection_properties["secret_key"] = self.connection.secret_access_key
-            connection_properties["access_key"] = self.connection.access_key_id
+                if all(
+                    hasattr(self.connection, key)
+                    for key in ["auth_endpoint", "api_key"]
+                ):
+                    connection_properties["iam_url"] = self.connection.auth_endpoint
+                    connection_properties["api_key"] = self.connection.api_key
+                    connection_properties["resource_instance_id"] = (
+                        self.connection.resource_instance_id
+                    )
+                else:
+                    connection_properties["secret_key"] = (
+                        self.connection.secret_access_key
+                    )
+                    connection_properties["access_key"] = self.connection.access_key_id
+
+            else:  # AmazonS3 for containers
+                connection_properties = self.connection.to_dict()
 
         flight_parameters["connection_properties"] = connection_properties
         flight_parameters["datasource_type"] = {
@@ -1811,6 +1868,8 @@ class DataConnection(BaseDataConnection):
                 return "csv"
             case ".xlsx" | ".xls":
                 return "excel"
+            case ".parquet" | ".prq":
+                return "parquet"
             case _:
                 return None
 
@@ -2618,3 +2677,45 @@ class DatabaseLocation(BaseLocation):
     def to_dict(self) -> dict:
         """Get a json dictionary representing DatabaseLocation."""
         return {key: value for key, value in vars(self).items() if value}
+
+
+class _AmazonS3Connection(BaseConnection):
+    """Connection class to a AmazonS3 data storage in S3 format.
+     It's dedicated to work with temporary credentials retrieved from project or space details.
+
+    :param access_key: access key ID (username) for authorizing access to AWS
+    :type access_key: str
+    :param bucket: name of the bucket that contains the files to access
+    :type bucket: str
+    :param region: Amazon Web Services (AWS) region. Region name should match the region that Endpoint URL points to.
+    :type region: str
+    :param secret_key: The password associated with the access key ID for authorizing access to AWS
+    :type secret_key: str
+    :param session_token: session token associated with access_key and secret_key
+    :type session_token: str
+    :param shared_credentials: True if the credentials are for shared S3 bucket, False if the credentials are for dedicated S3 bucket. Default is False.
+    :type shared_credentials: bool
+    """
+
+    def __init__(
+        self,
+        *,
+        access_key: str,
+        bucket: str,
+        region: str,
+        secret_key: str,
+        session_token: str,
+        shared_credentials: bool = False,
+    ) -> None:
+        self.access_key = access_key
+        self.bucket = bucket
+        self.region = region
+        self.secret_key = secret_key
+        self.session_token = session_token
+        self._shared_credentials = shared_credentials
+
+    def to_dict(self) -> dict:
+        """Get a json dictionary representing _AmazonS3Connection."""
+        return {
+            key: value for key, value in vars(self).items() if not key.startswith("_")
+        }

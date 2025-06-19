@@ -55,6 +55,7 @@ _db_data_lazy_imports = {
     "QueryResponse": ("pinecone.db_data.models", "QueryResponse"),
     "UpsertResponse": ("pinecone.db_data.models", "UpsertResponse"),
     "UpdateRequest": ("pinecone.db_data.models", "UpdateRequest"),
+    "NamespaceDescription": ("pinecone.core.openapi.db_data.models", "NamespaceDescription"),
     "ImportErrorMode": ("pinecone.db_data.resources.sync.bulk_import", "ImportErrorMode"),
     "VectorDictionaryMissingKeysError": (
         "pinecone.db_data.errors",
@@ -97,6 +98,11 @@ _db_control_lazy_imports = {
     "RestoreJobList": ("pinecone.db_control.models", "RestoreJobList"),
     "BackupModel": ("pinecone.db_control.models", "BackupModel"),
     "BackupList": ("pinecone.db_control.models", "BackupList"),
+    "ConfigureIndexEmbed": ("pinecone.db_control.types", "ConfigureIndexEmbed"),
+    "CreateIndexForModelEmbedTypedDict": (
+        "pinecone.db_control.types",
+        "CreateIndexForModelEmbedTypedDict",
+    ),
 }
 
 _config_lazy_imports = {

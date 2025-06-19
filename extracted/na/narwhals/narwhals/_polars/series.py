@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+    cast,
+    overload,
+)
 
 import polars as pl
 
@@ -15,7 +24,6 @@ from narwhals._utils import Implementation, requires, validate_backend_version
 from narwhals.dependencies import is_numpy_array_1d
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping, Sequence
     from types import ModuleType
     from typing import TypeVar
 
@@ -84,7 +92,6 @@ INHERITED_METHODS = frozenset(
         "is_sorted",
         "is_unique",
         "item",
-        "kurtosis",
         "len",
         "log",
         "max",
@@ -99,7 +106,6 @@ INHERITED_METHODS = frozenset(
         "sample",
         "shift",
         "skew",
-        "sqrt",
         "std",
         "sum",
         "tail",
@@ -636,7 +642,6 @@ class PolarsSeries:
     is_sorted: Method[bool]
     is_unique: Method[Self]
     item: Method[Any]
-    kurtosis: Method[float | None]
     len: Method[int]
     log: Method[Self]
     max: Method[Any]
@@ -651,7 +656,6 @@ class PolarsSeries:
     sample: Method[Self]
     shift: Method[Self]
     skew: Method[float | None]
-    sqrt: Method[Self]
     std: Method[float]
     sum: Method[float]
     tail: Method[Self]

@@ -137,6 +137,63 @@ class PagerDutyIntegration(_message.Message):
         environment_id: _Optional[str] = ...,
     ) -> None: ...
 
+class IncidentIoIntegration(_message.Message):
+    __slots__ = ("id", "token", "environment_id", "name", "source_id", "source_token", "severity_id", "severity_token")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    SEVERITY_ID_FIELD_NUMBER: _ClassVar[int]
+    SEVERITY_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    token: str
+    environment_id: str
+    name: str
+    source_id: str
+    source_token: str
+    severity_id: str
+    severity_token: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        token: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        source_id: _Optional[str] = ...,
+        source_token: _Optional[str] = ...,
+        severity_id: _Optional[str] = ...,
+        severity_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class IncidentIoEventV2(_message.Message):
+    __slots__ = ("route_id", "route_token", "dedup_key", "source_url", "description", "status", "title")
+    ROUTE_ID_FIELD_NUMBER: _ClassVar[int]
+    ROUTE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    DEDUP_KEY_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_URL_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    route_id: str
+    route_token: str
+    dedup_key: str
+    source_url: str
+    description: str
+    status: str
+    title: str
+    def __init__(
+        self,
+        route_id: _Optional[str] = ...,
+        route_token: _Optional[str] = ...,
+        dedup_key: _Optional[str] = ...,
+        source_url: _Optional[str] = ...,
+        description: _Optional[str] = ...,
+        status: _Optional[str] = ...,
+        title: _Optional[str] = ...,
+    ) -> None: ...
+
 class TestPagerDutyIntegrationRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -228,3 +285,79 @@ class GetAllPagerDutyIntegrationsResponse(_message.Message):
     INTEGRATIONS_FIELD_NUMBER: _ClassVar[int]
     integrations: _containers.RepeatedCompositeFieldContainer[PagerDutyIntegration]
     def __init__(self, integrations: _Optional[_Iterable[_Union[PagerDutyIntegration, _Mapping]]] = ...) -> None: ...
+
+class TestIncidentIoIntegrationRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class TestIncidentIoIntegrationResponse(_message.Message):
+    __slots__ = ("status", "message")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    message: str
+    def __init__(self, status: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
+
+class GetIncidentIoIntegrationRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class GetIncidentIoIntegrationResponse(_message.Message):
+    __slots__ = ("integration",)
+    INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    integration: IncidentIoIntegration
+    def __init__(self, integration: _Optional[_Union[IncidentIoIntegration, _Mapping]] = ...) -> None: ...
+
+class AddIncidentIoIntegrationRequest(_message.Message):
+    __slots__ = ("integration_name", "integration_token")
+    INTEGRATION_NAME_FIELD_NUMBER: _ClassVar[int]
+    INTEGRATION_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    integration_name: str
+    integration_token: str
+    def __init__(self, integration_name: _Optional[str] = ..., integration_token: _Optional[str] = ...) -> None: ...
+
+class AddIncidentIoIntegrationResponse(_message.Message):
+    __slots__ = ("integration",)
+    INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    integration: IncidentIoIntegration
+    def __init__(self, integration: _Optional[_Union[IncidentIoIntegration, _Mapping]] = ...) -> None: ...
+
+class DeleteIncidentIoIntegrationRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteIncidentIoIntegrationResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class UpdateIncidentIoIntegrationRequest(_message.Message):
+    __slots__ = ("id", "name", "token")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    token: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., token: _Optional[str] = ...) -> None: ...
+
+class UpdateIncidentIoIntegrationResponse(_message.Message):
+    __slots__ = ("integration",)
+    INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    integration: IncidentIoIntegration
+    def __init__(self, integration: _Optional[_Union[IncidentIoIntegration, _Mapping]] = ...) -> None: ...
+
+class GetAllIncidentIoIntegrationsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetAllIncidentIoIntegrationsResponse(_message.Message):
+    __slots__ = ("integrations",)
+    INTEGRATIONS_FIELD_NUMBER: _ClassVar[int]
+    integrations: _containers.RepeatedCompositeFieldContainer[IncidentIoIntegration]
+    def __init__(self, integrations: _Optional[_Iterable[_Union[IncidentIoIntegration, _Mapping]]] = ...) -> None: ...

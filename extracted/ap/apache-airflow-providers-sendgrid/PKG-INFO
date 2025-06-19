@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-sendgrid
-Version: 4.1.0
+Version: 4.1.1
 Summary: Provider package apache-airflow-providers-sendgrid for Apache Airflow
 Keywords: airflow-provider,sendgrid,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -21,12 +21,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
 Requires-Dist: apache-airflow>=2.10.0
-Requires-Dist: sendgrid>=6.0.0
-Requires-Dist: ecdsa>=0.19.1,<1
-Requires-Dist: werkzeug>=2.2,<4
+Requires-Dist: sendgrid>=6.12.3; python_version < '3.12'
+Requires-Dist: sendgrid>=6.0.0,<6.12.3; python_version >= '3.12'
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -57,7 +56,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-sendgrid``
 
-Release: ``4.1.0``
+Release: ``4.1.1``
 
 
 `Sendgrid <https://sendgrid.com/>`__
@@ -70,7 +69,7 @@ This is a provider package for ``sendgrid`` provider. All classes for this provi
 are in ``airflow.providers.sendgrid`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.1/>`_.
 
 Installation
 ------------
@@ -84,15 +83,14 @@ The package supports the following python versions: 3.9,3.10,3.11,3.12
 Requirements
 ------------
 
-==================  ==================
+==================  =============================================
 PIP package         Version required
-==================  ==================
+==================  =============================================
 ``apache-airflow``  ``>=2.10.0``
-``sendgrid``        ``>=6.0.0``
-``ecdsa``           ``>=0.19.1,<1``
-``werkzeug``        ``>=2.2,<4``
-==================  ==================
+``sendgrid``        ``>=6.12.3; python_version < "3.12"``
+``sendgrid``        ``>=6.0.0,<6.12.3; python_version >= "3.12"``
+==================  =============================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-sendgrid/4.1.1/changelog.html>`_.
 

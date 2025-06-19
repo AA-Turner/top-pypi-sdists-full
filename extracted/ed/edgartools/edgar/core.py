@@ -14,7 +14,7 @@ from functools import lru_cache, partial
 from functools import wraps
 from pathlib import Path
 from typing import Union, Optional, Tuple, List, TypeVar, Callable, Iterable
-
+from packaging import version
 import httpx
 import pandas as pd
 import pyarrow as pa
@@ -29,8 +29,9 @@ from edgar.datatools import (
 
 log = logging.getLogger(__name__)
 
-# Pandas version
-pandas_version = tuple(map(int, pd.__version__.split('.')))
+pandas_version_raw = version.parse(pd.__version__)
+major, minor, patch = pandas_version_raw.major, pandas_version_raw.minor, pandas_version_raw.micro
+pandas_version = (major, minor, patch)
 
 # sys version
 python_version = tuple(map(int, sys.version.split()[0].split('.')))
@@ -47,7 +48,6 @@ __all__ = [
     'IntString',
     'sec_dot_gov',
     'get_identity',
-    'pandas_version',
     'python_version',
     'set_identity',
     'strtobool',
@@ -71,6 +71,7 @@ __all__ = [
     'YearAndQuarters',
     'quarters_in_year',
     'parallel_thread_map',
+    'pandas_version'
 ]
 
 IntString = Union[str, int]

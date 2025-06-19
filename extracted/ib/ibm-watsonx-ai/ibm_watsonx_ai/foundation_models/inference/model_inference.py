@@ -642,13 +642,62 @@ class ModelInference(BaseModelInference):
         :return: scoring result the contains the generated content
         :rtype: dict
 
-        **Example:**
+        **Examples:**
 
-        .. code-block:: python
+        .. tab-set::
 
-            q = "What is 1 + 1?"
-            generated_response = model_inference.generate(prompt=q)
-            print(generated_response['results'][0]['generated_text'])
+            .. tab-item:: Generate
+
+                .. code-block:: python
+
+                    q = "What is 1 + 1?"
+
+                    generated_response = model_inference.generate(prompt=q)
+
+                    print(generated_response['results'][0]['generated_text'])
+
+            .. tab-item:: Generate with Params
+
+                .. code-block:: python
+
+                    from ibm_watsonx_ai.foundation_models.schema import (
+                        TextGenParameters,
+                        TextGenDecodingMethod
+                    )
+
+                    q = "What is 1 + 1?"
+
+                    generate_params = TextGenParameters(
+                        decoding_method=TextGenDecodingMethod.SAMPLE,
+                        temperature=0.8,
+                        top_p=0.3
+                    )
+
+                    generated_response = model_inference.generate(
+                        prompt=q,
+                        params=generate_params,
+                    )
+
+                    print(generated_response['results'][0]['generated_text'])
+
+            .. tab-item:: Generate with Granite Guardian
+
+                .. code-block:: python
+
+                    from ibm_watsonx_ai.metanames import GenTextModerationsMetaNames
+
+                    q = "<YOUR-QUESTION-TO-DETECT>"
+
+                    guardrails_granite_guardian_params = {
+                        GenTextModerationsMetaNames.INPUT: True,
+                        GenTextModerationsMetaNames.THRESHOLD: 0.01
+                    }
+
+                    generated_response = model_inference.generate(
+                        prompt=q,
+                        guardrails=True,
+                        guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+                    )
 
         """
         self._validate_type(params, "params", [dict, TextGenParameters], False, True)
@@ -891,14 +940,43 @@ class ModelInference(BaseModelInference):
 
                 warnings.filterwarnings("always", category=HAPDetectionWarning)
 
+        **Examples:**
 
-        **Example:**
+        .. tab-set::
 
-        .. code-block:: python
+            .. tab-item:: Generate Text
 
-            q = "What is 1 + 1?"
-            generated_text = model_inference.generate_text(prompt=q)
-            print(generated_text)
+                .. code-block:: python
+
+                    q = "What is 1 + 1?"
+
+                    generated_text = model_inference.generate_text(prompt=q)
+
+                    print(generated_text)
+
+            .. tab-item:: Generate Text with Params
+
+                .. code-block:: python
+
+                    from ibm_watsonx_ai.foundation_models.schema import (
+                        TextGenParameters,
+                        TextGenDecodingMethod
+                    )
+
+                    q = "What is 1 + 1?"
+
+                    generate_params = TextGenParameters(
+                        decoding_method=TextGenDecodingMethod.SAMPLE,
+                        temperature=0.8,
+                        top_p=0.3
+                    )
+
+                    generated_text = model_inference.generate_text(
+                        prompt=q,
+                        params=generate_params
+                    )
+
+                    print(generated_text)
 
         """
         metadata = ModelInference.generate(
@@ -974,15 +1052,44 @@ class ModelInference(BaseModelInference):
 
                 warnings.filterwarnings("always", category=HAPDetectionWarning)
 
-        **Example:**
+        **Examples:**
 
-        .. code-block:: python
+        .. tab-set::
 
-            q = "Write an epigram about the sun"
-            generated_response = model_inference.generate_text_stream(prompt=q)
+            .. tab-item:: Generate Text Stream
 
-            for chunk in generated_response:
-                print(chunk, end='', flush=True)
+                .. code-block:: python
+
+                    q = "Write an epigram about the sun"
+                    generated_response = model_inference.generate_text_stream(prompt=q)
+
+                    for chunk in generated_response:
+                        print(chunk, end='', flush=True)
+
+            .. tab-item:: Generate Text Stream with Params
+
+                .. code-block:: python
+
+                    from ibm_watsonx_ai.foundation_models.schema import (
+                        TextGenParameters,
+                        TextGenDecodingMethod
+                    )
+
+                    q = "Write an epigram about the sun"
+
+                    generate_params = TextGenParameters(
+                        decoding_method=TextGenDecodingMethod.SAMPLE,
+                        temperature=0.8,
+                        top_p=0.3
+                    )
+
+                    generated_response = model_inference.generate_text_stream(
+                        prompt=q,
+                        params=generate_params,
+                    )
+
+                    for chunk in generated_response:
+                        print(chunk, end='', flush=True)
 
         """
         self._validate_type(params, "params", [dict, TextGenParameters], False, True)

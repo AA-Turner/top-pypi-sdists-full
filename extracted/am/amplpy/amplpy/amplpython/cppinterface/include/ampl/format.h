@@ -5,6 +5,7 @@
 #include "ampl/cstringref.h"
 #include <cstdarg>
 #include <cassert>
+#include <iterator>
 
 namespace fmt {
 

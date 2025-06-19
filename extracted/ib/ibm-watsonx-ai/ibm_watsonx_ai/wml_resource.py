@@ -64,8 +64,6 @@ class WMLResource:
         if client.credentials is None:
             raise NoWMLCredentialsProvided
         WMLResource._validate_type(client.credentials, "credentials", Credentials, True)
-        if not client.ICP_PLATFORM_SPACES:
-            WMLResource._validate_type(client.token, "token", str, True)
         self._client = client
 
     @property
@@ -416,6 +414,7 @@ class WMLResource:
         _async: Literal[False] = ...,
         _all: bool = False,
         _filter_func: Callable | None = None,
+        _silent_response_logging: bool = False,
     ) -> dict: ...
 
     @overload
@@ -432,6 +431,7 @@ class WMLResource:
         _async: Literal[True] = ...,
         _all: bool = False,
         _filter_func: Callable | None = None,
+        _silent_response_logging: bool = False,
     ) -> Generator: ...
 
     @overload
@@ -448,6 +448,7 @@ class WMLResource:
         _async: bool = False,
         _all: bool = False,
         _filter_func: Callable | None = None,
+        _silent_response_logging: bool = False,
     ) -> ArtifactDetailsType: ...
 
     def _get_with_or_without_limit(
@@ -463,6 +464,7 @@ class WMLResource:
         _async: bool = False,
         _all: bool = False,
         _filter_func: Callable | None = None,
+        _silent_response_logging: bool = False,
     ) -> ArtifactDetailsType:
         params = self._client._params(skip_space_project_chk)
 
@@ -528,7 +530,15 @@ class WMLResource:
                     params=params,
                 )
 
-                result = cast(dict, self._handle_response(200, op_name, response_get))
+                result = cast(
+                    dict,
+                    self._handle_response(
+                        200,
+                        op_name,
+                        response_get,
+                        _silent_response_logging=_silent_response_logging,
+                    ),
+                )
                 if "resources" in result:
                     resources.extend(result["resources"])
 

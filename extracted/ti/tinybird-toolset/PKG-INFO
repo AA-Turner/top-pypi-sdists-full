@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tinybird-toolset
-Version: 1.1.1
+Version: 1.2.0
 Summary: UNKNOWN
 Home-page: https://gitlab.com/tinybird/clickhouse-toolset
 Author: Tinybird.co
@@ -8,5 +8,5 @@ Author-email: support@tinybird.co
 License: UNKNOWN
 Description: UNKNOWN
 Platform: UNKNOWN
-Requires-Python: >=3.8, <3.14
+Requires-Python: >=3.9, <3.14
 Provides-Extra: test

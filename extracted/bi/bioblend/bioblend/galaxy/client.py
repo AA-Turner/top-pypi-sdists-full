@@ -8,7 +8,9 @@ should not use it directly.
 import time
 from typing import (
     Any,
+    Literal,
     Optional,
+    overload,
     TYPE_CHECKING,
 )
 
@@ -80,6 +82,20 @@ class Client:
                 c_url = c_url + "/contents"
         return c_url
 
+    @overload
+    def _get(
+        self,
+        id: Optional[str] = None,
+        deleted: bool = False,
+        contents: bool = False,
+        url: Optional[str] = None,
+        params: Optional[dict] = None,
+        *,
+        json: Literal[False],
+        stream: bool = False,
+    ) -> requests.Response: ...
+
+    @overload
     def _get(
         self,
         id: Optional[str] = None,
@@ -88,6 +104,18 @@ class Client:
         url: Optional[str] = None,
         params: Optional[dict] = None,
         json: bool = True,
+        stream: bool = False,
+    ) -> Any: ...
+
+    def _get(
+        self,
+        id: Optional[str] = None,
+        deleted: bool = False,
+        contents: bool = False,
+        url: Optional[str] = None,
+        params: Optional[dict] = None,
+        json: bool = True,
+        stream: bool = False,
     ) -> Any:
         """
         Do a GET request, composing the URL from ``id``, ``deleted`` and
@@ -111,7 +139,7 @@ class Client:
         while attempts_left > 0:
             attempts_left -= 1
             try:
-                r = self.gi.make_get_request(url, params=params)
+                r = self.gi.make_get_request(url, params=params, stream=stream)
             except requests.exceptions.ConnectionError as e:
                 msg = str(e)
                 r = requests.Response()  # empty Response object used when raising ConnectionError

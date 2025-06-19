@@ -88,6 +88,16 @@ class DriverData(TypedDict, total=False):
     safe_files: list[str]
 
 
+class ExecutorData(TypedDict, total=False):
+    """Molecule playbook executor configuration.
+
+    Attributes:
+        backend: The backend to use for executing playbooks.
+    """
+
+    backend: str
+
+
 class InventoryData(TypedDict):
     """Inventory data for a molecule run.
 
@@ -216,6 +226,7 @@ class ConfigData(TypedDict):
     Attributes:
         dependency: Dependency config.
         driver: Driver config.
+        executor: Executor config.
         platforms: List of platforms.
         prerun: Should prerun tasks be run.
         role_name_check: ???
@@ -226,6 +237,7 @@ class ConfigData(TypedDict):
 
     dependency: DependencyData
     driver: DriverData
+    executor: ExecutorData
     platforms: list[PlatformData]
     prerun: bool
     role_name_check: int
@@ -265,6 +277,7 @@ class CommandArgs(TypedDict, total=False):
         platform_name: Name of the platform to target.
         report: Whether to show an after-run summary report.
         scenario_name: Name of the scenario to target.
+        shared_inventory: Whether inventory should be shared between scenarios.
         subcommand: Name of subcommand being run.
     """
 
@@ -277,6 +290,7 @@ class CommandArgs(TypedDict, total=False):
     platform_name: str
     report: bool
     scenario_name: str
+    shared_inventory: bool
     subcommand: str
 
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
+from contextlib import nullcontext
+from typing import Any, Mapping
 
 import pandas as pd
 import pyarrow as pa
@@ -21,9 +22,6 @@ from tests.utils import (
     ConstructorEager,
     assert_equal_data,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 data: Mapping[str, Any] = {"a": [1, 1, 3], "b": [4, 4, 6], "c": [7.0, 8.0, 9.0]}
 
@@ -230,16 +228,22 @@ def test_key_with_nulls(constructor: Constructor, request: pytest.FixtureRequest
     if "modin" in str(constructor):
         request.applymarker(pytest.mark.xfail(reason="Modin flaky here", strict=False))
 
-    data = {"b": [4, 5, None], "a": [1, 2, 3]}
-    result = (
-        nw.from_native(constructor(data))
-        .group_by("b")
-        .agg(nw.len(), nw.col("a").min())
-        .sort("a")
-        .with_columns(nw.col("b").cast(nw.Float64))
+    context = (
+        pytest.raises(NotImplementedError, match="null values")
+        if ("pandas_constructor" in str(constructor) and PANDAS_VERSION < (1, 1, 0))
+        else nullcontext()
     )
-    expected = {"b": [4.0, 5, None], "len": [1, 1, 1], "a": [1, 2, 3]}
-    assert_equal_data(result, expected)
+    data = {"b": [4, 5, None], "a": [1, 2, 3]}
+    with context:
+        result = (
+            nw.from_native(constructor(data))
+            .group_by("b")
+            .agg(nw.len(), nw.col("a").min())
+            .sort("a")
+            .with_columns(nw.col("b").cast(nw.Float64))
+        )
+        expected = {"b": [4.0, 5, None], "len": [1, 1, 1], "a": [1, 2, 3]}
+        assert_equal_data(result, expected)
 
 
 def test_key_with_nulls_ignored(constructor: Constructor) -> None:
@@ -256,6 +260,8 @@ def test_key_with_nulls_ignored(constructor: Constructor) -> None:
 
 
 def test_key_with_nulls_iter(constructor_eager: ConstructorEager) -> None:
+    if PANDAS_VERSION < (1, 0) and "pandas_constructor" in str(constructor_eager):
+        pytest.skip("Grouping by null values is not supported in pandas < 1.0.0")
     data = {
         "b": [None, "4", "5", None, "7"],
         "a": [None, 1, 2, 3, 4],
@@ -331,6 +337,10 @@ def test_double_same_aggregation(
         # and modin lol https://github.com/modin-project/modin/issues/7414
         # and cudf https://github.com/rapidsai/cudf/issues/17649
         request.applymarker(pytest.mark.xfail)
+    if "pandas" in str(constructor) and PANDAS_VERSION < (1,):
+        pytest.skip(
+            "Pandas does not support multiple aggregations with the same column for now."
+        )
     df = nw.from_native(constructor({"a": [1, 1, 2], "b": [4, 5, 6]}))
     result = df.group_by("a").agg(c=nw.col("b").mean(), d=nw.col("b").mean()).sort("a")
     expected = {"a": [1, 2], "c": [4.5, 6], "d": [4.5, 6]}

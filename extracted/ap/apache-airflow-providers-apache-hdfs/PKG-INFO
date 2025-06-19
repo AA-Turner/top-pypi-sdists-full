@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-apache-hdfs
-Version: 4.9.0
+Version: 4.10.0
 Summary: Provider package apache-airflow-providers-apache-hdfs for Apache Airflow
 Keywords: airflow-provider,apache.hdfs,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -25,8 +25,8 @@ Requires-Dist: hdfs[avro, dataframe, kerberos]>=2.5.4;python_version<"3.12"
 Requires-Dist: hdfs[avro, dataframe, kerberos]>=2.7.3;python_version>="3.12"
 Requires-Dist: pandas>=2.1.2,<2.2
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.9.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.9.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.10.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.10.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -57,7 +57,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-apache-hdfs``
 
-Release: ``4.9.0``
+Release: ``4.10.0``
 
 
 `Hadoop Distributed File System (HDFS) <https://hadoop.apache.org/docs/r1.2.1/hdfs_design.html>`__
@@ -71,7 +71,7 @@ This is a provider package for ``apache.hdfs`` provider. All classes for this pr
 are in ``airflow.providers.apache.hdfs`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.9.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.10.0/>`_.
 
 Installation
 ------------
@@ -95,5 +95,5 @@ PIP package                        Version required
 =================================  =====================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.9.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-hdfs/4.10.0/changelog.html>`_.
 

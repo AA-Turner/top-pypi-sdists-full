@@ -158,6 +158,21 @@ def test_translate_sandboxes_and_lfns(file_input, expected_result, expected_lfn)
                 "InputData": [],
             },
         ),
+        # Test that a input string containing "lfn" is correctly treated.
+        (
+            {
+                "input1": File(path="some/path/test_local_file1.txt"),
+                "input2": f"{LFN_PREFIX}/ctao/path/test.h5",
+            },
+            {
+                "InputDesc": {
+                    "input1": File(path="test_local_file1.txt"),
+                    "input2": "test.h5",
+                },
+                "InputSandbox": ["some/path/test_local_file1.txt"],
+                "InputData": [],
+            },
+        ),
     ],
 )
 def test_extract_and_translate_input_files(input_data, expected_result):

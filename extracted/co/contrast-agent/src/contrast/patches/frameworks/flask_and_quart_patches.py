@@ -3,9 +3,11 @@
 import sys
 import functools
 
+from contrast_fireball import DiscoveredRoute
+
 import contrast
 from contrast.agent import scope
-from contrast.agent.middlewares.route_coverage import common, flask_routes
+from contrast.agent.middlewares.route_coverage import common
 from contrast.agent.policy import patch_manager
 from contrast.utils.patch_utils import (
     build_and_apply_patch,
@@ -76,9 +78,7 @@ def do_first_request_analysis(app_instance, framework: str):
     if not agent_state.is_first_request():
         return
 
-    common.handle_route_discovery(
-        framework, flask_routes.create_routes, (app_instance,)
-    )
+    common.handle_route_discovery(framework, discover_routes, (app_instance,))
     do_config_scanning(app_instance)
 
 
@@ -112,23 +112,54 @@ def do_quart_route_observation(quart_instance, *args, **kwargs):
 @fail_quietly("unable to perform Flask/Quart route observation")
 @scope.contrast_scope()
 def do_route_observation(framework_ctx, app_instance):
-    if not framework_ctx:
-        logger.debug("unable to get framework ctx for route observation")
-        return
-
-    context = contrast.CS__CONTEXT_TRACKER.current()
-    if context is None:
+    if (context := contrast.CS__CONTEXT_TRACKER.current()) is None:
         logger.debug("not in request context - skipping route observation")
         return
 
+    if not framework_ctx:
+        logger.debug("WARNING: unable to get framework_ctx for route observation")
+        return
+
+    if not (rule := framework_ctx.request.url_rule):
+        logger.debug("WARNING: unable to get url_rule for route observation")
+        return
+
     endpoint = getattr(framework_ctx.request.url_rule, "endpoint", None)
-    view_func = app_instance.view_functions.get(endpoint)
-    if view_func is None:
+    if (view_func := app_instance.view_functions.get(endpoint)) is None:
         logger.debug("did not find endpoint for route observation")
         return
 
-    context.view_func_str = common.build_signature(endpoint, view_func)
-    logger.debug("Found view function", view_func=context.view_func_str)
+    context.signature = common.build_signature(endpoint, view_func)
+    context.path_template = rule.rule
+    logger.debug(
+        "Found view function",
+        view_func=context.signature,
+        path_template=context.path_template,
+    )
+
+
+def discover_routes(app) -> set[DiscoveredRoute]:
+    """
+    Returns all the routes registered to a Flask or Quart app
+    """
+    routes = set()
+
+    for rule in list(app.url_map.iter_rules()):
+        view_func = app.view_functions[rule.endpoint]
+        signature = common.build_signature(rule.endpoint, view_func)
+        methods = rule.methods or common.DEFAULT_ROUTE_METHODS
+        path_template = rule.rule
+        for method_type in methods:
+            routes.add(
+                DiscoveredRoute(
+                    verb=method_type,
+                    url=path_template,
+                    signature=signature,
+                    framework=("Quart" if type(app).__name__ == "Quart" else "Flask"),
+                )
+            )
+
+    return routes
 
 
 @fail_quietly("Failed to run config scanning rules")

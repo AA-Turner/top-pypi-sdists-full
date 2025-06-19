@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oxapy
-Version: 0.5.7
+Version: 0.5.8
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
   <b>OxAPY</b> is Python HTTP server library build in Rust - a fast, safe and feature-rich HTTP server implementation.
 </p>
 
-<a href='https://github.com/j03-dev/oxapy/#'><img src='https://img.shields.io/badge/version-0.5.7-%23b7410e'/></a>
+<a href='https://github.com/j03-dev/oxapy/#'><img src='https://img.shields.io/badge/version-0.5.8-%23b7410e'/></a>
 <a href="https://pepy.tech/projects/oxapy"><img src="https://static.pepy.tech/badge/oxapy" alt="PyPI Downloads"></a>
 
 <p>
@@ -30,6 +30,10 @@ Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 <p>
    <strong> Show your support</strong>  <em> by giving a star 🌟 if this project helped you! </em>
+</p>
+
+<p>
+  <a href="https://github.com/j03-dev/bench"><img src="https://bench-n9zz.onrender.com/bench"/></a>
 </p>
 </div>
 

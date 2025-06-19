@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 5.0.0
+Version: 5.1.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog

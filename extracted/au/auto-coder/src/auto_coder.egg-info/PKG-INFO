@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: auto-coder
-Version: 0.1.397
+Version: 0.1.398
 Summary: AutoCoder: AutoCoder
 Author: allwefantasy
 Classifier: Programming Language :: Python :: 3.10
@@ -28,7 +28,7 @@ Requires-Dist: prompt-toolkit
 Requires-Dist: tokenizers
 Requires-Dist: aiofiles
 Requires-Dist: readerwriterlock
-Requires-Dist: byzerllm[saas]>=0.1.189
+Requires-Dist: byzerllm[saas]>=0.1.190
 Requires-Dist: patch
 Requires-Dist: diff_match_patch
 Requires-Dist: GitPython

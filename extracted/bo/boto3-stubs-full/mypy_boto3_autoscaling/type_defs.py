@@ -975,6 +975,7 @@ class DetachTrafficSourcesTypeTypeDef(TypedDict):
 
 class AutoScalingGroupNamesTypeTypeDef(TypedDict):
     AutoScalingGroupNames: NotRequired[Sequence[str]]
+    IncludeInstances: NotRequired[bool]
     NextToken: NotRequired[str]
     MaxRecords: NotRequired[int]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -988,6 +989,7 @@ class DescribeTagsTypeTypeDef(TypedDict):
 
 class AutoScalingGroupNamesTypePaginateTypeDef(TypedDict):
     AutoScalingGroupNames: NotRequired[Sequence[str]]
+    IncludeInstances: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 

@@ -1082,12 +1082,14 @@ def add_redshift(ctx, database, name, **kwargs):
     type=click.UUID,
     callback=convert_uuid_callback,
 )
-@add_common_options(warehouse_create_option())
+@click.option(
+    "--connection-name", help="Friendly name for the consumer connection.", required=False
+)
 @add_common_options(DATABASE_OPTIONS)
 @add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
 @add_common_options(NETWORK_OPTIONS)
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
-def add_redshift_consumer_connection(ctx, database, name, **kwargs):
+def add_redshift_consumer_connection(ctx, database, **kwargs):
     """
     Onboard a redshift consumer connection
     """
@@ -1096,7 +1098,6 @@ def add_redshift_consumer_connection(ctx, database, name, **kwargs):
         command_name="integrations add_redshift_consumer",
     ).onboard_redshift_consumer(
         dbName=database,
-        warehouseName=name,
         **kwargs,
     )
 

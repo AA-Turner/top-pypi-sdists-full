@@ -22,6 +22,14 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class MultipleValidations(_message.Message):
+    __slots__ = ("title", "name")
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    title: str
+    name: str
+    def __init__(self, title: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
 class DoubleFinite(_message.Message):
     __slots__ = ("val",)
     VAL_FIELD_NUMBER: _ClassVar[int]
@@ -123,3 +131,9 @@ class RepeatedEmbedSkip(_message.Message):
     VAL_FIELD_NUMBER: _ClassVar[int]
     val: _containers.RepeatedCompositeFieldContainer[Embed]
     def __init__(self, val: _Optional[_Iterable[_Union[Embed, _Mapping]]] = ...) -> None: ...
+
+class InvalidRESyntax(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    def __init__(self, value: _Optional[str] = ...) -> None: ...

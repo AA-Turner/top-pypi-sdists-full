@@ -1348,9 +1348,6 @@ class FlightConnection:
 
         if self.asset_id:
             command["asset_id"] = self.asset_id
-            ## TODO: Remove commented code below - issue https://github.ibm.com/NGP-TWC/ml-planning/issues/28663
-            # if infer_schema:
-            #     command['interaction_properties'].update({'infer_schema': "true"})
 
         elif self.connection_id:
             command["asset_id"] = self.connection_id

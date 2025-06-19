@@ -158,6 +158,15 @@ class Config:
         return self.command_args.get("parallel", False)
 
     @property
+    def shared_inventory(self) -> bool:
+        """Should molecule share ephemeral data.
+
+        Returns:
+            Whether molecule should share ephemeral data.
+        """
+        return self.command_args.get("shared_inventory", False)
+
+    @property
     def platform_name(self) -> str | None:
         """Configured platform.
 
@@ -314,6 +323,15 @@ class Config:
         driver.name = driver_name
 
         return driver
+
+    @property
+    def executor(self) -> str:
+        """Return playbook executor.
+
+        Returns:
+            The executor backend.
+        """
+        return self.config.get("executor", {}).get("backend", "ansible-playbook")
 
     @property
     def env(self) -> dict[str, str]:
@@ -562,6 +580,9 @@ class Config:
                 "options": {"managed": True},
                 "ssh_connection_options": [],
                 "safe_files": [],
+            },
+            "executor": {
+                "backend": "ansible-playbook",
             },
             "platforms": [],
             "prerun": True,

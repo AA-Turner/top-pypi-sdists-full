@@ -6,18 +6,17 @@ import os
 import socket
 import ssl
 import sys
-import atexit
 
 import logging as stdlib_logging
 import logging.handlers as stdlib_logging_handlers
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, TextIO, Union
 
 import contrast
 from contrast.assess_extensions import cs_str
 from contrast.configuration.agent_config import AgentConfig
 from contrast.configuration.config_option import ConfigOption
 from contrast.utils.decorators import fail_loudly
-from contrast.utils.loggers.structlog import init_structlog, shutdown
+from contrast.utils.loggers.structlog import RotationConfig, init_structlog
 from contrast.utils.configuration_utils import get_hostname
 from contrast.utils.namespace import Namespace
 
@@ -58,8 +57,6 @@ def setup_basic_agent_logger(level="INFO"):
     provided later on in the middleware creation cycle.
     """
     if not module.initialized:
-        # atexit callbacks are called in reverse order so this will be called after Telemetry.stop
-        atexit.register(shutdown)
         init_structlog(level, DEFAULT_AGENT_LOGGER_PATH, DEFAULT_PROGNAME)
         module.initialized = True
 
@@ -75,12 +72,26 @@ def configure_agent_logger(config: AgentConfig) -> None:
     """
     path_config_option, path = _logger_path(config)
     level_config_option = config.get_option(CONFIG_KEY_LOGGER_LEVEL)
-    level = config.get(CONFIG_KEY_LOGGER_LEVEL).upper()
-    progname = config.get(CONFIG_KEY_PROGNAME)
+    level = config[CONFIG_KEY_LOGGER_LEVEL].upper()
+    progname = config[CONFIG_KEY_PROGNAME]
 
     cache_logger = _cache_logger(path_config_option, level_config_option)
-
-    init_structlog(level, path, progname, cache_logger=cache_logger)
+    rotation_config = (
+        None
+        if (backups := config["agent.logger.backups"]) == 0
+        else RotationConfig(
+            backup_count=backups,
+            # roll_size is in MB
+            max_bytes=config["agent.logger.roll_size"] * 1024 * 1024,
+        )
+    )
+    init_structlog(
+        level,
+        path,
+        progname,
+        cache_logger=cache_logger,
+        rotation_config=rotation_config,
+    )
 
     cs_str.initialize_logger(structlog.getLogger(LOGGER_NAME))
     # Avoid circular import
@@ -451,14 +462,17 @@ def close_syslog_logger():
     return True
 
 
-def _logger_path(config: AgentConfig) -> tuple[Optional[ConfigOption], Any]:
-    path = None
+def _logger_path(
+    config: AgentConfig,
+) -> tuple[Optional[ConfigOption], Union[TextIO, str]]:
     if (option := config.get_option(CONFIG_KEY_STDOUT)) and option.value():
         path = sys.stdout
     elif (option := config.get_option(CONFIG_KEY_STDERR)) and option.value():
         path = sys.stderr
     elif (option := config.get_option(CONFIG_KEY_LOGGER_PATH)) and option.value():
         path = option.value()
+    else:
+        path = DEFAULT_AGENT_LOGGER_PATH
     return option, path
 
 

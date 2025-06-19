@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping, Sequence
 
 import polars as pl
 
@@ -13,8 +13,6 @@ from narwhals._polars.utils import (
 from narwhals._utils import Implementation, requires
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-
     from typing_extensions import Self
 
     from narwhals._expression_parsing import ExprKind, ExprMetadata
@@ -290,7 +288,6 @@ class PolarsExpr:
     is_last_distinct: Method[Self]
     is_null: Method[Self]
     is_unique: Method[Self]
-    kurtosis: Method[Self]
     len: Method[Self]
     log: Method[Self]
     max: Method[Self]
@@ -306,7 +303,6 @@ class PolarsExpr:
     sample: Method[Self]
     shift: Method[Self]
     skew: Method[Self]
-    sqrt: Method[Self]
     std: Method[Self]
     sum: Method[Self]
     sort: Method[Self]

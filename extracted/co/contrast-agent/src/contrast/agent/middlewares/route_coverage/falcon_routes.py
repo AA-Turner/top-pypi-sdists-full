@@ -90,14 +90,14 @@ def _build_signature(view_func, endpoint_cls):
 
 
 @fail_quietly()
-def get_falcon_signature(request_path, falcon_app, request_method):
+def get_falcon_signature_and_template(request_path, falcon_app, request_method):
     if not request_path:
-        return None
+        return None, None
 
     route_info = falcon_app._router.find(request_path)
     if not route_info:
-        return None
+        return None, None
 
-    endpoint_cls, _, _, _ = route_info
+    endpoint_cls, _, _, path_template = route_info
     view_func = _get_view_method(endpoint_cls, request_method)
-    return _build_signature(view_func, endpoint_cls)
+    return _build_signature(view_func, endpoint_cls), path_template

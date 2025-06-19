@@ -50,6 +50,36 @@ class MonitoringServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetPagerDutyIntegrationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetPagerDutyIntegrationResponse.FromString,
         )
+        self.TestIncidentIoIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/TestIncidentIoIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestIncidentIoIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestIncidentIoIntegrationResponse.FromString,
+        )
+        self.AddIncidentIoIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/AddIncidentIoIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.AddIncidentIoIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.AddIncidentIoIntegrationResponse.FromString,
+        )
+        self.DeleteIncidentIoIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/DeleteIncidentIoIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteIncidentIoIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteIncidentIoIntegrationResponse.FromString,
+        )
+        self.UpdateIncidentIoIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/UpdateIncidentIoIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateIncidentIoIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateIncidentIoIntegrationResponse.FromString,
+        )
+        self.GetAllIncidentIoIntegrations = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/GetAllIncidentIoIntegrations",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetAllIncidentIoIntegrationsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetAllIncidentIoIntegrationsResponse.FromString,
+        )
+        self.GetIncidentIoIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/GetIncidentIoIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationResponse.FromString,
+        )
 
 
 class MonitoringServiceServicer(object):
@@ -97,6 +127,42 @@ class MonitoringServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def TestIncidentIoIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def AddIncidentIoIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteIncidentIoIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateIncidentIoIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetAllIncidentIoIntegrations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIncidentIoIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_MonitoringServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -134,6 +200,36 @@ def add_MonitoringServiceServicer_to_server(servicer, server):
             servicer.GetPagerDutyIntegration,
             request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetPagerDutyIntegrationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetPagerDutyIntegrationResponse.SerializeToString,
+        ),
+        "TestIncidentIoIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.TestIncidentIoIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestIncidentIoIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestIncidentIoIntegrationResponse.SerializeToString,
+        ),
+        "AddIncidentIoIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.AddIncidentIoIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.AddIncidentIoIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.AddIncidentIoIntegrationResponse.SerializeToString,
+        ),
+        "DeleteIncidentIoIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteIncidentIoIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteIncidentIoIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteIncidentIoIntegrationResponse.SerializeToString,
+        ),
+        "UpdateIncidentIoIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateIncidentIoIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateIncidentIoIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateIncidentIoIntegrationResponse.SerializeToString,
+        ),
+        "GetAllIncidentIoIntegrations": grpc.unary_unary_rpc_method_handler(
+            servicer.GetAllIncidentIoIntegrations,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetAllIncidentIoIntegrationsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetAllIncidentIoIntegrationsResponse.SerializeToString,
+        ),
+        "GetIncidentIoIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIncidentIoIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.MonitoringService", rpc_method_handlers)
@@ -337,6 +433,180 @@ class MonitoringService(object):
             "/chalk.server.v1.MonitoringService/GetPagerDutyIntegration",
             chalk_dot_server_dot_v1_dot_monitoring__pb2.GetPagerDutyIntegrationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_monitoring__pb2.GetPagerDutyIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def TestIncidentIoIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/TestIncidentIoIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.TestIncidentIoIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.TestIncidentIoIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def AddIncidentIoIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/AddIncidentIoIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.AddIncidentIoIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.AddIncidentIoIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteIncidentIoIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/DeleteIncidentIoIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteIncidentIoIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteIncidentIoIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateIncidentIoIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/UpdateIncidentIoIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateIncidentIoIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateIncidentIoIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetAllIncidentIoIntegrations(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/GetAllIncidentIoIntegrations",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetAllIncidentIoIntegrationsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetAllIncidentIoIntegrationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIncidentIoIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/GetIncidentIoIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetIncidentIoIntegrationResponse.FromString,
             options,
             channel_credentials,
             insecure,

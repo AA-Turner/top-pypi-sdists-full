@@ -12,6 +12,16 @@ from . import TestBase
 class TestAMPL(TestBase.TestBase):
     """Test AMPL."""
 
+    def test_ampldebug(self):
+        ampl = self.ampl
+        ampl.eval("param name symbolic := 'brandão';")
+        print(ampl.get_value("name"))
+        self.assertEqual(ampl.get_value("name"), 'brandão')
+
+    def test_tostring(self):
+        ampl = self.ampl
+        self.assertTrue(str(ampl).startswith("AMPL API version"))
+
     def test_ampl(self):
         from amplpy import Set, Parameter, Variable, Constraint, Objective
 
@@ -196,7 +206,7 @@ class TestAMPL(TestBase.TestBase):
             ampl.eval("X X;")
 
         ampl.set_output_handler(OutputHandlerRaise())
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AssertionError):
             ampl.eval("display 1;")
 
     def test_get_output(self):
@@ -385,8 +395,8 @@ class TestAMPL(TestBase.TestBase):
             ampl.write("bmod", "rc")
 
     def test_solve_arguments(self):
-        if "highs" not in modules.installed():
-            self.skipTest("highs is not available")
+        if "gurobi" not in modules.installed():
+            self.skipTest("gurobi is not available")
         ampl = self.ampl
         ampl.eval(
             """
@@ -398,15 +408,15 @@ class TestAMPL(TestBase.TestBase):
         """
         )
         ampl.param["n"] = 5
-        ampl.option["highs_options"] = ""
-        self.assertEqual(ampl.option["highs_options"], "")
+        ampl.option["gurobi_options"] = ""
+        self.assertEqual(ampl.option["gurobi_options"], "")
 
-        output = ampl.solve(solver="highs", return_output=True)
+        output = ampl.solve(solver="gurobi", return_output=True)
         print("output1:", output)
         self.assertFalse("outlev" in output)
 
         output = ampl.solve(
-            solver="highs", return_output=True, highs_options="outlev=1"
+            solver="gurobi", return_output=True, gurobi_options="outlev=1"
         )
         print("output2:", output)
         self.assertTrue("outlev" in output)
@@ -426,21 +436,24 @@ class TestAMPL(TestBase.TestBase):
         ampl.eval(
             r"""
             var x >= 0;
-            var y >= 0;
-            maximize obj: x+y;
-            s.t. s: x+y <= -5;
+            var y{1..2} >= 0;
+            maximize obj: 0;
+            s.t. s: x+y[1] <= -5;
             """
         )
         ampl.option["presolve"] = 0
         ampl.solve(solver="gurobi", gurobi_options="outlev=1 iis=1")
         self.assertEqual(ampl.solve_result, "infeasible")
         var_iis, con_iis = ampl.get_iis()
-        self.assertEqual(var_iis, {"x": "low", "y": "low"})
+        self.assertEqual(var_iis, {"x": "low", "y[1]": "low"})
+        self.assertEqual(con_iis, {"s": "mem"})
+        var_iis, con_iis = ampl.get_iis(flat=False)
+        self.assertEqual(var_iis, {"x": "low", "y": {1: "low"}})
         self.assertEqual(con_iis, {"s": "mem"})
 
     def test_get_solution(self):
-        if "highs" not in modules.installed():
-            self.skipTest("highs is not available")
+        if "gurobi" not in modules.installed():
+            self.skipTest("gurobi is not available")
         ampl = self.ampl
         ampl.eval(
             r"""
@@ -452,7 +465,7 @@ class TestAMPL(TestBase.TestBase):
         """
         )
         ampl.option["presolve"] = 0
-        ampl.solve(solver="highs", highs_options="outlev=1")
+        ampl.solve(solver="gurobi", gurobi_options="outlev=1")
         self.assertEqual(ampl.solve_result, "solved")
         self.assertEqual(
             ampl.get_solution(flat=False, zeros=True),
@@ -466,6 +479,27 @@ class TestAMPL(TestBase.TestBase):
             ampl.get_solution(flat=True),
             {"y[1]": 5, "y[2]": 5, "y['a']": 5, "y['b']": 5},
         )
+
+    def test_ampl_deallocate(self):
+        ampl = self.ampl
+        ampl.eval(
+            r"""
+            var x >= 42.0;
+            var y{1..2} >= 0;
+            maximize obj: 0;
+            s.t. s: x+y[1] <= -5;
+            """
+        )
+        x = ampl.get_variable("x")
+        y = ampl.get_variable("y")
+        obj = ampl.get_objective("obj")
+        s = ampl.get_constraint("s")
+        del ampl
+        self.assertEqual(x.lb(), 42.0)
+        self.assertEqual(y.num_instances(), 2)
+        self.assertEqual(obj.num_instances(), 1)
+        self.assertEqual(s.num_instances(), 1)
+
 
 
 if __name__ == "__main__":

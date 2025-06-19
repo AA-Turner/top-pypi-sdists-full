@@ -1678,15 +1678,6 @@ class ServiceEngine(BaseEngine):
             training_id=self._current_run_id, _internal=True
         )
 
-        # note: recreation of s3 creds from connection asset
-        results_reference = DataConnection._from_dict(
-            run_params["entity"]["results_reference"]
-        )
-        results_reference._api_client = self._api_client
-        results_reference._check_if_connection_asset_is_s3()
-        run_params["entity"]["results_reference"] = results_reference._to_dict()
-        # --- end note
-
         if "timeseries" in run_params["entity"]["status"]["metrics"][0]["context"]:
             try_import_autoai_ts_libs()
         else:

@@ -104,8 +104,12 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
         self._retrieval_strategies = retrieval_strategies
         self._text_field = text_field
 
+        self._dense_num_dimensions = None
+
         if RetrievalOptions.DENSE in self._retrieval_strategies:
             dense_strategy_config = self._retrieval_strategies[RetrievalOptions.DENSE]
+            self._dense_num_dimensions = dense_strategy_config.get("num_dimensions")
+
             self._dense_model_id = dense_strategy_config.get("model_id")
             if (vector_field := dense_strategy_config.get("vector_field")) is not None:
                 self._dense_vector_field = vector_field
@@ -139,6 +143,10 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
     def before_index_creation(
         self, *, client: elasticsearch.Elasticsearch, text_field: str, vector_field: str
     ) -> None:
+        if RetrievalOptions.DENSE in self._retrieval_strategies:
+            if self._dense_model_id:
+                model_must_be_deployed(client, self._dense_model_id)
+
         if RetrievalOptions.SPARSE in self._retrieval_strategies:
             model_must_be_deployed(client, self._sparse_model_id)
 
@@ -171,7 +179,7 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
                 "properties": {
                     self._dense_vector_field: {
                         "type": "dense_vector",
-                        "dims": num_dimensions,
+                        "dims": num_dimensions or self._dense_num_dimensions,
                         "index": True,
                         "similarity": self._retrieval_strategies["dense"].get(
                             "distance", "cosine"
@@ -243,8 +251,18 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
                 "field": self._dense_vector_field,
                 "k": k,
                 "num_candidates": num_candidates,
-                "query_vector": query_vector,
             }
+
+            if query_vector is not None:
+                knn_query["query_vector"] = query_vector
+            else:
+                # Inference in Elasticsearch.
+                knn_query["query_vector_builder"] = {
+                    "text_embedding": {
+                        "model_id": self._dense_model_id,
+                        "model_text": query,
+                    }
+                }
 
         if RetrievalOptions.SPARSE in self._retrieval_strategies:
             sparse_query = {
@@ -347,7 +365,10 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
             return final_query | standard_query
 
     def needs_inference(self) -> bool:
-        return not self._dense_model_id
+        return (
+            RetrievalOptions.DENSE in self._retrieval_strategies
+            and not self._dense_model_id
+        )
 
     def to_dict(self) -> dict:
         """Serialize ``HybridStrategyElasticsearch`` into a dict that allows reconstruction using the ``from_dict`` class method.

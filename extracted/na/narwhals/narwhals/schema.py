@@ -8,12 +8,11 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from functools import partial
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Iterable, Mapping, cast
 
 from narwhals._utils import Implementation, Version, parse_version
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
     from typing import Any, ClassVar
 
     import polars as pl

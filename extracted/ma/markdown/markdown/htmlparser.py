@@ -41,6 +41,10 @@ htmlparser = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(htmlparser)
 sys.modules['htmlparser'] = htmlparser
 
+# This is a hack. We are sneaking in `</>` so we can capture it without the HTML parser
+# throwing it away. When we see it, we will process it as data.
+htmlparser.starttagopen = re.compile('<[a-zA-Z]|</>')
+
 # Monkeypatch `HTMLParser` to only accept `?>` to close Processing Instructions.
 htmlparser.piclose = re.compile(r'\?>')
 # Monkeypatch `HTMLParser` to only recognize entity references with a closing semicolon.
@@ -271,6 +275,10 @@ class HTMLExtractor(htmlparser.HTMLParser):
 
     def parse_html_declaration(self, i: int) -> int:
         if self.at_line_start() or self.intail:
+            if self.rawdata[i:i+3] == '<![' and not self.rawdata[i:i+9] == '<![CDATA[':
+                # We have encountered the bug in #1534 (Python bug `gh-77057`).
+                # Provide an override until we drop support for Python < 3.13.
+                return self.parse_bogus_comment(i)
             return super().parse_html_declaration(i)
         # This is not the beginning of a raw block so treat as plain data
         # and avoid consuming any tags which may follow (see #1066).
@@ -297,6 +305,11 @@ class HTMLExtractor(htmlparser.HTMLParser):
         return self.__starttag_text
 
     def parse_starttag(self, i: int) -> int:  # pragma: no cover
+        # Treat `</>` as normal data as it is not a real tag.
+        if self.rawdata[i:i + 3] == '</>':
+            self.handle_data(self.rawdata[i:i + 3])
+            return i + 3
+
         self.__starttag_text = None
         endpos = self.check_for_whole_start_tag(i)
         if endpos < 0:

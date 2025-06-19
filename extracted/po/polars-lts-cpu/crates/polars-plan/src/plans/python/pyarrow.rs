@@ -37,7 +37,7 @@ pub fn predicate_to_pa(
                 None
             }
         },
-        AExpr::Column(name) => Some(format!("pa.compute.field('{}')", name)),
+        AExpr::Column(name) => Some(format!("pa.compute.field('{name}')")),
         AExpr::Literal(LiteralValue::Series(s)) => {
             if !args.allow_literal_series || s.is_empty() || s.len() > 100 {
                 None
@@ -48,7 +48,7 @@ pub fn predicate_to_pa(
                     match av {
                         AnyValue::Boolean(v) => {
                             let s = if v { "True" } else { "False" };
-                            write!(list_repr, "{},", s).unwrap();
+                            write!(list_repr, "{s},").unwrap();
                         },
                         #[cfg(feature = "dtype-datetime")]
                         AnyValue::Datetime(v, tu, tz) => {
@@ -123,7 +123,7 @@ pub fn predicate_to_pa(
         },
         #[cfg(feature = "is_in")]
         AExpr::Function {
-            function: FunctionExpr::Boolean(BooleanFunction::IsIn { .. }),
+            function: IRFunctionExpr::Boolean(IRBooleanFunction::IsIn { .. }),
             input,
             ..
         } => {
@@ -136,7 +136,7 @@ pub fn predicate_to_pa(
         },
         #[cfg(feature = "is_between")]
         AExpr::Function {
-            function: FunctionExpr::Boolean(BooleanFunction::IsBetween { closed }),
+            function: IRFunctionExpr::Boolean(IRBooleanFunction::IsBetween { closed }),
             input,
             ..
         } => {
@@ -168,11 +168,11 @@ pub fn predicate_to_pa(
             let input = predicate_to_pa(input, expr_arena, args)?;
 
             match function {
-                FunctionExpr::Boolean(BooleanFunction::Not) => Some(format!("~({input})")),
-                FunctionExpr::Boolean(BooleanFunction::IsNull) => {
+                IRFunctionExpr::Boolean(IRBooleanFunction::Not) => Some(format!("~({input})")),
+                IRFunctionExpr::Boolean(IRBooleanFunction::IsNull) => {
                     Some(format!("({input}).is_null()"))
                 },
-                FunctionExpr::Boolean(BooleanFunction::IsNotNull) => {
+                IRFunctionExpr::Boolean(IRBooleanFunction::IsNotNull) => {
                     Some(format!("~({input}).is_null()"))
                 },
                 _ => None,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: bioblend
-Version: 1.5.0
+Version: 1.6.0
 Summary: Library for interacting with the Galaxy API
 Home-page: https://bioblend.readthedocs.io/
 Author: Enis Afgan
@@ -33,6 +33,7 @@ Requires-Dist: requests-toolbelt!=0.9.0,>=0.5.1
 Requires-Dist: tuspy
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
+Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/v/bioblend.svg
     :target: https://pypi.org/project/bioblend/
