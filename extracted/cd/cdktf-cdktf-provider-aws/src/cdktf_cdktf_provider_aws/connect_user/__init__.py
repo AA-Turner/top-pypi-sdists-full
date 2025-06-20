@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_user`
 
-Refer to the Terraform Registry for docs: [`aws_connect_user`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user).
+Refer to the Terraform Registry for docs: [`aws_connect_user`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectUser.ConnectUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user aws_connect_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user aws_connect_user}.'''
 
     def __init__(
         self,
@@ -61,6 +61,7 @@ class ConnectUser(
         id: typing.Optional[builtins.str] = None,
         identity_info: typing.Optional[typing.Union["ConnectUserIdentityInfo", typing.Dict[builtins.str, typing.Any]]] = None,
         password: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -71,22 +72,23 @@ class ConnectUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user aws_connect_user} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user aws_connect_user} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#instance_id ConnectUser#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#name ConnectUser#name}.
-        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#phone_config ConnectUser#phone_config}
-        :param routing_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#routing_profile_id ConnectUser#routing_profile_id}.
-        :param security_profile_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#security_profile_ids ConnectUser#security_profile_ids}.
-        :param directory_user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#directory_user_id ConnectUser#directory_user_id}.
-        :param hierarchy_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#hierarchy_group_id ConnectUser#hierarchy_group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#id ConnectUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity_info: identity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#identity_info ConnectUser#identity_info}
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#password ConnectUser#password}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#tags ConnectUser#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#tags_all ConnectUser#tags_all}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#instance_id ConnectUser#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#name ConnectUser#name}.
+        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#phone_config ConnectUser#phone_config}
+        :param routing_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#routing_profile_id ConnectUser#routing_profile_id}.
+        :param security_profile_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#security_profile_ids ConnectUser#security_profile_ids}.
+        :param directory_user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#directory_user_id ConnectUser#directory_user_id}.
+        :param hierarchy_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#hierarchy_group_id ConnectUser#hierarchy_group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#id ConnectUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_info: identity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#identity_info ConnectUser#identity_info}
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#password ConnectUser#password}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#region ConnectUser#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#tags ConnectUser#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#tags_all ConnectUser#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -110,6 +112,7 @@ class ConnectUser(
             id=id,
             identity_info=identity_info,
             password=password,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             connection=connection,
@@ -136,7 +139,7 @@ class ConnectUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectUser to import.
-        :param import_from_id: The id of the existing ConnectUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectUser to import is found.
         '''
         if __debug__:
@@ -157,10 +160,10 @@ class ConnectUser(
         secondary_email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#email ConnectUser#email}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#first_name ConnectUser#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#last_name ConnectUser#last_name}.
-        :param secondary_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#secondary_email ConnectUser#secondary_email}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#email ConnectUser#email}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#first_name ConnectUser#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#last_name ConnectUser#last_name}.
+        :param secondary_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#secondary_email ConnectUser#secondary_email}.
         '''
         value = ConnectUserIdentityInfo(
             email=email,
@@ -181,10 +184,10 @@ class ConnectUser(
         desk_phone_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param phone_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#phone_type ConnectUser#phone_type}.
-        :param after_contact_work_time_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#after_contact_work_time_limit ConnectUser#after_contact_work_time_limit}.
-        :param auto_accept: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#auto_accept ConnectUser#auto_accept}.
-        :param desk_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#desk_phone_number ConnectUser#desk_phone_number}.
+        :param phone_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#phone_type ConnectUser#phone_type}.
+        :param after_contact_work_time_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#after_contact_work_time_limit ConnectUser#after_contact_work_time_limit}.
+        :param auto_accept: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#auto_accept ConnectUser#auto_accept}.
+        :param desk_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#desk_phone_number ConnectUser#desk_phone_number}.
         '''
         value = ConnectUserPhoneConfig(
             phone_type=phone_type,
@@ -214,6 +217,10 @@ class ConnectUser(
     @jsii.member(jsii_name="resetPassword")
     def reset_password(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPassword", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -295,6 +302,11 @@ class ConnectUser(
     @jsii.member(jsii_name="phoneConfigInput")
     def phone_config_input(self) -> typing.Optional["ConnectUserPhoneConfig"]:
         return typing.cast(typing.Optional["ConnectUserPhoneConfig"], jsii.get(self, "phoneConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="routingProfileIdInput")
@@ -391,6 +403,18 @@ class ConnectUser(
         jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__050680a6ffc24742734ffcfde32a4258be143585ad2e90d80ebdf2c086d2abde)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="routingProfileId")
     def routing_profile_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "routingProfileId"))
@@ -460,6 +484,7 @@ class ConnectUser(
         "id": "id",
         "identity_info": "identityInfo",
         "password": "password",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
     },
@@ -485,6 +510,7 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         identity_info: typing.Optional[typing.Union["ConnectUserIdentityInfo", typing.Dict[builtins.str, typing.Any]]] = None,
         password: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -496,18 +522,19 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#instance_id ConnectUser#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#name ConnectUser#name}.
-        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#phone_config ConnectUser#phone_config}
-        :param routing_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#routing_profile_id ConnectUser#routing_profile_id}.
-        :param security_profile_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#security_profile_ids ConnectUser#security_profile_ids}.
-        :param directory_user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#directory_user_id ConnectUser#directory_user_id}.
-        :param hierarchy_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#hierarchy_group_id ConnectUser#hierarchy_group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#id ConnectUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity_info: identity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#identity_info ConnectUser#identity_info}
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#password ConnectUser#password}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#tags ConnectUser#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#tags_all ConnectUser#tags_all}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#instance_id ConnectUser#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#name ConnectUser#name}.
+        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#phone_config ConnectUser#phone_config}
+        :param routing_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#routing_profile_id ConnectUser#routing_profile_id}.
+        :param security_profile_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#security_profile_ids ConnectUser#security_profile_ids}.
+        :param directory_user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#directory_user_id ConnectUser#directory_user_id}.
+        :param hierarchy_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#hierarchy_group_id ConnectUser#hierarchy_group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#id ConnectUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_info: identity_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#identity_info ConnectUser#identity_info}
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#password ConnectUser#password}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#region ConnectUser#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#tags ConnectUser#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#tags_all ConnectUser#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -534,6 +561,7 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument identity_info", value=identity_info, expected_type=type_hints["identity_info"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -567,6 +595,8 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["identity_info"] = identity_info
         if password is not None:
             self._values["password"] = password
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -638,14 +668,14 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#instance_id ConnectUser#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#instance_id ConnectUser#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#name ConnectUser#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#name ConnectUser#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -654,7 +684,7 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def phone_config(self) -> "ConnectUserPhoneConfig":
         '''phone_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#phone_config ConnectUser#phone_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#phone_config ConnectUser#phone_config}
         '''
         result = self._values.get("phone_config")
         assert result is not None, "Required property 'phone_config' is missing"
@@ -662,33 +692,33 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def routing_profile_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#routing_profile_id ConnectUser#routing_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#routing_profile_id ConnectUser#routing_profile_id}.'''
         result = self._values.get("routing_profile_id")
         assert result is not None, "Required property 'routing_profile_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def security_profile_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#security_profile_ids ConnectUser#security_profile_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#security_profile_ids ConnectUser#security_profile_ids}.'''
         result = self._values.get("security_profile_ids")
         assert result is not None, "Required property 'security_profile_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def directory_user_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#directory_user_id ConnectUser#directory_user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#directory_user_id ConnectUser#directory_user_id}.'''
         result = self._values.get("directory_user_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def hierarchy_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#hierarchy_group_id ConnectUser#hierarchy_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#hierarchy_group_id ConnectUser#hierarchy_group_id}.'''
         result = self._values.get("hierarchy_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#id ConnectUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#id ConnectUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -700,26 +730,35 @@ class ConnectUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity_info(self) -> typing.Optional["ConnectUserIdentityInfo"]:
         '''identity_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#identity_info ConnectUser#identity_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#identity_info ConnectUser#identity_info}
         '''
         result = self._values.get("identity_info")
         return typing.cast(typing.Optional["ConnectUserIdentityInfo"], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#password ConnectUser#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#password ConnectUser#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#region ConnectUser#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#tags ConnectUser#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#tags ConnectUser#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#tags_all ConnectUser#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#tags_all ConnectUser#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -755,10 +794,10 @@ class ConnectUserIdentityInfo:
         secondary_email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#email ConnectUser#email}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#first_name ConnectUser#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#last_name ConnectUser#last_name}.
-        :param secondary_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#secondary_email ConnectUser#secondary_email}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#email ConnectUser#email}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#first_name ConnectUser#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#last_name ConnectUser#last_name}.
+        :param secondary_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#secondary_email ConnectUser#secondary_email}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a32c5b96575c23564bbbddbd1de27b595439353bc6fd4d4fc97fab3222ff863)
@@ -778,25 +817,25 @@ class ConnectUserIdentityInfo:
 
     @builtins.property
     def email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#email ConnectUser#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#email ConnectUser#email}.'''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def first_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#first_name ConnectUser#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#first_name ConnectUser#first_name}.'''
         result = self._values.get("first_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def last_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#last_name ConnectUser#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#last_name ConnectUser#last_name}.'''
         result = self._values.get("last_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secondary_email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#secondary_email ConnectUser#secondary_email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#secondary_email ConnectUser#secondary_email}.'''
         result = self._values.get("secondary_email")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -949,10 +988,10 @@ class ConnectUserPhoneConfig:
         desk_phone_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param phone_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#phone_type ConnectUser#phone_type}.
-        :param after_contact_work_time_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#after_contact_work_time_limit ConnectUser#after_contact_work_time_limit}.
-        :param auto_accept: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#auto_accept ConnectUser#auto_accept}.
-        :param desk_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#desk_phone_number ConnectUser#desk_phone_number}.
+        :param phone_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#phone_type ConnectUser#phone_type}.
+        :param after_contact_work_time_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#after_contact_work_time_limit ConnectUser#after_contact_work_time_limit}.
+        :param auto_accept: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#auto_accept ConnectUser#auto_accept}.
+        :param desk_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#desk_phone_number ConnectUser#desk_phone_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__598b82fe208465fb0e6f8f7a45758200648d5a80741cfac7d70d74d8503650f6)
@@ -972,14 +1011,14 @@ class ConnectUserPhoneConfig:
 
     @builtins.property
     def phone_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#phone_type ConnectUser#phone_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#phone_type ConnectUser#phone_type}.'''
         result = self._values.get("phone_type")
         assert result is not None, "Required property 'phone_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def after_contact_work_time_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#after_contact_work_time_limit ConnectUser#after_contact_work_time_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#after_contact_work_time_limit ConnectUser#after_contact_work_time_limit}.'''
         result = self._values.get("after_contact_work_time_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -987,13 +1026,13 @@ class ConnectUserPhoneConfig:
     def auto_accept(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#auto_accept ConnectUser#auto_accept}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#auto_accept ConnectUser#auto_accept}.'''
         result = self._values.get("auto_accept")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def desk_phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user#desk_phone_number ConnectUser#desk_phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user#desk_phone_number ConnectUser#desk_phone_number}.'''
         result = self._values.get("desk_phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1152,6 +1191,7 @@ def _typecheckingstub__fdeb2a2bc0566919ed87510c037e69a0b4530c6eaf90c9b2677f83d83
     id: typing.Optional[builtins.str] = None,
     identity_info: typing.Optional[typing.Union[ConnectUserIdentityInfo, typing.Dict[builtins.str, typing.Any]]] = None,
     password: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1210,6 +1250,12 @@ def _typecheckingstub__2d47d1ead05e5c7f5633f67ca93014e7a65ccc93c11ae5b4975b5031c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__050680a6ffc24742734ffcfde32a4258be143585ad2e90d80ebdf2c086d2abde(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0adef01e00d08b6e325e6e0c51d44317ab9c16584f2b9a5938131c6ffe8623e4(
     value: builtins.str,
 ) -> None:
@@ -1253,6 +1299,7 @@ def _typecheckingstub__4a912a6bc78abf4d0a081ef586f291e9b87ca054affbe3f084ca20d68
     id: typing.Optional[builtins.str] = None,
     identity_info: typing.Optional[typing.Union[ConnectUserIdentityInfo, typing.Dict[builtins.str, typing.Any]]] = None,
     password: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:

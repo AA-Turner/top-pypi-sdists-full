@@ -51,7 +51,7 @@ DukptKeyVariantType = Literal["BIDIRECTIONAL", "REQUEST", "RESPONSE"]
 EmvEncryptionModeType = Literal["CBC", "ECB"]
 EmvMajorKeyDerivationModeType = Literal["EMV_OPTION_A", "EMV_OPTION_B"]
 EncryptionModeType = Literal["CBC", "CFB", "CFB1", "CFB128", "CFB64", "CFB8", "ECB", "OFB"]
-KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC"]
+KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC", "HMAC"]
 KeyDerivationFunctionType = Literal["ANSI_X963", "NIST_SP800"]
 KeyDerivationHashAlgorithmType = Literal["SHA_256", "SHA_384", "SHA_512"]
 MacAlgorithmType = Literal[
@@ -72,13 +72,24 @@ PinBlockPaddingTypeType = Literal["ISO_IEC_7816_4", "NO_PADDING"]
 SessionKeyDerivationModeType = Literal[
     "AMEX", "EMV2000", "EMV_COMMON_SESSION_KEY", "MASTERCARD_SESSION_KEY", "VISA"
 ]
-SymmetricKeyAlgorithmType = Literal["AES_128", "AES_192", "AES_256", "TDES_2KEY", "TDES_3KEY"]
+SymmetricKeyAlgorithmType = Literal[
+    "AES_128",
+    "AES_192",
+    "AES_256",
+    "HMAC_SHA224",
+    "HMAC_SHA256",
+    "HMAC_SHA384",
+    "HMAC_SHA512",
+    "TDES_2KEY",
+    "TDES_3KEY",
+]
 PaymentCryptographyDataPlaneServiceName = Literal["payment-cryptography-data"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -219,6 +230,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -331,6 +343,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -371,7 +384,6 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
-    "privatenetworks",
     "proton",
     "qapps",
     "qbusiness",
@@ -432,7 +444,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",
@@ -440,6 +451,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

@@ -1,7 +1,7 @@
 r'''
 # `aws_qldb_ledger`
 
-Refer to the Terraform Registry for docs: [`aws_qldb_ledger`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger).
+Refer to the Terraform Registry for docs: [`aws_qldb_ledger`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QldbLedger(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.qldbLedger.QldbLedger",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger aws_qldb_ledger}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger aws_qldb_ledger}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class QldbLedger(
         id: typing.Optional[builtins.str] = None,
         kms_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["QldbLedgerTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -67,18 +68,19 @@ class QldbLedger(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger aws_qldb_ledger} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger aws_qldb_ledger} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param permissions_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#permissions_mode QldbLedger#permissions_mode}.
-        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#deletion_protection QldbLedger#deletion_protection}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#id QldbLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#kms_key QldbLedger#kms_key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#name QldbLedger#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#tags QldbLedger#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#tags_all QldbLedger#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#timeouts QldbLedger#timeouts}
+        :param permissions_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#permissions_mode QldbLedger#permissions_mode}.
+        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#deletion_protection QldbLedger#deletion_protection}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#id QldbLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#kms_key QldbLedger#kms_key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#name QldbLedger#name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#region QldbLedger#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#tags QldbLedger#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#tags_all QldbLedger#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#timeouts QldbLedger#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -97,6 +99,7 @@ class QldbLedger(
             id=id,
             kms_key=kms_key,
             name=name,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             timeouts=timeouts,
@@ -124,7 +127,7 @@ class QldbLedger(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QldbLedger to import.
-        :param import_from_id: The id of the existing QldbLedger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QldbLedger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QldbLedger to import is found.
         '''
         if __debug__:
@@ -143,8 +146,8 @@ class QldbLedger(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#create QldbLedger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#delete QldbLedger#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#create QldbLedger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#delete QldbLedger#delete}.
         '''
         value = QldbLedgerTimeouts(create=create, delete=delete)
 
@@ -165,6 +168,10 @@ class QldbLedger(
     @jsii.member(jsii_name="resetName")
     def reset_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetName", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -227,6 +234,11 @@ class QldbLedger(
     @jsii.member(jsii_name="permissionsModeInput")
     def permissions_mode_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "permissionsModeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="tagsAllInput")
@@ -313,6 +325,18 @@ class QldbLedger(
         jsii.set(self, "permissionsMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5eecf462d40089a892207533210893d4894cad7be20ee18b6e3196043c8a4404)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tags"))
@@ -353,6 +377,7 @@ class QldbLedger(
         "id": "id",
         "kms_key": "kmsKey",
         "name": "name",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
         "timeouts": "timeouts",
@@ -374,6 +399,7 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         kms_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["QldbLedgerTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -386,14 +412,15 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param permissions_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#permissions_mode QldbLedger#permissions_mode}.
-        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#deletion_protection QldbLedger#deletion_protection}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#id QldbLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#kms_key QldbLedger#kms_key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#name QldbLedger#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#tags QldbLedger#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#tags_all QldbLedger#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#timeouts QldbLedger#timeouts}
+        :param permissions_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#permissions_mode QldbLedger#permissions_mode}.
+        :param deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#deletion_protection QldbLedger#deletion_protection}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#id QldbLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#kms_key QldbLedger#kms_key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#name QldbLedger#name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#region QldbLedger#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#tags QldbLedger#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#tags_all QldbLedger#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#timeouts QldbLedger#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -413,6 +440,7 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -441,6 +469,8 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["kms_key"] = kms_key
         if name is not None:
             self._values["name"] = name
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -514,7 +544,7 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def permissions_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#permissions_mode QldbLedger#permissions_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#permissions_mode QldbLedger#permissions_mode}.'''
         result = self._values.get("permissions_mode")
         assert result is not None, "Required property 'permissions_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -523,13 +553,13 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deletion_protection(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#deletion_protection QldbLedger#deletion_protection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#deletion_protection QldbLedger#deletion_protection}.'''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#id QldbLedger#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#id QldbLedger#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -539,25 +569,34 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#kms_key QldbLedger#kms_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#kms_key QldbLedger#kms_key}.'''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#name QldbLedger#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#name QldbLedger#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#region QldbLedger#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#tags QldbLedger#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#tags QldbLedger#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#tags_all QldbLedger#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#tags_all QldbLedger#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -565,7 +604,7 @@ class QldbLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["QldbLedgerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#timeouts QldbLedger#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#timeouts QldbLedger#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["QldbLedgerTimeouts"], result)
@@ -595,8 +634,8 @@ class QldbLedgerTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#create QldbLedger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#delete QldbLedger#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#create QldbLedger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#delete QldbLedger#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4d9e04dfeebf02a7f4732e18f8347ed4d5af3cb0d12d531fde7a913650c464a)
@@ -610,13 +649,13 @@ class QldbLedgerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#create QldbLedger#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#create QldbLedger#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/qldb_ledger#delete QldbLedger#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/qldb_ledger#delete QldbLedger#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -730,6 +769,7 @@ def _typecheckingstub__5029b6fda8f9dc788f6f73d33834871d4489a6e4b23c0dfab28c71b53
     id: typing.Optional[builtins.str] = None,
     kms_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[QldbLedgerTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -783,6 +823,12 @@ def _typecheckingstub__d650663c24064eaaaff03cd7d3496a3f3fd480df99d82e98d4c198224
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5eecf462d40089a892207533210893d4894cad7be20ee18b6e3196043c8a4404(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d82768c2a04194f6eb77606dfba4432652909ae6138d84e86159b426beddde82(
     value: typing.Mapping[builtins.str, builtins.str],
 ) -> None:
@@ -809,6 +855,7 @@ def _typecheckingstub__996b69cce25360487ec17faa282e4aef0c0fce5f3dd0b5aecb4aa9522
     id: typing.Optional[builtins.str] = None,
     kms_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[QldbLedgerTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

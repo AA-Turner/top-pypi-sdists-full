@@ -37,6 +37,7 @@ from ..utils import (
     check_cuda_fp8_capability,
     compare_versions,
     gather,
+    is_aim_available,
     is_bnb_available,
     is_clearml_available,
     is_comet_ml_available,
@@ -60,6 +61,7 @@ from ..utils import (
     is_pytest_available,
     is_schedulefree_available,
     is_sdaa_available,
+    is_swanlab_available,
     is_tensorboard_available,
     is_timm_available,
     is_torch_version,
@@ -460,6 +462,13 @@ def require_comet_ml(test_case):
     return unittest.skipUnless(is_comet_ml_available(), "test requires comet_ml")(test_case)
 
 
+def require_aim(test_case):
+    """
+    Decorator marking a test that requires aim installed. These tests are skipped when aim isn't installed
+    """
+    return unittest.skipUnless(is_aim_available(), "test requires aim")(test_case)
+
+
 def require_clearml(test_case):
     """
     Decorator marking a test that requires clearml installed. These tests are skipped when clearml isn't installed
@@ -472,6 +481,13 @@ def require_dvclive(test_case):
     Decorator marking a test that requires dvclive installed. These tests are skipped when dvclive isn't installed
     """
     return unittest.skipUnless(is_dvclive_available(), "test requires dvclive")(test_case)
+
+
+def require_swanlab(test_case):
+    """
+    Decorator marking a test that requires swanlab installed. These tests are skipped when swanlab isn't installed
+    """
+    return unittest.skipUnless(is_swanlab_available(), "test requires swanlab")(test_case)
 
 
 def require_pandas(test_case):
@@ -528,7 +544,7 @@ def require_matplotlib(test_case):
 
 
 _atleast_one_tracker_available = (
-    any([is_wandb_available(), is_tensorboard_available()]) and not is_comet_ml_available()
+    any([is_wandb_available(), is_tensorboard_available(), is_swanlab_available()]) and not is_comet_ml_available()
 )
 
 

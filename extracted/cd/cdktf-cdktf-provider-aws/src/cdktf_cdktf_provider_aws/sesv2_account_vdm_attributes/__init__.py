@@ -1,7 +1,7 @@
 r'''
 # `aws_sesv2_account_vdm_attributes`
 
-Refer to the Terraform Registry for docs: [`aws_sesv2_account_vdm_attributes`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes).
+Refer to the Terraform Registry for docs: [`aws_sesv2_account_vdm_attributes`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Sesv2AccountVdmAttributes(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sesv2AccountVdmAttributes.Sesv2AccountVdmAttributes",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes aws_sesv2_account_vdm_attributes}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes aws_sesv2_account_vdm_attributes}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class Sesv2AccountVdmAttributes(
         dashboard_attributes: typing.Optional[typing.Union["Sesv2AccountVdmAttributesDashboardAttributes", typing.Dict[builtins.str, typing.Any]]] = None,
         guardian_attributes: typing.Optional[typing.Union["Sesv2AccountVdmAttributesGuardianAttributes", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -63,14 +64,15 @@ class Sesv2AccountVdmAttributes(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes aws_sesv2_account_vdm_attributes} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes aws_sesv2_account_vdm_attributes} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param vdm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#vdm_enabled Sesv2AccountVdmAttributes#vdm_enabled}.
-        :param dashboard_attributes: dashboard_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#dashboard_attributes Sesv2AccountVdmAttributes#dashboard_attributes}
-        :param guardian_attributes: guardian_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#guardian_attributes Sesv2AccountVdmAttributes#guardian_attributes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#id Sesv2AccountVdmAttributes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param vdm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#vdm_enabled Sesv2AccountVdmAttributes#vdm_enabled}.
+        :param dashboard_attributes: dashboard_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#dashboard_attributes Sesv2AccountVdmAttributes#dashboard_attributes}
+        :param guardian_attributes: guardian_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#guardian_attributes Sesv2AccountVdmAttributes#guardian_attributes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#id Sesv2AccountVdmAttributes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#region Sesv2AccountVdmAttributes#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -88,6 +90,7 @@ class Sesv2AccountVdmAttributes(
             dashboard_attributes=dashboard_attributes,
             guardian_attributes=guardian_attributes,
             id=id,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -112,7 +115,7 @@ class Sesv2AccountVdmAttributes(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Sesv2AccountVdmAttributes to import.
-        :param import_from_id: The id of the existing Sesv2AccountVdmAttributes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Sesv2AccountVdmAttributes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Sesv2AccountVdmAttributes to import is found.
         '''
         if __debug__:
@@ -130,7 +133,7 @@ class Sesv2AccountVdmAttributes(
         engagement_metrics: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engagement_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#engagement_metrics Sesv2AccountVdmAttributes#engagement_metrics}.
+        :param engagement_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#engagement_metrics Sesv2AccountVdmAttributes#engagement_metrics}.
         '''
         value = Sesv2AccountVdmAttributesDashboardAttributes(
             engagement_metrics=engagement_metrics
@@ -145,7 +148,7 @@ class Sesv2AccountVdmAttributes(
         optimized_shared_delivery: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param optimized_shared_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#optimized_shared_delivery Sesv2AccountVdmAttributes#optimized_shared_delivery}.
+        :param optimized_shared_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#optimized_shared_delivery Sesv2AccountVdmAttributes#optimized_shared_delivery}.
         '''
         value = Sesv2AccountVdmAttributesGuardianAttributes(
             optimized_shared_delivery=optimized_shared_delivery
@@ -164,6 +167,10 @@ class Sesv2AccountVdmAttributes(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -212,6 +219,11 @@ class Sesv2AccountVdmAttributes(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="vdmEnabledInput")
     def vdm_enabled_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vdmEnabledInput"))
@@ -227,6 +239,18 @@ class Sesv2AccountVdmAttributes(
             type_hints = typing.get_type_hints(_typecheckingstub__7c48f5dbd3474786e79c400d858346c3e14e987d8e662319641716716afc87bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b94d08926b00467a03977e52d9b6868af4efb598160b478477a57be5c0a9273)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vdmEnabled")
@@ -256,6 +280,7 @@ class Sesv2AccountVdmAttributes(
         "dashboard_attributes": "dashboardAttributes",
         "guardian_attributes": "guardianAttributes",
         "id": "id",
+        "region": "region",
     },
 )
 class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -273,6 +298,7 @@ class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         dashboard_attributes: typing.Optional[typing.Union["Sesv2AccountVdmAttributesDashboardAttributes", typing.Dict[builtins.str, typing.Any]]] = None,
         guardian_attributes: typing.Optional[typing.Union["Sesv2AccountVdmAttributesGuardianAttributes", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -282,10 +308,11 @@ class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param vdm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#vdm_enabled Sesv2AccountVdmAttributes#vdm_enabled}.
-        :param dashboard_attributes: dashboard_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#dashboard_attributes Sesv2AccountVdmAttributes#dashboard_attributes}
-        :param guardian_attributes: guardian_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#guardian_attributes Sesv2AccountVdmAttributes#guardian_attributes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#id Sesv2AccountVdmAttributes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param vdm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#vdm_enabled Sesv2AccountVdmAttributes#vdm_enabled}.
+        :param dashboard_attributes: dashboard_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#dashboard_attributes Sesv2AccountVdmAttributes#dashboard_attributes}
+        :param guardian_attributes: guardian_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#guardian_attributes Sesv2AccountVdmAttributes#guardian_attributes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#id Sesv2AccountVdmAttributes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#region Sesv2AccountVdmAttributes#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -306,6 +333,7 @@ class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument dashboard_attributes", value=dashboard_attributes, expected_type=type_hints["dashboard_attributes"])
             check_type(argname="argument guardian_attributes", value=guardian_attributes, expected_type=type_hints["guardian_attributes"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vdm_enabled": vdm_enabled,
         }
@@ -329,6 +357,8 @@ class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["guardian_attributes"] = guardian_attributes
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -396,7 +426,7 @@ class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def vdm_enabled(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#vdm_enabled Sesv2AccountVdmAttributes#vdm_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#vdm_enabled Sesv2AccountVdmAttributes#vdm_enabled}.'''
         result = self._values.get("vdm_enabled")
         assert result is not None, "Required property 'vdm_enabled' is missing"
         return typing.cast(builtins.str, result)
@@ -407,7 +437,7 @@ class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Sesv2AccountVdmAttributesDashboardAttributes"]:
         '''dashboard_attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#dashboard_attributes Sesv2AccountVdmAttributes#dashboard_attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#dashboard_attributes Sesv2AccountVdmAttributes#dashboard_attributes}
         '''
         result = self._values.get("dashboard_attributes")
         return typing.cast(typing.Optional["Sesv2AccountVdmAttributesDashboardAttributes"], result)
@@ -418,19 +448,28 @@ class Sesv2AccountVdmAttributesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Sesv2AccountVdmAttributesGuardianAttributes"]:
         '''guardian_attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#guardian_attributes Sesv2AccountVdmAttributes#guardian_attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#guardian_attributes Sesv2AccountVdmAttributes#guardian_attributes}
         '''
         result = self._values.get("guardian_attributes")
         return typing.cast(typing.Optional["Sesv2AccountVdmAttributesGuardianAttributes"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#id Sesv2AccountVdmAttributes#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#id Sesv2AccountVdmAttributes#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#region Sesv2AccountVdmAttributes#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -457,7 +496,7 @@ class Sesv2AccountVdmAttributesDashboardAttributes:
         engagement_metrics: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engagement_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#engagement_metrics Sesv2AccountVdmAttributes#engagement_metrics}.
+        :param engagement_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#engagement_metrics Sesv2AccountVdmAttributes#engagement_metrics}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__814ddc743df1b16b5efae4be91813b3b7ad308f88528a026f090567f2c2d2d0e)
@@ -468,7 +507,7 @@ class Sesv2AccountVdmAttributesDashboardAttributes:
 
     @builtins.property
     def engagement_metrics(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#engagement_metrics Sesv2AccountVdmAttributes#engagement_metrics}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#engagement_metrics Sesv2AccountVdmAttributes#engagement_metrics}.'''
         result = self._values.get("engagement_metrics")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -555,7 +594,7 @@ class Sesv2AccountVdmAttributesGuardianAttributes:
         optimized_shared_delivery: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param optimized_shared_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#optimized_shared_delivery Sesv2AccountVdmAttributes#optimized_shared_delivery}.
+        :param optimized_shared_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#optimized_shared_delivery Sesv2AccountVdmAttributes#optimized_shared_delivery}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0de03c1514576668db5cf6de670b017fddb490769047f8fabfcc2f22e7b38541)
@@ -566,7 +605,7 @@ class Sesv2AccountVdmAttributesGuardianAttributes:
 
     @builtins.property
     def optimized_shared_delivery(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sesv2_account_vdm_attributes#optimized_shared_delivery Sesv2AccountVdmAttributes#optimized_shared_delivery}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sesv2_account_vdm_attributes#optimized_shared_delivery Sesv2AccountVdmAttributes#optimized_shared_delivery}.'''
         result = self._values.get("optimized_shared_delivery")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -660,6 +699,7 @@ def _typecheckingstub__3a772b2fa525d6b022b955faafd7198b5d72ec956d0e8f00a9f427f05
     dashboard_attributes: typing.Optional[typing.Union[Sesv2AccountVdmAttributesDashboardAttributes, typing.Dict[builtins.str, typing.Any]]] = None,
     guardian_attributes: typing.Optional[typing.Union[Sesv2AccountVdmAttributesGuardianAttributes, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -686,6 +726,12 @@ def _typecheckingstub__7c48f5dbd3474786e79c400d858346c3e14e987d8e662319641716716
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2b94d08926b00467a03977e52d9b6868af4efb598160b478477a57be5c0a9273(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__45c4e8cd24d15d7fd87e80f6699d433c036c871dea0c03fc6a993345d4263f34(
     value: builtins.str,
 ) -> None:
@@ -705,6 +751,7 @@ def _typecheckingstub__a4e1adeecdecb7d4b1d27a27672ceb27e45b39a6df2705d29053acfcd
     dashboard_attributes: typing.Optional[typing.Union[Sesv2AccountVdmAttributesDashboardAttributes, typing.Dict[builtins.str, typing.Any]]] = None,
     guardian_attributes: typing.Optional[typing.Union[Sesv2AccountVdmAttributesGuardianAttributes, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

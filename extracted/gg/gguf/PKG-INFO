@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: gguf
-Version: 0.17.0
+Version: 0.17.1
 Summary: Read and write ML models in GGUF for GGML
 Keywords: ggml,gguf,llama.cpp
 Author: GGML
@@ -19,7 +19,6 @@ Provides-Extra: gui
 Requires-Dist: PySide6 (>=6.9,<7.0) ; (python_version >= "3.9" and python_version < "3.14") and (extra == "gui")
 Requires-Dist: numpy (>=1.17)
 Requires-Dist: pyyaml (>=5.1)
-Requires-Dist: sentencepiece (>=0.1.98,<=0.2.0)
 Requires-Dist: tqdm (>=4.27)
 Project-URL: Homepage, https://ggml.ai
 Project-URL: Repository, https://github.com/ggml-org/llama.cpp

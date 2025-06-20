@@ -1,7 +1,7 @@
 r'''
 # `aws_lightsail_static_ip_attachment`
 
-Refer to the Terraform Registry for docs: [`aws_lightsail_static_ip_attachment`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment).
+Refer to the Terraform Registry for docs: [`aws_lightsail_static_ip_attachment`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LightsailStaticIpAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lightsailStaticIpAttachment.LightsailStaticIpAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment aws_lightsail_static_ip_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment aws_lightsail_static_ip_attachment}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class LightsailStaticIpAttachment(
         instance_name: builtins.str,
         static_ip_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class LightsailStaticIpAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment aws_lightsail_static_ip_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment aws_lightsail_static_ip_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#instance_name LightsailStaticIpAttachment#instance_name}.
-        :param static_ip_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#static_ip_name LightsailStaticIpAttachment#static_ip_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#id LightsailStaticIpAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#instance_name LightsailStaticIpAttachment#instance_name}.
+        :param static_ip_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#static_ip_name LightsailStaticIpAttachment#static_ip_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#id LightsailStaticIpAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#region LightsailStaticIpAttachment#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class LightsailStaticIpAttachment(
             instance_name=instance_name,
             static_ip_name=static_ip_name,
             id=id,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class LightsailStaticIpAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LightsailStaticIpAttachment to import.
-        :param import_from_id: The id of the existing LightsailStaticIpAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LightsailStaticIpAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LightsailStaticIpAttachment to import is found.
         '''
         if __debug__:
@@ -123,6 +126,10 @@ class LightsailStaticIpAttachment(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -151,6 +158,11 @@ class LightsailStaticIpAttachment(
     @jsii.member(jsii_name="instanceNameInput")
     def instance_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="staticIpNameInput")
@@ -182,6 +194,18 @@ class LightsailStaticIpAttachment(
         jsii.set(self, "instanceName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ad6af6d6be29d0a57fd7808987a1091d551ac29b10cf96e59cc686e4024c364)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="staticIpName")
     def static_ip_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "staticIpName"))
@@ -208,6 +232,7 @@ class LightsailStaticIpAttachment(
         "instance_name": "instanceName",
         "static_ip_name": "staticIpName",
         "id": "id",
+        "region": "region",
     },
 )
 class LightsailStaticIpAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -224,6 +249,7 @@ class LightsailStaticIpAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         instance_name: builtins.str,
         static_ip_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -233,9 +259,10 @@ class LightsailStaticIpAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#instance_name LightsailStaticIpAttachment#instance_name}.
-        :param static_ip_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#static_ip_name LightsailStaticIpAttachment#static_ip_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#id LightsailStaticIpAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#instance_name LightsailStaticIpAttachment#instance_name}.
+        :param static_ip_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#static_ip_name LightsailStaticIpAttachment#static_ip_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#id LightsailStaticIpAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#region LightsailStaticIpAttachment#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -251,6 +278,7 @@ class LightsailStaticIpAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument instance_name", value=instance_name, expected_type=type_hints["instance_name"])
             check_type(argname="argument static_ip_name", value=static_ip_name, expected_type=type_hints["static_ip_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_name": instance_name,
             "static_ip_name": static_ip_name,
@@ -271,6 +299,8 @@ class LightsailStaticIpAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -338,26 +368,35 @@ class LightsailStaticIpAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#instance_name LightsailStaticIpAttachment#instance_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#instance_name LightsailStaticIpAttachment#instance_name}.'''
         result = self._values.get("instance_name")
         assert result is not None, "Required property 'instance_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def static_ip_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#static_ip_name LightsailStaticIpAttachment#static_ip_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#static_ip_name LightsailStaticIpAttachment#static_ip_name}.'''
         result = self._values.get("static_ip_name")
         assert result is not None, "Required property 'static_ip_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_static_ip_attachment#id LightsailStaticIpAttachment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#id LightsailStaticIpAttachment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_static_ip_attachment#region LightsailStaticIpAttachment#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -386,6 +425,7 @@ def _typecheckingstub__3f2e8e46a4126192f09413cbd95bf551c6fcd6951ad8d88393e997b8d
     instance_name: builtins.str,
     static_ip_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -418,6 +458,12 @@ def _typecheckingstub__5b1acba81ad753a998dab7fd798f18d0fa5fc4acbc95a410d57f75d6e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2ad6af6d6be29d0a57fd7808987a1091d551ac29b10cf96e59cc686e4024c364(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7b9dd767c167e5202078845dd6b59629d26dbb47913e8411b966b12612e0eb2b(
     value: builtins.str,
 ) -> None:
@@ -436,6 +482,7 @@ def _typecheckingstub__ccc4186ea95ee60cece37404bdbe0d1ca94eb75be81f59f88fa103a1d
     instance_name: builtins.str,
     static_ip_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

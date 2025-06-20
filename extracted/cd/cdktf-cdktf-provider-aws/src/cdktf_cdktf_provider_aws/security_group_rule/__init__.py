@@ -1,7 +1,7 @@
 r'''
 # `aws_security_group_rule`
 
-Refer to the Terraform Registry for docs: [`aws_security_group_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule).
+Refer to the Terraform Registry for docs: [`aws_security_group_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityGroupRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.securityGroupRule.SecurityGroupRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule aws_security_group_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule aws_security_group_rule}.'''
 
     def __init__(
         self,
@@ -61,6 +61,7 @@ class SecurityGroupRule(
         id: typing.Optional[builtins.str] = None,
         ipv6_cidr_blocks: typing.Optional[typing.Sequence[builtins.str]] = None,
         prefix_list_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
         self_attribute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         source_security_group_id: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["SecurityGroupRuleTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -72,23 +73,24 @@ class SecurityGroupRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule aws_security_group_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule aws_security_group_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#from_port SecurityGroupRule#from_port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#protocol SecurityGroupRule#protocol}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#security_group_id SecurityGroupRule#security_group_id}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#to_port SecurityGroupRule#to_port}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#type SecurityGroupRule#type}.
-        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#cidr_blocks SecurityGroupRule#cidr_blocks}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#description SecurityGroupRule#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#id SecurityGroupRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ipv6_cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#ipv6_cidr_blocks SecurityGroupRule#ipv6_cidr_blocks}.
-        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#prefix_list_ids SecurityGroupRule#prefix_list_ids}.
-        :param self_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#self SecurityGroupRule#self}.
-        :param source_security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#source_security_group_id SecurityGroupRule#source_security_group_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#timeouts SecurityGroupRule#timeouts}
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#from_port SecurityGroupRule#from_port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#protocol SecurityGroupRule#protocol}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#security_group_id SecurityGroupRule#security_group_id}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#to_port SecurityGroupRule#to_port}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#type SecurityGroupRule#type}.
+        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#cidr_blocks SecurityGroupRule#cidr_blocks}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#description SecurityGroupRule#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#id SecurityGroupRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipv6_cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#ipv6_cidr_blocks SecurityGroupRule#ipv6_cidr_blocks}.
+        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#prefix_list_ids SecurityGroupRule#prefix_list_ids}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#region SecurityGroupRule#region}
+        :param self_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#self SecurityGroupRule#self}.
+        :param source_security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#source_security_group_id SecurityGroupRule#source_security_group_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#timeouts SecurityGroupRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,6 +114,7 @@ class SecurityGroupRule(
             id=id,
             ipv6_cidr_blocks=ipv6_cidr_blocks,
             prefix_list_ids=prefix_list_ids,
+            region=region,
             self_attribute=self_attribute,
             source_security_group_id=source_security_group_id,
             timeouts=timeouts,
@@ -139,7 +142,7 @@ class SecurityGroupRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityGroupRule to import.
-        :param import_from_id: The id of the existing SecurityGroupRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityGroupRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityGroupRule to import is found.
         '''
         if __debug__:
@@ -153,7 +156,7 @@ class SecurityGroupRule(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#create SecurityGroupRule#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#create SecurityGroupRule#create}.
         '''
         value = SecurityGroupRuleTimeouts(create=create)
 
@@ -178,6 +181,10 @@ class SecurityGroupRule(
     @jsii.member(jsii_name="resetPrefixListIds")
     def reset_prefix_list_ids(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPrefixListIds", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSelfAttribute")
     def reset_self_attribute(self) -> None:
@@ -248,6 +255,11 @@ class SecurityGroupRule(
     @jsii.member(jsii_name="protocolInput")
     def protocol_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocolInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupIdInput")
@@ -368,6 +380,18 @@ class SecurityGroupRule(
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a800c5fa6b873ce45ea66492327c652a1fb7df00ea169d94e1a6eeb92bde8182)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="securityGroupId")
     def security_group_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "securityGroupId"))
@@ -454,6 +478,7 @@ class SecurityGroupRule(
         "id": "id",
         "ipv6_cidr_blocks": "ipv6CidrBlocks",
         "prefix_list_ids": "prefixListIds",
+        "region": "region",
         "self_attribute": "selfAttribute",
         "source_security_group_id": "sourceSecurityGroupId",
         "timeouts": "timeouts",
@@ -480,6 +505,7 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         ipv6_cidr_blocks: typing.Optional[typing.Sequence[builtins.str]] = None,
         prefix_list_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
         self_attribute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         source_security_group_id: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["SecurityGroupRuleTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -492,19 +518,20 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#from_port SecurityGroupRule#from_port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#protocol SecurityGroupRule#protocol}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#security_group_id SecurityGroupRule#security_group_id}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#to_port SecurityGroupRule#to_port}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#type SecurityGroupRule#type}.
-        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#cidr_blocks SecurityGroupRule#cidr_blocks}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#description SecurityGroupRule#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#id SecurityGroupRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ipv6_cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#ipv6_cidr_blocks SecurityGroupRule#ipv6_cidr_blocks}.
-        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#prefix_list_ids SecurityGroupRule#prefix_list_ids}.
-        :param self_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#self SecurityGroupRule#self}.
-        :param source_security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#source_security_group_id SecurityGroupRule#source_security_group_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#timeouts SecurityGroupRule#timeouts}
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#from_port SecurityGroupRule#from_port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#protocol SecurityGroupRule#protocol}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#security_group_id SecurityGroupRule#security_group_id}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#to_port SecurityGroupRule#to_port}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#type SecurityGroupRule#type}.
+        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#cidr_blocks SecurityGroupRule#cidr_blocks}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#description SecurityGroupRule#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#id SecurityGroupRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipv6_cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#ipv6_cidr_blocks SecurityGroupRule#ipv6_cidr_blocks}.
+        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#prefix_list_ids SecurityGroupRule#prefix_list_ids}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#region SecurityGroupRule#region}
+        :param self_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#self SecurityGroupRule#self}.
+        :param source_security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#source_security_group_id SecurityGroupRule#source_security_group_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#timeouts SecurityGroupRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -529,6 +556,7 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ipv6_cidr_blocks", value=ipv6_cidr_blocks, expected_type=type_hints["ipv6_cidr_blocks"])
             check_type(argname="argument prefix_list_ids", value=prefix_list_ids, expected_type=type_hints["prefix_list_ids"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument self_attribute", value=self_attribute, expected_type=type_hints["self_attribute"])
             check_type(argname="argument source_security_group_id", value=source_security_group_id, expected_type=type_hints["source_security_group_id"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -563,6 +591,8 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["ipv6_cidr_blocks"] = ipv6_cidr_blocks
         if prefix_list_ids is not None:
             self._values["prefix_list_ids"] = prefix_list_ids
+        if region is not None:
+            self._values["region"] = region
         if self_attribute is not None:
             self._values["self_attribute"] = self_attribute
         if source_security_group_id is not None:
@@ -636,54 +666,54 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def from_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#from_port SecurityGroupRule#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#from_port SecurityGroupRule#from_port}.'''
         result = self._values.get("from_port")
         assert result is not None, "Required property 'from_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#protocol SecurityGroupRule#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#protocol SecurityGroupRule#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def security_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#security_group_id SecurityGroupRule#security_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#security_group_id SecurityGroupRule#security_group_id}.'''
         result = self._values.get("security_group_id")
         assert result is not None, "Required property 'security_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def to_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#to_port SecurityGroupRule#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#to_port SecurityGroupRule#to_port}.'''
         result = self._values.get("to_port")
         assert result is not None, "Required property 'to_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#type SecurityGroupRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#type SecurityGroupRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cidr_blocks(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#cidr_blocks SecurityGroupRule#cidr_blocks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#cidr_blocks SecurityGroupRule#cidr_blocks}.'''
         result = self._values.get("cidr_blocks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#description SecurityGroupRule#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#description SecurityGroupRule#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#id SecurityGroupRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#id SecurityGroupRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -693,27 +723,36 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ipv6_cidr_blocks(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#ipv6_cidr_blocks SecurityGroupRule#ipv6_cidr_blocks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#ipv6_cidr_blocks SecurityGroupRule#ipv6_cidr_blocks}.'''
         result = self._values.get("ipv6_cidr_blocks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def prefix_list_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#prefix_list_ids SecurityGroupRule#prefix_list_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#prefix_list_ids SecurityGroupRule#prefix_list_ids}.'''
         result = self._values.get("prefix_list_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#region SecurityGroupRule#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def self_attribute(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#self SecurityGroupRule#self}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#self SecurityGroupRule#self}.'''
         result = self._values.get("self_attribute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def source_security_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#source_security_group_id SecurityGroupRule#source_security_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#source_security_group_id SecurityGroupRule#source_security_group_id}.'''
         result = self._values.get("source_security_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -721,7 +760,7 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SecurityGroupRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#timeouts SecurityGroupRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#timeouts SecurityGroupRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SecurityGroupRuleTimeouts"], result)
@@ -746,7 +785,7 @@ class SecurityGroupRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SecurityGroupRuleTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#create SecurityGroupRule#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#create SecurityGroupRule#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c4fce6d6b4b3cd85b88af8912e708fe9260439d9e12c438c6004669fe0fb112)
@@ -757,7 +796,7 @@ class SecurityGroupRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/security_group_rule#create SecurityGroupRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/security_group_rule#create SecurityGroupRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -855,6 +894,7 @@ def _typecheckingstub__9e5b30fe119d63e1f34bbaaeba74b27dc6fb3036bacaa172029257143
     id: typing.Optional[builtins.str] = None,
     ipv6_cidr_blocks: typing.Optional[typing.Sequence[builtins.str]] = None,
     prefix_list_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
     self_attribute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     source_security_group_id: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[SecurityGroupRuleTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -920,6 +960,12 @@ def _typecheckingstub__5ce3aaf53949c265ec14f470f75e3bbf017ca7bb3ea7f0692e31ed6a9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a800c5fa6b873ce45ea66492327c652a1fb7df00ea169d94e1a6eeb92bde8182(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9a849c341051280e5d1753b7e0cd4c69b588740c3faf16cb8ed2ce9736ffaa0b(
     value: builtins.str,
 ) -> None:
@@ -969,6 +1015,7 @@ def _typecheckingstub__a4efcf01177ccf7beec80373174164871b3358df572f4f5781c5144e9
     id: typing.Optional[builtins.str] = None,
     ipv6_cidr_blocks: typing.Optional[typing.Sequence[builtins.str]] = None,
     prefix_list_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
     self_attribute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     source_security_group_id: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[SecurityGroupRuleTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

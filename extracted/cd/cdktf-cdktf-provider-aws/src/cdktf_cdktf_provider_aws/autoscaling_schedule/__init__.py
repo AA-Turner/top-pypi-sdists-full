@@ -1,7 +1,7 @@
 r'''
 # `aws_autoscaling_schedule`
 
-Refer to the Terraform Registry for docs: [`aws_autoscaling_schedule`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule).
+Refer to the Terraform Registry for docs: [`aws_autoscaling_schedule`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AutoscalingSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.autoscalingSchedule.AutoscalingSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule aws_autoscaling_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule aws_autoscaling_schedule}.'''
 
     def __init__(
         self,
@@ -59,6 +59,7 @@ class AutoscalingSchedule(
         max_size: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         recurrence: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         start_time: typing.Optional[builtins.str] = None,
         time_zone: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -69,20 +70,21 @@ class AutoscalingSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule aws_autoscaling_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule aws_autoscaling_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#autoscaling_group_name AutoscalingSchedule#autoscaling_group_name}.
-        :param scheduled_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#scheduled_action_name AutoscalingSchedule#scheduled_action_name}.
-        :param desired_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#desired_capacity AutoscalingSchedule#desired_capacity}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#end_time AutoscalingSchedule#end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#id AutoscalingSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#max_size AutoscalingSchedule#max_size}.
-        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#min_size AutoscalingSchedule#min_size}.
-        :param recurrence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#recurrence AutoscalingSchedule#recurrence}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#start_time AutoscalingSchedule#start_time}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#time_zone AutoscalingSchedule#time_zone}.
+        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#autoscaling_group_name AutoscalingSchedule#autoscaling_group_name}.
+        :param scheduled_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#scheduled_action_name AutoscalingSchedule#scheduled_action_name}.
+        :param desired_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#desired_capacity AutoscalingSchedule#desired_capacity}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#end_time AutoscalingSchedule#end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#id AutoscalingSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#max_size AutoscalingSchedule#max_size}.
+        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#min_size AutoscalingSchedule#min_size}.
+        :param recurrence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#recurrence AutoscalingSchedule#recurrence}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#region AutoscalingSchedule#region}
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#start_time AutoscalingSchedule#start_time}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#time_zone AutoscalingSchedule#time_zone}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -104,6 +106,7 @@ class AutoscalingSchedule(
             max_size=max_size,
             min_size=min_size,
             recurrence=recurrence,
+            region=region,
             start_time=start_time,
             time_zone=time_zone,
             connection=connection,
@@ -130,7 +133,7 @@ class AutoscalingSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AutoscalingSchedule to import.
-        :param import_from_id: The id of the existing AutoscalingSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AutoscalingSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AutoscalingSchedule to import is found.
         '''
         if __debug__:
@@ -164,6 +167,10 @@ class AutoscalingSchedule(
     @jsii.member(jsii_name="resetRecurrence")
     def reset_recurrence(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRecurrence", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetStartTime")
     def reset_start_time(self) -> None:
@@ -225,6 +232,11 @@ class AutoscalingSchedule(
     @jsii.member(jsii_name="recurrenceInput")
     def recurrence_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "recurrenceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="scheduledActionNameInput")
@@ -326,6 +338,18 @@ class AutoscalingSchedule(
         jsii.set(self, "recurrence", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31d112eb46ad8ffc4ccf9857bb47e8fe704b9ccffbdb4e99c2bebd492de29923)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="scheduledActionName")
     def scheduled_action_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "scheduledActionName"))
@@ -381,6 +405,7 @@ class AutoscalingSchedule(
         "max_size": "maxSize",
         "min_size": "minSize",
         "recurrence": "recurrence",
+        "region": "region",
         "start_time": "startTime",
         "time_zone": "timeZone",
     },
@@ -404,6 +429,7 @@ class AutoscalingScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         max_size: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         recurrence: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         start_time: typing.Optional[builtins.str] = None,
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -415,16 +441,17 @@ class AutoscalingScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#autoscaling_group_name AutoscalingSchedule#autoscaling_group_name}.
-        :param scheduled_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#scheduled_action_name AutoscalingSchedule#scheduled_action_name}.
-        :param desired_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#desired_capacity AutoscalingSchedule#desired_capacity}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#end_time AutoscalingSchedule#end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#id AutoscalingSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#max_size AutoscalingSchedule#max_size}.
-        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#min_size AutoscalingSchedule#min_size}.
-        :param recurrence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#recurrence AutoscalingSchedule#recurrence}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#start_time AutoscalingSchedule#start_time}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#time_zone AutoscalingSchedule#time_zone}.
+        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#autoscaling_group_name AutoscalingSchedule#autoscaling_group_name}.
+        :param scheduled_action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#scheduled_action_name AutoscalingSchedule#scheduled_action_name}.
+        :param desired_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#desired_capacity AutoscalingSchedule#desired_capacity}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#end_time AutoscalingSchedule#end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#id AutoscalingSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#max_size AutoscalingSchedule#max_size}.
+        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#min_size AutoscalingSchedule#min_size}.
+        :param recurrence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#recurrence AutoscalingSchedule#recurrence}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#region AutoscalingSchedule#region}
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#start_time AutoscalingSchedule#start_time}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#time_zone AutoscalingSchedule#time_zone}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -445,6 +472,7 @@ class AutoscalingScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
             check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
             check_type(argname="argument recurrence", value=recurrence, expected_type=type_hints["recurrence"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
             check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -477,6 +505,8 @@ class AutoscalingScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["min_size"] = min_size
         if recurrence is not None:
             self._values["recurrence"] = recurrence
+        if region is not None:
+            self._values["region"] = region
         if start_time is not None:
             self._values["start_time"] = start_time
         if time_zone is not None:
@@ -548,33 +578,33 @@ class AutoscalingScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def autoscaling_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#autoscaling_group_name AutoscalingSchedule#autoscaling_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#autoscaling_group_name AutoscalingSchedule#autoscaling_group_name}.'''
         result = self._values.get("autoscaling_group_name")
         assert result is not None, "Required property 'autoscaling_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scheduled_action_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#scheduled_action_name AutoscalingSchedule#scheduled_action_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#scheduled_action_name AutoscalingSchedule#scheduled_action_name}.'''
         result = self._values.get("scheduled_action_name")
         assert result is not None, "Required property 'scheduled_action_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def desired_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#desired_capacity AutoscalingSchedule#desired_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#desired_capacity AutoscalingSchedule#desired_capacity}.'''
         result = self._values.get("desired_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def end_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#end_time AutoscalingSchedule#end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#end_time AutoscalingSchedule#end_time}.'''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#id AutoscalingSchedule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#id AutoscalingSchedule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -584,31 +614,40 @@ class AutoscalingScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#max_size AutoscalingSchedule#max_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#max_size AutoscalingSchedule#max_size}.'''
         result = self._values.get("max_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#min_size AutoscalingSchedule#min_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#min_size AutoscalingSchedule#min_size}.'''
         result = self._values.get("min_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def recurrence(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#recurrence AutoscalingSchedule#recurrence}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#recurrence AutoscalingSchedule#recurrence}.'''
         result = self._values.get("recurrence")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#region AutoscalingSchedule#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#start_time AutoscalingSchedule#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#start_time AutoscalingSchedule#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def time_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/autoscaling_schedule#time_zone AutoscalingSchedule#time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/autoscaling_schedule#time_zone AutoscalingSchedule#time_zone}.'''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -643,6 +682,7 @@ def _typecheckingstub__a7817f086e3310179be85ade07f4405458ed2b80f2a0bb169a73f059a
     max_size: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     recurrence: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
     time_zone: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -707,6 +747,12 @@ def _typecheckingstub__dc5f1df16f9a332ee172c6a08230807a6dc1adf2e19afeb73b1678b02
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__31d112eb46ad8ffc4ccf9857bb47e8fe704b9ccffbdb4e99c2bebd492de29923(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0cf8cbc297a205cd2b3a2fe331373f267ff384fda16b273fcf17898e51047115(
     value: builtins.str,
 ) -> None:
@@ -742,6 +788,7 @@ def _typecheckingstub__5c519ac6c6a9d42a01e984a915f63e2489acf05c0b183e34028f19536
     max_size: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     recurrence: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     start_time: typing.Optional[builtins.str] = None,
     time_zone: typing.Optional[builtins.str] = None,
 ) -> None:

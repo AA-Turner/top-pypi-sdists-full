@@ -1,7 +1,7 @@
 r'''
 # `data_aws_opensearch_domain`
 
-Refer to the Terraform Registry for docs: [`data_aws_opensearch_domain`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain).
+Refer to the Terraform Registry for docs: [`data_aws_opensearch_domain`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsOpensearchDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain aws_opensearch_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain aws_opensearch_domain}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class DataAwsOpensearchDomain(
         domain_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         off_peak_window_options: typing.Optional[typing.Union["DataAwsOpensearchDomainOffPeakWindowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -63,14 +64,15 @@ class DataAwsOpensearchDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain aws_opensearch_domain} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain aws_opensearch_domain} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -87,6 +89,7 @@ class DataAwsOpensearchDomain(
             domain_name=domain_name,
             id=id,
             off_peak_window_options=off_peak_window_options,
+            region=region,
             tags=tags,
             connection=connection,
             count=count,
@@ -112,7 +115,7 @@ class DataAwsOpensearchDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsOpensearchDomain to import.
-        :param import_from_id: The id of the existing DataAwsOpensearchDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsOpensearchDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsOpensearchDomain to import is found.
         '''
         if __debug__:
@@ -136,6 +139,10 @@ class DataAwsOpensearchDomain(
     @jsii.member(jsii_name="resetOffPeakWindowOptions")
     def reset_off_peak_window_options(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetOffPeakWindowOptions", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -252,11 +259,6 @@ class DataAwsOpensearchDomain(
         return typing.cast(builtins.str, jsii.get(self, "ipAddressType"))
 
     @builtins.property
-    @jsii.member(jsii_name="kibanaEndpoint")
-    def kibana_endpoint(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "kibanaEndpoint"))
-
-    @builtins.property
     @jsii.member(jsii_name="logPublishingOptions")
     def log_publishing_options(
         self,
@@ -317,6 +319,11 @@ class DataAwsOpensearchDomain(
         return typing.cast(typing.Optional["DataAwsOpensearchDomainOffPeakWindowOptions"], jsii.get(self, "offPeakWindowOptionsInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="tagsInput")
     def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
@@ -344,6 +351,18 @@ class DataAwsOpensearchDomain(
             type_hints = typing.get_type_hints(_typecheckingstub__99df6abfe06b54dad707987936d999aac0e12e9d91c42433ee661b338d8f70e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e339076c9edceec724f3478900278de7a4632fe4990e37cb981c01b3ddf9f2c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1966,6 +1985,7 @@ class DataAwsOpensearchDomainCognitoOptionsOutputReference(
         "domain_name": "domainName",
         "id": "id",
         "off_peak_window_options": "offPeakWindowOptions",
+        "region": "region",
         "tags": "tags",
     },
 )
@@ -1983,6 +2003,7 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         domain_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         off_peak_window_options: typing.Optional[typing.Union["DataAwsOpensearchDomainOffPeakWindowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
@@ -1993,10 +2014,11 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2014,6 +2036,7 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument off_peak_window_options", value=off_peak_window_options, expected_type=type_hints["off_peak_window_options"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_name": domain_name,
@@ -2036,6 +2059,8 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if off_peak_window_options is not None:
             self._values["off_peak_window_options"] = off_peak_window_options
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
 
@@ -2105,14 +2130,14 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2126,14 +2151,23 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataAwsOpensearchDomainOffPeakWindowOptions"]:
         '''off_peak_window_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
         '''
         result = self._values.get("off_peak_window_options")
         return typing.cast(typing.Optional["DataAwsOpensearchDomainOffPeakWindowOptions"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3658,6 +3692,7 @@ def _typecheckingstub__361ca6b3786e8dd0875a7f9ada87c38372343059cccab079a0b198547
     domain_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     off_peak_window_options: typing.Optional[typing.Union[DataAwsOpensearchDomainOffPeakWindowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -3686,6 +3721,12 @@ def _typecheckingstub__3915247528e78306ea6039078f96fad514941c74f759aa309ceb3e6ef
     pass
 
 def _typecheckingstub__99df6abfe06b54dad707987936d999aac0e12e9d91c42433ee661b338d8f70e4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e339076c9edceec724f3478900278de7a4632fe4990e37cb981c01b3ddf9f2c(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -4179,6 +4220,7 @@ def _typecheckingstub__2c0f1481e0115efdd12e89a4cd9c857816eedc44692308a6d82d55caa
     domain_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     off_peak_window_options: typing.Optional[typing.Union[DataAwsOpensearchDomainOffPeakWindowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -13,7 +13,7 @@ from .validators.networkfirewall import validate_rule_group_type
 
 class SubnetMapping(AWSProperty):
     """
-    `SubnetMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-subnetmapping.html>`__
+    `SubnetMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-vpcendpointassociation-subnetmapping.html>`__
     """
 
     props: PropsDictType = {
@@ -222,6 +222,7 @@ class LoggingConfiguration(AWSObject):
     resource_type = "AWS::NetworkFirewall::LoggingConfiguration"
 
     props: PropsDictType = {
+        "EnableMonitoringDashboard": (boolean, False),
         "FirewallArn": (str, True),
         "FirewallName": (str, False),
         "LoggingConfiguration": (LoggingConfigurationProperty, True),
@@ -522,4 +523,20 @@ class TLSInspectionConfiguration(AWSObject):
         "TLSInspectionConfiguration": (TLSInspectionConfigurationProperty, True),
         "TLSInspectionConfigurationName": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class VpcEndpointAssociation(AWSObject):
+    """
+    `VpcEndpointAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html>`__
+    """
+
+    resource_type = "AWS::NetworkFirewall::VpcEndpointAssociation"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "FirewallArn": (str, True),
+        "SubnetMapping": (SubnetMapping, True),
+        "Tags": (Tags, False),
+        "VpcId": (str, True),
     }

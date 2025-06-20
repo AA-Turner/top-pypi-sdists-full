@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.17.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-18T08:04:08.963695                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
+# Generated on 2025-06-19T23:04:39.676858                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,13 +9,13 @@ from __future__ import annotations
 import typing
 if typing.TYPE_CHECKING:
     import metaflow.plugins.cards.component_serializer
-    import metaflow
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.metaflow_current
-    import typing
     import metaflow.events
+    import typing
+    import metaflow
+    import metaflow.metaflow_current
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
 
 
 TYPE_CHECKING: bool
@@ -228,6 +228,24 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
+        """
+        ...
+    @property
     def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
         """
         (only in the presence of the @huggingface_hub decorator)
@@ -294,6 +312,67 @@ class Current(object, metaclass=type):
                 path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
                 # path_to_model will be /my-directory
         ```
+        """
+        ...
+    @property
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+        """
+        (only in the presence of the @model decorator)
+        
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
+        
+        Usage (Saving a model):
+        -------
+        
+        ```
+        @model
+        @step
+        def train(self):
+            # current.model.save returns a dictionary reference to the model saved
+            self.my_model = current.model.save(
+                path_to_my_model,
+                label="my_model",
+                metadata={
+                    "epochs": 10,
+                    "batch-size": 32,
+                    "learning-rate": 0.001,
+                }
+            )
+            self.next(self.test)
+        
+        @model(load="my_model")
+        @step
+        def test(self):
+            # `current.model.loaded` returns a dictionary of the loaded models
+            # where the key is the name of the artifact and the value is the path to the model
+            print(os.listdir(current.model.loaded["my_model"]))
+            self.next(self.end)
+        ```
+        
+        Usage (Loading models):
+        -------
+        
+        ```
+        @step
+        def train(self):
+            # current.model.load returns the path to the model loaded
+            checkpoint_path = current.model.load(
+                self.checkpoint_key,
+            )
+            model_path = current.model.load(
+                self.model,
+            )
+            self.next(self.test)
+        ```
+        
+        
+        Returns
+        -------
+        ModelSerializer
+            The object used for loading / saving models.
         """
         ...
     @property
@@ -387,82 +466,16 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+    def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @model decorator)
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
         
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
-        
-        Usage (Saving a model):
-        -------
-        
-        ```
-        @model
-        @step
-        def train(self):
-            # current.model.save returns a dictionary reference to the model saved
-            self.my_model = current.model.save(
-                path_to_my_model,
-                label="my_model",
-                metadata={
-                    "epochs": 10,
-                    "batch-size": 32,
-                    "learning-rate": 0.001,
-                }
-            )
-            self.next(self.test)
-        
-        @model(load="my_model")
-        @step
-        def test(self):
-            # `current.model.loaded` returns a dictionary of the loaded models
-            # where the key is the name of the artifact and the value is the path to the model
-            print(os.listdir(current.model.loaded["my_model"]))
-            self.next(self.end)
-        ```
-        
-        Usage (Loading models):
-        -------
-        
-        ```
-        @step
-        def train(self):
-            # current.model.load returns the path to the model loaded
-            checkpoint_path = current.model.load(
-                self.checkpoint_key,
-            )
-            model_path = current.model.load(
-                self.model,
-            )
-            self.next(self.test)
-        ```
-        
+        Returns `Trigger` if the current run is triggered by an event
         
         Returns
         -------
-        ModelSerializer
-            The object used for loading / saving models.
-        """
-        ...
-    @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
-        """
-        (only in the presence of the @card decorator)
-        
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
-        
-        Returns
-        -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     @property
@@ -530,19 +543,6 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
-        """
-        ...
-    @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger, or @trigger_on_finish decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
         """
         ...
     ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lbt-grasshopper
-Version: 1.8.113
+Version: 1.8.114
 Summary: Collection of all Ladybug Tools plugins for Grasshopper
 Home-page: https://github.com/ladybug-tools/lbt-grasshopper
 Author: Ladybug Tools
@@ -16,7 +16,7 @@ Requires-Dist: ladybug-grasshopper==1.68.1
 Requires-Dist: honeybee-grasshopper-core==1.41.3
 Requires-Dist: honeybee-grasshopper-radiance==1.34.6
 Requires-Dist: honeybee-grasshopper-energy==1.58.6
-Requires-Dist: dragonfly-grasshopper==1.61.3
+Requires-Dist: dragonfly-grasshopper==1.61.4
 
 [![Build Status](https://github.com/ladybug-tools/lbt-grasshopper/workflows/CI/badge.svg)](https://github.com/ladybug-tools/lbt-grasshopper/actions)
 

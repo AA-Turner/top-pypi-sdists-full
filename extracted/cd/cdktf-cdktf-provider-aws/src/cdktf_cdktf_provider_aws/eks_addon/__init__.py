@@ -1,7 +1,7 @@
 r'''
 # `aws_eks_addon`
 
-Refer to the Terraform Registry for docs: [`aws_eks_addon`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon).
+Refer to the Terraform Registry for docs: [`aws_eks_addon`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EksAddon(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.eksAddon.EksAddon",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon aws_eks_addon}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon aws_eks_addon}.'''
 
     def __init__(
         self,
@@ -58,7 +58,7 @@ class EksAddon(
         id: typing.Optional[builtins.str] = None,
         pod_identity_association: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EksAddonPodIdentityAssociation", typing.Dict[builtins.str, typing.Any]]]]] = None,
         preserve: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-        resolve_conflicts: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         resolve_conflicts_on_create: typing.Optional[builtins.str] = None,
         resolve_conflicts_on_update: typing.Optional[builtins.str] = None,
         service_account_role_arn: typing.Optional[builtins.str] = None,
@@ -73,24 +73,24 @@ class EksAddon(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon aws_eks_addon} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon aws_eks_addon} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param addon_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#addon_name EksAddon#addon_name}.
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#cluster_name EksAddon#cluster_name}.
-        :param addon_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#addon_version EksAddon#addon_version}.
-        :param configuration_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#configuration_values EksAddon#configuration_values}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#id EksAddon#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pod_identity_association: pod_identity_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#pod_identity_association EksAddon#pod_identity_association}
-        :param preserve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#preserve EksAddon#preserve}.
-        :param resolve_conflicts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts EksAddon#resolve_conflicts}.
-        :param resolve_conflicts_on_create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts_on_create EksAddon#resolve_conflicts_on_create}.
-        :param resolve_conflicts_on_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts_on_update EksAddon#resolve_conflicts_on_update}.
-        :param service_account_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#service_account_role_arn EksAddon#service_account_role_arn}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#tags EksAddon#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#tags_all EksAddon#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#timeouts EksAddon#timeouts}
+        :param addon_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#addon_name EksAddon#addon_name}.
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#cluster_name EksAddon#cluster_name}.
+        :param addon_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#addon_version EksAddon#addon_version}.
+        :param configuration_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#configuration_values EksAddon#configuration_values}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#id EksAddon#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pod_identity_association: pod_identity_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#pod_identity_association EksAddon#pod_identity_association}
+        :param preserve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#preserve EksAddon#preserve}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#region EksAddon#region}
+        :param resolve_conflicts_on_create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#resolve_conflicts_on_create EksAddon#resolve_conflicts_on_create}.
+        :param resolve_conflicts_on_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#resolve_conflicts_on_update EksAddon#resolve_conflicts_on_update}.
+        :param service_account_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#service_account_role_arn EksAddon#service_account_role_arn}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#tags EksAddon#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#tags_all EksAddon#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#timeouts EksAddon#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -111,7 +111,7 @@ class EksAddon(
             id=id,
             pod_identity_association=pod_identity_association,
             preserve=preserve,
-            resolve_conflicts=resolve_conflicts,
+            region=region,
             resolve_conflicts_on_create=resolve_conflicts_on_create,
             resolve_conflicts_on_update=resolve_conflicts_on_update,
             service_account_role_arn=service_account_role_arn,
@@ -142,7 +142,7 @@ class EksAddon(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EksAddon to import.
-        :param import_from_id: The id of the existing EksAddon that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EksAddon that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EksAddon to import is found.
         '''
         if __debug__:
@@ -175,9 +175,9 @@ class EksAddon(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#create EksAddon#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#delete EksAddon#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#update EksAddon#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#create EksAddon#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#delete EksAddon#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#update EksAddon#update}.
         '''
         value = EksAddonTimeouts(create=create, delete=delete, update=update)
 
@@ -203,9 +203,9 @@ class EksAddon(
     def reset_preserve(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPreserve", []))
 
-    @jsii.member(jsii_name="resetResolveConflicts")
-    def reset_resolve_conflicts(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetResolveConflicts", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetResolveConflictsOnCreate")
     def reset_resolve_conflicts_on_create(self) -> None:
@@ -309,9 +309,9 @@ class EksAddon(
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "preserveInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="resolveConflictsInput")
-    def resolve_conflicts_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resolveConflictsInput"))
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="resolveConflictsOnCreateInput")
@@ -423,16 +423,16 @@ class EksAddon(
         jsii.set(self, "preserve", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="resolveConflicts")
-    def resolve_conflicts(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "resolveConflicts"))
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
 
-    @resolve_conflicts.setter
-    def resolve_conflicts(self, value: builtins.str) -> None:
+    @region.setter
+    def region(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__728a9a995e90cc9a76642ade785999df15ae1cc5c9e1e8b98ba85a233a8c1420)
+            type_hints = typing.get_type_hints(_typecheckingstub__041aa830761aa430950af96ee682c80b2e142e4fff3a5bf2ad812b318b4e2e63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resolveConflicts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="resolveConflictsOnCreate")
@@ -513,7 +513,7 @@ class EksAddon(
         "id": "id",
         "pod_identity_association": "podIdentityAssociation",
         "preserve": "preserve",
-        "resolve_conflicts": "resolveConflicts",
+        "region": "region",
         "resolve_conflicts_on_create": "resolveConflictsOnCreate",
         "resolve_conflicts_on_update": "resolveConflictsOnUpdate",
         "service_account_role_arn": "serviceAccountRoleArn",
@@ -540,7 +540,7 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         pod_identity_association: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EksAddonPodIdentityAssociation", typing.Dict[builtins.str, typing.Any]]]]] = None,
         preserve: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-        resolve_conflicts: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         resolve_conflicts_on_create: typing.Optional[builtins.str] = None,
         resolve_conflicts_on_update: typing.Optional[builtins.str] = None,
         service_account_role_arn: typing.Optional[builtins.str] = None,
@@ -556,20 +556,20 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param addon_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#addon_name EksAddon#addon_name}.
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#cluster_name EksAddon#cluster_name}.
-        :param addon_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#addon_version EksAddon#addon_version}.
-        :param configuration_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#configuration_values EksAddon#configuration_values}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#id EksAddon#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pod_identity_association: pod_identity_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#pod_identity_association EksAddon#pod_identity_association}
-        :param preserve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#preserve EksAddon#preserve}.
-        :param resolve_conflicts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts EksAddon#resolve_conflicts}.
-        :param resolve_conflicts_on_create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts_on_create EksAddon#resolve_conflicts_on_create}.
-        :param resolve_conflicts_on_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts_on_update EksAddon#resolve_conflicts_on_update}.
-        :param service_account_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#service_account_role_arn EksAddon#service_account_role_arn}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#tags EksAddon#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#tags_all EksAddon#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#timeouts EksAddon#timeouts}
+        :param addon_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#addon_name EksAddon#addon_name}.
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#cluster_name EksAddon#cluster_name}.
+        :param addon_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#addon_version EksAddon#addon_version}.
+        :param configuration_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#configuration_values EksAddon#configuration_values}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#id EksAddon#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pod_identity_association: pod_identity_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#pod_identity_association EksAddon#pod_identity_association}
+        :param preserve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#preserve EksAddon#preserve}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#region EksAddon#region}
+        :param resolve_conflicts_on_create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#resolve_conflicts_on_create EksAddon#resolve_conflicts_on_create}.
+        :param resolve_conflicts_on_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#resolve_conflicts_on_update EksAddon#resolve_conflicts_on_update}.
+        :param service_account_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#service_account_role_arn EksAddon#service_account_role_arn}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#tags EksAddon#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#tags_all EksAddon#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#timeouts EksAddon#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -591,7 +591,7 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument pod_identity_association", value=pod_identity_association, expected_type=type_hints["pod_identity_association"])
             check_type(argname="argument preserve", value=preserve, expected_type=type_hints["preserve"])
-            check_type(argname="argument resolve_conflicts", value=resolve_conflicts, expected_type=type_hints["resolve_conflicts"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument resolve_conflicts_on_create", value=resolve_conflicts_on_create, expected_type=type_hints["resolve_conflicts_on_create"])
             check_type(argname="argument resolve_conflicts_on_update", value=resolve_conflicts_on_update, expected_type=type_hints["resolve_conflicts_on_update"])
             check_type(argname="argument service_account_role_arn", value=service_account_role_arn, expected_type=type_hints["service_account_role_arn"])
@@ -626,8 +626,8 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["pod_identity_association"] = pod_identity_association
         if preserve is not None:
             self._values["preserve"] = preserve
-        if resolve_conflicts is not None:
-            self._values["resolve_conflicts"] = resolve_conflicts
+        if region is not None:
+            self._values["region"] = region
         if resolve_conflicts_on_create is not None:
             self._values["resolve_conflicts_on_create"] = resolve_conflicts_on_create
         if resolve_conflicts_on_update is not None:
@@ -707,33 +707,33 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def addon_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#addon_name EksAddon#addon_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#addon_name EksAddon#addon_name}.'''
         result = self._values.get("addon_name")
         assert result is not None, "Required property 'addon_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cluster_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#cluster_name EksAddon#cluster_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#cluster_name EksAddon#cluster_name}.'''
         result = self._values.get("cluster_name")
         assert result is not None, "Required property 'cluster_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def addon_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#addon_version EksAddon#addon_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#addon_version EksAddon#addon_version}.'''
         result = self._values.get("addon_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def configuration_values(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#configuration_values EksAddon#configuration_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#configuration_values EksAddon#configuration_values}.'''
         result = self._values.get("configuration_values")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#id EksAddon#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#id EksAddon#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -747,7 +747,7 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EksAddonPodIdentityAssociation"]]]:
         '''pod_identity_association block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#pod_identity_association EksAddon#pod_identity_association}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#pod_identity_association EksAddon#pod_identity_association}
         '''
         result = self._values.get("pod_identity_association")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EksAddonPodIdentityAssociation"]]], result)
@@ -756,43 +756,46 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def preserve(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#preserve EksAddon#preserve}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#preserve EksAddon#preserve}.'''
         result = self._values.get("preserve")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
-    def resolve_conflicts(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts EksAddon#resolve_conflicts}.'''
-        result = self._values.get("resolve_conflicts")
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#region EksAddon#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resolve_conflicts_on_create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts_on_create EksAddon#resolve_conflicts_on_create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#resolve_conflicts_on_create EksAddon#resolve_conflicts_on_create}.'''
         result = self._values.get("resolve_conflicts_on_create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resolve_conflicts_on_update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#resolve_conflicts_on_update EksAddon#resolve_conflicts_on_update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#resolve_conflicts_on_update EksAddon#resolve_conflicts_on_update}.'''
         result = self._values.get("resolve_conflicts_on_update")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_account_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#service_account_role_arn EksAddon#service_account_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#service_account_role_arn EksAddon#service_account_role_arn}.'''
         result = self._values.get("service_account_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#tags EksAddon#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#tags EksAddon#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#tags_all EksAddon#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#tags_all EksAddon#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -800,7 +803,7 @@ class EksAddonConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EksAddonTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#timeouts EksAddon#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#timeouts EksAddon#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EksAddonTimeouts"], result)
@@ -830,8 +833,8 @@ class EksAddonPodIdentityAssociation:
         service_account: builtins.str,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#role_arn EksAddon#role_arn}.
-        :param service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#service_account EksAddon#service_account}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#role_arn EksAddon#role_arn}.
+        :param service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#service_account EksAddon#service_account}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a67463ba79e092f66a5fbd584077588b63c1263c79da2b5b6f73ccd5fb561fcd)
@@ -844,14 +847,14 @@ class EksAddonPodIdentityAssociation:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#role_arn EksAddon#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#role_arn EksAddon#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_account(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#service_account EksAddon#service_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#service_account EksAddon#service_account}.'''
         result = self._values.get("service_account")
         assert result is not None, "Required property 'service_account' is missing"
         return typing.cast(builtins.str, result)
@@ -1053,9 +1056,9 @@ class EksAddonTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#create EksAddon#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#delete EksAddon#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#update EksAddon#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#create EksAddon#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#delete EksAddon#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#update EksAddon#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87ba4a1fc09ded6cd3c3394efb4343c8d537630a0857e368ecb3f84bce10ce6f)
@@ -1072,19 +1075,19 @@ class EksAddonTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#create EksAddon#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#create EksAddon#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#delete EksAddon#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#delete EksAddon#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/eks_addon#update EksAddon#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/eks_addon#update EksAddon#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1224,7 +1227,7 @@ def _typecheckingstub__feffd63520215a6930b05cfc650569bc205c7e849f50ce01ebb97b25f
     id: typing.Optional[builtins.str] = None,
     pod_identity_association: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EksAddonPodIdentityAssociation, typing.Dict[builtins.str, typing.Any]]]]] = None,
     preserve: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-    resolve_conflicts: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     resolve_conflicts_on_create: typing.Optional[builtins.str] = None,
     resolve_conflicts_on_update: typing.Optional[builtins.str] = None,
     service_account_role_arn: typing.Optional[builtins.str] = None,
@@ -1293,7 +1296,7 @@ def _typecheckingstub__8edbc165b4cca27d3476251c84ed0e15c6f567fde8d6e0666f0c73e25
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__728a9a995e90cc9a76642ade785999df15ae1cc5c9e1e8b98ba85a233a8c1420(
+def _typecheckingstub__041aa830761aa430950af96ee682c80b2e142e4fff3a5bf2ad812b318b4e2e63(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1345,7 +1348,7 @@ def _typecheckingstub__3f12cf96187374c396f6a82c842cff6d6cc29c63a297aba953ec532b3
     id: typing.Optional[builtins.str] = None,
     pod_identity_association: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EksAddonPodIdentityAssociation, typing.Dict[builtins.str, typing.Any]]]]] = None,
     preserve: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-    resolve_conflicts: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     resolve_conflicts_on_create: typing.Optional[builtins.str] = None,
     resolve_conflicts_on_update: typing.Optional[builtins.str] = None,
     service_account_role_arn: typing.Optional[builtins.str] = None,

@@ -32,6 +32,8 @@ from .literals import (
     FunctionUrlAuthTypeType,
     InvocationTypeType,
     InvokeModeType,
+    KafkaSchemaRegistryAuthTypeType,
+    KafkaSchemaValidationAttributeType,
     LastUpdateStatusReasonCodeType,
     LastUpdateStatusType,
     LogFormatType,
@@ -41,6 +43,7 @@ from .literals import (
     RecursiveLoopType,
     ResponseStreamingInvocationTypeType,
     RuntimeType,
+    SchemaRegistryEventRecordFormatType,
     SnapStartApplyOnType,
     SnapStartOptimizationStatusType,
     SourceAccessTypeType,
@@ -77,7 +80,9 @@ __all__ = (
     "AllowedPublishersOutputTypeDef",
     "AllowedPublishersTypeDef",
     "AllowedPublishersUnionTypeDef",
+    "AmazonManagedKafkaEventSourceConfigOutputTypeDef",
     "AmazonManagedKafkaEventSourceConfigTypeDef",
+    "AmazonManagedKafkaEventSourceConfigUnionTypeDef",
     "BlobTypeDef",
     "CodeSigningConfigTypeDef",
     "CodeSigningPoliciesTypeDef",
@@ -177,6 +182,10 @@ __all__ = (
     "InvokeWithResponseStreamRequestTypeDef",
     "InvokeWithResponseStreamResponseEventTypeDef",
     "InvokeWithResponseStreamResponseTypeDef",
+    "KafkaSchemaRegistryAccessConfigTypeDef",
+    "KafkaSchemaRegistryConfigOutputTypeDef",
+    "KafkaSchemaRegistryConfigTypeDef",
+    "KafkaSchemaValidationConfigTypeDef",
     "LayerTypeDef",
     "LayerVersionContentInputTypeDef",
     "LayerVersionContentOutputTypeDef",
@@ -245,7 +254,9 @@ __all__ = (
     "SelfManagedEventSourceOutputTypeDef",
     "SelfManagedEventSourceTypeDef",
     "SelfManagedEventSourceUnionTypeDef",
+    "SelfManagedKafkaEventSourceConfigOutputTypeDef",
     "SelfManagedKafkaEventSourceConfigTypeDef",
+    "SelfManagedKafkaEventSourceConfigUnionTypeDef",
     "SnapStartResponseTypeDef",
     "SnapStartTypeDef",
     "SourceAccessConfigurationTypeDef",
@@ -321,9 +332,6 @@ class AllowedPublishersOutputTypeDef(TypedDict):
 class AllowedPublishersTypeDef(TypedDict):
     SigningProfileVersionArns: Sequence[str]
 
-class AmazonManagedKafkaEventSourceConfigTypeDef(TypedDict):
-    ConsumerGroupId: NotRequired[str]
-
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class CodeSigningPoliciesTypeDef(TypedDict):
@@ -359,9 +367,6 @@ class ProvisionedPollerConfigTypeDef(TypedDict):
 
 class ScalingConfigTypeDef(TypedDict):
     MaximumConcurrency: NotRequired[int]
-
-class SelfManagedKafkaEventSourceConfigTypeDef(TypedDict):
-    ConsumerGroupId: NotRequired[str]
 
 SourceAccessConfigurationTypeDef = TypedDict(
     "SourceAccessConfigurationTypeDef",
@@ -588,6 +593,17 @@ class InvokeWithResponseStreamCompleteEventTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
     ErrorDetails: NotRequired[str]
     LogResult: NotRequired[str]
+
+KafkaSchemaRegistryAccessConfigTypeDef = TypedDict(
+    "KafkaSchemaRegistryAccessConfigTypeDef",
+    {
+        "Type": NotRequired[KafkaSchemaRegistryAuthTypeType],
+        "URI": NotRequired[str],
+    },
+)
+
+class KafkaSchemaValidationConfigTypeDef(TypedDict):
+    Attribute: NotRequired[KafkaSchemaValidationAttributeType]
 
 class LayerVersionsListItemTypeDef(TypedDict):
     LayerVersionArn: NotRequired[str]
@@ -1034,6 +1050,18 @@ class InvokeWithResponseStreamResponseEventTypeDef(TypedDict):
     PayloadChunk: NotRequired[InvokeResponseStreamUpdateTypeDef]
     InvokeComplete: NotRequired[InvokeWithResponseStreamCompleteEventTypeDef]
 
+class KafkaSchemaRegistryConfigOutputTypeDef(TypedDict):
+    SchemaRegistryURI: NotRequired[str]
+    EventRecordFormat: NotRequired[SchemaRegistryEventRecordFormatType]
+    AccessConfigs: NotRequired[List[KafkaSchemaRegistryAccessConfigTypeDef]]
+    SchemaValidationConfigs: NotRequired[List[KafkaSchemaValidationConfigTypeDef]]
+
+class KafkaSchemaRegistryConfigTypeDef(TypedDict):
+    SchemaRegistryURI: NotRequired[str]
+    EventRecordFormat: NotRequired[SchemaRegistryEventRecordFormatType]
+    AccessConfigs: NotRequired[Sequence[KafkaSchemaRegistryAccessConfigTypeDef]]
+    SchemaValidationConfigs: NotRequired[Sequence[KafkaSchemaValidationConfigTypeDef]]
+
 class LayersListItemTypeDef(TypedDict):
     LayerName: NotRequired[str]
     LayerArn: NotRequired[str]
@@ -1211,75 +1239,6 @@ class UpdateFunctionEventInvokeConfigRequestTypeDef(TypedDict):
     MaximumEventAgeInSeconds: NotRequired[int]
     DestinationConfig: NotRequired[DestinationConfigTypeDef]
 
-class EventSourceMappingConfigurationResponseTypeDef(TypedDict):
-    UUID: str
-    StartingPosition: EventSourcePositionType
-    StartingPositionTimestamp: datetime
-    BatchSize: int
-    MaximumBatchingWindowInSeconds: int
-    ParallelizationFactor: int
-    EventSourceArn: str
-    FilterCriteria: FilterCriteriaOutputTypeDef
-    FunctionArn: str
-    LastModified: datetime
-    LastProcessingResult: str
-    State: str
-    StateTransitionReason: str
-    DestinationConfig: DestinationConfigTypeDef
-    Topics: List[str]
-    Queues: List[str]
-    SourceAccessConfigurations: List[SourceAccessConfigurationTypeDef]
-    SelfManagedEventSource: SelfManagedEventSourceOutputTypeDef
-    MaximumRecordAgeInSeconds: int
-    BisectBatchOnFunctionError: bool
-    MaximumRetryAttempts: int
-    TumblingWindowInSeconds: int
-    FunctionResponseTypes: List[Literal["ReportBatchItemFailures"]]
-    AmazonManagedKafkaEventSourceConfig: AmazonManagedKafkaEventSourceConfigTypeDef
-    SelfManagedKafkaEventSourceConfig: SelfManagedKafkaEventSourceConfigTypeDef
-    ScalingConfig: ScalingConfigTypeDef
-    DocumentDBEventSourceConfig: DocumentDBEventSourceConfigTypeDef
-    KMSKeyArn: str
-    FilterCriteriaError: FilterCriteriaErrorTypeDef
-    EventSourceMappingArn: str
-    MetricsConfig: EventSourceMappingMetricsConfigOutputTypeDef
-    ProvisionedPollerConfig: ProvisionedPollerConfigTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class EventSourceMappingConfigurationTypeDef(TypedDict):
-    UUID: NotRequired[str]
-    StartingPosition: NotRequired[EventSourcePositionType]
-    StartingPositionTimestamp: NotRequired[datetime]
-    BatchSize: NotRequired[int]
-    MaximumBatchingWindowInSeconds: NotRequired[int]
-    ParallelizationFactor: NotRequired[int]
-    EventSourceArn: NotRequired[str]
-    FilterCriteria: NotRequired[FilterCriteriaOutputTypeDef]
-    FunctionArn: NotRequired[str]
-    LastModified: NotRequired[datetime]
-    LastProcessingResult: NotRequired[str]
-    State: NotRequired[str]
-    StateTransitionReason: NotRequired[str]
-    DestinationConfig: NotRequired[DestinationConfigTypeDef]
-    Topics: NotRequired[List[str]]
-    Queues: NotRequired[List[str]]
-    SourceAccessConfigurations: NotRequired[List[SourceAccessConfigurationTypeDef]]
-    SelfManagedEventSource: NotRequired[SelfManagedEventSourceOutputTypeDef]
-    MaximumRecordAgeInSeconds: NotRequired[int]
-    BisectBatchOnFunctionError: NotRequired[bool]
-    MaximumRetryAttempts: NotRequired[int]
-    TumblingWindowInSeconds: NotRequired[int]
-    FunctionResponseTypes: NotRequired[List[Literal["ReportBatchItemFailures"]]]
-    AmazonManagedKafkaEventSourceConfig: NotRequired[AmazonManagedKafkaEventSourceConfigTypeDef]
-    SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigTypeDef]
-    ScalingConfig: NotRequired[ScalingConfigTypeDef]
-    DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
-    KMSKeyArn: NotRequired[str]
-    FilterCriteriaError: NotRequired[FilterCriteriaErrorTypeDef]
-    EventSourceMappingArn: NotRequired[str]
-    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigOutputTypeDef]
-    ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]
-
 FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTypeDef]
 
 class CreateFunctionRequestTypeDef(TypedDict):
@@ -1335,6 +1294,22 @@ class InvokeWithResponseStreamResponseTypeDef(TypedDict):
     EventStream: EventStream[InvokeWithResponseStreamResponseEventTypeDef]
     ResponseStreamContentType: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class AmazonManagedKafkaEventSourceConfigOutputTypeDef(TypedDict):
+    ConsumerGroupId: NotRequired[str]
+    SchemaRegistryConfig: NotRequired[KafkaSchemaRegistryConfigOutputTypeDef]
+
+class SelfManagedKafkaEventSourceConfigOutputTypeDef(TypedDict):
+    ConsumerGroupId: NotRequired[str]
+    SchemaRegistryConfig: NotRequired[KafkaSchemaRegistryConfigOutputTypeDef]
+
+class AmazonManagedKafkaEventSourceConfigTypeDef(TypedDict):
+    ConsumerGroupId: NotRequired[str]
+    SchemaRegistryConfig: NotRequired[KafkaSchemaRegistryConfigTypeDef]
+
+class SelfManagedKafkaEventSourceConfigTypeDef(TypedDict):
+    ConsumerGroupId: NotRequired[str]
+    SchemaRegistryConfig: NotRequired[KafkaSchemaRegistryConfigTypeDef]
 
 class ListLayersResponseTypeDef(TypedDict):
     NextMarker: str
@@ -1423,6 +1398,102 @@ class ListFunctionEventInvokeConfigsResponseTypeDef(TypedDict):
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class EventSourceMappingConfigurationResponseTypeDef(TypedDict):
+    UUID: str
+    StartingPosition: EventSourcePositionType
+    StartingPositionTimestamp: datetime
+    BatchSize: int
+    MaximumBatchingWindowInSeconds: int
+    ParallelizationFactor: int
+    EventSourceArn: str
+    FilterCriteria: FilterCriteriaOutputTypeDef
+    FunctionArn: str
+    LastModified: datetime
+    LastProcessingResult: str
+    State: str
+    StateTransitionReason: str
+    DestinationConfig: DestinationConfigTypeDef
+    Topics: List[str]
+    Queues: List[str]
+    SourceAccessConfigurations: List[SourceAccessConfigurationTypeDef]
+    SelfManagedEventSource: SelfManagedEventSourceOutputTypeDef
+    MaximumRecordAgeInSeconds: int
+    BisectBatchOnFunctionError: bool
+    MaximumRetryAttempts: int
+    TumblingWindowInSeconds: int
+    FunctionResponseTypes: List[Literal["ReportBatchItemFailures"]]
+    AmazonManagedKafkaEventSourceConfig: AmazonManagedKafkaEventSourceConfigOutputTypeDef
+    SelfManagedKafkaEventSourceConfig: SelfManagedKafkaEventSourceConfigOutputTypeDef
+    ScalingConfig: ScalingConfigTypeDef
+    DocumentDBEventSourceConfig: DocumentDBEventSourceConfigTypeDef
+    KMSKeyArn: str
+    FilterCriteriaError: FilterCriteriaErrorTypeDef
+    EventSourceMappingArn: str
+    MetricsConfig: EventSourceMappingMetricsConfigOutputTypeDef
+    ProvisionedPollerConfig: ProvisionedPollerConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class EventSourceMappingConfigurationTypeDef(TypedDict):
+    UUID: NotRequired[str]
+    StartingPosition: NotRequired[EventSourcePositionType]
+    StartingPositionTimestamp: NotRequired[datetime]
+    BatchSize: NotRequired[int]
+    MaximumBatchingWindowInSeconds: NotRequired[int]
+    ParallelizationFactor: NotRequired[int]
+    EventSourceArn: NotRequired[str]
+    FilterCriteria: NotRequired[FilterCriteriaOutputTypeDef]
+    FunctionArn: NotRequired[str]
+    LastModified: NotRequired[datetime]
+    LastProcessingResult: NotRequired[str]
+    State: NotRequired[str]
+    StateTransitionReason: NotRequired[str]
+    DestinationConfig: NotRequired[DestinationConfigTypeDef]
+    Topics: NotRequired[List[str]]
+    Queues: NotRequired[List[str]]
+    SourceAccessConfigurations: NotRequired[List[SourceAccessConfigurationTypeDef]]
+    SelfManagedEventSource: NotRequired[SelfManagedEventSourceOutputTypeDef]
+    MaximumRecordAgeInSeconds: NotRequired[int]
+    BisectBatchOnFunctionError: NotRequired[bool]
+    MaximumRetryAttempts: NotRequired[int]
+    TumblingWindowInSeconds: NotRequired[int]
+    FunctionResponseTypes: NotRequired[List[Literal["ReportBatchItemFailures"]]]
+    AmazonManagedKafkaEventSourceConfig: NotRequired[
+        AmazonManagedKafkaEventSourceConfigOutputTypeDef
+    ]
+    SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigOutputTypeDef]
+    ScalingConfig: NotRequired[ScalingConfigTypeDef]
+    DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
+    KMSKeyArn: NotRequired[str]
+    FilterCriteriaError: NotRequired[FilterCriteriaErrorTypeDef]
+    EventSourceMappingArn: NotRequired[str]
+    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigOutputTypeDef]
+    ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]
+
+AmazonManagedKafkaEventSourceConfigUnionTypeDef = Union[
+    AmazonManagedKafkaEventSourceConfigTypeDef, AmazonManagedKafkaEventSourceConfigOutputTypeDef
+]
+SelfManagedKafkaEventSourceConfigUnionTypeDef = Union[
+    SelfManagedKafkaEventSourceConfigTypeDef, SelfManagedKafkaEventSourceConfigOutputTypeDef
+]
+
+class GetFunctionResponseTypeDef(TypedDict):
+    Configuration: FunctionConfigurationTypeDef
+    Code: FunctionCodeLocationTypeDef
+    Tags: Dict[str, str]
+    TagsError: TagsErrorTypeDef
+    Concurrency: ConcurrencyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListFunctionsResponseTypeDef(TypedDict):
+    NextMarker: str
+    Functions: List[FunctionConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListVersionsByFunctionResponseTypeDef(TypedDict):
+    NextMarker: str
+    Versions: List[FunctionConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListEventSourceMappingsResponseTypeDef(TypedDict):
     NextMarker: str
     EventSourceMappings: List[EventSourceMappingConfigurationTypeDef]
@@ -1449,8 +1520,10 @@ class CreateEventSourceMappingRequestTypeDef(TypedDict):
     SourceAccessConfigurations: NotRequired[Sequence[SourceAccessConfigurationTypeDef]]
     SelfManagedEventSource: NotRequired[SelfManagedEventSourceUnionTypeDef]
     FunctionResponseTypes: NotRequired[Sequence[Literal["ReportBatchItemFailures"]]]
-    AmazonManagedKafkaEventSourceConfig: NotRequired[AmazonManagedKafkaEventSourceConfigTypeDef]
-    SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigTypeDef]
+    AmazonManagedKafkaEventSourceConfig: NotRequired[
+        AmazonManagedKafkaEventSourceConfigUnionTypeDef
+    ]
+    SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigUnionTypeDef]
     ScalingConfig: NotRequired[ScalingConfigTypeDef]
     DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
     KMSKeyArn: NotRequired[str]
@@ -1473,25 +1546,11 @@ class UpdateEventSourceMappingRequestTypeDef(TypedDict):
     TumblingWindowInSeconds: NotRequired[int]
     FunctionResponseTypes: NotRequired[Sequence[Literal["ReportBatchItemFailures"]]]
     ScalingConfig: NotRequired[ScalingConfigTypeDef]
+    AmazonManagedKafkaEventSourceConfig: NotRequired[
+        AmazonManagedKafkaEventSourceConfigUnionTypeDef
+    ]
+    SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigUnionTypeDef]
     DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
     KMSKeyArn: NotRequired[str]
     MetricsConfig: NotRequired[EventSourceMappingMetricsConfigUnionTypeDef]
     ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]
-
-class GetFunctionResponseTypeDef(TypedDict):
-    Configuration: FunctionConfigurationTypeDef
-    Code: FunctionCodeLocationTypeDef
-    Tags: Dict[str, str]
-    TagsError: TagsErrorTypeDef
-    Concurrency: ConcurrencyTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListFunctionsResponseTypeDef(TypedDict):
-    NextMarker: str
-    Functions: List[FunctionConfigurationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListVersionsByFunctionResponseTypeDef(TypedDict):
-    NextMarker: str
-    Versions: List[FunctionConfigurationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef

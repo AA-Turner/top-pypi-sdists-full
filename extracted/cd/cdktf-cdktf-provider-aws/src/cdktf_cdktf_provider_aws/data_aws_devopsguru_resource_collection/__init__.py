@@ -1,7 +1,7 @@
 r'''
 # `data_aws_devopsguru_resource_collection`
 
-Refer to the Terraform Registry for docs: [`data_aws_devopsguru_resource_collection`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection).
+Refer to the Terraform Registry for docs: [`data_aws_devopsguru_resource_collection`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsDevopsguruResourceCollection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsDevopsguruResourceCollection.DataAwsDevopsguruResourceCollection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection aws_devopsguru_resource_collection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection aws_devopsguru_resource_collection}.'''
 
     def __init__(
         self,
@@ -52,8 +52,7 @@ class DataAwsDevopsguruResourceCollection(
         id: builtins.str,
         *,
         type: builtins.str,
-        cloudformation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsDevopsguruResourceCollectionCloudformation", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsDevopsguruResourceCollectionTags", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +61,12 @@ class DataAwsDevopsguruResourceCollection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection aws_devopsguru_resource_collection} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection aws_devopsguru_resource_collection} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#type DataAwsDevopsguruResourceCollection#type}.
-        :param cloudformation: cloudformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#cloudformation DataAwsDevopsguruResourceCollection#cloudformation}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#tags DataAwsDevopsguruResourceCollection#tags}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection#type DataAwsDevopsguruResourceCollection#type}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection#region DataAwsDevopsguruResourceCollection#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -83,8 +81,7 @@ class DataAwsDevopsguruResourceCollection(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsDevopsguruResourceCollectionConfig(
             type=type,
-            cloudformation=cloudformation,
-            tags=tags,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +106,7 @@ class DataAwsDevopsguruResourceCollection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsDevopsguruResourceCollection to import.
-        :param import_from_id: The id of the existing DataAwsDevopsguruResourceCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsDevopsguruResourceCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsDevopsguruResourceCollection to import is found.
         '''
         if __debug__:
@@ -120,39 +117,9 @@ class DataAwsDevopsguruResourceCollection(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putCloudformation")
-    def put_cloudformation(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsDevopsguruResourceCollectionCloudformation", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ecffbd9ae4c6b1b5ecc6a04ee74dafe63e4b250d523bd2469d3ff4324144b4e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putCloudformation", [value]))
-
-    @jsii.member(jsii_name="putTags")
-    def put_tags(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsDevopsguruResourceCollectionTags", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5050b93e3065daa2787842d8ba2220e22b4f6131c8de9e129c3359b54e9e556e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putTags", [value]))
-
-    @jsii.member(jsii_name="resetCloudformation")
-    def reset_cloudformation(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetCloudformation", []))
-
-    @jsii.member(jsii_name="resetTags")
-    def reset_tags(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetTags", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -183,23 +150,26 @@ class DataAwsDevopsguruResourceCollection(
         return typing.cast("DataAwsDevopsguruResourceCollectionTagsList", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="cloudformationInput")
-    def cloudformation_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsDevopsguruResourceCollectionCloudformation"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsDevopsguruResourceCollectionCloudformation"]]], jsii.get(self, "cloudformationInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsInput")
-    def tags_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsDevopsguruResourceCollectionTags"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsDevopsguruResourceCollectionTags"]]], jsii.get(self, "tagsInput"))
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="typeInput")
     def type_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__baff08eca8d139cd73120ef584e18ff4f27c91165ee8ee3f5c3b96b83931a43b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -310,23 +280,6 @@ class DataAwsDevopsguruResourceCollectionCloudformationList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionCloudformation]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionCloudformation]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionCloudformation]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8e9680d39238507a04f1e1da674653df5755694c63a4479151fe0f7c3a29d8b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsDevopsguruResourceCollectionCloudformationOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -363,13 +316,13 @@ class DataAwsDevopsguruResourceCollectionCloudformationOutputReference(
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionCloudformation]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionCloudformation]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsDevopsguruResourceCollectionCloudformation]:
+        return typing.cast(typing.Optional[DataAwsDevopsguruResourceCollectionCloudformation], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionCloudformation]],
+        value: typing.Optional[DataAwsDevopsguruResourceCollectionCloudformation],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9a4876556697540a5b6491ada536ce8edbe45667eb84aa8b102770e52408dc4)
@@ -389,8 +342,7 @@ class DataAwsDevopsguruResourceCollectionCloudformationOutputReference(
         "provider": "provider",
         "provisioners": "provisioners",
         "type": "type",
-        "cloudformation": "cloudformation",
-        "tags": "tags",
+        "region": "region",
     },
 )
 class DataAwsDevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -405,8 +357,7 @@ class DataAwsDevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArg
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         type: builtins.str,
-        cloudformation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsDevopsguruResourceCollectionCloudformation, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsDevopsguruResourceCollectionTags", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -416,9 +367,8 @@ class DataAwsDevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#type DataAwsDevopsguruResourceCollection#type}.
-        :param cloudformation: cloudformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#cloudformation DataAwsDevopsguruResourceCollection#cloudformation}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#tags DataAwsDevopsguruResourceCollection#tags}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection#type DataAwsDevopsguruResourceCollection#type}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection#region DataAwsDevopsguruResourceCollection#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -432,8 +382,7 @@ class DataAwsDevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArg
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument cloudformation", value=cloudformation, expected_type=type_hints["cloudformation"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "type": type,
         }
@@ -451,10 +400,8 @@ class DataAwsDevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArg
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if cloudformation is not None:
-            self._values["cloudformation"] = cloudformation
-        if tags is not None:
-            self._values["tags"] = tags
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -522,32 +469,19 @@ class DataAwsDevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArg
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#type DataAwsDevopsguruResourceCollection#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection#type DataAwsDevopsguruResourceCollection#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def cloudformation(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionCloudformation]]]:
-        '''cloudformation block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#cloudformation DataAwsDevopsguruResourceCollection#cloudformation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/devopsguru_resource_collection#region DataAwsDevopsguruResourceCollection#region}
         '''
-        result = self._values.get("cloudformation")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionCloudformation]]], result)
-
-    @builtins.property
-    def tags(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsDevopsguruResourceCollectionTags"]]]:
-        '''tags block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/devopsguru_resource_collection#tags DataAwsDevopsguruResourceCollection#tags}
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsDevopsguruResourceCollectionTags"]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -657,23 +591,6 @@ class DataAwsDevopsguruResourceCollectionTagsList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionTags]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionTags]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionTags]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81a957a03afc6eaecc7ee285f572fb8b8bfdd760ad3c59b75793f692cf13eeff)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsDevopsguruResourceCollectionTagsOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -715,13 +632,13 @@ class DataAwsDevopsguruResourceCollectionTagsOutputReference(
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionTags]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionTags]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsDevopsguruResourceCollectionTags]:
+        return typing.cast(typing.Optional[DataAwsDevopsguruResourceCollectionTags], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionTags]],
+        value: typing.Optional[DataAwsDevopsguruResourceCollectionTags],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc68aa6769f8aa87c2c0fba71c2b0e6f957f0a78163a382920f72d3bf2b947ae)
@@ -747,8 +664,7 @@ def _typecheckingstub__5530aa0edcaccb90b18c3691aebfa121c8351b9794bc8d44588d6e444
     id: builtins.str,
     *,
     type: builtins.str,
-    cloudformation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsDevopsguruResourceCollectionCloudformation, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsDevopsguruResourceCollectionTags, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -769,14 +685,8 @@ def _typecheckingstub__6b9f524e8b8b1bbd16f8e809e2a42c3774c464ae96be832982590eb45
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9ecffbd9ae4c6b1b5ecc6a04ee74dafe63e4b250d523bd2469d3ff4324144b4e(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsDevopsguruResourceCollectionCloudformation, typing.Dict[builtins.str, typing.Any]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5050b93e3065daa2787842d8ba2220e22b4f6131c8de9e129c3359b54e9e556e(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsDevopsguruResourceCollectionTags, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__baff08eca8d139cd73120ef584e18ff4f27c91165ee8ee3f5c3b96b83931a43b(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -819,12 +729,6 @@ def _typecheckingstub__12858b823991b4306d26253d01de4f285584e4d497c089b9d8bcf4ee2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e8e9680d39238507a04f1e1da674653df5755694c63a4479151fe0f7c3a29d8b(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionCloudformation]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0b4b4f1a15fb397d02c37a2ea7b6b5c0d522fea0e9cc427d4c2395738abc6d9e(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -835,7 +739,7 @@ def _typecheckingstub__0b4b4f1a15fb397d02c37a2ea7b6b5c0d522fea0e9cc427d4c2395738
     pass
 
 def _typecheckingstub__e9a4876556697540a5b6491ada536ce8edbe45667eb84aa8b102770e52408dc4(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionCloudformation]],
+    value: typing.Optional[DataAwsDevopsguruResourceCollectionCloudformation],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -850,8 +754,7 @@ def _typecheckingstub__b140abeae65368d4a4195feb38bd23116bb343412e08e6f57e2f3bb80
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     type: builtins.str,
-    cloudformation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsDevopsguruResourceCollectionCloudformation, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsDevopsguruResourceCollectionTags, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -888,12 +791,6 @@ def _typecheckingstub__aa0db4a26d818d45ad59796db72704e3924eb01f8fcec9542e2321a79
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__81a957a03afc6eaecc7ee285f572fb8b8bfdd760ad3c59b75793f692cf13eeff(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsDevopsguruResourceCollectionTags]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__eb063f40909f0435ada5b71851745283bb86cd23ba8c62ebec276c8ab339fd1a(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -904,7 +801,7 @@ def _typecheckingstub__eb063f40909f0435ada5b71851745283bb86cd23ba8c62ebec276c8ab
     pass
 
 def _typecheckingstub__dc68aa6769f8aa87c2c0fba71c2b0e6f957f0a78163a382920f72d3bf2b947ae(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsDevopsguruResourceCollectionTags]],
+    value: typing.Optional[DataAwsDevopsguruResourceCollectionTags],
 ) -> None:
     """Type checking stubs"""
     pass

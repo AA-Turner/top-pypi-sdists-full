@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: accelerate
-Version: 1.7.0
+Version: 1.8.0
 Summary: Accelerate
 Home-page: https://github.com/huggingface/accelerate
 Author: The HuggingFace team
@@ -79,6 +79,7 @@ Requires-Dist: tensorboard; extra == "test-trackers"
 Requires-Dist: dvclive; extra == "test-trackers"
 Requires-Dist: mlflow; extra == "test-trackers"
 Requires-Dist: matplotlib; extra == "test-trackers"
+Requires-Dist: swanlab; extra == "test-trackers"
 Provides-Extra: dev
 Requires-Dist: black~=23.1; extra == "dev"
 Requires-Dist: hf-doc-builder>=0.3.0; extra == "dev"
@@ -102,6 +103,19 @@ Requires-Dist: timm; extra == "dev"
 Requires-Dist: rich; extra == "dev"
 Provides-Extra: sagemaker
 Requires-Dist: sagemaker; extra == "sagemaker"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <!---
 Copyright 2021 The HuggingFace Team. All rights reserved.

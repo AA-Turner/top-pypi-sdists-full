@@ -1,7 +1,7 @@
 r'''
 # `aws_redshift_cluster`
 
-Refer to the Terraform Registry for docs: [`aws_redshift_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster).
+Refer to the Terraform Registry for docs: [`aws_redshift_cluster`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RedshiftCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.redshiftCluster.RedshiftCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster aws_redshift_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster aws_redshift_cluster}.'''
 
     def __init__(
         self,
@@ -60,22 +60,18 @@ class RedshiftCluster(
         availability_zone: typing.Optional[builtins.str] = None,
         availability_zone_relocation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-        cluster_public_key: typing.Optional[builtins.str] = None,
-        cluster_revision_number: typing.Optional[builtins.str] = None,
         cluster_subnet_group_name: typing.Optional[builtins.str] = None,
         cluster_type: typing.Optional[builtins.str] = None,
         cluster_version: typing.Optional[builtins.str] = None,
         database_name: typing.Optional[builtins.str] = None,
         default_iam_role_arn: typing.Optional[builtins.str] = None,
         elastic_ip: typing.Optional[builtins.str] = None,
-        encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-        endpoint: typing.Optional[builtins.str] = None,
+        encrypted: typing.Optional[builtins.str] = None,
         enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         final_snapshot_identifier: typing.Optional[builtins.str] = None,
         iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        logging: typing.Optional[typing.Union["RedshiftClusterLogging", typing.Dict[builtins.str, typing.Any]]] = None,
         maintenance_track_name: typing.Optional[builtins.str] = None,
         manage_master_password: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
@@ -90,10 +86,10 @@ class RedshiftCluster(
         port: typing.Optional[jsii.Number] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         skip_final_snapshot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         snapshot_arn: typing.Optional[builtins.str] = None,
         snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
-        snapshot_copy: typing.Optional[typing.Union["RedshiftClusterSnapshotCopy", typing.Dict[builtins.str, typing.Any]]] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -107,58 +103,54 @@ class RedshiftCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster aws_redshift_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster aws_redshift_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_identifier RedshiftCluster#cluster_identifier}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#node_type RedshiftCluster#node_type}.
-        :param allow_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#allow_version_upgrade RedshiftCluster#allow_version_upgrade}.
-        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#apply_immediately RedshiftCluster#apply_immediately}.
-        :param aqua_configuration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#aqua_configuration_status RedshiftCluster#aqua_configuration_status}.
-        :param automated_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#automated_snapshot_retention_period RedshiftCluster#automated_snapshot_retention_period}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#availability_zone RedshiftCluster#availability_zone}.
-        :param availability_zone_relocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#availability_zone_relocation_enabled RedshiftCluster#availability_zone_relocation_enabled}.
-        :param cluster_parameter_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_parameter_group_name RedshiftCluster#cluster_parameter_group_name}.
-        :param cluster_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_public_key RedshiftCluster#cluster_public_key}.
-        :param cluster_revision_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_revision_number RedshiftCluster#cluster_revision_number}.
-        :param cluster_subnet_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_subnet_group_name RedshiftCluster#cluster_subnet_group_name}.
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_type RedshiftCluster#cluster_type}.
-        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_version RedshiftCluster#cluster_version}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#database_name RedshiftCluster#database_name}.
-        :param default_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#default_iam_role_arn RedshiftCluster#default_iam_role_arn}.
-        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#elastic_ip RedshiftCluster#elastic_ip}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#encrypted RedshiftCluster#encrypted}.
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#endpoint RedshiftCluster#endpoint}.
-        :param enhanced_vpc_routing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#enhanced_vpc_routing RedshiftCluster#enhanced_vpc_routing}.
-        :param final_snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#final_snapshot_identifier RedshiftCluster#final_snapshot_identifier}.
-        :param iam_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#iam_roles RedshiftCluster#iam_roles}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#id RedshiftCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#kms_key_id RedshiftCluster#kms_key_id}.
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#logging RedshiftCluster#logging}
-        :param maintenance_track_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#maintenance_track_name RedshiftCluster#maintenance_track_name}.
-        :param manage_master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#manage_master_password RedshiftCluster#manage_master_password}.
-        :param manual_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#manual_snapshot_retention_period RedshiftCluster#manual_snapshot_retention_period}.
-        :param master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password RedshiftCluster#master_password}.
-        :param master_password_secret_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_secret_kms_key_id RedshiftCluster#master_password_secret_kms_key_id}.
-        :param master_password_wo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_wo RedshiftCluster#master_password_wo}.
-        :param master_password_wo_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_wo_version RedshiftCluster#master_password_wo_version}.
-        :param master_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_username RedshiftCluster#master_username}.
-        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#multi_az RedshiftCluster#multi_az}.
-        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#number_of_nodes RedshiftCluster#number_of_nodes}.
-        :param owner_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#owner_account RedshiftCluster#owner_account}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#port RedshiftCluster#port}.
-        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#preferred_maintenance_window RedshiftCluster#preferred_maintenance_window}.
-        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#publicly_accessible RedshiftCluster#publicly_accessible}.
-        :param skip_final_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#skip_final_snapshot RedshiftCluster#skip_final_snapshot}.
-        :param snapshot_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_arn RedshiftCluster#snapshot_arn}.
-        :param snapshot_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_cluster_identifier RedshiftCluster#snapshot_cluster_identifier}.
-        :param snapshot_copy: snapshot_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_copy RedshiftCluster#snapshot_copy}
-        :param snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_identifier RedshiftCluster#snapshot_identifier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#tags RedshiftCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#tags_all RedshiftCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#timeouts RedshiftCluster#timeouts}
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#vpc_security_group_ids RedshiftCluster#vpc_security_group_ids}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_identifier RedshiftCluster#cluster_identifier}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#node_type RedshiftCluster#node_type}.
+        :param allow_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#allow_version_upgrade RedshiftCluster#allow_version_upgrade}.
+        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#apply_immediately RedshiftCluster#apply_immediately}.
+        :param aqua_configuration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#aqua_configuration_status RedshiftCluster#aqua_configuration_status}.
+        :param automated_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#automated_snapshot_retention_period RedshiftCluster#automated_snapshot_retention_period}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#availability_zone RedshiftCluster#availability_zone}.
+        :param availability_zone_relocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#availability_zone_relocation_enabled RedshiftCluster#availability_zone_relocation_enabled}.
+        :param cluster_parameter_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_parameter_group_name RedshiftCluster#cluster_parameter_group_name}.
+        :param cluster_subnet_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_subnet_group_name RedshiftCluster#cluster_subnet_group_name}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_type RedshiftCluster#cluster_type}.
+        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_version RedshiftCluster#cluster_version}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#database_name RedshiftCluster#database_name}.
+        :param default_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#default_iam_role_arn RedshiftCluster#default_iam_role_arn}.
+        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#elastic_ip RedshiftCluster#elastic_ip}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#encrypted RedshiftCluster#encrypted}.
+        :param enhanced_vpc_routing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#enhanced_vpc_routing RedshiftCluster#enhanced_vpc_routing}.
+        :param final_snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#final_snapshot_identifier RedshiftCluster#final_snapshot_identifier}.
+        :param iam_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#iam_roles RedshiftCluster#iam_roles}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#id RedshiftCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#kms_key_id RedshiftCluster#kms_key_id}.
+        :param maintenance_track_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#maintenance_track_name RedshiftCluster#maintenance_track_name}.
+        :param manage_master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#manage_master_password RedshiftCluster#manage_master_password}.
+        :param manual_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#manual_snapshot_retention_period RedshiftCluster#manual_snapshot_retention_period}.
+        :param master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password RedshiftCluster#master_password}.
+        :param master_password_secret_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_secret_kms_key_id RedshiftCluster#master_password_secret_kms_key_id}.
+        :param master_password_wo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_wo RedshiftCluster#master_password_wo}.
+        :param master_password_wo_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_wo_version RedshiftCluster#master_password_wo_version}.
+        :param master_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_username RedshiftCluster#master_username}.
+        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#multi_az RedshiftCluster#multi_az}.
+        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#number_of_nodes RedshiftCluster#number_of_nodes}.
+        :param owner_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#owner_account RedshiftCluster#owner_account}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#port RedshiftCluster#port}.
+        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#preferred_maintenance_window RedshiftCluster#preferred_maintenance_window}.
+        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#publicly_accessible RedshiftCluster#publicly_accessible}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#region RedshiftCluster#region}
+        :param skip_final_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#skip_final_snapshot RedshiftCluster#skip_final_snapshot}.
+        :param snapshot_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_arn RedshiftCluster#snapshot_arn}.
+        :param snapshot_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_cluster_identifier RedshiftCluster#snapshot_cluster_identifier}.
+        :param snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_identifier RedshiftCluster#snapshot_identifier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#tags RedshiftCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#tags_all RedshiftCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#timeouts RedshiftCluster#timeouts}
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#vpc_security_group_ids RedshiftCluster#vpc_security_group_ids}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -181,8 +173,6 @@ class RedshiftCluster(
             availability_zone=availability_zone,
             availability_zone_relocation_enabled=availability_zone_relocation_enabled,
             cluster_parameter_group_name=cluster_parameter_group_name,
-            cluster_public_key=cluster_public_key,
-            cluster_revision_number=cluster_revision_number,
             cluster_subnet_group_name=cluster_subnet_group_name,
             cluster_type=cluster_type,
             cluster_version=cluster_version,
@@ -190,13 +180,11 @@ class RedshiftCluster(
             default_iam_role_arn=default_iam_role_arn,
             elastic_ip=elastic_ip,
             encrypted=encrypted,
-            endpoint=endpoint,
             enhanced_vpc_routing=enhanced_vpc_routing,
             final_snapshot_identifier=final_snapshot_identifier,
             iam_roles=iam_roles,
             id=id,
             kms_key_id=kms_key_id,
-            logging=logging,
             maintenance_track_name=maintenance_track_name,
             manage_master_password=manage_master_password,
             manual_snapshot_retention_period=manual_snapshot_retention_period,
@@ -211,10 +199,10 @@ class RedshiftCluster(
             port=port,
             preferred_maintenance_window=preferred_maintenance_window,
             publicly_accessible=publicly_accessible,
+            region=region,
             skip_final_snapshot=skip_final_snapshot,
             snapshot_arn=snapshot_arn,
             snapshot_cluster_identifier=snapshot_cluster_identifier,
-            snapshot_copy=snapshot_copy,
             snapshot_identifier=snapshot_identifier,
             tags=tags,
             tags_all=tags_all,
@@ -244,7 +232,7 @@ class RedshiftCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RedshiftCluster to import.
-        :param import_from_id: The id of the existing RedshiftCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RedshiftCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RedshiftCluster to import is found.
         '''
         if __debug__:
@@ -255,54 +243,6 @@ class RedshiftCluster(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putLogging")
-    def put_logging(
-        self,
-        *,
-        enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-        bucket_name: typing.Optional[builtins.str] = None,
-        log_destination_type: typing.Optional[builtins.str] = None,
-        log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        s3_key_prefix: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#enable RedshiftCluster#enable}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#bucket_name RedshiftCluster#bucket_name}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#log_destination_type RedshiftCluster#log_destination_type}.
-        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#log_exports RedshiftCluster#log_exports}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#s3_key_prefix RedshiftCluster#s3_key_prefix}.
-        '''
-        value = RedshiftClusterLogging(
-            enable=enable,
-            bucket_name=bucket_name,
-            log_destination_type=log_destination_type,
-            log_exports=log_exports,
-            s3_key_prefix=s3_key_prefix,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "putLogging", [value]))
-
-    @jsii.member(jsii_name="putSnapshotCopy")
-    def put_snapshot_copy(
-        self,
-        *,
-        destination_region: builtins.str,
-        grant_name: typing.Optional[builtins.str] = None,
-        retention_period: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''
-        :param destination_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#destination_region RedshiftCluster#destination_region}.
-        :param grant_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#grant_name RedshiftCluster#grant_name}.
-        :param retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#retention_period RedshiftCluster#retention_period}.
-        '''
-        value = RedshiftClusterSnapshotCopy(
-            destination_region=destination_region,
-            grant_name=grant_name,
-            retention_period=retention_period,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "putSnapshotCopy", [value]))
-
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(
         self,
@@ -312,9 +252,9 @@ class RedshiftCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#create RedshiftCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#delete RedshiftCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#update RedshiftCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#create RedshiftCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#delete RedshiftCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#update RedshiftCluster#update}.
         '''
         value = RedshiftClusterTimeouts(create=create, delete=delete, update=update)
 
@@ -348,14 +288,6 @@ class RedshiftCluster(
     def reset_cluster_parameter_group_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetClusterParameterGroupName", []))
 
-    @jsii.member(jsii_name="resetClusterPublicKey")
-    def reset_cluster_public_key(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetClusterPublicKey", []))
-
-    @jsii.member(jsii_name="resetClusterRevisionNumber")
-    def reset_cluster_revision_number(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetClusterRevisionNumber", []))
-
     @jsii.member(jsii_name="resetClusterSubnetGroupName")
     def reset_cluster_subnet_group_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetClusterSubnetGroupName", []))
@@ -384,10 +316,6 @@ class RedshiftCluster(
     def reset_encrypted(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEncrypted", []))
 
-    @jsii.member(jsii_name="resetEndpoint")
-    def reset_endpoint(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetEndpoint", []))
-
     @jsii.member(jsii_name="resetEnhancedVpcRouting")
     def reset_enhanced_vpc_routing(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEnhancedVpcRouting", []))
@@ -407,10 +335,6 @@ class RedshiftCluster(
     @jsii.member(jsii_name="resetKmsKeyId")
     def reset_kms_key_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKmsKeyId", []))
-
-    @jsii.member(jsii_name="resetLogging")
-    def reset_logging(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetLogging", []))
 
     @jsii.member(jsii_name="resetMaintenanceTrackName")
     def reset_maintenance_track_name(self) -> None:
@@ -468,6 +392,10 @@ class RedshiftCluster(
     def reset_publicly_accessible(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPubliclyAccessible", []))
 
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
     @jsii.member(jsii_name="resetSkipFinalSnapshot")
     def reset_skip_final_snapshot(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSkipFinalSnapshot", []))
@@ -479,10 +407,6 @@ class RedshiftCluster(
     @jsii.member(jsii_name="resetSnapshotClusterIdentifier")
     def reset_snapshot_cluster_identifier(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSnapshotClusterIdentifier", []))
-
-    @jsii.member(jsii_name="resetSnapshotCopy")
-    def reset_snapshot_copy(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetSnapshotCopy", []))
 
     @jsii.member(jsii_name="resetSnapshotIdentifier")
     def reset_snapshot_identifier(self) -> None:
@@ -533,24 +457,29 @@ class RedshiftCluster(
         return typing.cast("RedshiftClusterClusterNodesList", jsii.get(self, "clusterNodes"))
 
     @builtins.property
+    @jsii.member(jsii_name="clusterPublicKey")
+    def cluster_public_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "clusterPublicKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRevisionNumber")
+    def cluster_revision_number(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "clusterRevisionNumber"))
+
+    @builtins.property
     @jsii.member(jsii_name="dnsName")
     def dns_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "dnsName"))
 
     @builtins.property
-    @jsii.member(jsii_name="logging")
-    def logging(self) -> "RedshiftClusterLoggingOutputReference":
-        return typing.cast("RedshiftClusterLoggingOutputReference", jsii.get(self, "logging"))
+    @jsii.member(jsii_name="endpoint")
+    def endpoint(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "endpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="masterPasswordSecretArn")
     def master_password_secret_arn(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "masterPasswordSecretArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotCopy")
-    def snapshot_copy(self) -> "RedshiftClusterSnapshotCopyOutputReference":
-        return typing.cast("RedshiftClusterSnapshotCopyOutputReference", jsii.get(self, "snapshotCopy"))
 
     @builtins.property
     @jsii.member(jsii_name="timeouts")
@@ -604,16 +533,6 @@ class RedshiftCluster(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterParameterGroupNameInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="clusterPublicKeyInput")
-    def cluster_public_key_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterPublicKeyInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRevisionNumberInput")
-    def cluster_revision_number_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterRevisionNumberInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="clusterSubnetGroupNameInput")
     def cluster_subnet_group_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterSubnetGroupNameInput"))
@@ -645,15 +564,8 @@ class RedshiftCluster(
 
     @builtins.property
     @jsii.member(jsii_name="encryptedInput")
-    def encrypted_input(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "encryptedInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="endpointInput")
-    def endpoint_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "endpointInput"))
+    def encrypted_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptedInput"))
 
     @builtins.property
     @jsii.member(jsii_name="enhancedVpcRoutingInput")
@@ -681,11 +593,6 @@ class RedshiftCluster(
     @jsii.member(jsii_name="kmsKeyIdInput")
     def kms_key_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="loggingInput")
-    def logging_input(self) -> typing.Optional["RedshiftClusterLogging"]:
-        return typing.cast(typing.Optional["RedshiftClusterLogging"], jsii.get(self, "loggingInput"))
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceTrackNameInput")
@@ -769,6 +676,11 @@ class RedshiftCluster(
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "publiclyAccessibleInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="skipFinalSnapshotInput")
     def skip_final_snapshot_input(
         self,
@@ -784,11 +696,6 @@ class RedshiftCluster(
     @jsii.member(jsii_name="snapshotClusterIdentifierInput")
     def snapshot_cluster_identifier_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotClusterIdentifierInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotCopyInput")
-    def snapshot_copy_input(self) -> typing.Optional["RedshiftClusterSnapshotCopy"]:
-        return typing.cast(typing.Optional["RedshiftClusterSnapshotCopy"], jsii.get(self, "snapshotCopyInput"))
 
     @builtins.property
     @jsii.member(jsii_name="snapshotIdentifierInput")
@@ -933,30 +840,6 @@ class RedshiftCluster(
         jsii.set(self, "clusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="clusterPublicKey")
-    def cluster_public_key(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "clusterPublicKey"))
-
-    @cluster_public_key.setter
-    def cluster_public_key(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__645e1e30a0ddad21a3596c55d1aceade088b69f000822aee6ec3eee5cf735e34)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterPublicKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRevisionNumber")
-    def cluster_revision_number(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "clusterRevisionNumber"))
-
-    @cluster_revision_number.setter
-    def cluster_revision_number(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__760e49c088c2f5532690d31a88eda59fb717a77dbea39c1785dab38d99cb0408)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterRevisionNumber", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="clusterSubnetGroupName")
     def cluster_subnet_group_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "clusterSubnetGroupName"))
@@ -1030,30 +913,15 @@ class RedshiftCluster(
 
     @builtins.property
     @jsii.member(jsii_name="encrypted")
-    def encrypted(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "encrypted"))
+    def encrypted(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "encrypted"))
 
     @encrypted.setter
-    def encrypted(
-        self,
-        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-    ) -> None:
+    def encrypted(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c249b0d93167e779d791c1db2a31e14a4e8d3a1dd02e7333260f1f90c720e63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encrypted", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="endpoint")
-    def endpoint(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "endpoint"))
-
-    @endpoint.setter
-    def endpoint(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e33e9471ca41cfdf782e714ccafec7747e4bfbf9c9b0024880f981789c4b11b4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endpoint", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="enhancedVpcRouting")
@@ -1312,6 +1180,18 @@ class RedshiftCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__2a0d6f136249ea957d20523fdf1086f206b8f8a678762710e8c9d0d7cfba5dda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eda93056c6f53330a97e2b579e2a5e78b4d96f2997bbb4d7c2803a9f7d13fde2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="skipFinalSnapshot")
@@ -1574,8 +1454,6 @@ class RedshiftClusterClusterNodesOutputReference(
         "availability_zone": "availabilityZone",
         "availability_zone_relocation_enabled": "availabilityZoneRelocationEnabled",
         "cluster_parameter_group_name": "clusterParameterGroupName",
-        "cluster_public_key": "clusterPublicKey",
-        "cluster_revision_number": "clusterRevisionNumber",
         "cluster_subnet_group_name": "clusterSubnetGroupName",
         "cluster_type": "clusterType",
         "cluster_version": "clusterVersion",
@@ -1583,13 +1461,11 @@ class RedshiftClusterClusterNodesOutputReference(
         "default_iam_role_arn": "defaultIamRoleArn",
         "elastic_ip": "elasticIp",
         "encrypted": "encrypted",
-        "endpoint": "endpoint",
         "enhanced_vpc_routing": "enhancedVpcRouting",
         "final_snapshot_identifier": "finalSnapshotIdentifier",
         "iam_roles": "iamRoles",
         "id": "id",
         "kms_key_id": "kmsKeyId",
-        "logging": "logging",
         "maintenance_track_name": "maintenanceTrackName",
         "manage_master_password": "manageMasterPassword",
         "manual_snapshot_retention_period": "manualSnapshotRetentionPeriod",
@@ -1604,10 +1480,10 @@ class RedshiftClusterClusterNodesOutputReference(
         "port": "port",
         "preferred_maintenance_window": "preferredMaintenanceWindow",
         "publicly_accessible": "publiclyAccessible",
+        "region": "region",
         "skip_final_snapshot": "skipFinalSnapshot",
         "snapshot_arn": "snapshotArn",
         "snapshot_cluster_identifier": "snapshotClusterIdentifier",
-        "snapshot_copy": "snapshotCopy",
         "snapshot_identifier": "snapshotIdentifier",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -1635,22 +1511,18 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         availability_zone: typing.Optional[builtins.str] = None,
         availability_zone_relocation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-        cluster_public_key: typing.Optional[builtins.str] = None,
-        cluster_revision_number: typing.Optional[builtins.str] = None,
         cluster_subnet_group_name: typing.Optional[builtins.str] = None,
         cluster_type: typing.Optional[builtins.str] = None,
         cluster_version: typing.Optional[builtins.str] = None,
         database_name: typing.Optional[builtins.str] = None,
         default_iam_role_arn: typing.Optional[builtins.str] = None,
         elastic_ip: typing.Optional[builtins.str] = None,
-        encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-        endpoint: typing.Optional[builtins.str] = None,
+        encrypted: typing.Optional[builtins.str] = None,
         enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         final_snapshot_identifier: typing.Optional[builtins.str] = None,
         iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        logging: typing.Optional[typing.Union["RedshiftClusterLogging", typing.Dict[builtins.str, typing.Any]]] = None,
         maintenance_track_name: typing.Optional[builtins.str] = None,
         manage_master_password: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
@@ -1665,10 +1537,10 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         port: typing.Optional[jsii.Number] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         skip_final_snapshot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         snapshot_arn: typing.Optional[builtins.str] = None,
         snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
-        snapshot_copy: typing.Optional[typing.Union["RedshiftClusterSnapshotCopy", typing.Dict[builtins.str, typing.Any]]] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1683,61 +1555,53 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_identifier RedshiftCluster#cluster_identifier}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#node_type RedshiftCluster#node_type}.
-        :param allow_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#allow_version_upgrade RedshiftCluster#allow_version_upgrade}.
-        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#apply_immediately RedshiftCluster#apply_immediately}.
-        :param aqua_configuration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#aqua_configuration_status RedshiftCluster#aqua_configuration_status}.
-        :param automated_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#automated_snapshot_retention_period RedshiftCluster#automated_snapshot_retention_period}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#availability_zone RedshiftCluster#availability_zone}.
-        :param availability_zone_relocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#availability_zone_relocation_enabled RedshiftCluster#availability_zone_relocation_enabled}.
-        :param cluster_parameter_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_parameter_group_name RedshiftCluster#cluster_parameter_group_name}.
-        :param cluster_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_public_key RedshiftCluster#cluster_public_key}.
-        :param cluster_revision_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_revision_number RedshiftCluster#cluster_revision_number}.
-        :param cluster_subnet_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_subnet_group_name RedshiftCluster#cluster_subnet_group_name}.
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_type RedshiftCluster#cluster_type}.
-        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_version RedshiftCluster#cluster_version}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#database_name RedshiftCluster#database_name}.
-        :param default_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#default_iam_role_arn RedshiftCluster#default_iam_role_arn}.
-        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#elastic_ip RedshiftCluster#elastic_ip}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#encrypted RedshiftCluster#encrypted}.
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#endpoint RedshiftCluster#endpoint}.
-        :param enhanced_vpc_routing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#enhanced_vpc_routing RedshiftCluster#enhanced_vpc_routing}.
-        :param final_snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#final_snapshot_identifier RedshiftCluster#final_snapshot_identifier}.
-        :param iam_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#iam_roles RedshiftCluster#iam_roles}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#id RedshiftCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#kms_key_id RedshiftCluster#kms_key_id}.
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#logging RedshiftCluster#logging}
-        :param maintenance_track_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#maintenance_track_name RedshiftCluster#maintenance_track_name}.
-        :param manage_master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#manage_master_password RedshiftCluster#manage_master_password}.
-        :param manual_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#manual_snapshot_retention_period RedshiftCluster#manual_snapshot_retention_period}.
-        :param master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password RedshiftCluster#master_password}.
-        :param master_password_secret_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_secret_kms_key_id RedshiftCluster#master_password_secret_kms_key_id}.
-        :param master_password_wo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_wo RedshiftCluster#master_password_wo}.
-        :param master_password_wo_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_wo_version RedshiftCluster#master_password_wo_version}.
-        :param master_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_username RedshiftCluster#master_username}.
-        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#multi_az RedshiftCluster#multi_az}.
-        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#number_of_nodes RedshiftCluster#number_of_nodes}.
-        :param owner_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#owner_account RedshiftCluster#owner_account}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#port RedshiftCluster#port}.
-        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#preferred_maintenance_window RedshiftCluster#preferred_maintenance_window}.
-        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#publicly_accessible RedshiftCluster#publicly_accessible}.
-        :param skip_final_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#skip_final_snapshot RedshiftCluster#skip_final_snapshot}.
-        :param snapshot_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_arn RedshiftCluster#snapshot_arn}.
-        :param snapshot_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_cluster_identifier RedshiftCluster#snapshot_cluster_identifier}.
-        :param snapshot_copy: snapshot_copy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_copy RedshiftCluster#snapshot_copy}
-        :param snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_identifier RedshiftCluster#snapshot_identifier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#tags RedshiftCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#tags_all RedshiftCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#timeouts RedshiftCluster#timeouts}
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#vpc_security_group_ids RedshiftCluster#vpc_security_group_ids}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_identifier RedshiftCluster#cluster_identifier}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#node_type RedshiftCluster#node_type}.
+        :param allow_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#allow_version_upgrade RedshiftCluster#allow_version_upgrade}.
+        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#apply_immediately RedshiftCluster#apply_immediately}.
+        :param aqua_configuration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#aqua_configuration_status RedshiftCluster#aqua_configuration_status}.
+        :param automated_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#automated_snapshot_retention_period RedshiftCluster#automated_snapshot_retention_period}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#availability_zone RedshiftCluster#availability_zone}.
+        :param availability_zone_relocation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#availability_zone_relocation_enabled RedshiftCluster#availability_zone_relocation_enabled}.
+        :param cluster_parameter_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_parameter_group_name RedshiftCluster#cluster_parameter_group_name}.
+        :param cluster_subnet_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_subnet_group_name RedshiftCluster#cluster_subnet_group_name}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_type RedshiftCluster#cluster_type}.
+        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_version RedshiftCluster#cluster_version}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#database_name RedshiftCluster#database_name}.
+        :param default_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#default_iam_role_arn RedshiftCluster#default_iam_role_arn}.
+        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#elastic_ip RedshiftCluster#elastic_ip}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#encrypted RedshiftCluster#encrypted}.
+        :param enhanced_vpc_routing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#enhanced_vpc_routing RedshiftCluster#enhanced_vpc_routing}.
+        :param final_snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#final_snapshot_identifier RedshiftCluster#final_snapshot_identifier}.
+        :param iam_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#iam_roles RedshiftCluster#iam_roles}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#id RedshiftCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#kms_key_id RedshiftCluster#kms_key_id}.
+        :param maintenance_track_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#maintenance_track_name RedshiftCluster#maintenance_track_name}.
+        :param manage_master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#manage_master_password RedshiftCluster#manage_master_password}.
+        :param manual_snapshot_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#manual_snapshot_retention_period RedshiftCluster#manual_snapshot_retention_period}.
+        :param master_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password RedshiftCluster#master_password}.
+        :param master_password_secret_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_secret_kms_key_id RedshiftCluster#master_password_secret_kms_key_id}.
+        :param master_password_wo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_wo RedshiftCluster#master_password_wo}.
+        :param master_password_wo_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_wo_version RedshiftCluster#master_password_wo_version}.
+        :param master_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_username RedshiftCluster#master_username}.
+        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#multi_az RedshiftCluster#multi_az}.
+        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#number_of_nodes RedshiftCluster#number_of_nodes}.
+        :param owner_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#owner_account RedshiftCluster#owner_account}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#port RedshiftCluster#port}.
+        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#preferred_maintenance_window RedshiftCluster#preferred_maintenance_window}.
+        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#publicly_accessible RedshiftCluster#publicly_accessible}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#region RedshiftCluster#region}
+        :param skip_final_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#skip_final_snapshot RedshiftCluster#skip_final_snapshot}.
+        :param snapshot_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_arn RedshiftCluster#snapshot_arn}.
+        :param snapshot_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_cluster_identifier RedshiftCluster#snapshot_cluster_identifier}.
+        :param snapshot_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_identifier RedshiftCluster#snapshot_identifier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#tags RedshiftCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#tags_all RedshiftCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#timeouts RedshiftCluster#timeouts}
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#vpc_security_group_ids RedshiftCluster#vpc_security_group_ids}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
-        if isinstance(logging, dict):
-            logging = RedshiftClusterLogging(**logging)
-        if isinstance(snapshot_copy, dict):
-            snapshot_copy = RedshiftClusterSnapshotCopy(**snapshot_copy)
         if isinstance(timeouts, dict):
             timeouts = RedshiftClusterTimeouts(**timeouts)
         if __debug__:
@@ -1758,8 +1622,6 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             check_type(argname="argument availability_zone_relocation_enabled", value=availability_zone_relocation_enabled, expected_type=type_hints["availability_zone_relocation_enabled"])
             check_type(argname="argument cluster_parameter_group_name", value=cluster_parameter_group_name, expected_type=type_hints["cluster_parameter_group_name"])
-            check_type(argname="argument cluster_public_key", value=cluster_public_key, expected_type=type_hints["cluster_public_key"])
-            check_type(argname="argument cluster_revision_number", value=cluster_revision_number, expected_type=type_hints["cluster_revision_number"])
             check_type(argname="argument cluster_subnet_group_name", value=cluster_subnet_group_name, expected_type=type_hints["cluster_subnet_group_name"])
             check_type(argname="argument cluster_type", value=cluster_type, expected_type=type_hints["cluster_type"])
             check_type(argname="argument cluster_version", value=cluster_version, expected_type=type_hints["cluster_version"])
@@ -1767,13 +1629,11 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument default_iam_role_arn", value=default_iam_role_arn, expected_type=type_hints["default_iam_role_arn"])
             check_type(argname="argument elastic_ip", value=elastic_ip, expected_type=type_hints["elastic_ip"])
             check_type(argname="argument encrypted", value=encrypted, expected_type=type_hints["encrypted"])
-            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
             check_type(argname="argument enhanced_vpc_routing", value=enhanced_vpc_routing, expected_type=type_hints["enhanced_vpc_routing"])
             check_type(argname="argument final_snapshot_identifier", value=final_snapshot_identifier, expected_type=type_hints["final_snapshot_identifier"])
             check_type(argname="argument iam_roles", value=iam_roles, expected_type=type_hints["iam_roles"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument maintenance_track_name", value=maintenance_track_name, expected_type=type_hints["maintenance_track_name"])
             check_type(argname="argument manage_master_password", value=manage_master_password, expected_type=type_hints["manage_master_password"])
             check_type(argname="argument manual_snapshot_retention_period", value=manual_snapshot_retention_period, expected_type=type_hints["manual_snapshot_retention_period"])
@@ -1788,10 +1648,10 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
             check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument skip_final_snapshot", value=skip_final_snapshot, expected_type=type_hints["skip_final_snapshot"])
             check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
             check_type(argname="argument snapshot_cluster_identifier", value=snapshot_cluster_identifier, expected_type=type_hints["snapshot_cluster_identifier"])
-            check_type(argname="argument snapshot_copy", value=snapshot_copy, expected_type=type_hints["snapshot_copy"])
             check_type(argname="argument snapshot_identifier", value=snapshot_identifier, expected_type=type_hints["snapshot_identifier"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -1829,10 +1689,6 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["availability_zone_relocation_enabled"] = availability_zone_relocation_enabled
         if cluster_parameter_group_name is not None:
             self._values["cluster_parameter_group_name"] = cluster_parameter_group_name
-        if cluster_public_key is not None:
-            self._values["cluster_public_key"] = cluster_public_key
-        if cluster_revision_number is not None:
-            self._values["cluster_revision_number"] = cluster_revision_number
         if cluster_subnet_group_name is not None:
             self._values["cluster_subnet_group_name"] = cluster_subnet_group_name
         if cluster_type is not None:
@@ -1847,8 +1703,6 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["elastic_ip"] = elastic_ip
         if encrypted is not None:
             self._values["encrypted"] = encrypted
-        if endpoint is not None:
-            self._values["endpoint"] = endpoint
         if enhanced_vpc_routing is not None:
             self._values["enhanced_vpc_routing"] = enhanced_vpc_routing
         if final_snapshot_identifier is not None:
@@ -1859,8 +1713,6 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
-        if logging is not None:
-            self._values["logging"] = logging
         if maintenance_track_name is not None:
             self._values["maintenance_track_name"] = maintenance_track_name
         if manage_master_password is not None:
@@ -1889,14 +1741,14 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["preferred_maintenance_window"] = preferred_maintenance_window
         if publicly_accessible is not None:
             self._values["publicly_accessible"] = publicly_accessible
+        if region is not None:
+            self._values["region"] = region
         if skip_final_snapshot is not None:
             self._values["skip_final_snapshot"] = skip_final_snapshot
         if snapshot_arn is not None:
             self._values["snapshot_arn"] = snapshot_arn
         if snapshot_cluster_identifier is not None:
             self._values["snapshot_cluster_identifier"] = snapshot_cluster_identifier
-        if snapshot_copy is not None:
-            self._values["snapshot_copy"] = snapshot_copy
         if snapshot_identifier is not None:
             self._values["snapshot_identifier"] = snapshot_identifier
         if tags is not None:
@@ -1974,14 +1826,14 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_identifier RedshiftCluster#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_identifier RedshiftCluster#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         assert result is not None, "Required property 'cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def node_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#node_type RedshiftCluster#node_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#node_type RedshiftCluster#node_type}.'''
         result = self._values.get("node_type")
         assert result is not None, "Required property 'node_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1990,7 +1842,7 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow_version_upgrade(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#allow_version_upgrade RedshiftCluster#allow_version_upgrade}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#allow_version_upgrade RedshiftCluster#allow_version_upgrade}.'''
         result = self._values.get("allow_version_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1998,25 +1850,25 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def apply_immediately(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#apply_immediately RedshiftCluster#apply_immediately}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#apply_immediately RedshiftCluster#apply_immediately}.'''
         result = self._values.get("apply_immediately")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def aqua_configuration_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#aqua_configuration_status RedshiftCluster#aqua_configuration_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#aqua_configuration_status RedshiftCluster#aqua_configuration_status}.'''
         result = self._values.get("aqua_configuration_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def automated_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#automated_snapshot_retention_period RedshiftCluster#automated_snapshot_retention_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#automated_snapshot_retention_period RedshiftCluster#automated_snapshot_retention_period}.'''
         result = self._values.get("automated_snapshot_retention_period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#availability_zone RedshiftCluster#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#availability_zone RedshiftCluster#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2024,101 +1876,81 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def availability_zone_relocation_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#availability_zone_relocation_enabled RedshiftCluster#availability_zone_relocation_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#availability_zone_relocation_enabled RedshiftCluster#availability_zone_relocation_enabled}.'''
         result = self._values.get("availability_zone_relocation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_parameter_group_name RedshiftCluster#cluster_parameter_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_parameter_group_name RedshiftCluster#cluster_parameter_group_name}.'''
         result = self._values.get("cluster_parameter_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def cluster_public_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_public_key RedshiftCluster#cluster_public_key}.'''
-        result = self._values.get("cluster_public_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cluster_revision_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_revision_number RedshiftCluster#cluster_revision_number}.'''
-        result = self._values.get("cluster_revision_number")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def cluster_subnet_group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_subnet_group_name RedshiftCluster#cluster_subnet_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_subnet_group_name RedshiftCluster#cluster_subnet_group_name}.'''
         result = self._values.get("cluster_subnet_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cluster_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_type RedshiftCluster#cluster_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_type RedshiftCluster#cluster_type}.'''
         result = self._values.get("cluster_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cluster_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#cluster_version RedshiftCluster#cluster_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#cluster_version RedshiftCluster#cluster_version}.'''
         result = self._values.get("cluster_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def database_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#database_name RedshiftCluster#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#database_name RedshiftCluster#database_name}.'''
         result = self._values.get("database_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#default_iam_role_arn RedshiftCluster#default_iam_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#default_iam_role_arn RedshiftCluster#default_iam_role_arn}.'''
         result = self._values.get("default_iam_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def elastic_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#elastic_ip RedshiftCluster#elastic_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#elastic_ip RedshiftCluster#elastic_ip}.'''
         result = self._values.get("elastic_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def encrypted(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#encrypted RedshiftCluster#encrypted}.'''
+    def encrypted(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#encrypted RedshiftCluster#encrypted}.'''
         result = self._values.get("encrypted")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
-
-    @builtins.property
-    def endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#endpoint RedshiftCluster#endpoint}.'''
-        result = self._values.get("endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enhanced_vpc_routing(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#enhanced_vpc_routing RedshiftCluster#enhanced_vpc_routing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#enhanced_vpc_routing RedshiftCluster#enhanced_vpc_routing}.'''
         result = self._values.get("enhanced_vpc_routing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def final_snapshot_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#final_snapshot_identifier RedshiftCluster#final_snapshot_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#final_snapshot_identifier RedshiftCluster#final_snapshot_identifier}.'''
         result = self._values.get("final_snapshot_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#iam_roles RedshiftCluster#iam_roles}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#iam_roles RedshiftCluster#iam_roles}.'''
         result = self._values.get("iam_roles")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#id RedshiftCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#id RedshiftCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2128,22 +1960,13 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#kms_key_id RedshiftCluster#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#kms_key_id RedshiftCluster#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional["RedshiftClusterLogging"]:
-        '''logging block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#logging RedshiftCluster#logging}
-        '''
-        result = self._values.get("logging")
-        return typing.cast(typing.Optional["RedshiftClusterLogging"], result)
-
-    @builtins.property
     def maintenance_track_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#maintenance_track_name RedshiftCluster#maintenance_track_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#maintenance_track_name RedshiftCluster#maintenance_track_name}.'''
         result = self._values.get("maintenance_track_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2151,43 +1974,43 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def manage_master_password(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#manage_master_password RedshiftCluster#manage_master_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#manage_master_password RedshiftCluster#manage_master_password}.'''
         result = self._values.get("manage_master_password")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def manual_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#manual_snapshot_retention_period RedshiftCluster#manual_snapshot_retention_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#manual_snapshot_retention_period RedshiftCluster#manual_snapshot_retention_period}.'''
         result = self._values.get("manual_snapshot_retention_period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def master_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password RedshiftCluster#master_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password RedshiftCluster#master_password}.'''
         result = self._values.get("master_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def master_password_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_secret_kms_key_id RedshiftCluster#master_password_secret_kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_secret_kms_key_id RedshiftCluster#master_password_secret_kms_key_id}.'''
         result = self._values.get("master_password_secret_kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def master_password_wo(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_wo RedshiftCluster#master_password_wo}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_wo RedshiftCluster#master_password_wo}.'''
         result = self._values.get("master_password_wo")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def master_password_wo_version(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_password_wo_version RedshiftCluster#master_password_wo_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_password_wo_version RedshiftCluster#master_password_wo_version}.'''
         result = self._values.get("master_password_wo_version")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def master_username(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#master_username RedshiftCluster#master_username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#master_username RedshiftCluster#master_username}.'''
         result = self._values.get("master_username")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2195,31 +2018,31 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def multi_az(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#multi_az RedshiftCluster#multi_az}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#multi_az RedshiftCluster#multi_az}.'''
         result = self._values.get("multi_az")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def number_of_nodes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#number_of_nodes RedshiftCluster#number_of_nodes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#number_of_nodes RedshiftCluster#number_of_nodes}.'''
         result = self._values.get("number_of_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def owner_account(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#owner_account RedshiftCluster#owner_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#owner_account RedshiftCluster#owner_account}.'''
         result = self._values.get("owner_account")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#port RedshiftCluster#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#port RedshiftCluster#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#preferred_maintenance_window RedshiftCluster#preferred_maintenance_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#preferred_maintenance_window RedshiftCluster#preferred_maintenance_window}.'''
         result = self._values.get("preferred_maintenance_window")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2227,54 +2050,54 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def publicly_accessible(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#publicly_accessible RedshiftCluster#publicly_accessible}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#publicly_accessible RedshiftCluster#publicly_accessible}.'''
         result = self._values.get("publicly_accessible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#region RedshiftCluster#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def skip_final_snapshot(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#skip_final_snapshot RedshiftCluster#skip_final_snapshot}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#skip_final_snapshot RedshiftCluster#skip_final_snapshot}.'''
         result = self._values.get("skip_final_snapshot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def snapshot_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_arn RedshiftCluster#snapshot_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_arn RedshiftCluster#snapshot_arn}.'''
         result = self._values.get("snapshot_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def snapshot_cluster_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_cluster_identifier RedshiftCluster#snapshot_cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_cluster_identifier RedshiftCluster#snapshot_cluster_identifier}.'''
         result = self._values.get("snapshot_cluster_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def snapshot_copy(self) -> typing.Optional["RedshiftClusterSnapshotCopy"]:
-        '''snapshot_copy block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_copy RedshiftCluster#snapshot_copy}
-        '''
-        result = self._values.get("snapshot_copy")
-        return typing.cast(typing.Optional["RedshiftClusterSnapshotCopy"], result)
-
-    @builtins.property
     def snapshot_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#snapshot_identifier RedshiftCluster#snapshot_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#snapshot_identifier RedshiftCluster#snapshot_identifier}.'''
         result = self._values.get("snapshot_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#tags RedshiftCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#tags RedshiftCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#tags_all RedshiftCluster#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#tags_all RedshiftCluster#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2282,14 +2105,14 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RedshiftClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#timeouts RedshiftCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#timeouts RedshiftCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RedshiftClusterTimeouts"], result)
 
     @builtins.property
     def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#vpc_security_group_ids RedshiftCluster#vpc_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#vpc_security_group_ids RedshiftCluster#vpc_security_group_ids}.'''
         result = self._values.get("vpc_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2306,396 +2129,6 @@ class RedshiftClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
 
 @jsii.data_type(
-    jsii_type="@cdktf/provider-aws.redshiftCluster.RedshiftClusterLogging",
-    jsii_struct_bases=[],
-    name_mapping={
-        "enable": "enable",
-        "bucket_name": "bucketName",
-        "log_destination_type": "logDestinationType",
-        "log_exports": "logExports",
-        "s3_key_prefix": "s3KeyPrefix",
-    },
-)
-class RedshiftClusterLogging:
-    def __init__(
-        self,
-        *,
-        enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-        bucket_name: typing.Optional[builtins.str] = None,
-        log_destination_type: typing.Optional[builtins.str] = None,
-        log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        s3_key_prefix: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#enable RedshiftCluster#enable}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#bucket_name RedshiftCluster#bucket_name}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#log_destination_type RedshiftCluster#log_destination_type}.
-        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#log_exports RedshiftCluster#log_exports}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#s3_key_prefix RedshiftCluster#s3_key_prefix}.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__598fb9417ba0b47294cb82ca93a7b046713b610e39178a83d5fc2764d1ae8342)
-            check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument log_destination_type", value=log_destination_type, expected_type=type_hints["log_destination_type"])
-            check_type(argname="argument log_exports", value=log_exports, expected_type=type_hints["log_exports"])
-            check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "enable": enable,
-        }
-        if bucket_name is not None:
-            self._values["bucket_name"] = bucket_name
-        if log_destination_type is not None:
-            self._values["log_destination_type"] = log_destination_type
-        if log_exports is not None:
-            self._values["log_exports"] = log_exports
-        if s3_key_prefix is not None:
-            self._values["s3_key_prefix"] = s3_key_prefix
-
-    @builtins.property
-    def enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#enable RedshiftCluster#enable}.'''
-        result = self._values.get("enable")
-        assert result is not None, "Required property 'enable' is missing"
-        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
-
-    @builtins.property
-    def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#bucket_name RedshiftCluster#bucket_name}.'''
-        result = self._values.get("bucket_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_destination_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#log_destination_type RedshiftCluster#log_destination_type}.'''
-        result = self._values.get("log_destination_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_exports(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#log_exports RedshiftCluster#log_exports}.'''
-        result = self._values.get("log_exports")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#s3_key_prefix RedshiftCluster#s3_key_prefix}.'''
-        result = self._values.get("s3_key_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RedshiftClusterLogging(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class RedshiftClusterLoggingOutputReference(
-    _cdktf_9a9027ec.ComplexObject,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.redshiftCluster.RedshiftClusterLoggingOutputReference",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cb13c01b50b85b9678395a380e9c9833ca1679b7d337679f40cf30c8504148e)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
-
-    @jsii.member(jsii_name="resetBucketName")
-    def reset_bucket_name(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetBucketName", []))
-
-    @jsii.member(jsii_name="resetLogDestinationType")
-    def reset_log_destination_type(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetLogDestinationType", []))
-
-    @jsii.member(jsii_name="resetLogExports")
-    def reset_log_exports(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetLogExports", []))
-
-    @jsii.member(jsii_name="resetS3KeyPrefix")
-    def reset_s3_key_prefix(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetS3KeyPrefix", []))
-
-    @builtins.property
-    @jsii.member(jsii_name="bucketNameInput")
-    def bucket_name_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bucketNameInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="enableInput")
-    def enable_input(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enableInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="logDestinationTypeInput")
-    def log_destination_type_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "logDestinationTypeInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="logExportsInput")
-    def log_exports_input(self) -> typing.Optional[typing.List[builtins.str]]:
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "logExportsInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="s3KeyPrefixInput")
-    def s3_key_prefix_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3KeyPrefixInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="bucketName")
-    def bucket_name(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "bucketName"))
-
-    @bucket_name.setter
-    def bucket_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__108858428a36ca882c428105f5542a710394700f7ecfbc9e2af0e60eca905389)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bucketName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enable")
-    def enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "enable"))
-
-    @enable.setter
-    def enable(
-        self,
-        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d1a6d32e61839ad27e682550759753711908fa03fd1dde2cceaa104f7cc6209)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enable", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="logDestinationType")
-    def log_destination_type(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "logDestinationType"))
-
-    @log_destination_type.setter
-    def log_destination_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fa7d191e2d288ef369172aa53651e60cabaaeea4ad5186abd9f8c1872b77c56)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logDestinationType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="logExports")
-    def log_exports(self) -> typing.List[builtins.str]:
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "logExports"))
-
-    @log_exports.setter
-    def log_exports(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f36b950e6b3f9c0fa1cb3c784df6b1b0db7a9cc6d2f7577fcd0aaf5c21eb73e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logExports", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="s3KeyPrefix")
-    def s3_key_prefix(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "s3KeyPrefix"))
-
-    @s3_key_prefix.setter
-    def s3_key_prefix(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__108ebc0ec62344884959bd6f5b013b64cd7f34980196c748842a537deb2c9b3e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3KeyPrefix", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(self) -> typing.Optional[RedshiftClusterLogging]:
-        return typing.cast(typing.Optional[RedshiftClusterLogging], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(self, value: typing.Optional[RedshiftClusterLogging]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5926e643d95098ccfdf5e9bbafac9997d602d48590807297156626614364340b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
-    jsii_type="@cdktf/provider-aws.redshiftCluster.RedshiftClusterSnapshotCopy",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination_region": "destinationRegion",
-        "grant_name": "grantName",
-        "retention_period": "retentionPeriod",
-    },
-)
-class RedshiftClusterSnapshotCopy:
-    def __init__(
-        self,
-        *,
-        destination_region: builtins.str,
-        grant_name: typing.Optional[builtins.str] = None,
-        retention_period: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''
-        :param destination_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#destination_region RedshiftCluster#destination_region}.
-        :param grant_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#grant_name RedshiftCluster#grant_name}.
-        :param retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#retention_period RedshiftCluster#retention_period}.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0911cf85c8cf2d5e1568bb2f255164a6d96ac6991926cfe4d620318c4fe60e6e)
-            check_type(argname="argument destination_region", value=destination_region, expected_type=type_hints["destination_region"])
-            check_type(argname="argument grant_name", value=grant_name, expected_type=type_hints["grant_name"])
-            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination_region": destination_region,
-        }
-        if grant_name is not None:
-            self._values["grant_name"] = grant_name
-        if retention_period is not None:
-            self._values["retention_period"] = retention_period
-
-    @builtins.property
-    def destination_region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#destination_region RedshiftCluster#destination_region}.'''
-        result = self._values.get("destination_region")
-        assert result is not None, "Required property 'destination_region' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def grant_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#grant_name RedshiftCluster#grant_name}.'''
-        result = self._values.get("grant_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def retention_period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#retention_period RedshiftCluster#retention_period}.'''
-        result = self._values.get("retention_period")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RedshiftClusterSnapshotCopy(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class RedshiftClusterSnapshotCopyOutputReference(
-    _cdktf_9a9027ec.ComplexObject,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.redshiftCluster.RedshiftClusterSnapshotCopyOutputReference",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cde311328dc6a9216d195b2c4a9f45dbbaf2974579d9df8648a3ae4cc90a7cf)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
-
-    @jsii.member(jsii_name="resetGrantName")
-    def reset_grant_name(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetGrantName", []))
-
-    @jsii.member(jsii_name="resetRetentionPeriod")
-    def reset_retention_period(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetRetentionPeriod", []))
-
-    @builtins.property
-    @jsii.member(jsii_name="destinationRegionInput")
-    def destination_region_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "destinationRegionInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="grantNameInput")
-    def grant_name_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "grantNameInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="retentionPeriodInput")
-    def retention_period_input(self) -> typing.Optional[jsii.Number]:
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionPeriodInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="destinationRegion")
-    def destination_region(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "destinationRegion"))
-
-    @destination_region.setter
-    def destination_region(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d85710b8d93c783585f77e50de6edf99b5a2008c821d52cc0a75ebb4c791b192)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "destinationRegion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="grantName")
-    def grant_name(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "grantName"))
-
-    @grant_name.setter
-    def grant_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5eec3dd984091d11834e1a5ba38363ada82856cbccf055c1347e517f14e4612)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "grantName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="retentionPeriod")
-    def retention_period(self) -> jsii.Number:
-        return typing.cast(jsii.Number, jsii.get(self, "retentionPeriod"))
-
-    @retention_period.setter
-    def retention_period(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11b6550e1fbeaa0b7fe46cd10dafadac4d853d0109f8b30a7a63eb0965cec319)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(self) -> typing.Optional[RedshiftClusterSnapshotCopy]:
-        return typing.cast(typing.Optional[RedshiftClusterSnapshotCopy], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[RedshiftClusterSnapshotCopy],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0de6117a7cd1ba5d5e1259f812e6c8f7d747dac36475ecaed5a082de088145c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
     jsii_type="@cdktf/provider-aws.redshiftCluster.RedshiftClusterTimeouts",
     jsii_struct_bases=[],
     name_mapping={"create": "create", "delete": "delete", "update": "update"},
@@ -2709,9 +2142,9 @@ class RedshiftClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#create RedshiftCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#delete RedshiftCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#update RedshiftCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#create RedshiftCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#delete RedshiftCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#update RedshiftCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__630ec6b3956b4fdb7a25bac6840363e22e604f05067902157ab991e8372d9b3f)
@@ -2728,19 +2161,19 @@ class RedshiftClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#create RedshiftCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#create RedshiftCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#delete RedshiftCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#delete RedshiftCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_cluster#update RedshiftCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_cluster#update RedshiftCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2863,10 +2296,6 @@ __all__ = [
     "RedshiftClusterClusterNodesList",
     "RedshiftClusterClusterNodesOutputReference",
     "RedshiftClusterConfig",
-    "RedshiftClusterLogging",
-    "RedshiftClusterLoggingOutputReference",
-    "RedshiftClusterSnapshotCopy",
-    "RedshiftClusterSnapshotCopyOutputReference",
     "RedshiftClusterTimeouts",
     "RedshiftClusterTimeoutsOutputReference",
 ]
@@ -2886,22 +2315,18 @@ def _typecheckingstub__a10d3ed7070afe676f5acdb4a78ad264b49986406867cffd299767f55
     availability_zone: typing.Optional[builtins.str] = None,
     availability_zone_relocation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-    cluster_public_key: typing.Optional[builtins.str] = None,
-    cluster_revision_number: typing.Optional[builtins.str] = None,
     cluster_subnet_group_name: typing.Optional[builtins.str] = None,
     cluster_type: typing.Optional[builtins.str] = None,
     cluster_version: typing.Optional[builtins.str] = None,
     database_name: typing.Optional[builtins.str] = None,
     default_iam_role_arn: typing.Optional[builtins.str] = None,
     elastic_ip: typing.Optional[builtins.str] = None,
-    encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-    endpoint: typing.Optional[builtins.str] = None,
+    encrypted: typing.Optional[builtins.str] = None,
     enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     final_snapshot_identifier: typing.Optional[builtins.str] = None,
     iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    logging: typing.Optional[typing.Union[RedshiftClusterLogging, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_track_name: typing.Optional[builtins.str] = None,
     manage_master_password: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
@@ -2916,10 +2341,10 @@ def _typecheckingstub__a10d3ed7070afe676f5acdb4a78ad264b49986406867cffd299767f55
     port: typing.Optional[jsii.Number] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     skip_final_snapshot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     snapshot_arn: typing.Optional[builtins.str] = None,
     snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
-    snapshot_copy: typing.Optional[typing.Union[RedshiftClusterSnapshotCopy, typing.Dict[builtins.str, typing.Any]]] = None,
     snapshot_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2993,18 +2418,6 @@ def _typecheckingstub__7d1a6a65af644a81c16b55483b8bbf3e63894c314206f1d2c880ba4b4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__645e1e30a0ddad21a3596c55d1aceade088b69f000822aee6ec3eee5cf735e34(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__760e49c088c2f5532690d31a88eda59fb717a77dbea39c1785dab38d99cb0408(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__929b65fa3efc8b47a8db9d1fd04759cd46d1c6807ac9ad537836a54fcb69327c(
     value: builtins.str,
 ) -> None:
@@ -3042,12 +2455,6 @@ def _typecheckingstub__db5ee018252e82262439198fa6661d5b036e08230e58ad88ececb6b39
     pass
 
 def _typecheckingstub__6c249b0d93167e779d791c1db2a31e14a4e8d3a1dd02e7333260f1f90c720e63(
-    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e33e9471ca41cfdf782e714ccafec7747e4bfbf9c9b0024880f981789c4b11b4(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -3173,6 +2580,12 @@ def _typecheckingstub__2a0d6f136249ea957d20523fdf1086f206b8f8a678762710e8c9d0d7c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eda93056c6f53330a97e2b579e2a5e78b4d96f2997bbb4d7c2803a9f7d13fde2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6ba57cee4fa3958217cef1817925195e57f6ed68c3c5b1e658cb6dddddfc24dc(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
@@ -3280,22 +2693,18 @@ def _typecheckingstub__9ad26aa925102ba1497b74cc772caa8a7fc0e1a4186c46a02a33a27e3
     availability_zone: typing.Optional[builtins.str] = None,
     availability_zone_relocation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-    cluster_public_key: typing.Optional[builtins.str] = None,
-    cluster_revision_number: typing.Optional[builtins.str] = None,
     cluster_subnet_group_name: typing.Optional[builtins.str] = None,
     cluster_type: typing.Optional[builtins.str] = None,
     cluster_version: typing.Optional[builtins.str] = None,
     database_name: typing.Optional[builtins.str] = None,
     default_iam_role_arn: typing.Optional[builtins.str] = None,
     elastic_ip: typing.Optional[builtins.str] = None,
-    encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-    endpoint: typing.Optional[builtins.str] = None,
+    encrypted: typing.Optional[builtins.str] = None,
     enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     final_snapshot_identifier: typing.Optional[builtins.str] = None,
     iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    logging: typing.Optional[typing.Union[RedshiftClusterLogging, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_track_name: typing.Optional[builtins.str] = None,
     manage_master_password: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
@@ -3310,109 +2719,15 @@ def _typecheckingstub__9ad26aa925102ba1497b74cc772caa8a7fc0e1a4186c46a02a33a27e3
     port: typing.Optional[jsii.Number] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     skip_final_snapshot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     snapshot_arn: typing.Optional[builtins.str] = None,
     snapshot_cluster_identifier: typing.Optional[builtins.str] = None,
-    snapshot_copy: typing.Optional[typing.Union[RedshiftClusterSnapshotCopy, typing.Dict[builtins.str, typing.Any]]] = None,
     snapshot_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[RedshiftClusterTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__598fb9417ba0b47294cb82ca93a7b046713b610e39178a83d5fc2764d1ae8342(
-    *,
-    enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-    bucket_name: typing.Optional[builtins.str] = None,
-    log_destination_type: typing.Optional[builtins.str] = None,
-    log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-    s3_key_prefix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cb13c01b50b85b9678395a380e9c9833ca1679b7d337679f40cf30c8504148e(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__108858428a36ca882c428105f5542a710394700f7ecfbc9e2af0e60eca905389(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d1a6d32e61839ad27e682550759753711908fa03fd1dde2cceaa104f7cc6209(
-    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3fa7d191e2d288ef369172aa53651e60cabaaeea4ad5186abd9f8c1872b77c56(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f36b950e6b3f9c0fa1cb3c784df6b1b0db7a9cc6d2f7577fcd0aaf5c21eb73e(
-    value: typing.List[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__108ebc0ec62344884959bd6f5b013b64cd7f34980196c748842a537deb2c9b3e(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5926e643d95098ccfdf5e9bbafac9997d602d48590807297156626614364340b(
-    value: typing.Optional[RedshiftClusterLogging],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0911cf85c8cf2d5e1568bb2f255164a6d96ac6991926cfe4d620318c4fe60e6e(
-    *,
-    destination_region: builtins.str,
-    grant_name: typing.Optional[builtins.str] = None,
-    retention_period: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5cde311328dc6a9216d195b2c4a9f45dbbaf2974579d9df8648a3ae4cc90a7cf(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d85710b8d93c783585f77e50de6edf99b5a2008c821d52cc0a75ebb4c791b192(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a5eec3dd984091d11834e1a5ba38363ada82856cbccf055c1347e517f14e4612(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__11b6550e1fbeaa0b7fe46cd10dafadac4d853d0109f8b30a7a63eb0965cec319(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e0de6117a7cd1ba5d5e1259f812e6c8f7d747dac36475ecaed5a082de088145c(
-    value: typing.Optional[RedshiftClusterSnapshotCopy],
 ) -> None:
     """Type checking stubs"""
     pass

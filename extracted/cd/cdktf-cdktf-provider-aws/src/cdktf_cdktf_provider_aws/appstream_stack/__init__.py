@@ -1,7 +1,7 @@
 r'''
 # `aws_appstream_stack`
 
-Refer to the Terraform Registry for docs: [`aws_appstream_stack`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack).
+Refer to the Terraform Registry for docs: [`aws_appstream_stack`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppstreamStack(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appstreamStack.AppstreamStack",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack aws_appstream_stack}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack aws_appstream_stack}.'''
 
     def __init__(
         self,
@@ -60,6 +60,7 @@ class AppstreamStack(
         feedback_url: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         redirect_url: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         storage_connectors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppstreamStackStorageConnectors", typing.Dict[builtins.str, typing.Any]]]]] = None,
         streaming_experience_settings: typing.Optional[typing.Union["AppstreamStackStreamingExperienceSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -73,24 +74,25 @@ class AppstreamStack(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack aws_appstream_stack} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack aws_appstream_stack} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#name AppstreamStack#name}.
-        :param access_endpoints: access_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#access_endpoints AppstreamStack#access_endpoints}
-        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#application_settings AppstreamStack#application_settings}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#description AppstreamStack#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#display_name AppstreamStack#display_name}.
-        :param embed_host_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#embed_host_domains AppstreamStack#embed_host_domains}.
-        :param feedback_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#feedback_url AppstreamStack#feedback_url}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#id AppstreamStack#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#redirect_url AppstreamStack#redirect_url}.
-        :param storage_connectors: storage_connectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#storage_connectors AppstreamStack#storage_connectors}
-        :param streaming_experience_settings: streaming_experience_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#streaming_experience_settings AppstreamStack#streaming_experience_settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#tags AppstreamStack#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#tags_all AppstreamStack#tags_all}.
-        :param user_settings: user_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#user_settings AppstreamStack#user_settings}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#name AppstreamStack#name}.
+        :param access_endpoints: access_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#access_endpoints AppstreamStack#access_endpoints}
+        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#application_settings AppstreamStack#application_settings}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#description AppstreamStack#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#display_name AppstreamStack#display_name}.
+        :param embed_host_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#embed_host_domains AppstreamStack#embed_host_domains}.
+        :param feedback_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#feedback_url AppstreamStack#feedback_url}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#id AppstreamStack#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#redirect_url AppstreamStack#redirect_url}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#region AppstreamStack#region}
+        :param storage_connectors: storage_connectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#storage_connectors AppstreamStack#storage_connectors}
+        :param streaming_experience_settings: streaming_experience_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#streaming_experience_settings AppstreamStack#streaming_experience_settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#tags AppstreamStack#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#tags_all AppstreamStack#tags_all}.
+        :param user_settings: user_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#user_settings AppstreamStack#user_settings}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -113,6 +115,7 @@ class AppstreamStack(
             feedback_url=feedback_url,
             id=id,
             redirect_url=redirect_url,
+            region=region,
             storage_connectors=storage_connectors,
             streaming_experience_settings=streaming_experience_settings,
             tags=tags,
@@ -142,7 +145,7 @@ class AppstreamStack(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppstreamStack to import.
-        :param import_from_id: The id of the existing AppstreamStack that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppstreamStack that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppstreamStack to import is found.
         '''
         if __debug__:
@@ -174,8 +177,8 @@ class AppstreamStack(
         settings_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#enabled AppstreamStack#enabled}.
-        :param settings_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#settings_group AppstreamStack#settings_group}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#enabled AppstreamStack#enabled}.
+        :param settings_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#settings_group AppstreamStack#settings_group}.
         '''
         value = AppstreamStackApplicationSettings(
             enabled=enabled, settings_group=settings_group
@@ -203,7 +206,7 @@ class AppstreamStack(
         preferred_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param preferred_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#preferred_protocol AppstreamStack#preferred_protocol}.
+        :param preferred_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#preferred_protocol AppstreamStack#preferred_protocol}.
         '''
         value = AppstreamStackStreamingExperienceSettings(
             preferred_protocol=preferred_protocol
@@ -255,6 +258,10 @@ class AppstreamStack(
     @jsii.member(jsii_name="resetRedirectUrl")
     def reset_redirect_url(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRedirectUrl", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetStorageConnectors")
     def reset_storage_connectors(self) -> None:
@@ -378,6 +385,11 @@ class AppstreamStack(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "redirectUrlInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="storageConnectorsInput")
     def storage_connectors_input(
         self,
@@ -495,6 +507,18 @@ class AppstreamStack(
         jsii.set(self, "redirectUrl", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2dff5d95a4ed1a29b2d30470be7880ea22889d50e4f65d6f90b89544ade188b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tags"))
@@ -532,8 +556,8 @@ class AppstreamStackAccessEndpoints:
         vpce_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#endpoint_type AppstreamStack#endpoint_type}.
-        :param vpce_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#vpce_id AppstreamStack#vpce_id}.
+        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#endpoint_type AppstreamStack#endpoint_type}.
+        :param vpce_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#vpce_id AppstreamStack#vpce_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__688adc981aaa19c36390696b10c706fab0174ae38304a0712691597885dbb67d)
@@ -547,14 +571,14 @@ class AppstreamStackAccessEndpoints:
 
     @builtins.property
     def endpoint_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#endpoint_type AppstreamStack#endpoint_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#endpoint_type AppstreamStack#endpoint_type}.'''
         result = self._values.get("endpoint_type")
         assert result is not None, "Required property 'endpoint_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpce_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#vpce_id AppstreamStack#vpce_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#vpce_id AppstreamStack#vpce_id}.'''
         result = self._values.get("vpce_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -755,8 +779,8 @@ class AppstreamStackApplicationSettings:
         settings_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#enabled AppstreamStack#enabled}.
-        :param settings_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#settings_group AppstreamStack#settings_group}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#enabled AppstreamStack#enabled}.
+        :param settings_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#settings_group AppstreamStack#settings_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__825cf53c7d795a61a156d182d72c2370390e30e194caf33778a63f451f053fba)
@@ -770,14 +794,14 @@ class AppstreamStackApplicationSettings:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#enabled AppstreamStack#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#enabled AppstreamStack#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def settings_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#settings_group AppstreamStack#settings_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#settings_group AppstreamStack#settings_group}.'''
         result = self._values.get("settings_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -892,6 +916,7 @@ class AppstreamStackApplicationSettingsOutputReference(
         "feedback_url": "feedbackUrl",
         "id": "id",
         "redirect_url": "redirectUrl",
+        "region": "region",
         "storage_connectors": "storageConnectors",
         "streaming_experience_settings": "streamingExperienceSettings",
         "tags": "tags",
@@ -919,6 +944,7 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         feedback_url: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         redirect_url: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         storage_connectors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppstreamStackStorageConnectors", typing.Dict[builtins.str, typing.Any]]]]] = None,
         streaming_experience_settings: typing.Optional[typing.Union["AppstreamStackStreamingExperienceSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -933,20 +959,21 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#name AppstreamStack#name}.
-        :param access_endpoints: access_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#access_endpoints AppstreamStack#access_endpoints}
-        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#application_settings AppstreamStack#application_settings}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#description AppstreamStack#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#display_name AppstreamStack#display_name}.
-        :param embed_host_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#embed_host_domains AppstreamStack#embed_host_domains}.
-        :param feedback_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#feedback_url AppstreamStack#feedback_url}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#id AppstreamStack#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#redirect_url AppstreamStack#redirect_url}.
-        :param storage_connectors: storage_connectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#storage_connectors AppstreamStack#storage_connectors}
-        :param streaming_experience_settings: streaming_experience_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#streaming_experience_settings AppstreamStack#streaming_experience_settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#tags AppstreamStack#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#tags_all AppstreamStack#tags_all}.
-        :param user_settings: user_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#user_settings AppstreamStack#user_settings}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#name AppstreamStack#name}.
+        :param access_endpoints: access_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#access_endpoints AppstreamStack#access_endpoints}
+        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#application_settings AppstreamStack#application_settings}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#description AppstreamStack#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#display_name AppstreamStack#display_name}.
+        :param embed_host_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#embed_host_domains AppstreamStack#embed_host_domains}.
+        :param feedback_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#feedback_url AppstreamStack#feedback_url}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#id AppstreamStack#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#redirect_url AppstreamStack#redirect_url}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#region AppstreamStack#region}
+        :param storage_connectors: storage_connectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#storage_connectors AppstreamStack#storage_connectors}
+        :param streaming_experience_settings: streaming_experience_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#streaming_experience_settings AppstreamStack#streaming_experience_settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#tags AppstreamStack#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#tags_all AppstreamStack#tags_all}.
+        :param user_settings: user_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#user_settings AppstreamStack#user_settings}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -972,6 +999,7 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument feedback_url", value=feedback_url, expected_type=type_hints["feedback_url"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument redirect_url", value=redirect_url, expected_type=type_hints["redirect_url"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument storage_connectors", value=storage_connectors, expected_type=type_hints["storage_connectors"])
             check_type(argname="argument streaming_experience_settings", value=streaming_experience_settings, expected_type=type_hints["streaming_experience_settings"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1010,6 +1038,8 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if redirect_url is not None:
             self._values["redirect_url"] = redirect_url
+        if region is not None:
+            self._values["region"] = region
         if storage_connectors is not None:
             self._values["storage_connectors"] = storage_connectors
         if streaming_experience_settings is not None:
@@ -1087,7 +1117,7 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#name AppstreamStack#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#name AppstreamStack#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1098,7 +1128,7 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AppstreamStackAccessEndpoints]]]:
         '''access_endpoints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#access_endpoints AppstreamStack#access_endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#access_endpoints AppstreamStack#access_endpoints}
         '''
         result = self._values.get("access_endpoints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AppstreamStackAccessEndpoints]]], result)
@@ -1109,38 +1139,38 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[AppstreamStackApplicationSettings]:
         '''application_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#application_settings AppstreamStack#application_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#application_settings AppstreamStack#application_settings}
         '''
         result = self._values.get("application_settings")
         return typing.cast(typing.Optional[AppstreamStackApplicationSettings], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#description AppstreamStack#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#description AppstreamStack#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#display_name AppstreamStack#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#display_name AppstreamStack#display_name}.'''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def embed_host_domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#embed_host_domains AppstreamStack#embed_host_domains}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#embed_host_domains AppstreamStack#embed_host_domains}.'''
         result = self._values.get("embed_host_domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def feedback_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#feedback_url AppstreamStack#feedback_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#feedback_url AppstreamStack#feedback_url}.'''
         result = self._values.get("feedback_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#id AppstreamStack#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#id AppstreamStack#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1150,8 +1180,17 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def redirect_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#redirect_url AppstreamStack#redirect_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#redirect_url AppstreamStack#redirect_url}.'''
         result = self._values.get("redirect_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#region AppstreamStack#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1160,7 +1199,7 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppstreamStackStorageConnectors"]]]:
         '''storage_connectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#storage_connectors AppstreamStack#storage_connectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#storage_connectors AppstreamStack#storage_connectors}
         '''
         result = self._values.get("storage_connectors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppstreamStackStorageConnectors"]]], result)
@@ -1171,20 +1210,20 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppstreamStackStreamingExperienceSettings"]:
         '''streaming_experience_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#streaming_experience_settings AppstreamStack#streaming_experience_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#streaming_experience_settings AppstreamStack#streaming_experience_settings}
         '''
         result = self._values.get("streaming_experience_settings")
         return typing.cast(typing.Optional["AppstreamStackStreamingExperienceSettings"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#tags AppstreamStack#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#tags AppstreamStack#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#tags_all AppstreamStack#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#tags_all AppstreamStack#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1194,7 +1233,7 @@ class AppstreamStackConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppstreamStackUserSettings"]]]:
         '''user_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#user_settings AppstreamStack#user_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#user_settings AppstreamStack#user_settings}
         '''
         result = self._values.get("user_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppstreamStackUserSettings"]]], result)
@@ -1229,9 +1268,9 @@ class AppstreamStackStorageConnectors:
         resource_identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#connector_type AppstreamStack#connector_type}.
-        :param domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#domains AppstreamStack#domains}.
-        :param resource_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#resource_identifier AppstreamStack#resource_identifier}.
+        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#connector_type AppstreamStack#connector_type}.
+        :param domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#domains AppstreamStack#domains}.
+        :param resource_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#resource_identifier AppstreamStack#resource_identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__186ae0557a7b79338923ae14079609e5f4e2f6aaef6f149977576614b86c6988)
@@ -1248,20 +1287,20 @@ class AppstreamStackStorageConnectors:
 
     @builtins.property
     def connector_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#connector_type AppstreamStack#connector_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#connector_type AppstreamStack#connector_type}.'''
         result = self._values.get("connector_type")
         assert result is not None, "Required property 'connector_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#domains AppstreamStack#domains}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#domains AppstreamStack#domains}.'''
         result = self._values.get("domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def resource_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#resource_identifier AppstreamStack#resource_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#resource_identifier AppstreamStack#resource_identifier}.'''
         result = self._values.get("resource_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1485,7 +1524,7 @@ class AppstreamStackStreamingExperienceSettings:
         preferred_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param preferred_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#preferred_protocol AppstreamStack#preferred_protocol}.
+        :param preferred_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#preferred_protocol AppstreamStack#preferred_protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c96459da030c4712fc15dd6823bb564f328c498a1e2dcd3589b20bb44d48fd16)
@@ -1496,7 +1535,7 @@ class AppstreamStackStreamingExperienceSettings:
 
     @builtins.property
     def preferred_protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#preferred_protocol AppstreamStack#preferred_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#preferred_protocol AppstreamStack#preferred_protocol}.'''
         result = self._values.get("preferred_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1579,8 +1618,8 @@ class AppstreamStackStreamingExperienceSettingsOutputReference(
 class AppstreamStackUserSettings:
     def __init__(self, *, action: builtins.str, permission: builtins.str) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#action AppstreamStack#action}.
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#permission AppstreamStack#permission}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#action AppstreamStack#action}.
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#permission AppstreamStack#permission}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac6a46a5bf9d1e0d1747043dad3aa969753579e9852b2e1781ef8b52e11a762d)
@@ -1593,14 +1632,14 @@ class AppstreamStackUserSettings:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#action AppstreamStack#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#action AppstreamStack#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def permission(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appstream_stack#permission AppstreamStack#permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appstream_stack#permission AppstreamStack#permission}.'''
         result = self._values.get("permission")
         assert result is not None, "Required property 'permission' is missing"
         return typing.cast(builtins.str, result)
@@ -1818,6 +1857,7 @@ def _typecheckingstub__997ea8e6268a364f027f14703ac3226c8bb53214fa984f4606fb50c64
     feedback_url: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     redirect_url: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     storage_connectors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AppstreamStackStorageConnectors, typing.Dict[builtins.str, typing.Any]]]]] = None,
     streaming_experience_settings: typing.Optional[typing.Union[AppstreamStackStreamingExperienceSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1898,6 +1938,12 @@ def _typecheckingstub__c89fce238eb48759575c88fddf99cd2b8d948e3542be8a1f145fbab21
     pass
 
 def _typecheckingstub__357b771c3b261c2a1a47f26e2fd12d7e6489eff27fee1e4ae9c1409fa99321a1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2dff5d95a4ed1a29b2d30470be7880ea22889d50e4f65d6f90b89544ade188b7(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -2039,6 +2085,7 @@ def _typecheckingstub__31e8ab9ccc616cf60b4a3fa22acb9d5fd4bceb03860ab78c94dc0ec68
     feedback_url: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     redirect_url: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     storage_connectors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AppstreamStackStorageConnectors, typing.Dict[builtins.str, typing.Any]]]]] = None,
     streaming_experience_settings: typing.Optional[typing.Union[AppstreamStackStreamingExperienceSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

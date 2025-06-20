@@ -1,7 +1,7 @@
 r'''
 # `aws_kinesis_stream`
 
-Refer to the Terraform Registry for docs: [`aws_kinesis_stream`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream).
+Refer to the Terraform Registry for docs: [`aws_kinesis_stream`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KinesisStream(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kinesisStream.KinesisStream",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream aws_kinesis_stream}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream aws_kinesis_stream}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class KinesisStream(
         enforce_consumer_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         retention_period: typing.Optional[jsii.Number] = None,
         shard_count: typing.Optional[jsii.Number] = None,
         shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -72,23 +73,24 @@ class KinesisStream(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream aws_kinesis_stream} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream aws_kinesis_stream} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#name KinesisStream#name}.
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#arn KinesisStream#arn}.
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#encryption_type KinesisStream#encryption_type}.
-        :param enforce_consumer_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#enforce_consumer_deletion KinesisStream#enforce_consumer_deletion}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#id KinesisStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#kms_key_id KinesisStream#kms_key_id}.
-        :param retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#retention_period KinesisStream#retention_period}.
-        :param shard_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#shard_count KinesisStream#shard_count}.
-        :param shard_level_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#shard_level_metrics KinesisStream#shard_level_metrics}.
-        :param stream_mode_details: stream_mode_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#stream_mode_details KinesisStream#stream_mode_details}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#tags KinesisStream#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#tags_all KinesisStream#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#timeouts KinesisStream#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#name KinesisStream#name}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#arn KinesisStream#arn}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#encryption_type KinesisStream#encryption_type}.
+        :param enforce_consumer_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#enforce_consumer_deletion KinesisStream#enforce_consumer_deletion}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#id KinesisStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#kms_key_id KinesisStream#kms_key_id}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#region KinesisStream#region}
+        :param retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#retention_period KinesisStream#retention_period}.
+        :param shard_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#shard_count KinesisStream#shard_count}.
+        :param shard_level_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#shard_level_metrics KinesisStream#shard_level_metrics}.
+        :param stream_mode_details: stream_mode_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#stream_mode_details KinesisStream#stream_mode_details}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#tags KinesisStream#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#tags_all KinesisStream#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#timeouts KinesisStream#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -108,6 +110,7 @@ class KinesisStream(
             enforce_consumer_deletion=enforce_consumer_deletion,
             id=id,
             kms_key_id=kms_key_id,
+            region=region,
             retention_period=retention_period,
             shard_count=shard_count,
             shard_level_metrics=shard_level_metrics,
@@ -139,7 +142,7 @@ class KinesisStream(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KinesisStream to import.
-        :param import_from_id: The id of the existing KinesisStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KinesisStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KinesisStream to import is found.
         '''
         if __debug__:
@@ -153,7 +156,7 @@ class KinesisStream(
     @jsii.member(jsii_name="putStreamModeDetails")
     def put_stream_mode_details(self, *, stream_mode: builtins.str) -> None:
         '''
-        :param stream_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#stream_mode KinesisStream#stream_mode}.
+        :param stream_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#stream_mode KinesisStream#stream_mode}.
         '''
         value = KinesisStreamStreamModeDetails(stream_mode=stream_mode)
 
@@ -168,9 +171,9 @@ class KinesisStream(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#create KinesisStream#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#delete KinesisStream#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#update KinesisStream#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#create KinesisStream#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#delete KinesisStream#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#update KinesisStream#update}.
         '''
         value = KinesisStreamTimeouts(create=create, delete=delete, update=update)
 
@@ -195,6 +198,10 @@ class KinesisStream(
     @jsii.member(jsii_name="resetKmsKeyId")
     def reset_kms_key_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKmsKeyId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRetentionPeriod")
     def reset_retention_period(self) -> None:
@@ -278,6 +285,11 @@ class KinesisStream(
     @jsii.member(jsii_name="nameInput")
     def name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="retentionPeriodInput")
@@ -398,6 +410,18 @@ class KinesisStream(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__094dd89039644057dddb0fdbc43cd2ef1394c1c02e95b7ed50cc0298ee5abe83)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="retentionPeriod")
     def retention_period(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "retentionPeriod"))
@@ -475,6 +499,7 @@ class KinesisStream(
         "enforce_consumer_deletion": "enforceConsumerDeletion",
         "id": "id",
         "kms_key_id": "kmsKeyId",
+        "region": "region",
         "retention_period": "retentionPeriod",
         "shard_count": "shardCount",
         "shard_level_metrics": "shardLevelMetrics",
@@ -501,6 +526,7 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         enforce_consumer_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         retention_period: typing.Optional[jsii.Number] = None,
         shard_count: typing.Optional[jsii.Number] = None,
         shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -517,19 +543,20 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#name KinesisStream#name}.
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#arn KinesisStream#arn}.
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#encryption_type KinesisStream#encryption_type}.
-        :param enforce_consumer_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#enforce_consumer_deletion KinesisStream#enforce_consumer_deletion}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#id KinesisStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#kms_key_id KinesisStream#kms_key_id}.
-        :param retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#retention_period KinesisStream#retention_period}.
-        :param shard_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#shard_count KinesisStream#shard_count}.
-        :param shard_level_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#shard_level_metrics KinesisStream#shard_level_metrics}.
-        :param stream_mode_details: stream_mode_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#stream_mode_details KinesisStream#stream_mode_details}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#tags KinesisStream#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#tags_all KinesisStream#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#timeouts KinesisStream#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#name KinesisStream#name}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#arn KinesisStream#arn}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#encryption_type KinesisStream#encryption_type}.
+        :param enforce_consumer_deletion: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#enforce_consumer_deletion KinesisStream#enforce_consumer_deletion}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#id KinesisStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#kms_key_id KinesisStream#kms_key_id}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#region KinesisStream#region}
+        :param retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#retention_period KinesisStream#retention_period}.
+        :param shard_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#shard_count KinesisStream#shard_count}.
+        :param shard_level_metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#shard_level_metrics KinesisStream#shard_level_metrics}.
+        :param stream_mode_details: stream_mode_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#stream_mode_details KinesisStream#stream_mode_details}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#tags KinesisStream#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#tags_all KinesisStream#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#timeouts KinesisStream#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -552,6 +579,7 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument enforce_consumer_deletion", value=enforce_consumer_deletion, expected_type=type_hints["enforce_consumer_deletion"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
             check_type(argname="argument shard_count", value=shard_count, expected_type=type_hints["shard_count"])
             check_type(argname="argument shard_level_metrics", value=shard_level_metrics, expected_type=type_hints["shard_level_metrics"])
@@ -586,6 +614,8 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
+        if region is not None:
+            self._values["region"] = region
         if retention_period is not None:
             self._values["retention_period"] = retention_period
         if shard_count is not None:
@@ -667,20 +697,20 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#name KinesisStream#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#name KinesisStream#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#arn KinesisStream#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#arn KinesisStream#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def encryption_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#encryption_type KinesisStream#encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#encryption_type KinesisStream#encryption_type}.'''
         result = self._values.get("encryption_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -688,13 +718,13 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enforce_consumer_deletion(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#enforce_consumer_deletion KinesisStream#enforce_consumer_deletion}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#enforce_consumer_deletion KinesisStream#enforce_consumer_deletion}.'''
         result = self._values.get("enforce_consumer_deletion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#id KinesisStream#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#id KinesisStream#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -704,25 +734,34 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#kms_key_id KinesisStream#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#kms_key_id KinesisStream#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#region KinesisStream#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def retention_period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#retention_period KinesisStream#retention_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#retention_period KinesisStream#retention_period}.'''
         result = self._values.get("retention_period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def shard_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#shard_count KinesisStream#shard_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#shard_count KinesisStream#shard_count}.'''
         result = self._values.get("shard_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def shard_level_metrics(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#shard_level_metrics KinesisStream#shard_level_metrics}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#shard_level_metrics KinesisStream#shard_level_metrics}.'''
         result = self._values.get("shard_level_metrics")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -730,20 +769,20 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def stream_mode_details(self) -> typing.Optional["KinesisStreamStreamModeDetails"]:
         '''stream_mode_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#stream_mode_details KinesisStream#stream_mode_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#stream_mode_details KinesisStream#stream_mode_details}
         '''
         result = self._values.get("stream_mode_details")
         return typing.cast(typing.Optional["KinesisStreamStreamModeDetails"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#tags KinesisStream#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#tags KinesisStream#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#tags_all KinesisStream#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#tags_all KinesisStream#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -751,7 +790,7 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KinesisStreamTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#timeouts KinesisStream#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#timeouts KinesisStream#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KinesisStreamTimeouts"], result)
@@ -776,7 +815,7 @@ class KinesisStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class KinesisStreamStreamModeDetails:
     def __init__(self, *, stream_mode: builtins.str) -> None:
         '''
-        :param stream_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#stream_mode KinesisStream#stream_mode}.
+        :param stream_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#stream_mode KinesisStream#stream_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b242afb593e88b6b675e5c368a72c0f5dca6a2dc41e9dfb8ba997e4934f0afbe)
@@ -787,7 +826,7 @@ class KinesisStreamStreamModeDetails:
 
     @builtins.property
     def stream_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#stream_mode KinesisStream#stream_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#stream_mode KinesisStream#stream_mode}.'''
         result = self._values.get("stream_mode")
         assert result is not None, "Required property 'stream_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -871,9 +910,9 @@ class KinesisStreamTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#create KinesisStream#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#delete KinesisStream#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#update KinesisStream#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#create KinesisStream#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#delete KinesisStream#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#update KinesisStream#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__895234e5529ed2804df21acfd011d7ebab2bcd46af499896cda3dc0fd8615430)
@@ -890,19 +929,19 @@ class KinesisStreamTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#create KinesisStream#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#create KinesisStream#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#delete KinesisStream#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#delete KinesisStream#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/kinesis_stream#update KinesisStream#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream#update KinesisStream#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1040,6 +1079,7 @@ def _typecheckingstub__d9501ab7504b3290ef368a925ba7e7b881e9c7a0d8bcdb17877e4c57c
     enforce_consumer_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     retention_period: typing.Optional[jsii.Number] = None,
     shard_count: typing.Optional[jsii.Number] = None,
     shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1103,6 +1143,12 @@ def _typecheckingstub__000ace6d9976a08a2737df0168b3a037e3ee2fa51257d0eea7352aa0b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__094dd89039644057dddb0fdbc43cd2ef1394c1c02e95b7ed50cc0298ee5abe83(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__61fc1f2878d956377a9b45702ab9097b8e99f3052f66306f68c6c3fc359c89eb(
     value: jsii.Number,
 ) -> None:
@@ -1148,6 +1194,7 @@ def _typecheckingstub__b4f0ddb1191e35df6bd3bde3611f107b967c85d4bbb86547781a43d1d
     enforce_consumer_deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     retention_period: typing.Optional[jsii.Number] = None,
     shard_count: typing.Optional[jsii.Number] = None,
     shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,

@@ -35,7 +35,7 @@ def tailo(tail, coll):
 
 
 def conso(h, t, r):
-    """Construct a goal stating that cons h + t == l."""
+    """Construct a goal stating that cons h + t == r."""
     return eq(cons(h, t), r)
 
 
@@ -212,7 +212,7 @@ def rembero(x, lst, o, default_ConsNull=list):
 
 
 def permuteo(a, b, inner_eq=eq, default_ConsNull=list, no_ident=False):
-    """Construct a goal asserting equality or sequences under permutation.
+    """Construct a goal asserting equality of sequences under permutation.
 
     For example, (1, 2, 2) equates to (2, 1, 2) under permutation
     >>> from kanren import var, run, permuteo

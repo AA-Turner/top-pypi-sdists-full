@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_image_version`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_image_version`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_image_version`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerImageVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerImageVersion.SagemakerImageVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version}.'''
 
     def __init__(
         self,
@@ -53,12 +53,14 @@ class SagemakerImageVersion(
         *,
         base_image: builtins.str,
         image_name: builtins.str,
+        aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
         horovod: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         job_type: typing.Optional[builtins.str] = None,
         ml_framework: typing.Optional[builtins.str] = None,
         processor: typing.Optional[builtins.str] = None,
         programming_lang: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         release_notes: typing.Optional[builtins.str] = None,
         vendor_guidance: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -69,20 +71,22 @@ class SagemakerImageVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
-        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
-        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
-        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
-        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
-        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
-        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
+        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
+        :param aliases: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#aliases SagemakerImageVersion#aliases}.
+        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
+        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
+        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
+        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#region SagemakerImageVersion#region}
+        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
+        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -98,12 +102,14 @@ class SagemakerImageVersion(
         config = SagemakerImageVersionConfig(
             base_image=base_image,
             image_name=image_name,
+            aliases=aliases,
             horovod=horovod,
             id=id,
             job_type=job_type,
             ml_framework=ml_framework,
             processor=processor,
             programming_lang=programming_lang,
+            region=region,
             release_notes=release_notes,
             vendor_guidance=vendor_guidance,
             connection=connection,
@@ -130,7 +136,7 @@ class SagemakerImageVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerImageVersion to import.
-        :param import_from_id: The id of the existing SagemakerImageVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerImageVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerImageVersion to import is found.
         '''
         if __debug__:
@@ -140,6 +146,10 @@ class SagemakerImageVersion(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetAliases")
+    def reset_aliases(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAliases", []))
 
     @jsii.member(jsii_name="resetHorovod")
     def reset_horovod(self) -> None:
@@ -164,6 +174,10 @@ class SagemakerImageVersion(
     @jsii.member(jsii_name="resetProgrammingLang")
     def reset_programming_lang(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetProgrammingLang", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetReleaseNotes")
     def reset_release_notes(self) -> None:
@@ -205,6 +219,11 @@ class SagemakerImageVersion(
     @jsii.member(jsii_name="version")
     def version(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "version"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasesInput")
+    def aliases_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "aliasesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="baseImageInput")
@@ -249,6 +268,11 @@ class SagemakerImageVersion(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "programmingLangInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="releaseNotesInput")
     def release_notes_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "releaseNotesInput"))
@@ -257,6 +281,18 @@ class SagemakerImageVersion(
     @jsii.member(jsii_name="vendorGuidanceInput")
     def vendor_guidance_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vendorGuidanceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliases")
+    def aliases(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "aliases"))
+
+    @aliases.setter
+    def aliases(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df673343d9c398abd8ab0e0e4c465f95fdf7cf8ba56c2503ba2f19f618edd5b0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "aliases", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="baseImage")
@@ -358,6 +394,18 @@ class SagemakerImageVersion(
         jsii.set(self, "programmingLang", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e836f4fe85ab8e4558b2245a345560eff7b0dc5f793d418df2e4441ac02e83ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="releaseNotes")
     def release_notes(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "releaseNotes"))
@@ -395,12 +443,14 @@ class SagemakerImageVersion(
         "provisioners": "provisioners",
         "base_image": "baseImage",
         "image_name": "imageName",
+        "aliases": "aliases",
         "horovod": "horovod",
         "id": "id",
         "job_type": "jobType",
         "ml_framework": "mlFramework",
         "processor": "processor",
         "programming_lang": "programmingLang",
+        "region": "region",
         "release_notes": "releaseNotes",
         "vendor_guidance": "vendorGuidance",
     },
@@ -418,12 +468,14 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         base_image: builtins.str,
         image_name: builtins.str,
+        aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
         horovod: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         job_type: typing.Optional[builtins.str] = None,
         ml_framework: typing.Optional[builtins.str] = None,
         processor: typing.Optional[builtins.str] = None,
         programming_lang: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         release_notes: typing.Optional[builtins.str] = None,
         vendor_guidance: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -435,16 +487,18 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
-        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
-        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
-        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
-        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
-        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
-        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
+        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
+        :param aliases: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#aliases SagemakerImageVersion#aliases}.
+        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
+        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
+        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
+        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#region SagemakerImageVersion#region}
+        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
+        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -459,12 +513,14 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument base_image", value=base_image, expected_type=type_hints["base_image"])
             check_type(argname="argument image_name", value=image_name, expected_type=type_hints["image_name"])
+            check_type(argname="argument aliases", value=aliases, expected_type=type_hints["aliases"])
             check_type(argname="argument horovod", value=horovod, expected_type=type_hints["horovod"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument job_type", value=job_type, expected_type=type_hints["job_type"])
             check_type(argname="argument ml_framework", value=ml_framework, expected_type=type_hints["ml_framework"])
             check_type(argname="argument processor", value=processor, expected_type=type_hints["processor"])
             check_type(argname="argument programming_lang", value=programming_lang, expected_type=type_hints["programming_lang"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument release_notes", value=release_notes, expected_type=type_hints["release_notes"])
             check_type(argname="argument vendor_guidance", value=vendor_guidance, expected_type=type_hints["vendor_guidance"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -485,6 +541,8 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if aliases is not None:
+            self._values["aliases"] = aliases
         if horovod is not None:
             self._values["horovod"] = horovod
         if id is not None:
@@ -497,6 +555,8 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["processor"] = processor
         if programming_lang is not None:
             self._values["programming_lang"] = programming_lang
+        if region is not None:
+            self._values["region"] = region
         if release_notes is not None:
             self._values["release_notes"] = release_notes
         if vendor_guidance is not None:
@@ -568,29 +628,35 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def base_image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.'''
         result = self._values.get("base_image")
         assert result is not None, "Required property 'base_image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def image_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.'''
         result = self._values.get("image_name")
         assert result is not None, "Required property 'image_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def aliases(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#aliases SagemakerImageVersion#aliases}.'''
+        result = self._values.get("aliases")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def horovod(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.'''
         result = self._values.get("horovod")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -600,37 +666,46 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def job_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.'''
         result = self._values.get("job_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ml_framework(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.'''
         result = self._values.get("ml_framework")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def processor(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.'''
         result = self._values.get("processor")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def programming_lang(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.'''
         result = self._values.get("programming_lang")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#region SagemakerImageVersion#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def release_notes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.'''
         result = self._values.get("release_notes")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vendor_guidance(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.'''
         result = self._values.get("vendor_guidance")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -659,12 +734,14 @@ def _typecheckingstub__5128884b5dff926bfbd09c47f067dd4839018bb4104662d4cde3f047e
     *,
     base_image: builtins.str,
     image_name: builtins.str,
+    aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
     horovod: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     job_type: typing.Optional[builtins.str] = None,
     ml_framework: typing.Optional[builtins.str] = None,
     processor: typing.Optional[builtins.str] = None,
     programming_lang: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     release_notes: typing.Optional[builtins.str] = None,
     vendor_guidance: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -683,6 +760,12 @@ def _typecheckingstub__8e2399e87b403aa87b1c15dd7ea69534206b7f2d32518af8c74240c45
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df673343d9c398abd8ab0e0e4c465f95fdf7cf8ba56c2503ba2f19f618edd5b0(
+    value: typing.List[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -735,6 +818,12 @@ def _typecheckingstub__b17dffe67a5701487ae8cd4fbad290c10cb9f0308ccacd271238294ce
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e836f4fe85ab8e4558b2245a345560eff7b0dc5f793d418df2e4441ac02e83ba(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7ae459044cefca285a93e48a3fc2d8ba959ae5ac016aafd2f0c48e9b94df338d(
     value: builtins.str,
 ) -> None:
@@ -758,12 +847,14 @@ def _typecheckingstub__fd6b64f15e1d8fd46ec5ad9d9afbf73e597ba82ce7f2ca7ac4bf670eb
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     base_image: builtins.str,
     image_name: builtins.str,
+    aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
     horovod: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     job_type: typing.Optional[builtins.str] = None,
     ml_framework: typing.Optional[builtins.str] = None,
     processor: typing.Optional[builtins.str] = None,
     programming_lang: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     release_notes: typing.Optional[builtins.str] = None,
     vendor_guidance: typing.Optional[builtins.str] = None,
 ) -> None:

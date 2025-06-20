@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-schemes
-Version: 10.5.42
+Version: 10.5.43
 Summary: passagemath: Schemes, varieties, elliptic curves, algebraic Riemann surfaces, modular forms, arithmetic dynamics
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -33,10 +33,11 @@ Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: fpylll>=0.5.9
 Requires-Dist: memory_allocator
 Requires-Dist: scipy>=1.5
-Requires-Dist: passagemath-modules~=10.5.42.0
-Requires-Dist: passagemath-flint~=10.5.42.0
-Requires-Dist: passagemath-polyhedra~=10.5.42.0
-Requires-Dist: passagemath-singular~=10.5.42.0
+Requires-Dist: passagemath-modules~=10.5.43.0
+Requires-Dist: passagemath-flint~=10.5.43.0
+Requires-Dist: passagemath-polyhedra~=10.5.43.0
+Requires-Dist: passagemath-singular~=10.5.43.0
+Requires-Dist: passagemath-conf~=10.5.43.0
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
 Provides-Extra: flint

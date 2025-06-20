@@ -1,7 +1,7 @@
 r'''
 # `aws_sns_sms_preferences`
 
-Refer to the Terraform Registry for docs: [`aws_sns_sms_preferences`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences).
+Refer to the Terraform Registry for docs: [`aws_sns_sms_preferences`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SnsSmsPreferences(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.snsSmsPreferences.SnsSmsPreferences",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences aws_sns_sms_preferences}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences aws_sns_sms_preferences}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class SnsSmsPreferences(
         delivery_status_success_sampling_rate: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         monthly_spend_limit: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         usage_report_s3_bucket: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -66,17 +67,18 @@ class SnsSmsPreferences(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences aws_sns_sms_preferences} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences aws_sns_sms_preferences} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_sender_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#default_sender_id SnsSmsPreferences#default_sender_id}.
-        :param default_sms_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#default_sms_type SnsSmsPreferences#default_sms_type}.
-        :param delivery_status_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#delivery_status_iam_role_arn SnsSmsPreferences#delivery_status_iam_role_arn}.
-        :param delivery_status_success_sampling_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#delivery_status_success_sampling_rate SnsSmsPreferences#delivery_status_success_sampling_rate}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#id SnsSmsPreferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monthly_spend_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#monthly_spend_limit SnsSmsPreferences#monthly_spend_limit}.
-        :param usage_report_s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#usage_report_s3_bucket SnsSmsPreferences#usage_report_s3_bucket}.
+        :param default_sender_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#default_sender_id SnsSmsPreferences#default_sender_id}.
+        :param default_sms_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#default_sms_type SnsSmsPreferences#default_sms_type}.
+        :param delivery_status_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#delivery_status_iam_role_arn SnsSmsPreferences#delivery_status_iam_role_arn}.
+        :param delivery_status_success_sampling_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#delivery_status_success_sampling_rate SnsSmsPreferences#delivery_status_success_sampling_rate}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#id SnsSmsPreferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monthly_spend_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#monthly_spend_limit SnsSmsPreferences#monthly_spend_limit}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#region SnsSmsPreferences#region}
+        :param usage_report_s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#usage_report_s3_bucket SnsSmsPreferences#usage_report_s3_bucket}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -96,6 +98,7 @@ class SnsSmsPreferences(
             delivery_status_success_sampling_rate=delivery_status_success_sampling_rate,
             id=id,
             monthly_spend_limit=monthly_spend_limit,
+            region=region,
             usage_report_s3_bucket=usage_report_s3_bucket,
             connection=connection,
             count=count,
@@ -121,7 +124,7 @@ class SnsSmsPreferences(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SnsSmsPreferences to import.
-        :param import_from_id: The id of the existing SnsSmsPreferences that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SnsSmsPreferences that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SnsSmsPreferences to import is found.
         '''
         if __debug__:
@@ -155,6 +158,10 @@ class SnsSmsPreferences(
     @jsii.member(jsii_name="resetMonthlySpendLimit")
     def reset_monthly_spend_limit(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMonthlySpendLimit", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetUsageReportS3Bucket")
     def reset_usage_report_s3_bucket(self) -> None:
@@ -204,6 +211,11 @@ class SnsSmsPreferences(
     @jsii.member(jsii_name="monthlySpendLimitInput")
     def monthly_spend_limit_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "monthlySpendLimitInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="usageReportS3BucketInput")
@@ -283,6 +295,18 @@ class SnsSmsPreferences(
         jsii.set(self, "monthlySpendLimit", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe37084962776c4bcd2c7cac42904a4261631975079b6494df1bd81f183f0887)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="usageReportS3Bucket")
     def usage_report_s3_bucket(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "usageReportS3Bucket"))
@@ -312,6 +336,7 @@ class SnsSmsPreferences(
         "delivery_status_success_sampling_rate": "deliveryStatusSuccessSamplingRate",
         "id": "id",
         "monthly_spend_limit": "monthlySpendLimit",
+        "region": "region",
         "usage_report_s3_bucket": "usageReportS3Bucket",
     },
 )
@@ -332,6 +357,7 @@ class SnsSmsPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         delivery_status_success_sampling_rate: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         monthly_spend_limit: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         usage_report_s3_bucket: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -342,13 +368,14 @@ class SnsSmsPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_sender_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#default_sender_id SnsSmsPreferences#default_sender_id}.
-        :param default_sms_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#default_sms_type SnsSmsPreferences#default_sms_type}.
-        :param delivery_status_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#delivery_status_iam_role_arn SnsSmsPreferences#delivery_status_iam_role_arn}.
-        :param delivery_status_success_sampling_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#delivery_status_success_sampling_rate SnsSmsPreferences#delivery_status_success_sampling_rate}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#id SnsSmsPreferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param monthly_spend_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#monthly_spend_limit SnsSmsPreferences#monthly_spend_limit}.
-        :param usage_report_s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#usage_report_s3_bucket SnsSmsPreferences#usage_report_s3_bucket}.
+        :param default_sender_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#default_sender_id SnsSmsPreferences#default_sender_id}.
+        :param default_sms_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#default_sms_type SnsSmsPreferences#default_sms_type}.
+        :param delivery_status_iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#delivery_status_iam_role_arn SnsSmsPreferences#delivery_status_iam_role_arn}.
+        :param delivery_status_success_sampling_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#delivery_status_success_sampling_rate SnsSmsPreferences#delivery_status_success_sampling_rate}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#id SnsSmsPreferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param monthly_spend_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#monthly_spend_limit SnsSmsPreferences#monthly_spend_limit}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#region SnsSmsPreferences#region}
+        :param usage_report_s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#usage_report_s3_bucket SnsSmsPreferences#usage_report_s3_bucket}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -367,6 +394,7 @@ class SnsSmsPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument delivery_status_success_sampling_rate", value=delivery_status_success_sampling_rate, expected_type=type_hints["delivery_status_success_sampling_rate"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument monthly_spend_limit", value=monthly_spend_limit, expected_type=type_hints["monthly_spend_limit"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument usage_report_s3_bucket", value=usage_report_s3_bucket, expected_type=type_hints["usage_report_s3_bucket"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
@@ -395,6 +423,8 @@ class SnsSmsPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if monthly_spend_limit is not None:
             self._values["monthly_spend_limit"] = monthly_spend_limit
+        if region is not None:
+            self._values["region"] = region
         if usage_report_s3_bucket is not None:
             self._values["usage_report_s3_bucket"] = usage_report_s3_bucket
 
@@ -464,31 +494,31 @@ class SnsSmsPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def default_sender_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#default_sender_id SnsSmsPreferences#default_sender_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#default_sender_id SnsSmsPreferences#default_sender_id}.'''
         result = self._values.get("default_sender_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_sms_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#default_sms_type SnsSmsPreferences#default_sms_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#default_sms_type SnsSmsPreferences#default_sms_type}.'''
         result = self._values.get("default_sms_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delivery_status_iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#delivery_status_iam_role_arn SnsSmsPreferences#delivery_status_iam_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#delivery_status_iam_role_arn SnsSmsPreferences#delivery_status_iam_role_arn}.'''
         result = self._values.get("delivery_status_iam_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delivery_status_success_sampling_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#delivery_status_success_sampling_rate SnsSmsPreferences#delivery_status_success_sampling_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#delivery_status_success_sampling_rate SnsSmsPreferences#delivery_status_success_sampling_rate}.'''
         result = self._values.get("delivery_status_success_sampling_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#id SnsSmsPreferences#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#id SnsSmsPreferences#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -498,13 +528,22 @@ class SnsSmsPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def monthly_spend_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#monthly_spend_limit SnsSmsPreferences#monthly_spend_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#monthly_spend_limit SnsSmsPreferences#monthly_spend_limit}.'''
         result = self._values.get("monthly_spend_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#region SnsSmsPreferences#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def usage_report_s3_bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/sns_sms_preferences#usage_report_s3_bucket SnsSmsPreferences#usage_report_s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/sns_sms_preferences#usage_report_s3_bucket SnsSmsPreferences#usage_report_s3_bucket}.'''
         result = self._values.get("usage_report_s3_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -537,6 +576,7 @@ def _typecheckingstub__da623641fb2143d55069d241353ce34fec23674c8113ad70027645285
     delivery_status_success_sampling_rate: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     monthly_spend_limit: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     usage_report_s3_bucket: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -594,6 +634,12 @@ def _typecheckingstub__f770b95f0863aba6137c3acaad2a510ece01d69ed10a69035564201c2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fe37084962776c4bcd2c7cac42904a4261631975079b6494df1bd81f183f0887(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c03340809fd9da626d6621957e6c39b9378472f167be5947029436144ebf1a80(
     value: builtins.str,
 ) -> None:
@@ -615,6 +661,7 @@ def _typecheckingstub__c5909ca2c3d3ec87850a34fd79587b350e0e24e7cbf763695de94f77e
     delivery_status_success_sampling_rate: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     monthly_spend_limit: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     usage_report_s3_bucket: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

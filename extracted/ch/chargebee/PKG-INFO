@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: chargebee
-Version: 3.4.0
+Version: 3.5.0
 Summary: Python wrapper for the Chargebee Subscription Billing API
 Home-page: https://apidocs.chargebee.com/docs/api?lang=python
 Author: Chargebee
@@ -9,6 +9,15 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Chargebee Python Client Library v3
 

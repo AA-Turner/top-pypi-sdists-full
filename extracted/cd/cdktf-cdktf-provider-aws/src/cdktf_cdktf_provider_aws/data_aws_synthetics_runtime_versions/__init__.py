@@ -1,7 +1,7 @@
 r'''
 # `data_aws_synthetics_runtime_versions`
 
-Refer to the Terraform Registry for docs: [`data_aws_synthetics_runtime_versions`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/synthetics_runtime_versions).
+Refer to the Terraform Registry for docs: [`data_aws_synthetics_runtime_versions`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/synthetics_runtime_versions).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,14 +44,14 @@ class DataAwsSyntheticsRuntimeVersions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsSyntheticsRuntimeVersions.DataAwsSyntheticsRuntimeVersions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/synthetics_runtime_versions aws_synthetics_runtime_versions}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/synthetics_runtime_versions aws_synthetics_runtime_versions}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        runtime_versions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSyntheticsRuntimeVersionsRuntimeVersions", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -60,11 +60,11 @@ class DataAwsSyntheticsRuntimeVersions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/synthetics_runtime_versions aws_synthetics_runtime_versions} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/synthetics_runtime_versions aws_synthetics_runtime_versions} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param runtime_versions: runtime_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/synthetics_runtime_versions#runtime_versions DataAwsSyntheticsRuntimeVersions#runtime_versions}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/synthetics_runtime_versions#region DataAwsSyntheticsRuntimeVersions#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -78,7 +78,7 @@ class DataAwsSyntheticsRuntimeVersions(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsSyntheticsRuntimeVersionsConfig(
-            runtime_versions=runtime_versions,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -103,7 +103,7 @@ class DataAwsSyntheticsRuntimeVersions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsSyntheticsRuntimeVersions to import.
-        :param import_from_id: The id of the existing DataAwsSyntheticsRuntimeVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/synthetics_runtime_versions#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsSyntheticsRuntimeVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/synthetics_runtime_versions#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsSyntheticsRuntimeVersions to import is found.
         '''
         if __debug__:
@@ -114,22 +114,9 @@ class DataAwsSyntheticsRuntimeVersions(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putRuntimeVersions")
-    def put_runtime_versions(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSyntheticsRuntimeVersionsRuntimeVersions", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__071e900d9ca65257cce88739ca201915015e139abbae5b3f2be1ba74aac845e7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putRuntimeVersions", [value]))
-
-    @jsii.member(jsii_name="resetRuntimeVersions")
-    def reset_runtime_versions(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetRuntimeVersions", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -155,11 +142,21 @@ class DataAwsSyntheticsRuntimeVersions(
         return typing.cast("DataAwsSyntheticsRuntimeVersionsRuntimeVersionsList", jsii.get(self, "runtimeVersions"))
 
     @builtins.property
-    @jsii.member(jsii_name="runtimeVersionsInput")
-    def runtime_versions_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSyntheticsRuntimeVersionsRuntimeVersions"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSyntheticsRuntimeVersionsRuntimeVersions"]]], jsii.get(self, "runtimeVersionsInput"))
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4511062c2ca21d8527991b692fa16d4f4b39f0b20de6b351ef32c0e87bb768c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -173,7 +170,7 @@ class DataAwsSyntheticsRuntimeVersions(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "runtime_versions": "runtimeVersions",
+        "region": "region",
     },
 )
 class DataAwsSyntheticsRuntimeVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -187,7 +184,7 @@ class DataAwsSyntheticsRuntimeVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        runtime_versions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSyntheticsRuntimeVersionsRuntimeVersions", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -197,7 +194,7 @@ class DataAwsSyntheticsRuntimeVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param runtime_versions: runtime_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/synthetics_runtime_versions#runtime_versions DataAwsSyntheticsRuntimeVersions#runtime_versions}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/synthetics_runtime_versions#region DataAwsSyntheticsRuntimeVersions#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -210,7 +207,7 @@ class DataAwsSyntheticsRuntimeVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument runtime_versions", value=runtime_versions, expected_type=type_hints["runtime_versions"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
@@ -226,8 +223,8 @@ class DataAwsSyntheticsRuntimeVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if runtime_versions is not None:
-            self._values["runtime_versions"] = runtime_versions
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -294,15 +291,13 @@ class DataAwsSyntheticsRuntimeVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def runtime_versions(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSyntheticsRuntimeVersionsRuntimeVersions"]]]:
-        '''runtime_versions block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/synthetics_runtime_versions#runtime_versions DataAwsSyntheticsRuntimeVersions#runtime_versions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/synthetics_runtime_versions#region DataAwsSyntheticsRuntimeVersions#region}
         '''
-        result = self._values.get("runtime_versions")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSyntheticsRuntimeVersionsRuntimeVersions"]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -412,23 +407,6 @@ class DataAwsSyntheticsRuntimeVersionsRuntimeVersionsList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSyntheticsRuntimeVersionsRuntimeVersions]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSyntheticsRuntimeVersionsRuntimeVersions]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSyntheticsRuntimeVersionsRuntimeVersions]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e619f7536243cf05cfa8f9e74615e1035e8296825bc22d6811ae30be041bb384)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsSyntheticsRuntimeVersionsRuntimeVersionsOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -480,13 +458,13 @@ class DataAwsSyntheticsRuntimeVersionsRuntimeVersionsOutputReference(
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSyntheticsRuntimeVersionsRuntimeVersions]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSyntheticsRuntimeVersionsRuntimeVersions]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsSyntheticsRuntimeVersionsRuntimeVersions]:
+        return typing.cast(typing.Optional[DataAwsSyntheticsRuntimeVersionsRuntimeVersions], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSyntheticsRuntimeVersionsRuntimeVersions]],
+        value: typing.Optional[DataAwsSyntheticsRuntimeVersionsRuntimeVersions],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a05ede5691112c39cc01073baf879c7b73c26f9d6a7e8e16528868e4845f6c6)
@@ -508,7 +486,7 @@ def _typecheckingstub__ef0eb2155b41772df32c8024000e7c35861ac3907e47231c284e3a555
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    runtime_versions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSyntheticsRuntimeVersionsRuntimeVersions, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -529,8 +507,8 @@ def _typecheckingstub__ff8540ab6e05580c18445b1f873df8b7588443ea7343ebe12c44c578c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__071e900d9ca65257cce88739ca201915015e139abbae5b3f2be1ba74aac845e7(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSyntheticsRuntimeVersionsRuntimeVersions, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__4511062c2ca21d8527991b692fa16d4f4b39f0b20de6b351ef32c0e87bb768c0(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -544,7 +522,7 @@ def _typecheckingstub__cc411c26cf076158c32438d5de8863e31303f3eb827e8da03313eeb31
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    runtime_versions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSyntheticsRuntimeVersionsRuntimeVersions, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -581,12 +559,6 @@ def _typecheckingstub__e839dbe40e418f6aa9513e9cfbb4c4212b2dcdbdea2ff7e00d2036e2a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e619f7536243cf05cfa8f9e74615e1035e8296825bc22d6811ae30be041bb384(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSyntheticsRuntimeVersionsRuntimeVersions]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aadc917e3c51479ae4b3311dc8bda0997b93701ab0611a912633a9c3341fbedb(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -597,7 +569,7 @@ def _typecheckingstub__aadc917e3c51479ae4b3311dc8bda0997b93701ab0611a912633a9c33
     pass
 
 def _typecheckingstub__6a05ede5691112c39cc01073baf879c7b73c26f9d6a7e8e16528868e4845f6c6(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSyntheticsRuntimeVersionsRuntimeVersions]],
+    value: typing.Optional[DataAwsSyntheticsRuntimeVersionsRuntimeVersions],
 ) -> None:
     """Type checking stubs"""
     pass

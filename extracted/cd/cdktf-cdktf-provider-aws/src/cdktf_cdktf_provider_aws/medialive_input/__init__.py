@@ -1,7 +1,7 @@
 r'''
 # `aws_medialive_input`
 
-Refer to the Terraform Registry for docs: [`aws_medialive_input`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input).
+Refer to the Terraform Registry for docs: [`aws_medialive_input`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MedialiveInput(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.medialiveInput.MedialiveInput",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input aws_medialive_input}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input aws_medialive_input}.'''
 
     def __init__(
         self,
@@ -58,6 +58,7 @@ class MedialiveInput(
         input_devices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveInputInputDevices", typing.Dict[builtins.str, typing.Any]]]]] = None,
         input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         media_connect_flows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveInputMediaConnectFlows", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
         sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveInputSources", typing.Dict[builtins.str, typing.Any]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -72,23 +73,24 @@ class MedialiveInput(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input aws_medialive_input} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input aws_medialive_input} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#name MedialiveInput#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#type MedialiveInput#type}.
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#destinations MedialiveInput#destinations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#id MedialiveInput#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input_devices: input_devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#input_devices MedialiveInput#input_devices}
-        :param input_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#input_security_groups MedialiveInput#input_security_groups}.
-        :param media_connect_flows: media_connect_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#media_connect_flows MedialiveInput#media_connect_flows}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#role_arn MedialiveInput#role_arn}.
-        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#sources MedialiveInput#sources}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#tags MedialiveInput#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#tags_all MedialiveInput#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#timeouts MedialiveInput#timeouts}
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#vpc MedialiveInput#vpc}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#name MedialiveInput#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#type MedialiveInput#type}.
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#destinations MedialiveInput#destinations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#id MedialiveInput#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input_devices: input_devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#input_devices MedialiveInput#input_devices}
+        :param input_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#input_security_groups MedialiveInput#input_security_groups}.
+        :param media_connect_flows: media_connect_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#media_connect_flows MedialiveInput#media_connect_flows}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#region MedialiveInput#region}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#role_arn MedialiveInput#role_arn}.
+        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#sources MedialiveInput#sources}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#tags MedialiveInput#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#tags_all MedialiveInput#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#timeouts MedialiveInput#timeouts}
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#vpc MedialiveInput#vpc}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,6 +111,7 @@ class MedialiveInput(
             input_devices=input_devices,
             input_security_groups=input_security_groups,
             media_connect_flows=media_connect_flows,
+            region=region,
             role_arn=role_arn,
             sources=sources,
             tags=tags,
@@ -139,7 +142,7 @@ class MedialiveInput(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MedialiveInput to import.
-        :param import_from_id: The id of the existing MedialiveInput that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MedialiveInput that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MedialiveInput to import is found.
         '''
         if __debug__:
@@ -211,9 +214,9 @@ class MedialiveInput(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#create MedialiveInput#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#delete MedialiveInput#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#update MedialiveInput#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#create MedialiveInput#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#delete MedialiveInput#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#update MedialiveInput#update}.
         '''
         value = MedialiveInputTimeouts(create=create, delete=delete, update=update)
 
@@ -227,8 +230,8 @@ class MedialiveInput(
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#subnet_ids MedialiveInput#subnet_ids}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#security_group_ids MedialiveInput#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#subnet_ids MedialiveInput#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#security_group_ids MedialiveInput#security_group_ids}.
         '''
         value = MedialiveInputVpc(
             subnet_ids=subnet_ids, security_group_ids=security_group_ids
@@ -255,6 +258,10 @@ class MedialiveInput(
     @jsii.member(jsii_name="resetMediaConnectFlows")
     def reset_media_connect_flows(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMediaConnectFlows", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRoleArn")
     def reset_role_arn(self) -> None:
@@ -385,6 +392,11 @@ class MedialiveInput(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="roleArnInput")
     def role_arn_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArnInput"))
@@ -462,6 +474,18 @@ class MedialiveInput(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22db2bb68cb01da815a5275695cd2a733f1d63e09f2d6a08ca703348576e1861)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="roleArn")
     def role_arn(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "roleArn"))
@@ -528,6 +552,7 @@ class MedialiveInput(
         "input_devices": "inputDevices",
         "input_security_groups": "inputSecurityGroups",
         "media_connect_flows": "mediaConnectFlows",
+        "region": "region",
         "role_arn": "roleArn",
         "sources": "sources",
         "tags": "tags",
@@ -554,6 +579,7 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         input_devices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveInputInputDevices", typing.Dict[builtins.str, typing.Any]]]]] = None,
         input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         media_connect_flows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveInputMediaConnectFlows", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
         sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveInputSources", typing.Dict[builtins.str, typing.Any]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -569,19 +595,20 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#name MedialiveInput#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#type MedialiveInput#type}.
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#destinations MedialiveInput#destinations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#id MedialiveInput#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input_devices: input_devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#input_devices MedialiveInput#input_devices}
-        :param input_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#input_security_groups MedialiveInput#input_security_groups}.
-        :param media_connect_flows: media_connect_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#media_connect_flows MedialiveInput#media_connect_flows}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#role_arn MedialiveInput#role_arn}.
-        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#sources MedialiveInput#sources}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#tags MedialiveInput#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#tags_all MedialiveInput#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#timeouts MedialiveInput#timeouts}
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#vpc MedialiveInput#vpc}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#name MedialiveInput#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#type MedialiveInput#type}.
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#destinations MedialiveInput#destinations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#id MedialiveInput#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input_devices: input_devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#input_devices MedialiveInput#input_devices}
+        :param input_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#input_security_groups MedialiveInput#input_security_groups}.
+        :param media_connect_flows: media_connect_flows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#media_connect_flows MedialiveInput#media_connect_flows}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#region MedialiveInput#region}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#role_arn MedialiveInput#role_arn}.
+        :param sources: sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#sources MedialiveInput#sources}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#tags MedialiveInput#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#tags_all MedialiveInput#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#timeouts MedialiveInput#timeouts}
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#vpc MedialiveInput#vpc}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -605,6 +632,7 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument input_devices", value=input_devices, expected_type=type_hints["input_devices"])
             check_type(argname="argument input_security_groups", value=input_security_groups, expected_type=type_hints["input_security_groups"])
             check_type(argname="argument media_connect_flows", value=media_connect_flows, expected_type=type_hints["media_connect_flows"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -639,6 +667,8 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["input_security_groups"] = input_security_groups
         if media_connect_flows is not None:
             self._values["media_connect_flows"] = media_connect_flows
+        if region is not None:
+            self._values["region"] = region
         if role_arn is not None:
             self._values["role_arn"] = role_arn
         if sources is not None:
@@ -718,14 +748,14 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#name MedialiveInput#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#name MedialiveInput#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#type MedialiveInput#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#type MedialiveInput#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -736,14 +766,14 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputDestinations"]]]:
         '''destinations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#destinations MedialiveInput#destinations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#destinations MedialiveInput#destinations}
         '''
         result = self._values.get("destinations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputDestinations"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#id MedialiveInput#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#id MedialiveInput#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -757,14 +787,14 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputInputDevices"]]]:
         '''input_devices block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#input_devices MedialiveInput#input_devices}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#input_devices MedialiveInput#input_devices}
         '''
         result = self._values.get("input_devices")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputInputDevices"]]], result)
 
     @builtins.property
     def input_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#input_security_groups MedialiveInput#input_security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#input_security_groups MedialiveInput#input_security_groups}.'''
         result = self._values.get("input_security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -774,14 +804,23 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputMediaConnectFlows"]]]:
         '''media_connect_flows block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#media_connect_flows MedialiveInput#media_connect_flows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#media_connect_flows MedialiveInput#media_connect_flows}
         '''
         result = self._values.get("media_connect_flows")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputMediaConnectFlows"]]], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#region MedialiveInput#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#role_arn MedialiveInput#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#role_arn MedialiveInput#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -791,20 +830,20 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputSources"]]]:
         '''sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#sources MedialiveInput#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#sources MedialiveInput#sources}
         '''
         result = self._values.get("sources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveInputSources"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#tags MedialiveInput#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#tags MedialiveInput#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#tags_all MedialiveInput#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#tags_all MedialiveInput#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -812,7 +851,7 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MedialiveInputTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#timeouts MedialiveInput#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#timeouts MedialiveInput#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MedialiveInputTimeouts"], result)
@@ -821,7 +860,7 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc(self) -> typing.Optional["MedialiveInputVpc"]:
         '''vpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#vpc MedialiveInput#vpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#vpc MedialiveInput#vpc}
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional["MedialiveInputVpc"], result)
@@ -846,7 +885,7 @@ class MedialiveInputConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class MedialiveInputDestinations:
     def __init__(self, *, stream_name: builtins.str) -> None:
         '''
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#stream_name MedialiveInput#stream_name}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#stream_name MedialiveInput#stream_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48b17abe15757fc31e97d82020e5d06e288fa490b965ec976aee2f925e0a400b)
@@ -857,7 +896,7 @@ class MedialiveInputDestinations:
 
     @builtins.property
     def stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#stream_name MedialiveInput#stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#stream_name MedialiveInput#stream_name}.'''
         result = self._values.get("stream_name")
         assert result is not None, "Required property 'stream_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1033,7 +1072,7 @@ class MedialiveInputDestinationsOutputReference(
 class MedialiveInputInputDevices:
     def __init__(self, *, id: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#id MedialiveInput#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#id MedialiveInput#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c00e30e9e4ab1fa6ed2291d1044d35bfc68fcdab5c335ae542aabc8845935f7d)
@@ -1044,7 +1083,7 @@ class MedialiveInputInputDevices:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#id MedialiveInput#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#id MedialiveInput#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1224,7 +1263,7 @@ class MedialiveInputInputDevicesOutputReference(
 class MedialiveInputMediaConnectFlows:
     def __init__(self, *, flow_arn: builtins.str) -> None:
         '''
-        :param flow_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#flow_arn MedialiveInput#flow_arn}.
+        :param flow_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#flow_arn MedialiveInput#flow_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a82d434cd3a2f890d9c640f780d4cfe364b8d3a588cde0f9ad791ef742064f61)
@@ -1235,7 +1274,7 @@ class MedialiveInputMediaConnectFlows:
 
     @builtins.property
     def flow_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#flow_arn MedialiveInput#flow_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#flow_arn MedialiveInput#flow_arn}.'''
         result = self._values.get("flow_arn")
         assert result is not None, "Required property 'flow_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1424,9 +1463,9 @@ class MedialiveInputSources:
         username: builtins.str,
     ) -> None:
         '''
-        :param password_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#password_param MedialiveInput#password_param}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#url MedialiveInput#url}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#username MedialiveInput#username}.
+        :param password_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#password_param MedialiveInput#password_param}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#url MedialiveInput#url}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#username MedialiveInput#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af11a08f43123aba64efa9211cd473330ff6b1243870b0d009c0fd0506c49557)
@@ -1441,21 +1480,21 @@ class MedialiveInputSources:
 
     @builtins.property
     def password_param(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#password_param MedialiveInput#password_param}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#password_param MedialiveInput#password_param}.'''
         result = self._values.get("password_param")
         assert result is not None, "Required property 'password_param' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#url MedialiveInput#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#url MedialiveInput#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#username MedialiveInput#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#username MedialiveInput#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -1671,9 +1710,9 @@ class MedialiveInputTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#create MedialiveInput#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#delete MedialiveInput#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#update MedialiveInput#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#create MedialiveInput#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#delete MedialiveInput#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#update MedialiveInput#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b79d4ed83571f462642a8eb9af76c8aca3c18ded08b42162073f5c1a565fc10)
@@ -1690,19 +1729,19 @@ class MedialiveInputTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#create MedialiveInput#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#create MedialiveInput#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#delete MedialiveInput#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#delete MedialiveInput#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#update MedialiveInput#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#update MedialiveInput#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1832,8 +1871,8 @@ class MedialiveInputVpc:
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#subnet_ids MedialiveInput#subnet_ids}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#security_group_ids MedialiveInput#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#subnet_ids MedialiveInput#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#security_group_ids MedialiveInput#security_group_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cbfa273ca8ec0f85e22969da91efab5834347b11619a7f2401bb7c6da3b7e9ab)
@@ -1847,14 +1886,14 @@ class MedialiveInputVpc:
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#subnet_ids MedialiveInput#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#subnet_ids MedialiveInput#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/medialive_input#security_group_ids MedialiveInput#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/medialive_input#security_group_ids MedialiveInput#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1975,6 +2014,7 @@ def _typecheckingstub__097bf646e548286a50f6903d87f02d0214ba827ea93230ea89c60ec43
     input_devices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[MedialiveInputInputDevices, typing.Dict[builtins.str, typing.Any]]]]] = None,
     input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     media_connect_flows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[MedialiveInputMediaConnectFlows, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
     sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[MedialiveInputSources, typing.Dict[builtins.str, typing.Any]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2043,6 +2083,12 @@ def _typecheckingstub__e27a3b70fc2d8fbafd835068f1227c6e3ac3eb2f8b0a74bb8ffcb73e9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__22db2bb68cb01da815a5275695cd2a733f1d63e09f2d6a08ca703348576e1861(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__963ddb04786c5979242e133e5634bd0c62889c27b1296569204bd12959bd8b75(
     value: builtins.str,
 ) -> None:
@@ -2083,6 +2129,7 @@ def _typecheckingstub__311181243dc649e2b116b7e4ecddef149af8602f85ad85777a0c86833
     input_devices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[MedialiveInputInputDevices, typing.Dict[builtins.str, typing.Any]]]]] = None,
     input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     media_connect_flows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[MedialiveInputMediaConnectFlows, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
     sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[MedialiveInputSources, typing.Dict[builtins.str, typing.Any]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

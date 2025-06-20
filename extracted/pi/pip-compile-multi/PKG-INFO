@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_compile_multi
-Version: 3.2.0
+Version: 3.2.1
 Summary: Compile multiple requirements files to lock dependency versions
 Home-page: https://github.com/peterdemin/pip-compile-multi
 Author: Peter Demin
@@ -69,6 +69,19 @@ Links
 
 History
 =======
+
+3.2.1 (2025-06-19)
+------------------
+
+* Fix a bug when loading configuration from ``pyproject.toml`` that doesn't have ``[tool.requirements]`` section.
+
+3.2.0 (2025-06-17)
+------------------
+
+* Enable annotations for uv resolver. (Requires uv>=0.7)
+  (Issue `#505`_)
+
+.. _#505: https://github.com/peterdemin/pip-compile-multi/issues/505
 
 3.1.0 (2025-05-23)
 ------------------

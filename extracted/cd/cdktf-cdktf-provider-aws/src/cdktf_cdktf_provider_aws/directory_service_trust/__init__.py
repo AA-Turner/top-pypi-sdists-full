@@ -1,7 +1,7 @@
 r'''
 # `aws_directory_service_trust`
 
-Refer to the Terraform Registry for docs: [`aws_directory_service_trust`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust).
+Refer to the Terraform Registry for docs: [`aws_directory_service_trust`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DirectoryServiceTrust(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.directoryServiceTrust.DirectoryServiceTrust",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust aws_directory_service_trust}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust aws_directory_service_trust}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class DirectoryServiceTrust(
         trust_password: builtins.str,
         conditional_forwarder_ip_addrs: typing.Optional[typing.Sequence[builtins.str]] = None,
         delete_associated_conditional_forwarder: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         selective_auth: typing.Optional[builtins.str] = None,
         trust_type: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -67,18 +68,19 @@ class DirectoryServiceTrust(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust aws_directory_service_trust} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust aws_directory_service_trust} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#directory_id DirectoryServiceTrust#directory_id}.
-        :param remote_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#remote_domain_name DirectoryServiceTrust#remote_domain_name}.
-        :param trust_direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_direction DirectoryServiceTrust#trust_direction}.
-        :param trust_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_password DirectoryServiceTrust#trust_password}.
-        :param conditional_forwarder_ip_addrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#conditional_forwarder_ip_addrs DirectoryServiceTrust#conditional_forwarder_ip_addrs}.
-        :param delete_associated_conditional_forwarder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#delete_associated_conditional_forwarder DirectoryServiceTrust#delete_associated_conditional_forwarder}.
-        :param selective_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#selective_auth DirectoryServiceTrust#selective_auth}.
-        :param trust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_type DirectoryServiceTrust#trust_type}.
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#directory_id DirectoryServiceTrust#directory_id}.
+        :param remote_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#remote_domain_name DirectoryServiceTrust#remote_domain_name}.
+        :param trust_direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_direction DirectoryServiceTrust#trust_direction}.
+        :param trust_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_password DirectoryServiceTrust#trust_password}.
+        :param conditional_forwarder_ip_addrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#conditional_forwarder_ip_addrs DirectoryServiceTrust#conditional_forwarder_ip_addrs}.
+        :param delete_associated_conditional_forwarder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#delete_associated_conditional_forwarder DirectoryServiceTrust#delete_associated_conditional_forwarder}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#region DirectoryServiceTrust#region}
+        :param selective_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#selective_auth DirectoryServiceTrust#selective_auth}.
+        :param trust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_type DirectoryServiceTrust#trust_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -98,6 +100,7 @@ class DirectoryServiceTrust(
             trust_password=trust_password,
             conditional_forwarder_ip_addrs=conditional_forwarder_ip_addrs,
             delete_associated_conditional_forwarder=delete_associated_conditional_forwarder,
+            region=region,
             selective_auth=selective_auth,
             trust_type=trust_type,
             connection=connection,
@@ -124,7 +127,7 @@ class DirectoryServiceTrust(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DirectoryServiceTrust to import.
-        :param import_from_id: The id of the existing DirectoryServiceTrust that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DirectoryServiceTrust that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DirectoryServiceTrust to import is found.
         '''
         if __debug__:
@@ -142,6 +145,10 @@ class DirectoryServiceTrust(
     @jsii.member(jsii_name="resetDeleteAssociatedConditionalForwarder")
     def reset_delete_associated_conditional_forwarder(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDeleteAssociatedConditionalForwarder", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSelectiveAuth")
     def reset_selective_auth(self) -> None:
@@ -214,6 +221,11 @@ class DirectoryServiceTrust(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "directoryIdInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="remoteDomainNameInput")
     def remote_domain_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "remoteDomainNameInput"))
@@ -278,6 +290,18 @@ class DirectoryServiceTrust(
             type_hints = typing.get_type_hints(_typecheckingstub__0ad4844bb5234f602da6b843739befdb5a2dbe4cb85d1912acfb0e4748798d05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "directoryId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6286080dcee312e908ad286a7084092c8f30b1cc2d8e166f44a242820735731)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="remoteDomainName")
@@ -357,6 +381,7 @@ class DirectoryServiceTrust(
         "trust_password": "trustPassword",
         "conditional_forwarder_ip_addrs": "conditionalForwarderIpAddrs",
         "delete_associated_conditional_forwarder": "deleteAssociatedConditionalForwarder",
+        "region": "region",
         "selective_auth": "selectiveAuth",
         "trust_type": "trustType",
     },
@@ -378,6 +403,7 @@ class DirectoryServiceTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         trust_password: builtins.str,
         conditional_forwarder_ip_addrs: typing.Optional[typing.Sequence[builtins.str]] = None,
         delete_associated_conditional_forwarder: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         selective_auth: typing.Optional[builtins.str] = None,
         trust_type: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -389,14 +415,15 @@ class DirectoryServiceTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#directory_id DirectoryServiceTrust#directory_id}.
-        :param remote_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#remote_domain_name DirectoryServiceTrust#remote_domain_name}.
-        :param trust_direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_direction DirectoryServiceTrust#trust_direction}.
-        :param trust_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_password DirectoryServiceTrust#trust_password}.
-        :param conditional_forwarder_ip_addrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#conditional_forwarder_ip_addrs DirectoryServiceTrust#conditional_forwarder_ip_addrs}.
-        :param delete_associated_conditional_forwarder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#delete_associated_conditional_forwarder DirectoryServiceTrust#delete_associated_conditional_forwarder}.
-        :param selective_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#selective_auth DirectoryServiceTrust#selective_auth}.
-        :param trust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_type DirectoryServiceTrust#trust_type}.
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#directory_id DirectoryServiceTrust#directory_id}.
+        :param remote_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#remote_domain_name DirectoryServiceTrust#remote_domain_name}.
+        :param trust_direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_direction DirectoryServiceTrust#trust_direction}.
+        :param trust_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_password DirectoryServiceTrust#trust_password}.
+        :param conditional_forwarder_ip_addrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#conditional_forwarder_ip_addrs DirectoryServiceTrust#conditional_forwarder_ip_addrs}.
+        :param delete_associated_conditional_forwarder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#delete_associated_conditional_forwarder DirectoryServiceTrust#delete_associated_conditional_forwarder}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#region DirectoryServiceTrust#region}
+        :param selective_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#selective_auth DirectoryServiceTrust#selective_auth}.
+        :param trust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_type DirectoryServiceTrust#trust_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -415,6 +442,7 @@ class DirectoryServiceTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument trust_password", value=trust_password, expected_type=type_hints["trust_password"])
             check_type(argname="argument conditional_forwarder_ip_addrs", value=conditional_forwarder_ip_addrs, expected_type=type_hints["conditional_forwarder_ip_addrs"])
             check_type(argname="argument delete_associated_conditional_forwarder", value=delete_associated_conditional_forwarder, expected_type=type_hints["delete_associated_conditional_forwarder"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument selective_auth", value=selective_auth, expected_type=type_hints["selective_auth"])
             check_type(argname="argument trust_type", value=trust_type, expected_type=type_hints["trust_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -441,6 +469,8 @@ class DirectoryServiceTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["conditional_forwarder_ip_addrs"] = conditional_forwarder_ip_addrs
         if delete_associated_conditional_forwarder is not None:
             self._values["delete_associated_conditional_forwarder"] = delete_associated_conditional_forwarder
+        if region is not None:
+            self._values["region"] = region
         if selective_auth is not None:
             self._values["selective_auth"] = selective_auth
         if trust_type is not None:
@@ -512,28 +542,28 @@ class DirectoryServiceTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def directory_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#directory_id DirectoryServiceTrust#directory_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#directory_id DirectoryServiceTrust#directory_id}.'''
         result = self._values.get("directory_id")
         assert result is not None, "Required property 'directory_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def remote_domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#remote_domain_name DirectoryServiceTrust#remote_domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#remote_domain_name DirectoryServiceTrust#remote_domain_name}.'''
         result = self._values.get("remote_domain_name")
         assert result is not None, "Required property 'remote_domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trust_direction(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_direction DirectoryServiceTrust#trust_direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_direction DirectoryServiceTrust#trust_direction}.'''
         result = self._values.get("trust_direction")
         assert result is not None, "Required property 'trust_direction' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trust_password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_password DirectoryServiceTrust#trust_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_password DirectoryServiceTrust#trust_password}.'''
         result = self._values.get("trust_password")
         assert result is not None, "Required property 'trust_password' is missing"
         return typing.cast(builtins.str, result)
@@ -542,7 +572,7 @@ class DirectoryServiceTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def conditional_forwarder_ip_addrs(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#conditional_forwarder_ip_addrs DirectoryServiceTrust#conditional_forwarder_ip_addrs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#conditional_forwarder_ip_addrs DirectoryServiceTrust#conditional_forwarder_ip_addrs}.'''
         result = self._values.get("conditional_forwarder_ip_addrs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -550,19 +580,28 @@ class DirectoryServiceTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def delete_associated_conditional_forwarder(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#delete_associated_conditional_forwarder DirectoryServiceTrust#delete_associated_conditional_forwarder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#delete_associated_conditional_forwarder DirectoryServiceTrust#delete_associated_conditional_forwarder}.'''
         result = self._values.get("delete_associated_conditional_forwarder")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#region DirectoryServiceTrust#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def selective_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#selective_auth DirectoryServiceTrust#selective_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#selective_auth DirectoryServiceTrust#selective_auth}.'''
         result = self._values.get("selective_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def trust_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/directory_service_trust#trust_type DirectoryServiceTrust#trust_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/directory_service_trust#trust_type DirectoryServiceTrust#trust_type}.'''
         result = self._values.get("trust_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -595,6 +634,7 @@ def _typecheckingstub__00bf4f643f4445f88bda3f3d6547de48594d434b1c18b9db18dbd2148
     trust_password: builtins.str,
     conditional_forwarder_ip_addrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     delete_associated_conditional_forwarder: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     selective_auth: typing.Optional[builtins.str] = None,
     trust_type: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -630,6 +670,12 @@ def _typecheckingstub__ba9abdca984e868ac597c5ec839334afa0dea08ed4e27f719ba94a36b
     pass
 
 def _typecheckingstub__0ad4844bb5234f602da6b843739befdb5a2dbe4cb85d1912acfb0e4748798d05(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6286080dcee312e908ad286a7084092c8f30b1cc2d8e166f44a242820735731(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -680,6 +726,7 @@ def _typecheckingstub__e025b59a79224c27fdce09cd43b2da1c8e649ffca80a7baa5b6b16631
     trust_password: builtins.str,
     conditional_forwarder_ip_addrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     delete_associated_conditional_forwarder: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     selective_auth: typing.Optional[builtins.str] = None,
     trust_type: typing.Optional[builtins.str] = None,
 ) -> None:

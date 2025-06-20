@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dao_treasury
-Version: 0.0.29
+Version: 0.0.30
 Summary: Produce comprehensive financial reports for your on-chain org
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -31,7 +31,7 @@ DAO Treasury is a comprehensive financial reporting and treasury management solu
 
 ## Prerequisites
 
-- First, you will need to bring your own archive node. This can be one you run yourself, or one from one of the common providers (Tenderly, Alchemy, QuickNode, etc.)
+- First, you will need to bring your own archive node. This can be one you run yourself, or one from one of the common providers (Tenderly, Alchemy, QuickNode, etc.). Your archive node must have tracing enabled (free-tier Alchemy nodes do not support this option).
 - You must configure a [brownie network](https://eth-brownie.readthedocs.io/en/stable/network-management.html) to use your RPC.
 - You will need an auth token for [Etherscan](https://etherscan.io/)'s API. Follow their [guide](https://docs.etherscan.io/etherscan-v2/getting-an-api-key) to get your key, and set env var `ETHERSCAN_TOKEN` with its value.
 - You'll also need [Docker](https://www.docker.com/get-started/) installed on your system. If on MacOS, you will need to leave Docker Desktop open while Yearn Treasury is running.
@@ -61,13 +61,43 @@ poetry run dao-treasury run --wallet 0x123 --network mainnet --interval 12h
 - `--interval`: The time interval between each data snapshot (default: 12h)
 - `--daemon`: Run the export process in the background (default: False) (NOTE: currently unsupported)
 - `--grafana-port`: Set the port for the Grafana dashboard where you can view data (default: 3004)
-- `--renderer-port`: Set the port for the report rendering service (default: 8080)
+- `--renderer-port`: Set the port for the report rendering service (default: 8091)
 - `--victoria-port`: Set the port for the Victoria metrics reporting endpoint (default: 8430)
+- `--start-renderer`: If set, both the Grafana and renderer containers will be started for dashboard image export. By default, only the grafana container is started.
 
 After running the command, the export script will run continuously until you close your terminal.
 To view the dashboards, just open your browser and navigate to [http://localhost:3004](http://localhost:3004)!
 
-Enjoy!
+## Docker
+
+When you run DAO Treasury, [eth-portfolio](https://github.com/BobTheBuidler/eth-portfolio) will build and start 4 [required Docker containers](https://bobthebuidler.github.io/eth-portfolio/exporter.html#docker-containers) on your system. Additionally, DAO Treasury will build and start 2 more required containers:
+
+- **grafana**
+  - Provides a web-based dashboard for visualizing your treasury data.
+  - Pre-configured with dashboards and plugins for real-time monitoring.
+  - Uses persistent storage to retain dashboard settings and data.
+  - Accessible locally (default port `3004`, configurable via `--grafana-port`).
+  - Supports anonymous access for convenience.
+  - Integrates with the renderer container for dashboard image export.
+  - Loads dashboards and data sources automatically via provisioning files.
+
+- **renderer**
+  - Runs the official Grafana image renderer service.
+  - Enables Grafana to export dashboards as images for reporting or sharing.
+  - Operates on port `8091` by default (configurable via `--renderer-port`).
+  - Tightly integrated with the Grafana container for seamless image rendering.
+  - **Note:** The renderer container is only started if you pass the `--start-renderer` CLI flag.
+
+**How it works:**
+1. DAO Treasury collects and exports treasury data.
+2. Grafana displays this data in pre-built dashboards for analysis and reporting.
+3. The renderer container allows dashboards to be exported as images directly from Grafana (if enabled).
+
+**Additional Information:**
+- All containers are orchestrated via Docker Compose and started automatically as needed.
+- Grafana provisioning ensures dashboards and data sources are set up out-of-the-box.
+- All dashboard data and settings are persisted for durability.
+- Dashboard images can be generated for reporting via the renderer (if enabled).
 
 ## Screenshots
 
@@ -78,3 +108,5 @@ Enjoy!
 ## Contributing
 
 We welcome contributions to DAO Treasury! For detailed guidelines on how to contribute, please see the [Contributing Guidelines](https://github.com/BobTheBuidler/dao-treasury/blob/master/CONTRIBUTING.md).
+
+Enjoy!

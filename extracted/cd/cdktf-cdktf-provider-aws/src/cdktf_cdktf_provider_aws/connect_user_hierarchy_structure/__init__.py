@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_user_hierarchy_structure`
 
-Refer to the Terraform Registry for docs: [`aws_connect_user_hierarchy_structure`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure).
+Refer to the Terraform Registry for docs: [`aws_connect_user_hierarchy_structure`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectUserHierarchyStructure(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectUserHierarchyStructure.ConnectUserHierarchyStructure",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure aws_connect_user_hierarchy_structure}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure aws_connect_user_hierarchy_structure}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class ConnectUserHierarchyStructure(
         hierarchy_structure: typing.Union["ConnectUserHierarchyStructureHierarchyStructure", typing.Dict[builtins.str, typing.Any]],
         instance_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class ConnectUserHierarchyStructure(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure aws_connect_user_hierarchy_structure} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure aws_connect_user_hierarchy_structure} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param hierarchy_structure: hierarchy_structure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#hierarchy_structure ConnectUserHierarchyStructure#hierarchy_structure}
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#instance_id ConnectUserHierarchyStructure#instance_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#id ConnectUserHierarchyStructure#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param hierarchy_structure: hierarchy_structure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#hierarchy_structure ConnectUserHierarchyStructure#hierarchy_structure}
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#instance_id ConnectUserHierarchyStructure#instance_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#id ConnectUserHierarchyStructure#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#region ConnectUserHierarchyStructure#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class ConnectUserHierarchyStructure(
             hierarchy_structure=hierarchy_structure,
             instance_id=instance_id,
             id=id,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class ConnectUserHierarchyStructure(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectUserHierarchyStructure to import.
-        :param import_from_id: The id of the existing ConnectUserHierarchyStructure that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectUserHierarchyStructure that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectUserHierarchyStructure to import is found.
         '''
         if __debug__:
@@ -131,11 +134,11 @@ class ConnectUserHierarchyStructure(
         level_two: typing.Optional[typing.Union["ConnectUserHierarchyStructureHierarchyStructureLevelTwo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param level_five: level_five block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_five ConnectUserHierarchyStructure#level_five}
-        :param level_four: level_four block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_four ConnectUserHierarchyStructure#level_four}
-        :param level_one: level_one block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_one ConnectUserHierarchyStructure#level_one}
-        :param level_three: level_three block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_three ConnectUserHierarchyStructure#level_three}
-        :param level_two: level_two block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_two ConnectUserHierarchyStructure#level_two}
+        :param level_five: level_five block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_five ConnectUserHierarchyStructure#level_five}
+        :param level_four: level_four block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_four ConnectUserHierarchyStructure#level_four}
+        :param level_one: level_one block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_one ConnectUserHierarchyStructure#level_one}
+        :param level_three: level_three block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_three ConnectUserHierarchyStructure#level_three}
+        :param level_two: level_two block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_two ConnectUserHierarchyStructure#level_two}
         '''
         value = ConnectUserHierarchyStructureHierarchyStructure(
             level_five=level_five,
@@ -150,6 +153,10 @@ class ConnectUserHierarchyStructure(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -189,6 +196,11 @@ class ConnectUserHierarchyStructure(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceIdInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="id")
     def id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "id"))
@@ -212,6 +224,18 @@ class ConnectUserHierarchyStructure(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5ff38c15c8aaa8c791ab6fc940209a481c3db0a369aa47f9ce8db8d65c8c0ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.connectUserHierarchyStructure.ConnectUserHierarchyStructureConfig",
@@ -227,6 +251,7 @@ class ConnectUserHierarchyStructure(
         "hierarchy_structure": "hierarchyStructure",
         "instance_id": "instanceId",
         "id": "id",
+        "region": "region",
     },
 )
 class ConnectUserHierarchyStructureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -243,6 +268,7 @@ class ConnectUserHierarchyStructureConfig(_cdktf_9a9027ec.TerraformMetaArguments
         hierarchy_structure: typing.Union["ConnectUserHierarchyStructureHierarchyStructure", typing.Dict[builtins.str, typing.Any]],
         instance_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -252,9 +278,10 @@ class ConnectUserHierarchyStructureConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param hierarchy_structure: hierarchy_structure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#hierarchy_structure ConnectUserHierarchyStructure#hierarchy_structure}
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#instance_id ConnectUserHierarchyStructure#instance_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#id ConnectUserHierarchyStructure#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param hierarchy_structure: hierarchy_structure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#hierarchy_structure ConnectUserHierarchyStructure#hierarchy_structure}
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#instance_id ConnectUserHierarchyStructure#instance_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#id ConnectUserHierarchyStructure#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#region ConnectUserHierarchyStructure#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -272,6 +299,7 @@ class ConnectUserHierarchyStructureConfig(_cdktf_9a9027ec.TerraformMetaArguments
             check_type(argname="argument hierarchy_structure", value=hierarchy_structure, expected_type=type_hints["hierarchy_structure"])
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "hierarchy_structure": hierarchy_structure,
             "instance_id": instance_id,
@@ -292,6 +320,8 @@ class ConnectUserHierarchyStructureConfig(_cdktf_9a9027ec.TerraformMetaArguments
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -361,7 +391,7 @@ class ConnectUserHierarchyStructureConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def hierarchy_structure(self) -> "ConnectUserHierarchyStructureHierarchyStructure":
         '''hierarchy_structure block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#hierarchy_structure ConnectUserHierarchyStructure#hierarchy_structure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#hierarchy_structure ConnectUserHierarchyStructure#hierarchy_structure}
         '''
         result = self._values.get("hierarchy_structure")
         assert result is not None, "Required property 'hierarchy_structure' is missing"
@@ -369,19 +399,28 @@ class ConnectUserHierarchyStructureConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#instance_id ConnectUserHierarchyStructure#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#instance_id ConnectUserHierarchyStructure#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#id ConnectUserHierarchyStructure#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#id ConnectUserHierarchyStructure#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#region ConnectUserHierarchyStructure#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -418,11 +457,11 @@ class ConnectUserHierarchyStructureHierarchyStructure:
         level_two: typing.Optional[typing.Union["ConnectUserHierarchyStructureHierarchyStructureLevelTwo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param level_five: level_five block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_five ConnectUserHierarchyStructure#level_five}
-        :param level_four: level_four block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_four ConnectUserHierarchyStructure#level_four}
-        :param level_one: level_one block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_one ConnectUserHierarchyStructure#level_one}
-        :param level_three: level_three block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_three ConnectUserHierarchyStructure#level_three}
-        :param level_two: level_two block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_two ConnectUserHierarchyStructure#level_two}
+        :param level_five: level_five block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_five ConnectUserHierarchyStructure#level_five}
+        :param level_four: level_four block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_four ConnectUserHierarchyStructure#level_four}
+        :param level_one: level_one block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_one ConnectUserHierarchyStructure#level_one}
+        :param level_three: level_three block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_three ConnectUserHierarchyStructure#level_three}
+        :param level_two: level_two block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_two ConnectUserHierarchyStructure#level_two}
         '''
         if isinstance(level_five, dict):
             level_five = ConnectUserHierarchyStructureHierarchyStructureLevelFive(**level_five)
@@ -459,7 +498,7 @@ class ConnectUserHierarchyStructureHierarchyStructure:
     ) -> typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelFive"]:
         '''level_five block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_five ConnectUserHierarchyStructure#level_five}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_five ConnectUserHierarchyStructure#level_five}
         '''
         result = self._values.get("level_five")
         return typing.cast(typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelFive"], result)
@@ -470,7 +509,7 @@ class ConnectUserHierarchyStructureHierarchyStructure:
     ) -> typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelFour"]:
         '''level_four block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_four ConnectUserHierarchyStructure#level_four}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_four ConnectUserHierarchyStructure#level_four}
         '''
         result = self._values.get("level_four")
         return typing.cast(typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelFour"], result)
@@ -481,7 +520,7 @@ class ConnectUserHierarchyStructureHierarchyStructure:
     ) -> typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelOne"]:
         '''level_one block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_one ConnectUserHierarchyStructure#level_one}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_one ConnectUserHierarchyStructure#level_one}
         '''
         result = self._values.get("level_one")
         return typing.cast(typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelOne"], result)
@@ -492,7 +531,7 @@ class ConnectUserHierarchyStructureHierarchyStructure:
     ) -> typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelThree"]:
         '''level_three block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_three ConnectUserHierarchyStructure#level_three}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_three ConnectUserHierarchyStructure#level_three}
         '''
         result = self._values.get("level_three")
         return typing.cast(typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelThree"], result)
@@ -503,7 +542,7 @@ class ConnectUserHierarchyStructureHierarchyStructure:
     ) -> typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelTwo"]:
         '''level_two block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#level_two ConnectUserHierarchyStructure#level_two}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#level_two ConnectUserHierarchyStructure#level_two}
         '''
         result = self._values.get("level_two")
         return typing.cast(typing.Optional["ConnectUserHierarchyStructureHierarchyStructureLevelTwo"], result)
@@ -528,7 +567,7 @@ class ConnectUserHierarchyStructureHierarchyStructure:
 class ConnectUserHierarchyStructureHierarchyStructureLevelFive:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74b03c79896a414749107a03d77c41dfa2f7735f25f66fc767b7a7ef540bd67e)
@@ -539,7 +578,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelFive:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -629,7 +668,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelFiveOutputReference(
 class ConnectUserHierarchyStructureHierarchyStructureLevelFour:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81400cf98f8308334e877fdf5678f7508a37cb81137b86f4a0773286511713fb)
@@ -640,7 +679,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelFour:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -730,7 +769,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelFourOutputReference(
 class ConnectUserHierarchyStructureHierarchyStructureLevelOne:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1ca1346ff95cd7175d7557b8b13aa85787f27e73aa6bb0391d6961082bee8d2)
@@ -741,7 +780,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelOne:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -831,7 +870,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelOneOutputReference(
 class ConnectUserHierarchyStructureHierarchyStructureLevelThree:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8e026ba1ab8d64bfdf9e4b1d4ba14adacc2806163890e1beef805e2c1b0da45)
@@ -842,7 +881,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelThree:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -932,7 +971,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelThreeOutputReference(
 class ConnectUserHierarchyStructureHierarchyStructureLevelTwo:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2152b058ba43c1f8b4a2078d5f044655d467552a56b27ba73765b5a6ce04b241)
@@ -943,7 +982,7 @@ class ConnectUserHierarchyStructureHierarchyStructureLevelTwo:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1048,7 +1087,7 @@ class ConnectUserHierarchyStructureHierarchyStructureOutputReference(
     @jsii.member(jsii_name="putLevelFive")
     def put_level_five(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         value = ConnectUserHierarchyStructureHierarchyStructureLevelFive(name=name)
 
@@ -1057,7 +1096,7 @@ class ConnectUserHierarchyStructureHierarchyStructureOutputReference(
     @jsii.member(jsii_name="putLevelFour")
     def put_level_four(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         value = ConnectUserHierarchyStructureHierarchyStructureLevelFour(name=name)
 
@@ -1066,7 +1105,7 @@ class ConnectUserHierarchyStructureHierarchyStructureOutputReference(
     @jsii.member(jsii_name="putLevelOne")
     def put_level_one(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         value = ConnectUserHierarchyStructureHierarchyStructureLevelOne(name=name)
 
@@ -1075,7 +1114,7 @@ class ConnectUserHierarchyStructureHierarchyStructureOutputReference(
     @jsii.member(jsii_name="putLevelThree")
     def put_level_three(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         value = ConnectUserHierarchyStructureHierarchyStructureLevelThree(name=name)
 
@@ -1084,7 +1123,7 @@ class ConnectUserHierarchyStructureHierarchyStructureOutputReference(
     @jsii.member(jsii_name="putLevelTwo")
     def put_level_two(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_user_hierarchy_structure#name ConnectUserHierarchyStructure#name}.
         '''
         value = ConnectUserHierarchyStructureHierarchyStructureLevelTwo(name=name)
 
@@ -1224,6 +1263,7 @@ def _typecheckingstub__7a9ecc9636e84f6f1919ed4e1fff48ead0497d233702d01f097f28673
     hierarchy_structure: typing.Union[ConnectUserHierarchyStructureHierarchyStructure, typing.Dict[builtins.str, typing.Any]],
     instance_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -1256,6 +1296,12 @@ def _typecheckingstub__0752d9cb5fcef8fc8a35599d55d12736ed1e498774714587fa5b88e3a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e5ff38c15c8aaa8c791ab6fc940209a481c3db0a369aa47f9ce8db8d65c8c0ad(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__145451ce2d9398949a194a591627bc458f5d27df9190aa43f75a34002618a3ff(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1268,6 +1314,7 @@ def _typecheckingstub__145451ce2d9398949a194a591627bc458f5d27df9190aa43f75a34002
     hierarchy_structure: typing.Union[ConnectUserHierarchyStructureHierarchyStructure, typing.Dict[builtins.str, typing.Any]],
     instance_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

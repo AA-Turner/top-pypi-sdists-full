@@ -29,9 +29,6 @@ class SupplierFrameworkStub(BaseAPIModelStub):
         "prefillDeclarationFromFrameworkSlug": None,
         "supplierId": 886665,
         "supplierName": "Kev's Pies",
-        "technicalAbilityCertificatesStatus": "not_required",
-        "lotQuestionsResponsesStatus": "not_required",
-        "lotPricingsStatus": "not_required",
         "agreementVersion": "standard",
         "centralDigitalPlatformShareCode": None,
     }
@@ -72,52 +69,6 @@ class SupplierFrameworkStub(BaseAPIModelStub):
             }
         else:
             self.response_data["declaration"] = {}
-
-        if kwargs.get("with_technical_ability_certificates"):
-            self.response_data["technicalAbilityCertificates"] = [
-                TechnicalAbilityCertificateStub(
-                    framework_family=self.response_data["frameworkFamily"],
-                    framework_framework=self.response_data["frameworkFramework"],
-                    framework_slug=self.response_data["frameworkSlug"],
-                    supplier_id=self.response_data["supplierId"],
-                    supplier_name=self.response_data["supplierName"],
-                ).response()
-            ]
-            self.response_data["technicalAbilityCertificatesStatus"] = kwargs.get(
-                "technical_ability_certificates_status", "in_progress"
-            )
-        else:
-            self.response_data["technicalAbilityCertificates"] = []
-
-        if kwargs.get("with_lot_pricings"):
-            self.response_data["lotPricings"] = [
-                LotPricingStub(
-                    framework_family=self.response_data["frameworkFamily"],
-                    framework_framework=self.response_data["frameworkFramework"],
-                    framework_slug=self.response_data["frameworkSlug"],
-                    supplier_id=self.response_data["supplierId"],
-                    supplier_name=self.response_data["supplierName"],
-                ).response()
-            ]
-            self.response_data["lotPricingsStatus"] = kwargs.get("lot_pricings_status", "in_progress")
-        else:
-            self.response_data["lotPricings"] = []
-
-        if kwargs.get("with_lot_responses"):
-            self.response_data["lotQuestionsResponses"] = [
-                LotQuestionsResponseStub(
-                    framework_family=self.response_data["frameworkFamily"],
-                    framework_framework=self.response_data["frameworkFramework"],
-                    framework_slug=self.response_data["frameworkSlug"],
-                    supplier_id=self.response_data["supplierId"],
-                    supplier_name=self.response_data["supplierName"],
-                ).response()
-            ]
-            self.response_data["lotQuestionsResponsesStatus"] = kwargs.get(
-                "lot_questions_responses_status", "in_progress"
-            )
-        else:
-            self.response_data["lotQuestionsResponses"] = []
 
         if kwargs.get("with_fvra"):
             self.response_data["fvraFrozenResult"] = kwargs.get(
@@ -176,6 +127,46 @@ class SupplierFrameworkStub(BaseAPIModelStub):
         self.response_data["hasExpectedFvraResult"] = (
             self.response_data["fvraExpectedResult"] == self.response_data["fvraCurrentResult"]
         )
+
+        if kwargs.get("with_technical_ability_certificates"):
+            self.response_data["technicalAbilityCertificates"] = [
+                TechnicalAbilityCertificateStub(
+                    framework_family=self.response_data["frameworkFamily"],
+                    framework_framework=self.response_data["frameworkFramework"],
+                    framework_slug=self.response_data["frameworkSlug"],
+                    supplier_id=self.response_data["supplierId"],
+                    supplier_name=self.response_data["supplierName"],
+                ).response()
+            ]
+            self.response_data["technicalAbilityCertificatesStatus"] = kwargs.get(
+                "technical_ability_certificates_status", "in_progress"
+            )
+
+        if kwargs.get("with_lot_pricings"):
+            self.response_data["lotPricings"] = [
+                LotPricingStub(
+                    framework_family=self.response_data["frameworkFamily"],
+                    framework_framework=self.response_data["frameworkFramework"],
+                    framework_slug=self.response_data["frameworkSlug"],
+                    supplier_id=self.response_data["supplierId"],
+                    supplier_name=self.response_data["supplierName"],
+                ).response()
+            ]
+            self.response_data["lotPricingsStatus"] = kwargs.get("lot_pricings_status", "in_progress")
+
+        if kwargs.get("with_lot_responses"):
+            self.response_data["lotQuestionsResponses"] = [
+                LotQuestionsResponseStub(
+                    framework_family=self.response_data["frameworkFamily"],
+                    framework_framework=self.response_data["frameworkFramework"],
+                    framework_slug=self.response_data["frameworkSlug"],
+                    supplier_id=self.response_data["supplierId"],
+                    supplier_name=self.response_data["supplierName"],
+                ).response()
+            ]
+            self.response_data["lotQuestionsResponsesStatus"] = kwargs.get(
+                "lot_questions_responses_status", "in_progress"
+            )
 
         if kwargs.get("with_agreement"):
             agreement_data = {

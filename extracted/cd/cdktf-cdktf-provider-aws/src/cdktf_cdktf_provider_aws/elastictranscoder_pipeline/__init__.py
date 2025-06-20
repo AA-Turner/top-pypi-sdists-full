@@ -1,7 +1,7 @@
 r'''
 # `aws_elastictranscoder_pipeline`
 
-Refer to the Terraform Registry for docs: [`aws_elastictranscoder_pipeline`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline).
+Refer to the Terraform Registry for docs: [`aws_elastictranscoder_pipeline`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ElastictranscoderPipeline(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.elastictranscoderPipeline.ElastictranscoderPipeline",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline aws_elastictranscoder_pipeline}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline aws_elastictranscoder_pipeline}.'''
 
     def __init__(
         self,
@@ -60,6 +60,7 @@ class ElastictranscoderPipeline(
         name: typing.Optional[builtins.str] = None,
         notifications: typing.Optional[typing.Union["ElastictranscoderPipelineNotifications", typing.Dict[builtins.str, typing.Any]]] = None,
         output_bucket: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         thumbnail_config: typing.Optional[typing.Union["ElastictranscoderPipelineThumbnailConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         thumbnail_config_permissions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ElastictranscoderPipelineThumbnailConfigPermissions", typing.Dict[builtins.str, typing.Any]]]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -70,21 +71,22 @@ class ElastictranscoderPipeline(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline aws_elastictranscoder_pipeline} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline aws_elastictranscoder_pipeline} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param input_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#input_bucket ElastictranscoderPipeline#input_bucket}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#role ElastictranscoderPipeline#role}.
-        :param aws_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#aws_kms_key_arn ElastictranscoderPipeline#aws_kms_key_arn}.
-        :param content_config: content_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#content_config ElastictranscoderPipeline#content_config}
-        :param content_config_permissions: content_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#content_config_permissions ElastictranscoderPipeline#content_config_permissions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#id ElastictranscoderPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#name ElastictranscoderPipeline#name}.
-        :param notifications: notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#notifications ElastictranscoderPipeline#notifications}
-        :param output_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#output_bucket ElastictranscoderPipeline#output_bucket}.
-        :param thumbnail_config: thumbnail_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#thumbnail_config ElastictranscoderPipeline#thumbnail_config}
-        :param thumbnail_config_permissions: thumbnail_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#thumbnail_config_permissions ElastictranscoderPipeline#thumbnail_config_permissions}
+        :param input_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#input_bucket ElastictranscoderPipeline#input_bucket}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#role ElastictranscoderPipeline#role}.
+        :param aws_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#aws_kms_key_arn ElastictranscoderPipeline#aws_kms_key_arn}.
+        :param content_config: content_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#content_config ElastictranscoderPipeline#content_config}
+        :param content_config_permissions: content_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#content_config_permissions ElastictranscoderPipeline#content_config_permissions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#id ElastictranscoderPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#name ElastictranscoderPipeline#name}.
+        :param notifications: notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#notifications ElastictranscoderPipeline#notifications}
+        :param output_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#output_bucket ElastictranscoderPipeline#output_bucket}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#region ElastictranscoderPipeline#region}
+        :param thumbnail_config: thumbnail_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#thumbnail_config ElastictranscoderPipeline#thumbnail_config}
+        :param thumbnail_config_permissions: thumbnail_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#thumbnail_config_permissions ElastictranscoderPipeline#thumbnail_config_permissions}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -107,6 +109,7 @@ class ElastictranscoderPipeline(
             name=name,
             notifications=notifications,
             output_bucket=output_bucket,
+            region=region,
             thumbnail_config=thumbnail_config,
             thumbnail_config_permissions=thumbnail_config_permissions,
             connection=connection,
@@ -133,7 +136,7 @@ class ElastictranscoderPipeline(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ElastictranscoderPipeline to import.
-        :param import_from_id: The id of the existing ElastictranscoderPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ElastictranscoderPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ElastictranscoderPipeline to import is found.
         '''
         if __debug__:
@@ -152,8 +155,8 @@ class ElastictranscoderPipeline(
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
         '''
         value = ElastictranscoderPipelineContentConfig(
             bucket=bucket, storage_class=storage_class
@@ -184,10 +187,10 @@ class ElastictranscoderPipeline(
         warning: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param completed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#completed ElastictranscoderPipeline#completed}.
-        :param error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#error ElastictranscoderPipeline#error}.
-        :param progressing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#progressing ElastictranscoderPipeline#progressing}.
-        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#warning ElastictranscoderPipeline#warning}.
+        :param completed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#completed ElastictranscoderPipeline#completed}.
+        :param error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#error ElastictranscoderPipeline#error}.
+        :param progressing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#progressing ElastictranscoderPipeline#progressing}.
+        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#warning ElastictranscoderPipeline#warning}.
         '''
         value = ElastictranscoderPipelineNotifications(
             completed=completed, error=error, progressing=progressing, warning=warning
@@ -203,8 +206,8 @@ class ElastictranscoderPipeline(
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
         '''
         value = ElastictranscoderPipelineThumbnailConfig(
             bucket=bucket, storage_class=storage_class
@@ -252,6 +255,10 @@ class ElastictranscoderPipeline(
     @jsii.member(jsii_name="resetOutputBucket")
     def reset_output_bucket(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetOutputBucket", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetThumbnailConfig")
     def reset_thumbnail_config(self) -> None:
@@ -357,6 +364,11 @@ class ElastictranscoderPipeline(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "outputBucketInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="roleInput")
     def role_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleInput"))
@@ -436,6 +448,18 @@ class ElastictranscoderPipeline(
         jsii.set(self, "outputBucket", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc4ba4883bd309bb9cec3648f2d8bf347ae6f46a97fb57f175ae6b901ceefe91)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="role")
     def role(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "role"))
@@ -468,6 +492,7 @@ class ElastictranscoderPipeline(
         "name": "name",
         "notifications": "notifications",
         "output_bucket": "outputBucket",
+        "region": "region",
         "thumbnail_config": "thumbnailConfig",
         "thumbnail_config_permissions": "thumbnailConfigPermissions",
     },
@@ -492,6 +517,7 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         name: typing.Optional[builtins.str] = None,
         notifications: typing.Optional[typing.Union["ElastictranscoderPipelineNotifications", typing.Dict[builtins.str, typing.Any]]] = None,
         output_bucket: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         thumbnail_config: typing.Optional[typing.Union["ElastictranscoderPipelineThumbnailConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         thumbnail_config_permissions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ElastictranscoderPipelineThumbnailConfigPermissions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
@@ -503,17 +529,18 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param input_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#input_bucket ElastictranscoderPipeline#input_bucket}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#role ElastictranscoderPipeline#role}.
-        :param aws_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#aws_kms_key_arn ElastictranscoderPipeline#aws_kms_key_arn}.
-        :param content_config: content_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#content_config ElastictranscoderPipeline#content_config}
-        :param content_config_permissions: content_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#content_config_permissions ElastictranscoderPipeline#content_config_permissions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#id ElastictranscoderPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#name ElastictranscoderPipeline#name}.
-        :param notifications: notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#notifications ElastictranscoderPipeline#notifications}
-        :param output_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#output_bucket ElastictranscoderPipeline#output_bucket}.
-        :param thumbnail_config: thumbnail_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#thumbnail_config ElastictranscoderPipeline#thumbnail_config}
-        :param thumbnail_config_permissions: thumbnail_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#thumbnail_config_permissions ElastictranscoderPipeline#thumbnail_config_permissions}
+        :param input_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#input_bucket ElastictranscoderPipeline#input_bucket}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#role ElastictranscoderPipeline#role}.
+        :param aws_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#aws_kms_key_arn ElastictranscoderPipeline#aws_kms_key_arn}.
+        :param content_config: content_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#content_config ElastictranscoderPipeline#content_config}
+        :param content_config_permissions: content_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#content_config_permissions ElastictranscoderPipeline#content_config_permissions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#id ElastictranscoderPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#name ElastictranscoderPipeline#name}.
+        :param notifications: notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#notifications ElastictranscoderPipeline#notifications}
+        :param output_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#output_bucket ElastictranscoderPipeline#output_bucket}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#region ElastictranscoderPipeline#region}
+        :param thumbnail_config: thumbnail_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#thumbnail_config ElastictranscoderPipeline#thumbnail_config}
+        :param thumbnail_config_permissions: thumbnail_config_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#thumbnail_config_permissions ElastictranscoderPipeline#thumbnail_config_permissions}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -541,6 +568,7 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument notifications", value=notifications, expected_type=type_hints["notifications"])
             check_type(argname="argument output_bucket", value=output_bucket, expected_type=type_hints["output_bucket"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument thumbnail_config", value=thumbnail_config, expected_type=type_hints["thumbnail_config"])
             check_type(argname="argument thumbnail_config_permissions", value=thumbnail_config_permissions, expected_type=type_hints["thumbnail_config_permissions"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -575,6 +603,8 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["notifications"] = notifications
         if output_bucket is not None:
             self._values["output_bucket"] = output_bucket
+        if region is not None:
+            self._values["region"] = region
         if thumbnail_config is not None:
             self._values["thumbnail_config"] = thumbnail_config
         if thumbnail_config_permissions is not None:
@@ -646,21 +676,21 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def input_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#input_bucket ElastictranscoderPipeline#input_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#input_bucket ElastictranscoderPipeline#input_bucket}.'''
         result = self._values.get("input_bucket")
         assert result is not None, "Required property 'input_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#role ElastictranscoderPipeline#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#role ElastictranscoderPipeline#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#aws_kms_key_arn ElastictranscoderPipeline#aws_kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#aws_kms_key_arn ElastictranscoderPipeline#aws_kms_key_arn}.'''
         result = self._values.get("aws_kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -670,7 +700,7 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ElastictranscoderPipelineContentConfig"]:
         '''content_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#content_config ElastictranscoderPipeline#content_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#content_config ElastictranscoderPipeline#content_config}
         '''
         result = self._values.get("content_config")
         return typing.cast(typing.Optional["ElastictranscoderPipelineContentConfig"], result)
@@ -681,14 +711,14 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ElastictranscoderPipelineContentConfigPermissions"]]]:
         '''content_config_permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#content_config_permissions ElastictranscoderPipeline#content_config_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#content_config_permissions ElastictranscoderPipeline#content_config_permissions}
         '''
         result = self._values.get("content_config_permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ElastictranscoderPipelineContentConfigPermissions"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#id ElastictranscoderPipeline#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#id ElastictranscoderPipeline#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -698,7 +728,7 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#name ElastictranscoderPipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#name ElastictranscoderPipeline#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -708,15 +738,24 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ElastictranscoderPipelineNotifications"]:
         '''notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#notifications ElastictranscoderPipeline#notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#notifications ElastictranscoderPipeline#notifications}
         '''
         result = self._values.get("notifications")
         return typing.cast(typing.Optional["ElastictranscoderPipelineNotifications"], result)
 
     @builtins.property
     def output_bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#output_bucket ElastictranscoderPipeline#output_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#output_bucket ElastictranscoderPipeline#output_bucket}.'''
         result = self._values.get("output_bucket")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#region ElastictranscoderPipeline#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -725,7 +764,7 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ElastictranscoderPipelineThumbnailConfig"]:
         '''thumbnail_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#thumbnail_config ElastictranscoderPipeline#thumbnail_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#thumbnail_config ElastictranscoderPipeline#thumbnail_config}
         '''
         result = self._values.get("thumbnail_config")
         return typing.cast(typing.Optional["ElastictranscoderPipelineThumbnailConfig"], result)
@@ -736,7 +775,7 @@ class ElastictranscoderPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ElastictranscoderPipelineThumbnailConfigPermissions"]]]:
         '''thumbnail_config_permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#thumbnail_config_permissions ElastictranscoderPipeline#thumbnail_config_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#thumbnail_config_permissions ElastictranscoderPipeline#thumbnail_config_permissions}
         '''
         result = self._values.get("thumbnail_config_permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ElastictranscoderPipelineThumbnailConfigPermissions"]]], result)
@@ -766,8 +805,8 @@ class ElastictranscoderPipelineContentConfig:
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e1c8e8f7119eae339102f24f948fb2749d1a05f55119c46c24cbdcf1c820da3)
@@ -781,13 +820,13 @@ class ElastictranscoderPipelineContentConfig:
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.'''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -899,9 +938,9 @@ class ElastictranscoderPipelineContentConfigPermissions:
         grantee_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.
-        :param grantee: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.
-        :param grantee_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.
+        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.
+        :param grantee: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.
+        :param grantee_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae1ae2a4994f58f9b3c5fcf8050fb8f5e84308d70cf9b083d4f7c2504c6f80e1)
@@ -918,19 +957,19 @@ class ElastictranscoderPipelineContentConfigPermissions:
 
     @builtins.property
     def access(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.'''
         result = self._values.get("access")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def grantee(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.'''
         result = self._values.get("grantee")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def grantee_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.'''
         result = self._values.get("grantee_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1166,10 +1205,10 @@ class ElastictranscoderPipelineNotifications:
         warning: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param completed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#completed ElastictranscoderPipeline#completed}.
-        :param error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#error ElastictranscoderPipeline#error}.
-        :param progressing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#progressing ElastictranscoderPipeline#progressing}.
-        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#warning ElastictranscoderPipeline#warning}.
+        :param completed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#completed ElastictranscoderPipeline#completed}.
+        :param error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#error ElastictranscoderPipeline#error}.
+        :param progressing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#progressing ElastictranscoderPipeline#progressing}.
+        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#warning ElastictranscoderPipeline#warning}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2f075187d3e58b98dcb81a2322d2b23c389a9ec2302d4fbef03c6f2fa90e104)
@@ -1189,25 +1228,25 @@ class ElastictranscoderPipelineNotifications:
 
     @builtins.property
     def completed(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#completed ElastictranscoderPipeline#completed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#completed ElastictranscoderPipeline#completed}.'''
         result = self._values.get("completed")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def error(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#error ElastictranscoderPipeline#error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#error ElastictranscoderPipeline#error}.'''
         result = self._values.get("error")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def progressing(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#progressing ElastictranscoderPipeline#progressing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#progressing ElastictranscoderPipeline#progressing}.'''
         result = self._values.get("progressing")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def warning(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#warning ElastictranscoderPipeline#warning}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#warning ElastictranscoderPipeline#warning}.'''
         result = self._values.get("warning")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1356,8 +1395,8 @@ class ElastictranscoderPipelineThumbnailConfig:
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__458c1ebfb4e687c660e7af4f4aba2838e8908cbd9ccd2bcad6e1224db0acd249)
@@ -1371,13 +1410,13 @@ class ElastictranscoderPipelineThumbnailConfig:
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#bucket ElastictranscoderPipeline#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#storage_class ElastictranscoderPipeline#storage_class}.'''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1491,9 +1530,9 @@ class ElastictranscoderPipelineThumbnailConfigPermissions:
         grantee_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.
-        :param grantee: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.
-        :param grantee_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.
+        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.
+        :param grantee: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.
+        :param grantee_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0c1a484d7435b133e08d9114426172f9da227a782c0621e1efb84bb16a06423)
@@ -1510,19 +1549,19 @@ class ElastictranscoderPipelineThumbnailConfigPermissions:
 
     @builtins.property
     def access(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#access ElastictranscoderPipeline#access}.'''
         result = self._values.get("access")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def grantee(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee ElastictranscoderPipeline#grantee}.'''
         result = self._values.get("grantee")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def grantee_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/elastictranscoder_pipeline#grantee_type ElastictranscoderPipeline#grantee_type}.'''
         result = self._values.get("grantee_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1770,6 +1809,7 @@ def _typecheckingstub__fb491f778d8af3bc5770a02c97fdc53cf54f3f50b16691eb4e9145433
     name: typing.Optional[builtins.str] = None,
     notifications: typing.Optional[typing.Union[ElastictranscoderPipelineNotifications, typing.Dict[builtins.str, typing.Any]]] = None,
     output_bucket: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     thumbnail_config: typing.Optional[typing.Union[ElastictranscoderPipelineThumbnailConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     thumbnail_config_permissions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ElastictranscoderPipelineThumbnailConfigPermissions, typing.Dict[builtins.str, typing.Any]]]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1834,6 +1874,12 @@ def _typecheckingstub__2f24c5412928ac8db2fa1260993045ba410144d4abe6b4c3a3c6793fa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cc4ba4883bd309bb9cec3648f2d8bf347ae6f46a97fb57f175ae6b901ceefe91(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__94100ac28da3f741bdbd93cddf1fa710326ebc0463837a5725fb962ded90fcf1(
     value: builtins.str,
 ) -> None:
@@ -1858,6 +1904,7 @@ def _typecheckingstub__5cae78022711472607bed3e5a18cbb1430bfbcab2e357a945eb7f2d7b
     name: typing.Optional[builtins.str] = None,
     notifications: typing.Optional[typing.Union[ElastictranscoderPipelineNotifications, typing.Dict[builtins.str, typing.Any]]] = None,
     output_bucket: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     thumbnail_config: typing.Optional[typing.Union[ElastictranscoderPipelineThumbnailConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     thumbnail_config_permissions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ElastictranscoderPipelineThumbnailConfigPermissions, typing.Dict[builtins.str, typing.Any]]]]] = None,
 ) -> None:

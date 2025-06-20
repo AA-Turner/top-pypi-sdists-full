@@ -62,7 +62,7 @@ def is_compiled_module(module: torch.nn.Module) -> bool:
 
 def has_compiled_regions(module: torch.nn.Module) -> bool:
     """
-    Check whether the module has submodules that were compiled with torch.compile()
+    Check whether the module has submodules that were compiled with `torch.compile()`.
     """
     if not hasattr(torch, "_dynamo"):
         return False
@@ -70,6 +70,29 @@ def has_compiled_regions(module: torch.nn.Module) -> bool:
     if module._modules:
         for submodule in module.modules():
             if isinstance(submodule, torch._dynamo.eval_frame.OptimizedModule):
+                return True
+
+    return False
+
+
+def is_repeated_blocks(module: torch.nn.Module) -> bool:
+    """
+    Check whether the module is a repeated block, i.e. `torch.nn.ModuleList` with all children of the same class. This
+    is useful to determine whether we should apply regional compilation to the module.
+    """
+
+    return isinstance(module, torch.nn.ModuleList) and all(isinstance(m, module[0].__class__) for m in module)
+
+
+def has_repeated_blocks(module: torch.nn.Module) -> bool:
+    """
+    Check whether the module has repeated blocks, i.e. `torch.nn.ModuleList` with all children of the same class, at
+    any level of the module hierarchy. This is useful to determine whether we should apply regional compilation to the
+    module.
+    """
+    if module._modules:
+        for submodule in module.modules():
+            if is_repeated_blocks(submodule):
                 return True
 
     return False
@@ -123,31 +146,52 @@ def compile_regions(module: torch.nn.Module, **compile_kwargs) -> torch.nn.Modul
     """
 
     def _compile_regions(module: torch.nn.Module, **compile_kwargs) -> torch.nn.Module:
-        if isinstance(module, torch.nn.ModuleList):
-            if all(isinstance(submodule, module[0].__class__) for submodule in module):
-                new_module = torch.nn.ModuleList()
-                for submodule in module:
-                    new_module.append(torch.compile(submodule, **compile_kwargs))
-            else:
-                new_module = torch.compile(module, **compile_kwargs)
-        elif module._modules:  # Non-leaf node
+        if is_repeated_blocks(module):
+            new_module = torch.nn.ModuleList()
+            for submodule in module:
+                new_module.append(torch.compile(submodule, **compile_kwargs))
+        elif has_repeated_blocks(module):
             new_module = module.__class__.__new__(module.__class__)
             new_module.__dict__.update(module.__dict__)
             new_module._modules = {}
             for name, submodule in module.named_children():
                 new_module.add_module(name, _compile_regions(submodule, **compile_kwargs))
-        else:  # Leaf node
+        else:
             new_module = torch.compile(module, **compile_kwargs)
 
         return new_module
 
     new_module = _compile_regions(module, **compile_kwargs)
 
-    if not hasattr(new_module, "_orig_mod"):
+    if "_orig_mod" not in new_module.__dict__:
         # Keeps a reference to the original module to decompile/unwrap it later
         new_module.__dict__["_orig_mod"] = module
 
     return new_module
+
+
+def compile_regions_deepspeed(module: torch.nn.Module, **compile_kwargs):
+    """
+    Performs regional compilation the same way as `compile_regions`, but specifically for `DeepSpeedEngine.module`.
+    Since the model is wrapped in a `DeepSpeedEngine` and has many added hooks, offloaded parameters, etc that
+    `torch.compile(...)` interferes with, version of trgional compilation uses the inplace `module.compile()` method
+    instead.
+
+    Args:
+        module (`torch.nn.Module`):
+            The model to compile.
+        **compile_kwargs:
+            Additional keyword arguments to pass to `module.compile()`.
+    """
+
+    if is_repeated_blocks(module):
+        for submodule in module:
+            submodule.compile(**compile_kwargs)
+    elif has_repeated_blocks(module):
+        for child in module.children():
+            compile_regions_deepspeed(child, **compile_kwargs)
+    else:  # leaf node
+        module.compile(**compile_kwargs)
 
 
 def extract_model_from_parallel(
@@ -175,9 +219,12 @@ def extract_model_from_parallel(
     is_compiled = is_compiled_module(model)
     has_compiled = has_compiled_regions(model)
 
-    if is_compiled or has_compiled:
+    if is_compiled:
         compiled_model = model
         model = model._orig_mod
+    elif has_compiled:
+        compiled_model = model
+        model = model.__dict__["_orig_mod"]
 
     if is_deepspeed_available():
         from deepspeed import DeepSpeedEngine
@@ -221,9 +268,13 @@ def extract_model_from_parallel(
         if getattr(model, "_converted_to_transformer_engine", False):
             convert_model(model, to_transformer_engine=False)
 
-    if keep_torch_compile and (is_compiled or has_compiled):
-        compiled_model._orig_mod = model
-        model = compiled_model
+    if keep_torch_compile:
+        if is_compiled:
+            compiled_model._orig_mod = model
+            model = compiled_model
+        elif has_compiled:
+            compiled_model.__dict__["_orig_mod"] = model
+            model = compiled_model
 
     return model
 
@@ -458,7 +509,7 @@ def recursive_getattr(obj, attr: str):
     return reduce(_getattr, [obj] + attr.split("."))
 
 
-def get_module_children_bottom_up(model: torch.nn.Module) -> list[torch.nn.Module]:
+def get_module_children_bottom_up(model: torch.nn.Module, return_fqns: bool = False) -> list[torch.nn.Module]:
     """Traverse the model in bottom-up order and return the children modules in that order.
 
     Args:
@@ -468,12 +519,22 @@ def get_module_children_bottom_up(model: torch.nn.Module) -> list[torch.nn.Modul
         `list[torch.nn.Module]`: a list of children modules of `model` in bottom-up order. The last element is the
         `model` itself.
     """
-    stack = [model]
+    top = model if not return_fqns else ("", model)
+    stack = [top]
     ordered_modules = []
     while stack:
         current_module = stack.pop()
-        for _, attr in current_module.named_children():
+        if return_fqns:
+            current_module_name, current_module = current_module
+        for name, attr in current_module.named_children():
             if isinstance(attr, torch.nn.Module):
-                stack.append(attr)
-        ordered_modules.append(current_module)
+                if return_fqns:
+                    child_name = current_module_name + "." + name if current_module_name else name
+                    stack.append((child_name, attr))
+                else:
+                    stack.append(attr)
+        if return_fqns:
+            ordered_modules.append((current_module_name, current_module))
+        else:
+            ordered_modules.append(current_module)
     return ordered_modules[::-1]

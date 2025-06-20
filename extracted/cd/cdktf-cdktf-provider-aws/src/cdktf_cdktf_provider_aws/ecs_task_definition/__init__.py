@@ -1,7 +1,7 @@
 r'''
 # `aws_ecs_task_definition`
 
-Refer to the Terraform Registry for docs: [`aws_ecs_task_definition`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition).
+Refer to the Terraform Registry for docs: [`aws_ecs_task_definition`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EcsTaskDefinition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ecsTaskDefinition.EcsTaskDefinition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition aws_ecs_task_definition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition aws_ecs_task_definition}.'''
 
     def __init__(
         self,
@@ -58,13 +58,13 @@ class EcsTaskDefinition(
         ephemeral_storage: typing.Optional[typing.Union["EcsTaskDefinitionEphemeralStorage", typing.Dict[builtins.str, typing.Any]]] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
-        inference_accelerator: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsTaskDefinitionInferenceAccelerator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         ipc_mode: typing.Optional[builtins.str] = None,
         memory: typing.Optional[builtins.str] = None,
         network_mode: typing.Optional[builtins.str] = None,
         pid_mode: typing.Optional[builtins.str] = None,
         placement_constraints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsTaskDefinitionPlacementConstraints", typing.Dict[builtins.str, typing.Any]]]]] = None,
         proxy_configuration: typing.Optional[typing.Union["EcsTaskDefinitionProxyConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         requires_compatibilities: typing.Optional[typing.Sequence[builtins.str]] = None,
         runtime_platform: typing.Optional[typing.Union["EcsTaskDefinitionRuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
         skip_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -81,32 +81,32 @@ class EcsTaskDefinition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition aws_ecs_task_definition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition aws_ecs_task_definition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container_definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#container_definitions EcsTaskDefinition#container_definitions}.
-        :param family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#family EcsTaskDefinition#family}.
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#cpu EcsTaskDefinition#cpu}.
-        :param enable_fault_injection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#enable_fault_injection EcsTaskDefinition#enable_fault_injection}.
-        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#ephemeral_storage EcsTaskDefinition#ephemeral_storage}
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#execution_role_arn EcsTaskDefinition#execution_role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#id EcsTaskDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inference_accelerator: inference_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#inference_accelerator EcsTaskDefinition#inference_accelerator}
-        :param ipc_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#ipc_mode EcsTaskDefinition#ipc_mode}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#memory EcsTaskDefinition#memory}.
-        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#network_mode EcsTaskDefinition#network_mode}.
-        :param pid_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#pid_mode EcsTaskDefinition#pid_mode}.
-        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#placement_constraints EcsTaskDefinition#placement_constraints}
-        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#proxy_configuration EcsTaskDefinition#proxy_configuration}
-        :param requires_compatibilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#requires_compatibilities EcsTaskDefinition#requires_compatibilities}.
-        :param runtime_platform: runtime_platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#runtime_platform EcsTaskDefinition#runtime_platform}
-        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#skip_destroy EcsTaskDefinition#skip_destroy}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#tags EcsTaskDefinition#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#tags_all EcsTaskDefinition#tags_all}.
-        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#task_role_arn EcsTaskDefinition#task_role_arn}.
-        :param track_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#track_latest EcsTaskDefinition#track_latest}.
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#volume EcsTaskDefinition#volume}
+        :param container_definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#container_definitions EcsTaskDefinition#container_definitions}.
+        :param family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#family EcsTaskDefinition#family}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#cpu EcsTaskDefinition#cpu}.
+        :param enable_fault_injection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#enable_fault_injection EcsTaskDefinition#enable_fault_injection}.
+        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#ephemeral_storage EcsTaskDefinition#ephemeral_storage}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#execution_role_arn EcsTaskDefinition#execution_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#id EcsTaskDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipc_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#ipc_mode EcsTaskDefinition#ipc_mode}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#memory EcsTaskDefinition#memory}.
+        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#network_mode EcsTaskDefinition#network_mode}.
+        :param pid_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#pid_mode EcsTaskDefinition#pid_mode}.
+        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#placement_constraints EcsTaskDefinition#placement_constraints}
+        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#proxy_configuration EcsTaskDefinition#proxy_configuration}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#region EcsTaskDefinition#region}
+        :param requires_compatibilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#requires_compatibilities EcsTaskDefinition#requires_compatibilities}.
+        :param runtime_platform: runtime_platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#runtime_platform EcsTaskDefinition#runtime_platform}
+        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#skip_destroy EcsTaskDefinition#skip_destroy}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#tags EcsTaskDefinition#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#tags_all EcsTaskDefinition#tags_all}.
+        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#task_role_arn EcsTaskDefinition#task_role_arn}.
+        :param track_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#track_latest EcsTaskDefinition#track_latest}.
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#volume EcsTaskDefinition#volume}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,13 +127,13 @@ class EcsTaskDefinition(
             ephemeral_storage=ephemeral_storage,
             execution_role_arn=execution_role_arn,
             id=id,
-            inference_accelerator=inference_accelerator,
             ipc_mode=ipc_mode,
             memory=memory,
             network_mode=network_mode,
             pid_mode=pid_mode,
             placement_constraints=placement_constraints,
             proxy_configuration=proxy_configuration,
+            region=region,
             requires_compatibilities=requires_compatibilities,
             runtime_platform=runtime_platform,
             skip_destroy=skip_destroy,
@@ -166,7 +166,7 @@ class EcsTaskDefinition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EcsTaskDefinition to import.
-        :param import_from_id: The id of the existing EcsTaskDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EcsTaskDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EcsTaskDefinition to import is found.
         '''
         if __debug__:
@@ -180,24 +180,11 @@ class EcsTaskDefinition(
     @jsii.member(jsii_name="putEphemeralStorage")
     def put_ephemeral_storage(self, *, size_in_gib: jsii.Number) -> None:
         '''
-        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#size_in_gib EcsTaskDefinition#size_in_gib}.
+        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#size_in_gib EcsTaskDefinition#size_in_gib}.
         '''
         value = EcsTaskDefinitionEphemeralStorage(size_in_gib=size_in_gib)
 
         return typing.cast(None, jsii.invoke(self, "putEphemeralStorage", [value]))
-
-    @jsii.member(jsii_name="putInferenceAccelerator")
-    def put_inference_accelerator(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsTaskDefinitionInferenceAccelerator", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__772152675818174dccce6de56b9ef7d50e40d44112d7fdf36536811bdaa566fc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putInferenceAccelerator", [value]))
 
     @jsii.member(jsii_name="putPlacementConstraints")
     def put_placement_constraints(
@@ -221,9 +208,9 @@ class EcsTaskDefinition(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#container_name EcsTaskDefinition#container_name}.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#properties EcsTaskDefinition#properties}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#container_name EcsTaskDefinition#container_name}.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#properties EcsTaskDefinition#properties}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.
         '''
         value = EcsTaskDefinitionProxyConfiguration(
             container_name=container_name, properties=properties, type=type
@@ -239,8 +226,8 @@ class EcsTaskDefinition(
         operating_system_family: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu_architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#cpu_architecture EcsTaskDefinition#cpu_architecture}.
-        :param operating_system_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#operating_system_family EcsTaskDefinition#operating_system_family}.
+        :param cpu_architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#cpu_architecture EcsTaskDefinition#cpu_architecture}.
+        :param operating_system_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#operating_system_family EcsTaskDefinition#operating_system_family}.
         '''
         value = EcsTaskDefinitionRuntimePlatform(
             cpu_architecture=cpu_architecture,
@@ -282,10 +269,6 @@ class EcsTaskDefinition(
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
 
-    @jsii.member(jsii_name="resetInferenceAccelerator")
-    def reset_inference_accelerator(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetInferenceAccelerator", []))
-
     @jsii.member(jsii_name="resetIpcMode")
     def reset_ipc_mode(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIpcMode", []))
@@ -309,6 +292,10 @@ class EcsTaskDefinition(
     @jsii.member(jsii_name="resetProxyConfiguration")
     def reset_proxy_configuration(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetProxyConfiguration", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRequiresCompatibilities")
     def reset_requires_compatibilities(self) -> None:
@@ -369,11 +356,6 @@ class EcsTaskDefinition(
     @jsii.member(jsii_name="ephemeralStorage")
     def ephemeral_storage(self) -> "EcsTaskDefinitionEphemeralStorageOutputReference":
         return typing.cast("EcsTaskDefinitionEphemeralStorageOutputReference", jsii.get(self, "ephemeralStorage"))
-
-    @builtins.property
-    @jsii.member(jsii_name="inferenceAccelerator")
-    def inference_accelerator(self) -> "EcsTaskDefinitionInferenceAcceleratorList":
-        return typing.cast("EcsTaskDefinitionInferenceAcceleratorList", jsii.get(self, "inferenceAccelerator"))
 
     @builtins.property
     @jsii.member(jsii_name="placementConstraints")
@@ -442,13 +424,6 @@ class EcsTaskDefinition(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="inferenceAcceleratorInput")
-    def inference_accelerator_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionInferenceAccelerator"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionInferenceAccelerator"]]], jsii.get(self, "inferenceAcceleratorInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="ipcModeInput")
     def ipc_mode_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipcModeInput"))
@@ -481,6 +456,11 @@ class EcsTaskDefinition(
         self,
     ) -> typing.Optional["EcsTaskDefinitionProxyConfiguration"]:
         return typing.cast(typing.Optional["EcsTaskDefinitionProxyConfiguration"], jsii.get(self, "proxyConfigurationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="requiresCompatibilitiesInput")
@@ -660,6 +640,18 @@ class EcsTaskDefinition(
         jsii.set(self, "pidMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c086e1c002c2c4df9e6040f212fa187d2099c933650b27e2c7ca49abae1a66ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="requiresCompatibilities")
     def requires_compatibilities(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "requiresCompatibilities"))
@@ -756,13 +748,13 @@ class EcsTaskDefinition(
         "ephemeral_storage": "ephemeralStorage",
         "execution_role_arn": "executionRoleArn",
         "id": "id",
-        "inference_accelerator": "inferenceAccelerator",
         "ipc_mode": "ipcMode",
         "memory": "memory",
         "network_mode": "networkMode",
         "pid_mode": "pidMode",
         "placement_constraints": "placementConstraints",
         "proxy_configuration": "proxyConfiguration",
+        "region": "region",
         "requires_compatibilities": "requiresCompatibilities",
         "runtime_platform": "runtimePlatform",
         "skip_destroy": "skipDestroy",
@@ -791,13 +783,13 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         ephemeral_storage: typing.Optional[typing.Union["EcsTaskDefinitionEphemeralStorage", typing.Dict[builtins.str, typing.Any]]] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
-        inference_accelerator: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsTaskDefinitionInferenceAccelerator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         ipc_mode: typing.Optional[builtins.str] = None,
         memory: typing.Optional[builtins.str] = None,
         network_mode: typing.Optional[builtins.str] = None,
         pid_mode: typing.Optional[builtins.str] = None,
         placement_constraints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsTaskDefinitionPlacementConstraints", typing.Dict[builtins.str, typing.Any]]]]] = None,
         proxy_configuration: typing.Optional[typing.Union["EcsTaskDefinitionProxyConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         requires_compatibilities: typing.Optional[typing.Sequence[builtins.str]] = None,
         runtime_platform: typing.Optional[typing.Union["EcsTaskDefinitionRuntimePlatform", typing.Dict[builtins.str, typing.Any]]] = None,
         skip_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -815,28 +807,28 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container_definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#container_definitions EcsTaskDefinition#container_definitions}.
-        :param family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#family EcsTaskDefinition#family}.
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#cpu EcsTaskDefinition#cpu}.
-        :param enable_fault_injection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#enable_fault_injection EcsTaskDefinition#enable_fault_injection}.
-        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#ephemeral_storage EcsTaskDefinition#ephemeral_storage}
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#execution_role_arn EcsTaskDefinition#execution_role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#id EcsTaskDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inference_accelerator: inference_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#inference_accelerator EcsTaskDefinition#inference_accelerator}
-        :param ipc_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#ipc_mode EcsTaskDefinition#ipc_mode}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#memory EcsTaskDefinition#memory}.
-        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#network_mode EcsTaskDefinition#network_mode}.
-        :param pid_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#pid_mode EcsTaskDefinition#pid_mode}.
-        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#placement_constraints EcsTaskDefinition#placement_constraints}
-        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#proxy_configuration EcsTaskDefinition#proxy_configuration}
-        :param requires_compatibilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#requires_compatibilities EcsTaskDefinition#requires_compatibilities}.
-        :param runtime_platform: runtime_platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#runtime_platform EcsTaskDefinition#runtime_platform}
-        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#skip_destroy EcsTaskDefinition#skip_destroy}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#tags EcsTaskDefinition#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#tags_all EcsTaskDefinition#tags_all}.
-        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#task_role_arn EcsTaskDefinition#task_role_arn}.
-        :param track_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#track_latest EcsTaskDefinition#track_latest}.
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#volume EcsTaskDefinition#volume}
+        :param container_definitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#container_definitions EcsTaskDefinition#container_definitions}.
+        :param family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#family EcsTaskDefinition#family}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#cpu EcsTaskDefinition#cpu}.
+        :param enable_fault_injection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#enable_fault_injection EcsTaskDefinition#enable_fault_injection}.
+        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#ephemeral_storage EcsTaskDefinition#ephemeral_storage}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#execution_role_arn EcsTaskDefinition#execution_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#id EcsTaskDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipc_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#ipc_mode EcsTaskDefinition#ipc_mode}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#memory EcsTaskDefinition#memory}.
+        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#network_mode EcsTaskDefinition#network_mode}.
+        :param pid_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#pid_mode EcsTaskDefinition#pid_mode}.
+        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#placement_constraints EcsTaskDefinition#placement_constraints}
+        :param proxy_configuration: proxy_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#proxy_configuration EcsTaskDefinition#proxy_configuration}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#region EcsTaskDefinition#region}
+        :param requires_compatibilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#requires_compatibilities EcsTaskDefinition#requires_compatibilities}.
+        :param runtime_platform: runtime_platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#runtime_platform EcsTaskDefinition#runtime_platform}
+        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#skip_destroy EcsTaskDefinition#skip_destroy}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#tags EcsTaskDefinition#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#tags_all EcsTaskDefinition#tags_all}.
+        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#task_role_arn EcsTaskDefinition#task_role_arn}.
+        :param track_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#track_latest EcsTaskDefinition#track_latest}.
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#volume EcsTaskDefinition#volume}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -862,13 +854,13 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument inference_accelerator", value=inference_accelerator, expected_type=type_hints["inference_accelerator"])
             check_type(argname="argument ipc_mode", value=ipc_mode, expected_type=type_hints["ipc_mode"])
             check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
             check_type(argname="argument network_mode", value=network_mode, expected_type=type_hints["network_mode"])
             check_type(argname="argument pid_mode", value=pid_mode, expected_type=type_hints["pid_mode"])
             check_type(argname="argument placement_constraints", value=placement_constraints, expected_type=type_hints["placement_constraints"])
             check_type(argname="argument proxy_configuration", value=proxy_configuration, expected_type=type_hints["proxy_configuration"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument requires_compatibilities", value=requires_compatibilities, expected_type=type_hints["requires_compatibilities"])
             check_type(argname="argument runtime_platform", value=runtime_platform, expected_type=type_hints["runtime_platform"])
             check_type(argname="argument skip_destroy", value=skip_destroy, expected_type=type_hints["skip_destroy"])
@@ -905,8 +897,6 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["execution_role_arn"] = execution_role_arn
         if id is not None:
             self._values["id"] = id
-        if inference_accelerator is not None:
-            self._values["inference_accelerator"] = inference_accelerator
         if ipc_mode is not None:
             self._values["ipc_mode"] = ipc_mode
         if memory is not None:
@@ -919,6 +909,8 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["placement_constraints"] = placement_constraints
         if proxy_configuration is not None:
             self._values["proxy_configuration"] = proxy_configuration
+        if region is not None:
+            self._values["region"] = region
         if requires_compatibilities is not None:
             self._values["requires_compatibilities"] = requires_compatibilities
         if runtime_platform is not None:
@@ -1002,21 +994,21 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def container_definitions(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#container_definitions EcsTaskDefinition#container_definitions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#container_definitions EcsTaskDefinition#container_definitions}.'''
         result = self._values.get("container_definitions")
         assert result is not None, "Required property 'container_definitions' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def family(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#family EcsTaskDefinition#family}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#family EcsTaskDefinition#family}.'''
         result = self._values.get("family")
         assert result is not None, "Required property 'family' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#cpu EcsTaskDefinition#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#cpu EcsTaskDefinition#cpu}.'''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1024,7 +1016,7 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_fault_injection(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#enable_fault_injection EcsTaskDefinition#enable_fault_injection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#enable_fault_injection EcsTaskDefinition#enable_fault_injection}.'''
         result = self._values.get("enable_fault_injection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1032,20 +1024,20 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ephemeral_storage(self) -> typing.Optional["EcsTaskDefinitionEphemeralStorage"]:
         '''ephemeral_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#ephemeral_storage EcsTaskDefinition#ephemeral_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#ephemeral_storage EcsTaskDefinition#ephemeral_storage}
         '''
         result = self._values.get("ephemeral_storage")
         return typing.cast(typing.Optional["EcsTaskDefinitionEphemeralStorage"], result)
 
     @builtins.property
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#execution_role_arn EcsTaskDefinition#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#execution_role_arn EcsTaskDefinition#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#id EcsTaskDefinition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#id EcsTaskDefinition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1054,37 +1046,26 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def inference_accelerator(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionInferenceAccelerator"]]]:
-        '''inference_accelerator block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#inference_accelerator EcsTaskDefinition#inference_accelerator}
-        '''
-        result = self._values.get("inference_accelerator")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionInferenceAccelerator"]]], result)
-
-    @builtins.property
     def ipc_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#ipc_mode EcsTaskDefinition#ipc_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#ipc_mode EcsTaskDefinition#ipc_mode}.'''
         result = self._values.get("ipc_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#memory EcsTaskDefinition#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#memory EcsTaskDefinition#memory}.'''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#network_mode EcsTaskDefinition#network_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#network_mode EcsTaskDefinition#network_mode}.'''
         result = self._values.get("network_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pid_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#pid_mode EcsTaskDefinition#pid_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#pid_mode EcsTaskDefinition#pid_mode}.'''
         result = self._values.get("pid_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1094,7 +1075,7 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionPlacementConstraints"]]]:
         '''placement_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#placement_constraints EcsTaskDefinition#placement_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#placement_constraints EcsTaskDefinition#placement_constraints}
         '''
         result = self._values.get("placement_constraints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionPlacementConstraints"]]], result)
@@ -1105,14 +1086,23 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EcsTaskDefinitionProxyConfiguration"]:
         '''proxy_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#proxy_configuration EcsTaskDefinition#proxy_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#proxy_configuration EcsTaskDefinition#proxy_configuration}
         '''
         result = self._values.get("proxy_configuration")
         return typing.cast(typing.Optional["EcsTaskDefinitionProxyConfiguration"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#region EcsTaskDefinition#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def requires_compatibilities(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#requires_compatibilities EcsTaskDefinition#requires_compatibilities}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#requires_compatibilities EcsTaskDefinition#requires_compatibilities}.'''
         result = self._values.get("requires_compatibilities")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1120,7 +1110,7 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_platform(self) -> typing.Optional["EcsTaskDefinitionRuntimePlatform"]:
         '''runtime_platform block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#runtime_platform EcsTaskDefinition#runtime_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#runtime_platform EcsTaskDefinition#runtime_platform}
         '''
         result = self._values.get("runtime_platform")
         return typing.cast(typing.Optional["EcsTaskDefinitionRuntimePlatform"], result)
@@ -1129,25 +1119,25 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def skip_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#skip_destroy EcsTaskDefinition#skip_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#skip_destroy EcsTaskDefinition#skip_destroy}.'''
         result = self._values.get("skip_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#tags EcsTaskDefinition#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#tags EcsTaskDefinition#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#tags_all EcsTaskDefinition#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#tags_all EcsTaskDefinition#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def task_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#task_role_arn EcsTaskDefinition#task_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#task_role_arn EcsTaskDefinition#task_role_arn}.'''
         result = self._values.get("task_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1155,7 +1145,7 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def track_latest(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#track_latest EcsTaskDefinition#track_latest}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#track_latest EcsTaskDefinition#track_latest}.'''
         result = self._values.get("track_latest")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1165,7 +1155,7 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionVolume"]]]:
         '''volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#volume EcsTaskDefinition#volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#volume EcsTaskDefinition#volume}
         '''
         result = self._values.get("volume")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskDefinitionVolume"]]], result)
@@ -1190,7 +1180,7 @@ class EcsTaskDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class EcsTaskDefinitionEphemeralStorage:
     def __init__(self, *, size_in_gib: jsii.Number) -> None:
         '''
-        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#size_in_gib EcsTaskDefinition#size_in_gib}.
+        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#size_in_gib EcsTaskDefinition#size_in_gib}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__189f13a2b780f08370f4fd2de399a53848917be30e2e3e366ece5844d43013f1)
@@ -1201,7 +1191,7 @@ class EcsTaskDefinitionEphemeralStorage:
 
     @builtins.property
     def size_in_gib(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#size_in_gib EcsTaskDefinition#size_in_gib}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#size_in_gib EcsTaskDefinition#size_in_gib}.'''
         result = self._values.get("size_in_gib")
         assert result is not None, "Required property 'size_in_gib' is missing"
         return typing.cast(jsii.Number, result)
@@ -1272,223 +1262,6 @@ class EcsTaskDefinitionEphemeralStorageOutputReference(
 
 
 @jsii.data_type(
-    jsii_type="@cdktf/provider-aws.ecsTaskDefinition.EcsTaskDefinitionInferenceAccelerator",
-    jsii_struct_bases=[],
-    name_mapping={"device_name": "deviceName", "device_type": "deviceType"},
-)
-class EcsTaskDefinitionInferenceAccelerator:
-    def __init__(self, *, device_name: builtins.str, device_type: builtins.str) -> None:
-        '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#device_name EcsTaskDefinition#device_name}.
-        :param device_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#device_type EcsTaskDefinition#device_type}.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6625d41092a7d1acab50c9fa29d6483022c4763693a6b73199be71a126489a6)
-            check_type(argname="argument device_name", value=device_name, expected_type=type_hints["device_name"])
-            check_type(argname="argument device_type", value=device_type, expected_type=type_hints["device_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "device_name": device_name,
-            "device_type": device_type,
-        }
-
-    @builtins.property
-    def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#device_name EcsTaskDefinition#device_name}.'''
-        result = self._values.get("device_name")
-        assert result is not None, "Required property 'device_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def device_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#device_type EcsTaskDefinition#device_type}.'''
-        result = self._values.get("device_type")
-        assert result is not None, "Required property 'device_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EcsTaskDefinitionInferenceAccelerator(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class EcsTaskDefinitionInferenceAcceleratorList(
-    _cdktf_9a9027ec.ComplexList,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.ecsTaskDefinition.EcsTaskDefinitionInferenceAcceleratorList",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-        wraps_set: builtins.bool,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfa3bca39178817879afec2d4592f336a9796330e8680768b6feecbfc1b4b9e6)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
-
-    @jsii.member(jsii_name="get")
-    def get(
-        self,
-        index: jsii.Number,
-    ) -> "EcsTaskDefinitionInferenceAcceleratorOutputReference":
-        '''
-        :param index: the index of the item to return.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd66a04e10202d94dfa67a41e7028285bcb3ef3035ffaa6f35cd25f75a3b8d6e)
-            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
-        return typing.cast("EcsTaskDefinitionInferenceAcceleratorOutputReference", jsii.invoke(self, "get", [index]))
-
-    @builtins.property
-    @jsii.member(jsii_name="terraformAttribute")
-    def _terraform_attribute(self) -> builtins.str:
-        '''The attribute on the parent resource this class is referencing.'''
-        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
-
-    @_terraform_attribute.setter
-    def _terraform_attribute(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a653b8b97d62add73fcbe91c2be7198a75ba4c7f2f526d52bd1bb5e5d4b7729)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="terraformResource")
-    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
-        '''The parent resource.'''
-        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
-
-    @_terraform_resource.setter
-    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78c2b5266d9a41577adb7c684e4f1eee4adb5f6ffd3ef47e9c49bdadb717281a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="wrapsSet")
-    def _wraps_set(self) -> builtins.bool:
-        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
-        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
-
-    @_wraps_set.setter
-    def _wraps_set(self, value: builtins.bool) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b3bd94e7020745f4f05d3440d879947b4a412d13a7ce3cfcdee073633ec28f3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsTaskDefinitionInferenceAccelerator]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsTaskDefinitionInferenceAccelerator]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsTaskDefinitionInferenceAccelerator]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c2dc5b55f80a9e54c2b06ff8c5b9a66262a88a40efaf66a5a9bf9bfc625b311)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-class EcsTaskDefinitionInferenceAcceleratorOutputReference(
-    _cdktf_9a9027ec.ComplexObject,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.ecsTaskDefinition.EcsTaskDefinitionInferenceAcceleratorOutputReference",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-        complex_object_index: jsii.Number,
-        complex_object_is_from_set: builtins.bool,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        :param complex_object_index: the index of this item in the list.
-        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ddc55bc52f0e2f2b04c3efeeb238b4d505916ff5fc4c95343d1a536770b0efe)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
-            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
-
-    @builtins.property
-    @jsii.member(jsii_name="deviceNameInput")
-    def device_name_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deviceNameInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="deviceTypeInput")
-    def device_type_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deviceTypeInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="deviceName")
-    def device_name(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "deviceName"))
-
-    @device_name.setter
-    def device_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdb510dd88ab86a7e019f8cb04116add3cd67ff3eb23ad6c14c680cf606fc691)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deviceType")
-    def device_type(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "deviceType"))
-
-    @device_type.setter
-    def device_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7bd74ad6f36c1a3b2dc91def679c4bbbc9f71520106803d7575a99b8837be40)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsTaskDefinitionInferenceAccelerator]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsTaskDefinitionInferenceAccelerator]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsTaskDefinitionInferenceAccelerator]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0870f0ef0de1615c406d84879432a56d720362d22f6dc83c09835ed3153551d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
     jsii_type="@cdktf/provider-aws.ecsTaskDefinition.EcsTaskDefinitionPlacementConstraints",
     jsii_struct_bases=[],
     name_mapping={"type": "type", "expression": "expression"},
@@ -1501,8 +1274,8 @@ class EcsTaskDefinitionPlacementConstraints:
         expression: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#expression EcsTaskDefinition#expression}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#expression EcsTaskDefinition#expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0647be6055e260c9ef76dafed7fd89ac154af1e2b14ae417558a4aec55a98bec)
@@ -1516,14 +1289,14 @@ class EcsTaskDefinitionPlacementConstraints:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#expression EcsTaskDefinition#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#expression EcsTaskDefinition#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1732,9 +1505,9 @@ class EcsTaskDefinitionProxyConfiguration:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#container_name EcsTaskDefinition#container_name}.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#properties EcsTaskDefinition#properties}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#container_name EcsTaskDefinition#container_name}.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#properties EcsTaskDefinition#properties}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd97be6dbe388f0cda177340ff525635327c7491817adb49fa1f6afb5cbb6808)
@@ -1751,20 +1524,20 @@ class EcsTaskDefinitionProxyConfiguration:
 
     @builtins.property
     def container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#container_name EcsTaskDefinition#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#container_name EcsTaskDefinition#container_name}.'''
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#properties EcsTaskDefinition#properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#properties EcsTaskDefinition#properties}.'''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#type EcsTaskDefinition#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1893,8 +1666,8 @@ class EcsTaskDefinitionRuntimePlatform:
         operating_system_family: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu_architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#cpu_architecture EcsTaskDefinition#cpu_architecture}.
-        :param operating_system_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#operating_system_family EcsTaskDefinition#operating_system_family}.
+        :param cpu_architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#cpu_architecture EcsTaskDefinition#cpu_architecture}.
+        :param operating_system_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#operating_system_family EcsTaskDefinition#operating_system_family}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bc7dec451bc7a5743ed2e6ce9888950b66b4540a65c966a11e909c4782c092c)
@@ -1908,13 +1681,13 @@ class EcsTaskDefinitionRuntimePlatform:
 
     @builtins.property
     def cpu_architecture(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#cpu_architecture EcsTaskDefinition#cpu_architecture}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#cpu_architecture EcsTaskDefinition#cpu_architecture}.'''
         result = self._values.get("cpu_architecture")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def operating_system_family(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#operating_system_family EcsTaskDefinition#operating_system_family}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#operating_system_family EcsTaskDefinition#operating_system_family}.'''
         result = self._values.get("operating_system_family")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2032,12 +1805,12 @@ class EcsTaskDefinitionVolume:
         host_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#name EcsTaskDefinition#name}.
-        :param configure_at_launch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#configure_at_launch EcsTaskDefinition#configure_at_launch}.
-        :param docker_volume_configuration: docker_volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#docker_volume_configuration EcsTaskDefinition#docker_volume_configuration}
-        :param efs_volume_configuration: efs_volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#efs_volume_configuration EcsTaskDefinition#efs_volume_configuration}
-        :param fsx_windows_file_server_volume_configuration: fsx_windows_file_server_volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#fsx_windows_file_server_volume_configuration EcsTaskDefinition#fsx_windows_file_server_volume_configuration}
-        :param host_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#host_path EcsTaskDefinition#host_path}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#name EcsTaskDefinition#name}.
+        :param configure_at_launch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#configure_at_launch EcsTaskDefinition#configure_at_launch}.
+        :param docker_volume_configuration: docker_volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#docker_volume_configuration EcsTaskDefinition#docker_volume_configuration}
+        :param efs_volume_configuration: efs_volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#efs_volume_configuration EcsTaskDefinition#efs_volume_configuration}
+        :param fsx_windows_file_server_volume_configuration: fsx_windows_file_server_volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#fsx_windows_file_server_volume_configuration EcsTaskDefinition#fsx_windows_file_server_volume_configuration}
+        :param host_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#host_path EcsTaskDefinition#host_path}.
         '''
         if isinstance(docker_volume_configuration, dict):
             docker_volume_configuration = EcsTaskDefinitionVolumeDockerVolumeConfiguration(**docker_volume_configuration)
@@ -2069,7 +1842,7 @@ class EcsTaskDefinitionVolume:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#name EcsTaskDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#name EcsTaskDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2078,7 +1851,7 @@ class EcsTaskDefinitionVolume:
     def configure_at_launch(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#configure_at_launch EcsTaskDefinition#configure_at_launch}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#configure_at_launch EcsTaskDefinition#configure_at_launch}.'''
         result = self._values.get("configure_at_launch")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2088,7 +1861,7 @@ class EcsTaskDefinitionVolume:
     ) -> typing.Optional["EcsTaskDefinitionVolumeDockerVolumeConfiguration"]:
         '''docker_volume_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#docker_volume_configuration EcsTaskDefinition#docker_volume_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#docker_volume_configuration EcsTaskDefinition#docker_volume_configuration}
         '''
         result = self._values.get("docker_volume_configuration")
         return typing.cast(typing.Optional["EcsTaskDefinitionVolumeDockerVolumeConfiguration"], result)
@@ -2099,7 +1872,7 @@ class EcsTaskDefinitionVolume:
     ) -> typing.Optional["EcsTaskDefinitionVolumeEfsVolumeConfiguration"]:
         '''efs_volume_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#efs_volume_configuration EcsTaskDefinition#efs_volume_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#efs_volume_configuration EcsTaskDefinition#efs_volume_configuration}
         '''
         result = self._values.get("efs_volume_configuration")
         return typing.cast(typing.Optional["EcsTaskDefinitionVolumeEfsVolumeConfiguration"], result)
@@ -2110,14 +1883,14 @@ class EcsTaskDefinitionVolume:
     ) -> typing.Optional["EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfiguration"]:
         '''fsx_windows_file_server_volume_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#fsx_windows_file_server_volume_configuration EcsTaskDefinition#fsx_windows_file_server_volume_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#fsx_windows_file_server_volume_configuration EcsTaskDefinition#fsx_windows_file_server_volume_configuration}
         '''
         result = self._values.get("fsx_windows_file_server_volume_configuration")
         return typing.cast(typing.Optional["EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfiguration"], result)
 
     @builtins.property
     def host_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#host_path EcsTaskDefinition#host_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#host_path EcsTaskDefinition#host_path}.'''
         result = self._values.get("host_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2155,11 +1928,11 @@ class EcsTaskDefinitionVolumeDockerVolumeConfiguration:
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param autoprovision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#autoprovision EcsTaskDefinition#autoprovision}.
-        :param driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#driver EcsTaskDefinition#driver}.
-        :param driver_opts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#driver_opts EcsTaskDefinition#driver_opts}.
-        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#labels EcsTaskDefinition#labels}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#scope EcsTaskDefinition#scope}.
+        :param autoprovision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#autoprovision EcsTaskDefinition#autoprovision}.
+        :param driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#driver EcsTaskDefinition#driver}.
+        :param driver_opts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#driver_opts EcsTaskDefinition#driver_opts}.
+        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#labels EcsTaskDefinition#labels}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#scope EcsTaskDefinition#scope}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81ca0153d74832a61f4930f7e631bd431b16eb0bf7dd57fdfedeb122259dee47)
@@ -2184,13 +1957,13 @@ class EcsTaskDefinitionVolumeDockerVolumeConfiguration:
     def autoprovision(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#autoprovision EcsTaskDefinition#autoprovision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#autoprovision EcsTaskDefinition#autoprovision}.'''
         result = self._values.get("autoprovision")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def driver(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#driver EcsTaskDefinition#driver}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#driver EcsTaskDefinition#driver}.'''
         result = self._values.get("driver")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2198,19 +1971,19 @@ class EcsTaskDefinitionVolumeDockerVolumeConfiguration:
     def driver_opts(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#driver_opts EcsTaskDefinition#driver_opts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#driver_opts EcsTaskDefinition#driver_opts}.'''
         result = self._values.get("driver_opts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#labels EcsTaskDefinition#labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#labels EcsTaskDefinition#labels}.'''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#scope EcsTaskDefinition#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#scope EcsTaskDefinition#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2400,11 +2173,11 @@ class EcsTaskDefinitionVolumeEfsVolumeConfiguration:
         transit_encryption_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
-        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
-        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
-        :param transit_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#transit_encryption EcsTaskDefinition#transit_encryption}.
-        :param transit_encryption_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#transit_encryption_port EcsTaskDefinition#transit_encryption_port}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
+        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
+        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
+        :param transit_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#transit_encryption EcsTaskDefinition#transit_encryption}.
+        :param transit_encryption_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#transit_encryption_port EcsTaskDefinition#transit_encryption_port}.
         '''
         if isinstance(authorization_config, dict):
             authorization_config = EcsTaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfig(**authorization_config)
@@ -2429,7 +2202,7 @@ class EcsTaskDefinitionVolumeEfsVolumeConfiguration:
 
     @builtins.property
     def file_system_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.'''
         result = self._values.get("file_system_id")
         assert result is not None, "Required property 'file_system_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2440,26 +2213,26 @@ class EcsTaskDefinitionVolumeEfsVolumeConfiguration:
     ) -> typing.Optional["EcsTaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfig"]:
         '''authorization_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
         '''
         result = self._values.get("authorization_config")
         return typing.cast(typing.Optional["EcsTaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfig"], result)
 
     @builtins.property
     def root_directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.'''
         result = self._values.get("root_directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transit_encryption(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#transit_encryption EcsTaskDefinition#transit_encryption}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#transit_encryption EcsTaskDefinition#transit_encryption}.'''
         result = self._values.get("transit_encryption")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transit_encryption_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#transit_encryption_port EcsTaskDefinition#transit_encryption_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#transit_encryption_port EcsTaskDefinition#transit_encryption_port}.'''
         result = self._values.get("transit_encryption_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2488,8 +2261,8 @@ class EcsTaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfig:
         iam: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#access_point_id EcsTaskDefinition#access_point_id}.
-        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#iam EcsTaskDefinition#iam}.
+        :param access_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#access_point_id EcsTaskDefinition#access_point_id}.
+        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#iam EcsTaskDefinition#iam}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e7f87b24a57b32f802e63f7cf5115466310d6740a066be71c3cac3c682161df)
@@ -2503,13 +2276,13 @@ class EcsTaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfig:
 
     @builtins.property
     def access_point_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#access_point_id EcsTaskDefinition#access_point_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#access_point_id EcsTaskDefinition#access_point_id}.'''
         result = self._values.get("access_point_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#iam EcsTaskDefinition#iam}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#iam EcsTaskDefinition#iam}.'''
         result = self._values.get("iam")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2633,8 +2406,8 @@ class EcsTaskDefinitionVolumeEfsVolumeConfigurationOutputReference(
         iam: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#access_point_id EcsTaskDefinition#access_point_id}.
-        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#iam EcsTaskDefinition#iam}.
+        :param access_point_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#access_point_id EcsTaskDefinition#access_point_id}.
+        :param iam: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#iam EcsTaskDefinition#iam}.
         '''
         value = EcsTaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfig(
             access_point_id=access_point_id, iam=iam
@@ -2776,9 +2549,9 @@ class EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfiguration:
         root_directory: builtins.str,
     ) -> None:
         '''
-        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
-        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
+        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
+        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
         '''
         if isinstance(authorization_config, dict):
             authorization_config = EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfigurationAuthorizationConfig(**authorization_config)
@@ -2799,7 +2572,7 @@ class EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfiguration:
     ) -> "EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfigurationAuthorizationConfig":
         '''authorization_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
         '''
         result = self._values.get("authorization_config")
         assert result is not None, "Required property 'authorization_config' is missing"
@@ -2807,14 +2580,14 @@ class EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfiguration:
 
     @builtins.property
     def file_system_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.'''
         result = self._values.get("file_system_id")
         assert result is not None, "Required property 'file_system_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def root_directory(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.'''
         result = self._values.get("root_directory")
         assert result is not None, "Required property 'root_directory' is missing"
         return typing.cast(builtins.str, result)
@@ -2844,8 +2617,8 @@ class EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfigurationAuthorizatio
         domain: builtins.str,
     ) -> None:
         '''
-        :param credentials_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#credentials_parameter EcsTaskDefinition#credentials_parameter}.
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#domain EcsTaskDefinition#domain}.
+        :param credentials_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#credentials_parameter EcsTaskDefinition#credentials_parameter}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#domain EcsTaskDefinition#domain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1d29b64e3e329ae27dd8f58d6e090f5b9dfa327ac58c2403ed01571f063ff29)
@@ -2858,14 +2631,14 @@ class EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfigurationAuthorizatio
 
     @builtins.property
     def credentials_parameter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#credentials_parameter EcsTaskDefinition#credentials_parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#credentials_parameter EcsTaskDefinition#credentials_parameter}.'''
         result = self._values.get("credentials_parameter")
         assert result is not None, "Required property 'credentials_parameter' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#domain EcsTaskDefinition#domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#domain EcsTaskDefinition#domain}.'''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
         return typing.cast(builtins.str, result)
@@ -2982,8 +2755,8 @@ class EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfigurationOutputRefere
         domain: builtins.str,
     ) -> None:
         '''
-        :param credentials_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#credentials_parameter EcsTaskDefinition#credentials_parameter}.
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#domain EcsTaskDefinition#domain}.
+        :param credentials_parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#credentials_parameter EcsTaskDefinition#credentials_parameter}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#domain EcsTaskDefinition#domain}.
         '''
         value = EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfigurationAuthorizationConfig(
             credentials_parameter=credentials_parameter, domain=domain
@@ -3184,11 +2957,11 @@ class EcsTaskDefinitionVolumeOutputReference(
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param autoprovision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#autoprovision EcsTaskDefinition#autoprovision}.
-        :param driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#driver EcsTaskDefinition#driver}.
-        :param driver_opts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#driver_opts EcsTaskDefinition#driver_opts}.
-        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#labels EcsTaskDefinition#labels}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#scope EcsTaskDefinition#scope}.
+        :param autoprovision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#autoprovision EcsTaskDefinition#autoprovision}.
+        :param driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#driver EcsTaskDefinition#driver}.
+        :param driver_opts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#driver_opts EcsTaskDefinition#driver_opts}.
+        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#labels EcsTaskDefinition#labels}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#scope EcsTaskDefinition#scope}.
         '''
         value = EcsTaskDefinitionVolumeDockerVolumeConfiguration(
             autoprovision=autoprovision,
@@ -3211,11 +2984,11 @@ class EcsTaskDefinitionVolumeOutputReference(
         transit_encryption_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
-        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
-        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
-        :param transit_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#transit_encryption EcsTaskDefinition#transit_encryption}.
-        :param transit_encryption_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#transit_encryption_port EcsTaskDefinition#transit_encryption_port}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
+        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
+        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
+        :param transit_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#transit_encryption EcsTaskDefinition#transit_encryption}.
+        :param transit_encryption_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#transit_encryption_port EcsTaskDefinition#transit_encryption_port}.
         '''
         value = EcsTaskDefinitionVolumeEfsVolumeConfiguration(
             file_system_id=file_system_id,
@@ -3236,9 +3009,9 @@ class EcsTaskDefinitionVolumeOutputReference(
         root_directory: builtins.str,
     ) -> None:
         '''
-        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
-        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
+        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#authorization_config EcsTaskDefinition#authorization_config}
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#file_system_id EcsTaskDefinition#file_system_id}.
+        :param root_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_definition#root_directory EcsTaskDefinition#root_directory}.
         '''
         value = EcsTaskDefinitionVolumeFsxWindowsFileServerVolumeConfiguration(
             authorization_config=authorization_config,
@@ -3391,9 +3164,6 @@ __all__ = [
     "EcsTaskDefinitionConfig",
     "EcsTaskDefinitionEphemeralStorage",
     "EcsTaskDefinitionEphemeralStorageOutputReference",
-    "EcsTaskDefinitionInferenceAccelerator",
-    "EcsTaskDefinitionInferenceAcceleratorList",
-    "EcsTaskDefinitionInferenceAcceleratorOutputReference",
     "EcsTaskDefinitionPlacementConstraints",
     "EcsTaskDefinitionPlacementConstraintsList",
     "EcsTaskDefinitionPlacementConstraintsOutputReference",
@@ -3429,13 +3199,13 @@ def _typecheckingstub__e1d1e276fb2082fbb179699a72d07d7dd12175ee4316c318668309773
     ephemeral_storage: typing.Optional[typing.Union[EcsTaskDefinitionEphemeralStorage, typing.Dict[builtins.str, typing.Any]]] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
-    inference_accelerator: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsTaskDefinitionInferenceAccelerator, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ipc_mode: typing.Optional[builtins.str] = None,
     memory: typing.Optional[builtins.str] = None,
     network_mode: typing.Optional[builtins.str] = None,
     pid_mode: typing.Optional[builtins.str] = None,
     placement_constraints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsTaskDefinitionPlacementConstraints, typing.Dict[builtins.str, typing.Any]]]]] = None,
     proxy_configuration: typing.Optional[typing.Union[EcsTaskDefinitionProxyConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     requires_compatibilities: typing.Optional[typing.Sequence[builtins.str]] = None,
     runtime_platform: typing.Optional[typing.Union[EcsTaskDefinitionRuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
     skip_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -3460,12 +3230,6 @@ def _typecheckingstub__6660e596dddeaa76720fbd86986a14fc7281c900a75a4849cfa2023e8
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__772152675818174dccce6de56b9ef7d50e40d44112d7fdf36536811bdaa566fc(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsTaskDefinitionInferenceAccelerator, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3542,6 +3306,12 @@ def _typecheckingstub__43eb442c46edb1728d42f48c8eded9b999b1ca19b9691971422f5d48d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c086e1c002c2c4df9e6040f212fa187d2099c933650b27e2c7ca49abae1a66ad(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__86a1f1b824992d5d566a492eb86d5338e92ff8b7299f87a9a4fff49f2c103f67(
     value: typing.List[builtins.str],
 ) -> None:
@@ -3594,13 +3364,13 @@ def _typecheckingstub__ce7bf91c79a660c7f5b7a99d43d170854cd3f91841ec0ab7033d36694
     ephemeral_storage: typing.Optional[typing.Union[EcsTaskDefinitionEphemeralStorage, typing.Dict[builtins.str, typing.Any]]] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
-    inference_accelerator: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsTaskDefinitionInferenceAccelerator, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ipc_mode: typing.Optional[builtins.str] = None,
     memory: typing.Optional[builtins.str] = None,
     network_mode: typing.Optional[builtins.str] = None,
     pid_mode: typing.Optional[builtins.str] = None,
     placement_constraints: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsTaskDefinitionPlacementConstraints, typing.Dict[builtins.str, typing.Any]]]]] = None,
     proxy_configuration: typing.Optional[typing.Union[EcsTaskDefinitionProxyConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     requires_compatibilities: typing.Optional[typing.Sequence[builtins.str]] = None,
     runtime_platform: typing.Optional[typing.Union[EcsTaskDefinitionRuntimePlatform, typing.Dict[builtins.str, typing.Any]]] = None,
     skip_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -3635,79 +3405,6 @@ def _typecheckingstub__6d96e6fce5878146d0e832164f0603d90ba4ecc3a05af8f4084ff668a
 
 def _typecheckingstub__e201fe412e53a0fe2c5925498072e9b5c6cfe392b1080d7a081f3d19e516424d(
     value: typing.Optional[EcsTaskDefinitionEphemeralStorage],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f6625d41092a7d1acab50c9fa29d6483022c4763693a6b73199be71a126489a6(
-    *,
-    device_name: builtins.str,
-    device_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bfa3bca39178817879afec2d4592f336a9796330e8680768b6feecbfc1b4b9e6(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-    wraps_set: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fd66a04e10202d94dfa67a41e7028285bcb3ef3035ffaa6f35cd25f75a3b8d6e(
-    index: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9a653b8b97d62add73fcbe91c2be7198a75ba4c7f2f526d52bd1bb5e5d4b7729(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__78c2b5266d9a41577adb7c684e4f1eee4adb5f6ffd3ef47e9c49bdadb717281a(
-    value: _cdktf_9a9027ec.IInterpolatingParent,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b3bd94e7020745f4f05d3440d879947b4a412d13a7ce3cfcdee073633ec28f3(
-    value: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5c2dc5b55f80a9e54c2b06ff8c5b9a66262a88a40efaf66a5a9bf9bfc625b311(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsTaskDefinitionInferenceAccelerator]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ddc55bc52f0e2f2b04c3efeeb238b4d505916ff5fc4c95343d1a536770b0efe(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-    complex_object_index: jsii.Number,
-    complex_object_is_from_set: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bdb510dd88ab86a7e019f8cb04116add3cd67ff3eb23ad6c14c680cf606fc691(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a7bd74ad6f36c1a3b2dc91def679c4bbbc9f71520106803d7575a99b8837be40(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f0870f0ef0de1615c406d84879432a56d720362d22f6dc83c09835ed3153551d(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsTaskDefinitionInferenceAccelerator]],
 ) -> None:
     """Type checking stubs"""
     pass

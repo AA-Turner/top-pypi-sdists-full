@@ -218,6 +218,9 @@ class ToolParameter(BaseModel):
         APP_SELECTOR = CommonParameterType.APP_SELECTOR.value
         # TOOL_SELECTOR = CommonParameterType.TOOL_SELECTOR.value
         ANY = CommonParameterType.ANY.value
+        # MCP object and array type parameters
+        OBJECT = "object"
+        ARRAY = "array"
 
     class ToolParameterForm(Enum):
         SCHEMA = "schema"  # should be set while adding tool

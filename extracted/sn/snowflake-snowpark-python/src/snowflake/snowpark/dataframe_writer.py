@@ -18,6 +18,7 @@ from snowflake.snowpark._internal.ast.utils import (
     build_expr_from_snowpark_column_or_col_name,
     build_expr_from_snowpark_column_or_sql_str,
     build_expr_from_snowpark_column_or_python_val,
+    build_expr_from_python_val,
     debug_check_missing_ast,
     fill_save_mode,
     fill_write_file,
@@ -270,6 +271,7 @@ class DataFrameWriter:
         change_tracking: Optional[bool] = None,
         copy_grants: bool = False,
         iceberg_config: Optional[Dict[str, str]] = None,
+        table_exists: Optional[bool] = None,
         _emit_ast: bool = True,
         **kwargs: Optional[Dict[str, Any]],
     ) -> Optional[AsyncJob]:
@@ -332,6 +334,12 @@ class DataFrameWriter:
                 * catalog_sync: optionally sets the catalog integration configured for Polaris Catalog
 
                 * storage_serialization_policy: specifies the storage serialization policy for the table
+
+                * iceberg_version: Overrides the version of iceberg to use. Defaults to 2 when unset.
+            table_exists: Optional parameter to specify if the table is known to exist or not.
+                Set to ``True`` if table exists, ``False`` if it doesn't, or ``None`` (default) for automatic detection.
+                Primarily useful for "append" and "truncate" modes to avoid running query for automatic detection.
+
 
         Example 1::
 
@@ -429,7 +437,7 @@ class DataFrameWriter:
                 for k, v in iceberg_config.items():
                     t = expr.iceberg_config.add()
                     t._1 = k
-                    t._2 = v
+                    build_expr_from_python_val(t._2, v)
 
             self._dataframe._session._ast_batch.eval(stmt)
 
@@ -484,17 +492,20 @@ class DataFrameWriter:
                 )
 
             session = self._dataframe._session
-            if not isinstance(session._conn, MockServerConnection) and save_mode in [
-                SaveMode.APPEND,
-                SaveMode.TRUNCATE,
-            ]:
+            if (
+                table_exists is None
+                and not isinstance(session._conn, MockServerConnection)
+                and save_mode
+                in [
+                    SaveMode.APPEND,
+                    SaveMode.TRUNCATE,
+                ]
+            ):
                 # whether the table already exists in the database
                 # determines the compiled SQL for APPEND and TRUNCATE mode
                 # if the table does not exist, we need to create it first;
                 # if the table exists, we can skip the creation step and insert data directly
                 table_exists = session._table_exists(table_name)
-            else:
-                table_exists = None
 
             create_table_logic_plan = SnowflakeCreateTable(
                 table_name,

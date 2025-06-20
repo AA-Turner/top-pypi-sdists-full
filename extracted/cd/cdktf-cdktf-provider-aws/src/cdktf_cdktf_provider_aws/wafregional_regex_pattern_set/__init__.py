@@ -1,7 +1,7 @@
 r'''
 # `aws_wafregional_regex_pattern_set`
 
-Refer to the Terraform Registry for docs: [`aws_wafregional_regex_pattern_set`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set).
+Refer to the Terraform Registry for docs: [`aws_wafregional_regex_pattern_set`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WafregionalRegexPatternSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafregionalRegexPatternSet.WafregionalRegexPatternSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set aws_wafregional_regex_pattern_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set aws_wafregional_regex_pattern_set}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class WafregionalRegexPatternSet(
         name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         regex_pattern_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class WafregionalRegexPatternSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set aws_wafregional_regex_pattern_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set aws_wafregional_regex_pattern_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#name WafregionalRegexPatternSet#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#id WafregionalRegexPatternSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param regex_pattern_strings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#regex_pattern_strings WafregionalRegexPatternSet#regex_pattern_strings}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#name WafregionalRegexPatternSet#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#id WafregionalRegexPatternSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param regex_pattern_strings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#regex_pattern_strings WafregionalRegexPatternSet#regex_pattern_strings}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#region WafregionalRegexPatternSet#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class WafregionalRegexPatternSet(
             name=name,
             id=id,
             regex_pattern_strings=regex_pattern_strings,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class WafregionalRegexPatternSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WafregionalRegexPatternSet to import.
-        :param import_from_id: The id of the existing WafregionalRegexPatternSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WafregionalRegexPatternSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WafregionalRegexPatternSet to import is found.
         '''
         if __debug__:
@@ -127,6 +130,10 @@ class WafregionalRegexPatternSet(
     @jsii.member(jsii_name="resetRegexPatternStrings")
     def reset_regex_pattern_strings(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegexPatternStrings", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -155,6 +162,11 @@ class WafregionalRegexPatternSet(
     @jsii.member(jsii_name="regexPatternStringsInput")
     def regex_pattern_strings_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "regexPatternStringsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -192,6 +204,18 @@ class WafregionalRegexPatternSet(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regexPatternStrings", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb74795b2a9a59e04aaacc0e0eeed436779616a9340483288fc571e9ad25353a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.wafregionalRegexPatternSet.WafregionalRegexPatternSetConfig",
@@ -207,6 +231,7 @@ class WafregionalRegexPatternSet(
         "name": "name",
         "id": "id",
         "regex_pattern_strings": "regexPatternStrings",
+        "region": "region",
     },
 )
 class WafregionalRegexPatternSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -223,6 +248,7 @@ class WafregionalRegexPatternSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         regex_pattern_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -232,9 +258,10 @@ class WafregionalRegexPatternSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#name WafregionalRegexPatternSet#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#id WafregionalRegexPatternSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param regex_pattern_strings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#regex_pattern_strings WafregionalRegexPatternSet#regex_pattern_strings}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#name WafregionalRegexPatternSet#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#id WafregionalRegexPatternSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param regex_pattern_strings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#regex_pattern_strings WafregionalRegexPatternSet#regex_pattern_strings}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#region WafregionalRegexPatternSet#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -250,6 +277,7 @@ class WafregionalRegexPatternSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument regex_pattern_strings", value=regex_pattern_strings, expected_type=type_hints["regex_pattern_strings"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
@@ -271,6 +299,8 @@ class WafregionalRegexPatternSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if regex_pattern_strings is not None:
             self._values["regex_pattern_strings"] = regex_pattern_strings
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -338,14 +368,14 @@ class WafregionalRegexPatternSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#name WafregionalRegexPatternSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#name WafregionalRegexPatternSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#id WafregionalRegexPatternSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#id WafregionalRegexPatternSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -355,9 +385,18 @@ class WafregionalRegexPatternSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def regex_pattern_strings(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/wafregional_regex_pattern_set#regex_pattern_strings WafregionalRegexPatternSet#regex_pattern_strings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#regex_pattern_strings WafregionalRegexPatternSet#regex_pattern_strings}.'''
         result = self._values.get("regex_pattern_strings")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/wafregional_regex_pattern_set#region WafregionalRegexPatternSet#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -385,6 +424,7 @@ def _typecheckingstub__683005ed385bee0148b2bcc1b3d6e1feaa1be1bc82c37eee50f4a8530
     name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     regex_pattern_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -423,6 +463,12 @@ def _typecheckingstub__dc76e3612ec8047b2da765b23e019e30c0c08764df262d104db963538
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cb74795b2a9a59e04aaacc0e0eeed436779616a9340483288fc571e9ad25353a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__82f340e86f965f03437ed0f8ecd1f0e571e52e22c50a46aabcd4aa79feb5edc1(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -435,6 +481,7 @@ def _typecheckingstub__82f340e86f965f03437ed0f8ecd1f0e571e52e22c50a46aabcd4aa79f
     name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     regex_pattern_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

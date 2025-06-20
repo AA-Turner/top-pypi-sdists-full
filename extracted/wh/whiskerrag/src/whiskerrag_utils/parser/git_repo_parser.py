@@ -4,12 +4,13 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from whiskerrag_types.interface.parser_interface import BaseParser, ParseResult
 from whiskerrag_types.model import Knowledge
+from whiskerrag_types.model.knowledge import KnowledgeTypeEnum
 from whiskerrag_types.model.multi_modal import Text
 from whiskerrag_types.model.splitter import GithubRepoParseConfig
 from whiskerrag_utils.registry import RegisterTypeEnum, register
 
 
-@register(RegisterTypeEnum.PARSER, "github_repo")
+@register(RegisterTypeEnum.PARSER, KnowledgeTypeEnum.GITHUB_REPO)
 class GithubRepoParser(BaseParser[Text]):
     """
     Parser for GitHub repository project tree structure, excluding individual code file content

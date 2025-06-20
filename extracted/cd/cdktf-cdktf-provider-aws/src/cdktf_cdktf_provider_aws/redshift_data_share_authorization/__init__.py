@@ -1,7 +1,7 @@
 r'''
 # `aws_redshift_data_share_authorization`
 
-Refer to the Terraform Registry for docs: [`aws_redshift_data_share_authorization`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization).
+Refer to the Terraform Registry for docs: [`aws_redshift_data_share_authorization`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RedshiftDataShareAuthorization(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.redshiftDataShareAuthorization.RedshiftDataShareAuthorization",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization aws_redshift_data_share_authorization}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization aws_redshift_data_share_authorization}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class RedshiftDataShareAuthorization(
         consumer_identifier: builtins.str,
         data_share_arn: builtins.str,
         allow_writes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class RedshiftDataShareAuthorization(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization aws_redshift_data_share_authorization} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization aws_redshift_data_share_authorization} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param consumer_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#consumer_identifier RedshiftDataShareAuthorization#consumer_identifier}.
-        :param data_share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#data_share_arn RedshiftDataShareAuthorization#data_share_arn}.
-        :param allow_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#allow_writes RedshiftDataShareAuthorization#allow_writes}.
+        :param consumer_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#consumer_identifier RedshiftDataShareAuthorization#consumer_identifier}.
+        :param data_share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#data_share_arn RedshiftDataShareAuthorization#data_share_arn}.
+        :param allow_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#allow_writes RedshiftDataShareAuthorization#allow_writes}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#region RedshiftDataShareAuthorization#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class RedshiftDataShareAuthorization(
             consumer_identifier=consumer_identifier,
             data_share_arn=data_share_arn,
             allow_writes=allow_writes,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class RedshiftDataShareAuthorization(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RedshiftDataShareAuthorization to import.
-        :param import_from_id: The id of the existing RedshiftDataShareAuthorization that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RedshiftDataShareAuthorization that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RedshiftDataShareAuthorization to import is found.
         '''
         if __debug__:
@@ -123,6 +126,10 @@ class RedshiftDataShareAuthorization(
     @jsii.member(jsii_name="resetAllowWrites")
     def reset_allow_writes(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAllowWrites", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -170,6 +177,11 @@ class RedshiftDataShareAuthorization(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dataShareArnInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="allowWrites")
     def allow_writes(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "allowWrites"))
@@ -208,6 +220,18 @@ class RedshiftDataShareAuthorization(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataShareArn", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9dd8ea280e0152dce0840d13f1bf3d4b5e2670fe300ef7fbba114de364d34265)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.redshiftDataShareAuthorization.RedshiftDataShareAuthorizationConfig",
@@ -223,6 +247,7 @@ class RedshiftDataShareAuthorization(
         "consumer_identifier": "consumerIdentifier",
         "data_share_arn": "dataShareArn",
         "allow_writes": "allowWrites",
+        "region": "region",
     },
 )
 class RedshiftDataShareAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -239,6 +264,7 @@ class RedshiftDataShareAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         consumer_identifier: builtins.str,
         data_share_arn: builtins.str,
         allow_writes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -248,9 +274,10 @@ class RedshiftDataShareAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param consumer_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#consumer_identifier RedshiftDataShareAuthorization#consumer_identifier}.
-        :param data_share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#data_share_arn RedshiftDataShareAuthorization#data_share_arn}.
-        :param allow_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#allow_writes RedshiftDataShareAuthorization#allow_writes}.
+        :param consumer_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#consumer_identifier RedshiftDataShareAuthorization#consumer_identifier}.
+        :param data_share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#data_share_arn RedshiftDataShareAuthorization#data_share_arn}.
+        :param allow_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#allow_writes RedshiftDataShareAuthorization#allow_writes}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#region RedshiftDataShareAuthorization#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -266,6 +293,7 @@ class RedshiftDataShareAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArgument
             check_type(argname="argument consumer_identifier", value=consumer_identifier, expected_type=type_hints["consumer_identifier"])
             check_type(argname="argument data_share_arn", value=data_share_arn, expected_type=type_hints["data_share_arn"])
             check_type(argname="argument allow_writes", value=allow_writes, expected_type=type_hints["allow_writes"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "consumer_identifier": consumer_identifier,
             "data_share_arn": data_share_arn,
@@ -286,6 +314,8 @@ class RedshiftDataShareAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArgument
             self._values["provisioners"] = provisioners
         if allow_writes is not None:
             self._values["allow_writes"] = allow_writes
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -353,14 +383,14 @@ class RedshiftDataShareAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def consumer_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#consumer_identifier RedshiftDataShareAuthorization#consumer_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#consumer_identifier RedshiftDataShareAuthorization#consumer_identifier}.'''
         result = self._values.get("consumer_identifier")
         assert result is not None, "Required property 'consumer_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_share_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#data_share_arn RedshiftDataShareAuthorization#data_share_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#data_share_arn RedshiftDataShareAuthorization#data_share_arn}.'''
         result = self._values.get("data_share_arn")
         assert result is not None, "Required property 'data_share_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -369,9 +399,18 @@ class RedshiftDataShareAuthorizationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def allow_writes(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_data_share_authorization#allow_writes RedshiftDataShareAuthorization#allow_writes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#allow_writes RedshiftDataShareAuthorization#allow_writes}.'''
         result = self._values.get("allow_writes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_data_share_authorization#region RedshiftDataShareAuthorization#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -399,6 +438,7 @@ def _typecheckingstub__b71406f5b56dddf507697acce751aff252a00a6b5a4ba0c8c51bf6a77
     consumer_identifier: builtins.str,
     data_share_arn: builtins.str,
     allow_writes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -437,6 +477,12 @@ def _typecheckingstub__ca228a1359181750b3216f1a9daa095ab66da0a14f4961b315bff8956
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9dd8ea280e0152dce0840d13f1bf3d4b5e2670fe300ef7fbba114de364d34265(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ac726b41e0893b6183cb3c1fb88c9432d5ac487e9db05695626f104e951e91e4(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -449,6 +495,7 @@ def _typecheckingstub__ac726b41e0893b6183cb3c1fb88c9432d5ac487e9db05695626f104e9
     consumer_identifier: builtins.str,
     data_share_arn: builtins.str,
     allow_writes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

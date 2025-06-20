@@ -24,19 +24,24 @@ from meilisearch._utils import iso_to_date_time
 from meilisearch.config import Config
 from meilisearch.errors import version_error_hint_message
 from meilisearch.models.document import Document, DocumentsResults
-from meilisearch.models.index import (
+from meilisearch.models.embedders import (
+    CompositeEmbedder,
     Embedders,
-    Faceting,
+    EmbedderType,
     HuggingFaceEmbedder,
-    IndexStats,
-    LocalizedAttributes,
     OllamaEmbedder,
     OpenAiEmbedder,
-    Pagination,
-    ProximityPrecision,
     RestEmbedder,
-    TypoTolerance,
     UserProvidedEmbedder,
+)
+from meilisearch.models.index import (
+    Faceting,
+    IndexStats,
+    LocalizedAttributes,
+    Pagination,
+    PrefixSearch,
+    ProximityPrecision,
+    TypoTolerance,
 )
 from meilisearch.models.task import Task, TaskInfo, TaskResults
 from meilisearch.task import TaskHandler
@@ -271,11 +276,13 @@ class Index:
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
         stats = self.http.get(f"{self.config.paths.index}/{self.uid}/{self.config.paths.stat}")
-        return IndexStats(stats)
+        return IndexStats(**stats)
 
     @version_error_hint_message
     def search(self, query: str, opt_params: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
         """Search in the index.
+
+        https://www.meilisearch.com/docs/reference/api/search
 
         Parameters
         ----------
@@ -283,8 +290,13 @@ class Index:
             String containing the searched word(s)
         opt_params (optional):
             Dictionary containing optional query parameters.
-            Note: The vector parameter is only available in Meilisearch >= v1.13.0
-            https://www.meilisearch.com/docs/reference/api/search#search-in-an-index
+            Common parameters include:
+            - hybrid: Dict with 'semanticRatio' and 'embedder' fields for hybrid search
+            - vector: Array of numbers for vector search
+            - retrieveVectors: Boolean to include vector data in search results
+            - filter: Filter queries by an attribute's value
+            - limit: Maximum number of documents returned
+            - offset: Number of documents to skip
 
         Returns
         -------
@@ -298,7 +310,9 @@ class Index:
         """
         if opt_params is None:
             opt_params = {}
+
         body = {"q": query, **opt_params}
+
         return self.http.post(
             f"{self.config.paths.index}/{self.uid}/{self.config.paths.search}",
             body=body,
@@ -361,7 +375,7 @@ class Index:
         """
         if parameters is None:
             parameters = {}
-        elif "fields" in parameters and isinstance(parameters["fields"], list):
+        elif "fields" in parameters and isinstance(parameters["fields"], (list, tuple)):
             parameters["fields"] = ",".join(parameters["fields"])
 
         document = self.http.get(
@@ -955,14 +969,7 @@ class Index:
         )
 
         if settings.get("embedders"):
-            embedders: dict[
-                str,
-                OpenAiEmbedder
-                | HuggingFaceEmbedder
-                | OllamaEmbedder
-                | RestEmbedder
-                | UserProvidedEmbedder,
-            ] = {}
+            embedders: dict[str, EmbedderType] = {}
             for k, v in settings["embedders"].items():
                 if v.get("source") == "openAi":
                     embedders[k] = OpenAiEmbedder(**v)
@@ -972,6 +979,8 @@ class Index:
                     embedders[k] = HuggingFaceEmbedder(**v)
                 elif v.get("source") == "rest":
                     embedders[k] = RestEmbedder(**v)
+                elif v.get("source") == "composite":
+                    embedders[k] = CompositeEmbedder(**v)
                 else:
                     embedders[k] = UserProvidedEmbedder(**v)
 
@@ -988,6 +997,26 @@ class Index:
         ----------
         body:
             Dictionary containing the settings of the index.
+            Supported settings include:
+            - 'rankingRules': List of ranking rules
+            - 'distinctAttribute': Attribute for deduplication
+            - 'searchableAttributes': Attributes that can be searched
+            - 'displayedAttributes': Attributes to display in search results
+            - 'stopWords': Words ignored in search queries
+            - 'synonyms': Dictionary of synonyms
+            - 'filterableAttributes': Attributes that can be used for filtering
+            - 'sortableAttributes': Attributes that can be used for sorting
+            - 'typoTolerance': Settings for typo tolerance
+            - 'pagination': Settings for pagination
+            - 'faceting': Settings for faceting
+            - 'dictionary': List of custom dictionary words
+            - 'separatorTokens': List of separator tokens
+            - 'nonSeparatorTokens': List of non-separator tokens
+            - 'embedders': Dictionary of embedder configurations for AI-powered search
+            - 'searchCutoffMs': Maximum search time in milliseconds
+            - 'proximityPrecision': Precision for proximity ranking
+            - 'localizedAttributes': Settings for localized attributes
+
             More information:
             https://www.meilisearch.com/docs/reference/api/settings#update-settings
 
@@ -1000,7 +1029,8 @@ class Index:
         Raises
         ------
         MeilisearchApiError
-            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+            An error containing details about why Meilisearch can't process your request.
+            Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
         if body.get("embedders"):
             for _, v in body["embedders"].items():
@@ -1636,6 +1666,57 @@ class Index:
 
         return TaskInfo(**task)
 
+    def get_facet_search_settings(self) -> bool:
+        """Get the facet search settings of an index.
+
+        Returns
+        -------
+        bool:
+            True if facet search is enabled, False if disabled.
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+
+        return self.http.get(self.__settings_url_for(self.config.paths.facet_search))
+
+    def update_facet_search_settings(self, body: Union[bool, None]) -> TaskInfo:
+        """Update the facet search settings of the index.
+
+        Parameters
+        ----------
+        body: bool
+            True to enable facet search, False to disable it.
+
+        Returns
+        -------
+        task_info:
+            TaskInfo instance containing information about a task to track the progress of an asynchronous process.
+            https://www.meilisearch.com/docs/reference/api/tasks#get-one-task
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        task = self.http.put(self.__settings_url_for(self.config.paths.facet_search), body=body)
+
+        return TaskInfo(**task)
+
+    def reset_facet_search_settings(self) -> TaskInfo:
+        """Reset facet search settings of the index to default values.
+
+        Returns
+        -------
+        task_info:
+            TaskInfo instance containing information about a task to track the progress of an asynchronous process.
+            https://www.meilisearch.com/docs/reference/api/tasks
+        """
+        task = self.http.delete(self.__settings_url_for(self.config.paths.facet_search))
+
+        return TaskInfo(**task)
+
     def get_faceting_settings(self) -> Faceting:
         """Get the faceting settings of an index.
 
@@ -1649,7 +1730,6 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-
         faceting = self.http.get(self.__settings_url_for(self.config.paths.faceting))
 
         return Faceting(**faceting)
@@ -1879,10 +1959,13 @@ class Index:
     def get_embedders(self) -> Embedders | None:
         """Get embedders of the index.
 
+        Retrieves the current embedder configuration from Meilisearch.
+
         Returns
         -------
-        settings:
-            The embedders settings of the index.
+        Embedders:
+            The embedders settings of the index, or None if no embedders are configured.
+            Contains a dictionary of embedder configurations, where keys are embedder names.
 
         Raises
         ------
@@ -1894,24 +1977,23 @@ class Index:
         if not response:
             return None
 
-        embedders: dict[
-            str,
-            OpenAiEmbedder
-            | HuggingFaceEmbedder
-            | OllamaEmbedder
-            | RestEmbedder
-            | UserProvidedEmbedder,
-        ] = {}
+        embedders: dict[str, EmbedderType] = {}
         for k, v in response.items():
-            if v.get("source") == "openAi":
+            source = v.get("source")
+            if source == "openAi":
                 embedders[k] = OpenAiEmbedder(**v)
-            elif v.get("source") == "ollama":
-                embedders[k] = OllamaEmbedder(**v)
-            elif v.get("source") == "huggingFace":
+            elif source == "huggingFace":
                 embedders[k] = HuggingFaceEmbedder(**v)
-            elif v.get("source") == "rest":
+            elif source == "ollama":
+                embedders[k] = OllamaEmbedder(**v)
+            elif source == "rest":
                 embedders[k] = RestEmbedder(**v)
+            elif source == "composite":
+                embedders[k] = CompositeEmbedder(**v)
+            elif source == "userProvided":
+                embedders[k] = UserProvidedEmbedder(**v)
             else:
+                # Default to UserProvidedEmbedder for unknown sources
                 embedders[k] = UserProvidedEmbedder(**v)
 
         return Embedders(embedders=embedders)
@@ -1919,10 +2001,13 @@ class Index:
     def update_embedders(self, body: Union[MutableMapping[str, Any], None]) -> TaskInfo:
         """Update embedders of the index.
 
+        Updates the embedder configuration for the index. The embedder configuration
+        determines how Meilisearch generates vector embeddings for documents.
+
         Parameters
         ----------
         body: dict
-            Dictionary containing the embedders.
+            Dictionary containing the embedders configuration.
 
         Returns
         -------
@@ -1933,13 +2018,30 @@ class Index:
         Raises
         ------
         MeilisearchApiError
-            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+            An error containing details about why Meilisearch can't process your request.
+            Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
+        if body is not None and body.get("embedders"):
+            embedders: dict[str, EmbedderType] = {}
+            for k, v in body["embedders"].items():
+                source = v.get("source")
+                if source == "openAi":
+                    embedders[k] = OpenAiEmbedder(**v)
+                elif source == "huggingFace":
+                    embedders[k] = HuggingFaceEmbedder(**v)
+                elif source == "ollama":
+                    embedders[k] = OllamaEmbedder(**v)
+                elif source == "rest":
+                    embedders[k] = RestEmbedder(**v)
+                elif source == "composite":
+                    embedders[k] = CompositeEmbedder(**v)
+                elif source == "userProvided":
+                    embedders[k] = UserProvidedEmbedder(**v)
+                else:
+                    # Default to UserProvidedEmbedder for unknown sources
+                    embedders[k] = UserProvidedEmbedder(**v)
 
-        if body:
-            for _, v in body.items():
-                if "documentTemplateMaxBytes" in v and v["documentTemplateMaxBytes"] is None:
-                    del v["documentTemplateMaxBytes"]
+            body = {"embedders": {k: v.model_dump(by_alias=True) for k, v in embedders.items()}}
 
         task = self.http.patch(self.__settings_url_for(self.config.paths.embedders), body)
 
@@ -1947,6 +2049,8 @@ class Index:
 
     def reset_embedders(self) -> TaskInfo:
         """Reset embedders of the index to default values.
+
+        Removes all embedder configurations from the index.
 
         Returns
         -------
@@ -2021,6 +2125,58 @@ class Index:
         """
         task = self.http.delete(
             self.__settings_url_for(self.config.paths.search_cutoff_ms),
+        )
+
+        return TaskInfo(**task)
+
+    # PREFIX SEARCH
+
+    def get_prefix_search(self) -> PrefixSearch:
+        """Get the prefix search settings of an index.
+
+        Returns
+        -------
+        settings:
+            The prefix search settings of the index.
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        prefix_search = self.http.get(self.__settings_url_for(self.config.paths.prefix_search))
+
+        return PrefixSearch[to_snake(prefix_search).upper()]
+
+    def update_prefix_search(self, body: Union[PrefixSearch, None]) -> TaskInfo:
+        """Update the prefix search settings of the index.
+
+        Parameters
+        ----------
+        body:
+            Prefix search settings
+
+        Returns
+        -------
+        task_info:
+            TaskInfo instance containing information about a task to track the progress of an asynchronous process.
+            https://www.meilisearch.com/docs/reference/api/tasks
+        """
+        task = self.http.put(self.__settings_url_for(self.config.paths.prefix_search), body)
+
+        return TaskInfo(**task)
+
+    def reset_prefix_search(self) -> TaskInfo:
+        """Reset the prefix search settings of the index
+
+        Returns
+        -------
+        task_info:
+            TaskInfo instance containing information about a task to track the progress of an asynchronous process.
+            https://www.meilisearch.com/docs/reference/api/tasks
+        """
+        task = self.http.delete(
+            self.__settings_url_for(self.config.paths.prefix_search),
         )
 
         return TaskInfo(**task)

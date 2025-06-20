@@ -1,7 +1,7 @@
 r'''
 # `aws_api_gateway_method`
 
-Refer to the Terraform Registry for docs: [`aws_api_gateway_method`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method).
+Refer to the Terraform Registry for docs: [`aws_api_gateway_method`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiGatewayMethod(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.apiGatewayMethod.ApiGatewayMethod",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method aws_api_gateway_method}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method aws_api_gateway_method}.'''
 
     def __init__(
         self,
@@ -60,6 +60,7 @@ class ApiGatewayMethod(
         authorizer_id: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         operation_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         request_models: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         request_parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]] = None,
         request_validator_id: typing.Optional[builtins.str] = None,
@@ -71,22 +72,23 @@ class ApiGatewayMethod(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method aws_api_gateway_method} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method aws_api_gateway_method} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorization ApiGatewayMethod#authorization}.
-        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#http_method ApiGatewayMethod#http_method}.
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#resource_id ApiGatewayMethod#resource_id}.
-        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#rest_api_id ApiGatewayMethod#rest_api_id}.
-        :param api_key_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#api_key_required ApiGatewayMethod#api_key_required}.
-        :param authorization_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorization_scopes ApiGatewayMethod#authorization_scopes}.
-        :param authorizer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorizer_id ApiGatewayMethod#authorizer_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#id ApiGatewayMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param operation_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#operation_name ApiGatewayMethod#operation_name}.
-        :param request_models: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_models ApiGatewayMethod#request_models}.
-        :param request_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_parameters ApiGatewayMethod#request_parameters}.
-        :param request_validator_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_validator_id ApiGatewayMethod#request_validator_id}.
+        :param authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorization ApiGatewayMethod#authorization}.
+        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#http_method ApiGatewayMethod#http_method}.
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#resource_id ApiGatewayMethod#resource_id}.
+        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#rest_api_id ApiGatewayMethod#rest_api_id}.
+        :param api_key_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#api_key_required ApiGatewayMethod#api_key_required}.
+        :param authorization_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorization_scopes ApiGatewayMethod#authorization_scopes}.
+        :param authorizer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorizer_id ApiGatewayMethod#authorizer_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#id ApiGatewayMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param operation_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#operation_name ApiGatewayMethod#operation_name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#region ApiGatewayMethod#region}
+        :param request_models: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_models ApiGatewayMethod#request_models}.
+        :param request_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_parameters ApiGatewayMethod#request_parameters}.
+        :param request_validator_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_validator_id ApiGatewayMethod#request_validator_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,6 +111,7 @@ class ApiGatewayMethod(
             authorizer_id=authorizer_id,
             id=id,
             operation_name=operation_name,
+            region=region,
             request_models=request_models,
             request_parameters=request_parameters,
             request_validator_id=request_validator_id,
@@ -136,7 +139,7 @@ class ApiGatewayMethod(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiGatewayMethod to import.
-        :param import_from_id: The id of the existing ApiGatewayMethod that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiGatewayMethod that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiGatewayMethod to import is found.
         '''
         if __debug__:
@@ -166,6 +169,10 @@ class ApiGatewayMethod(
     @jsii.member(jsii_name="resetOperationName")
     def reset_operation_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetOperationName", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRequestModels")
     def reset_request_models(self) -> None:
@@ -228,6 +235,11 @@ class ApiGatewayMethod(
     @jsii.member(jsii_name="operationNameInput")
     def operation_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "operationNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="requestModelsInput")
@@ -348,6 +360,18 @@ class ApiGatewayMethod(
         jsii.set(self, "operationName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eeff1c4ae2115d94972581ecaf9d2ce3280ff3f0d8b4811c1960fbf6d671a9f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="requestModels")
     def request_models(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "requestModels"))
@@ -433,6 +457,7 @@ class ApiGatewayMethod(
         "authorizer_id": "authorizerId",
         "id": "id",
         "operation_name": "operationName",
+        "region": "region",
         "request_models": "requestModels",
         "request_parameters": "requestParameters",
         "request_validator_id": "requestValidatorId",
@@ -458,6 +483,7 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         authorizer_id: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         operation_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         request_models: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         request_parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]] = None,
         request_validator_id: typing.Optional[builtins.str] = None,
@@ -470,18 +496,19 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorization ApiGatewayMethod#authorization}.
-        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#http_method ApiGatewayMethod#http_method}.
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#resource_id ApiGatewayMethod#resource_id}.
-        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#rest_api_id ApiGatewayMethod#rest_api_id}.
-        :param api_key_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#api_key_required ApiGatewayMethod#api_key_required}.
-        :param authorization_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorization_scopes ApiGatewayMethod#authorization_scopes}.
-        :param authorizer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorizer_id ApiGatewayMethod#authorizer_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#id ApiGatewayMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param operation_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#operation_name ApiGatewayMethod#operation_name}.
-        :param request_models: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_models ApiGatewayMethod#request_models}.
-        :param request_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_parameters ApiGatewayMethod#request_parameters}.
-        :param request_validator_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_validator_id ApiGatewayMethod#request_validator_id}.
+        :param authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorization ApiGatewayMethod#authorization}.
+        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#http_method ApiGatewayMethod#http_method}.
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#resource_id ApiGatewayMethod#resource_id}.
+        :param rest_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#rest_api_id ApiGatewayMethod#rest_api_id}.
+        :param api_key_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#api_key_required ApiGatewayMethod#api_key_required}.
+        :param authorization_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorization_scopes ApiGatewayMethod#authorization_scopes}.
+        :param authorizer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorizer_id ApiGatewayMethod#authorizer_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#id ApiGatewayMethod#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param operation_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#operation_name ApiGatewayMethod#operation_name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#region ApiGatewayMethod#region}
+        :param request_models: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_models ApiGatewayMethod#request_models}.
+        :param request_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_parameters ApiGatewayMethod#request_parameters}.
+        :param request_validator_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_validator_id ApiGatewayMethod#request_validator_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -503,6 +530,7 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument authorizer_id", value=authorizer_id, expected_type=type_hints["authorizer_id"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument operation_name", value=operation_name, expected_type=type_hints["operation_name"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument request_models", value=request_models, expected_type=type_hints["request_models"])
             check_type(argname="argument request_parameters", value=request_parameters, expected_type=type_hints["request_parameters"])
             check_type(argname="argument request_validator_id", value=request_validator_id, expected_type=type_hints["request_validator_id"])
@@ -536,6 +564,8 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if operation_name is not None:
             self._values["operation_name"] = operation_name
+        if region is not None:
+            self._values["region"] = region
         if request_models is not None:
             self._values["request_models"] = request_models
         if request_parameters is not None:
@@ -609,28 +639,28 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def authorization(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorization ApiGatewayMethod#authorization}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorization ApiGatewayMethod#authorization}.'''
         result = self._values.get("authorization")
         assert result is not None, "Required property 'authorization' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def http_method(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#http_method ApiGatewayMethod#http_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#http_method ApiGatewayMethod#http_method}.'''
         result = self._values.get("http_method")
         assert result is not None, "Required property 'http_method' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#resource_id ApiGatewayMethod#resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#resource_id ApiGatewayMethod#resource_id}.'''
         result = self._values.get("resource_id")
         assert result is not None, "Required property 'resource_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rest_api_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#rest_api_id ApiGatewayMethod#rest_api_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#rest_api_id ApiGatewayMethod#rest_api_id}.'''
         result = self._values.get("rest_api_id")
         assert result is not None, "Required property 'rest_api_id' is missing"
         return typing.cast(builtins.str, result)
@@ -639,25 +669,25 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_key_required(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#api_key_required ApiGatewayMethod#api_key_required}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#api_key_required ApiGatewayMethod#api_key_required}.'''
         result = self._values.get("api_key_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def authorization_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorization_scopes ApiGatewayMethod#authorization_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorization_scopes ApiGatewayMethod#authorization_scopes}.'''
         result = self._values.get("authorization_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def authorizer_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#authorizer_id ApiGatewayMethod#authorizer_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#authorizer_id ApiGatewayMethod#authorizer_id}.'''
         result = self._values.get("authorizer_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#id ApiGatewayMethod#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#id ApiGatewayMethod#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -667,15 +697,24 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def operation_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#operation_name ApiGatewayMethod#operation_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#operation_name ApiGatewayMethod#operation_name}.'''
         result = self._values.get("operation_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#region ApiGatewayMethod#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def request_models(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_models ApiGatewayMethod#request_models}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_models ApiGatewayMethod#request_models}.'''
         result = self._values.get("request_models")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -683,13 +722,13 @@ class ApiGatewayMethodConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def request_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_parameters ApiGatewayMethod#request_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_parameters ApiGatewayMethod#request_parameters}.'''
         result = self._values.get("request_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]], result)
 
     @builtins.property
     def request_validator_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_method#request_validator_id ApiGatewayMethod#request_validator_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_method#request_validator_id ApiGatewayMethod#request_validator_id}.'''
         result = self._values.get("request_validator_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -725,6 +764,7 @@ def _typecheckingstub__5467437ef988e99e38eaa3c5018d1e40b00bddd824804abfd4d1cf311
     authorizer_id: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     operation_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     request_models: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     request_parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]] = None,
     request_validator_id: typing.Optional[builtins.str] = None,
@@ -790,6 +830,12 @@ def _typecheckingstub__effcd83daf0c2823664458302f327b56fabe75fe65454fb74788a8bbb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eeff1c4ae2115d94972581ecaf9d2ce3280ff3f0d8b4811c1960fbf6d671a9f0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__10b06c26d71dae0e975df519df58f839b317b57786f131d91f8e80b9b054cb0f(
     value: typing.Mapping[builtins.str, builtins.str],
 ) -> None:
@@ -838,6 +884,7 @@ def _typecheckingstub__66f33663312413a025e1944653191c069e1df1d9cd0c82bb6acefb8b4
     authorizer_id: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     operation_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     request_models: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     request_parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]] = None,
     request_validator_id: typing.Optional[builtins.str] = None,

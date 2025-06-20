@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "20.1.0",
+    "version": "21.0.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -826,7 +826,6 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.data_aws_redshift_data_shares",
         "cdktf_cdktf_provider_aws.data_aws_redshift_orderable_cluster",
         "cdktf_cdktf_provider_aws.data_aws_redshift_producer_data_shares",
-        "cdktf_cdktf_provider_aws.data_aws_redshift_service_account",
         "cdktf_cdktf_provider_aws.data_aws_redshift_subnet_group",
         "cdktf_cdktf_provider_aws.data_aws_redshiftserverless_credentials",
         "cdktf_cdktf_provider_aws.data_aws_redshiftserverless_namespace",
@@ -1608,23 +1607,6 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.opensearchserverless_security_config",
         "cdktf_cdktf_provider_aws.opensearchserverless_security_policy",
         "cdktf_cdktf_provider_aws.opensearchserverless_vpc_endpoint",
-        "cdktf_cdktf_provider_aws.opsworks_application",
-        "cdktf_cdktf_provider_aws.opsworks_custom_layer",
-        "cdktf_cdktf_provider_aws.opsworks_ecs_cluster_layer",
-        "cdktf_cdktf_provider_aws.opsworks_ganglia_layer",
-        "cdktf_cdktf_provider_aws.opsworks_haproxy_layer",
-        "cdktf_cdktf_provider_aws.opsworks_instance",
-        "cdktf_cdktf_provider_aws.opsworks_java_app_layer",
-        "cdktf_cdktf_provider_aws.opsworks_memcached_layer",
-        "cdktf_cdktf_provider_aws.opsworks_mysql_layer",
-        "cdktf_cdktf_provider_aws.opsworks_nodejs_app_layer",
-        "cdktf_cdktf_provider_aws.opsworks_permission",
-        "cdktf_cdktf_provider_aws.opsworks_php_app_layer",
-        "cdktf_cdktf_provider_aws.opsworks_rails_app_layer",
-        "cdktf_cdktf_provider_aws.opsworks_rds_db_instance",
-        "cdktf_cdktf_provider_aws.opsworks_stack",
-        "cdktf_cdktf_provider_aws.opsworks_static_web_layer",
-        "cdktf_cdktf_provider_aws.opsworks_user_profile",
         "cdktf_cdktf_provider_aws.organizations_account",
         "cdktf_cdktf_provider_aws.organizations_delegated_administrator",
         "cdktf_cdktf_provider_aws.organizations_organization",
@@ -1961,7 +1943,6 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.signer_signing_job",
         "cdktf_cdktf_provider_aws.signer_signing_profile",
         "cdktf_cdktf_provider_aws.signer_signing_profile_permission",
-        "cdktf_cdktf_provider_aws.simpledb_domain",
         "cdktf_cdktf_provider_aws.snapshot_create_volume_permission",
         "cdktf_cdktf_provider_aws.sns_platform_application",
         "cdktf_cdktf_provider_aws.sns_sms_preferences",
@@ -2142,8 +2123,6 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.wafv2_web_acl",
         "cdktf_cdktf_provider_aws.wafv2_web_acl_association",
         "cdktf_cdktf_provider_aws.wafv2_web_acl_logging_configuration",
-        "cdktf_cdktf_provider_aws.worklink_fleet",
-        "cdktf_cdktf_provider_aws.worklink_website_certificate_authority_association",
         "cdktf_cdktf_provider_aws.workspaces_connection_alias",
         "cdktf_cdktf_provider_aws.workspaces_directory",
         "cdktf_cdktf_provider_aws.workspaces_ip_group",
@@ -2161,7 +2140,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@20.1.0.jsii.tgz"
+            "provider-aws@21.0.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

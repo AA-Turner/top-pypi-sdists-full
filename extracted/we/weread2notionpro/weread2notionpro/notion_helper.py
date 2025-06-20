@@ -553,7 +553,7 @@ class NotionHelper:
             results.extend(response.get("results"))
         return results
 
-    def get_date_relation(self, properties, date):
+    def get_date_relation(self, properties, date,include=True):
         if self.year_database_id is not None:
             properties["年"] = get_relation(
                 [
@@ -572,7 +572,7 @@ class NotionHelper:
                     self.get_week_relation_id(date),
                 ]
             )
-        if self.day_database_id is not None:
+        if (self.day_database_id is not None) and include:
             properties["日"] = get_relation(
                 [
                     self.get_day_relation_id(date),

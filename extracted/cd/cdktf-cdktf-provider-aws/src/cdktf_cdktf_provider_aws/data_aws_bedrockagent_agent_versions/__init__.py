@@ -1,7 +1,7 @@
 r'''
 # `data_aws_bedrockagent_agent_versions`
 
-Refer to the Terraform Registry for docs: [`data_aws_bedrockagent_agent_versions`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions).
+Refer to the Terraform Registry for docs: [`data_aws_bedrockagent_agent_versions`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsBedrockagentAgentVersions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsBedrockagentAgentVersions.DataAwsBedrockagentAgentVersions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions aws_bedrockagent_agent_versions}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions aws_bedrockagent_agent_versions}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class DataAwsBedrockagentAgentVersions(
         *,
         agent_id: builtins.str,
         agent_version_summaries: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsBedrockagentAgentVersionsAgentVersionSummaries", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -61,12 +62,13 @@ class DataAwsBedrockagentAgentVersions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions aws_bedrockagent_agent_versions} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions aws_bedrockagent_agent_versions} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param agent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#agent_id DataAwsBedrockagentAgentVersions#agent_id}.
-        :param agent_version_summaries: agent_version_summaries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#agent_version_summaries DataAwsBedrockagentAgentVersions#agent_version_summaries}
+        :param agent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#agent_id DataAwsBedrockagentAgentVersions#agent_id}.
+        :param agent_version_summaries: agent_version_summaries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#agent_version_summaries DataAwsBedrockagentAgentVersions#agent_version_summaries}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#region DataAwsBedrockagentAgentVersions#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -82,6 +84,7 @@ class DataAwsBedrockagentAgentVersions(
         config = DataAwsBedrockagentAgentVersionsConfig(
             agent_id=agent_id,
             agent_version_summaries=agent_version_summaries,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -106,7 +109,7 @@ class DataAwsBedrockagentAgentVersions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsBedrockagentAgentVersions to import.
-        :param import_from_id: The id of the existing DataAwsBedrockagentAgentVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsBedrockagentAgentVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsBedrockagentAgentVersions to import is found.
         '''
         if __debug__:
@@ -133,6 +136,10 @@ class DataAwsBedrockagentAgentVersions(
     @jsii.member(jsii_name="resetAgentVersionSummaries")
     def reset_agent_version_summaries(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAgentVersionSummaries", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -167,6 +174,11 @@ class DataAwsBedrockagentAgentVersions(
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsBedrockagentAgentVersionsAgentVersionSummaries"]]], jsii.get(self, "agentVersionSummariesInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="agentId")
     def agent_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "agentId"))
@@ -177,6 +189,18 @@ class DataAwsBedrockagentAgentVersions(
             type_hints = typing.get_type_hints(_typecheckingstub__4202816450e0c50b0f78c15a43765d328b39603e1fea19a3baa84a0f96b2a0bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "agentId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b889497d3ae270ecdae755ed958e833c209e5383edae57cf821d30c40904bd26)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -191,7 +215,7 @@ class DataAwsBedrockagentAgentVersionsAgentVersionSummaries:
         guardrail_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsBedrockagentAgentVersionsAgentVersionSummariesGuardrailConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param guardrail_configuration: guardrail_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#guardrail_configuration DataAwsBedrockagentAgentVersions#guardrail_configuration}
+        :param guardrail_configuration: guardrail_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#guardrail_configuration DataAwsBedrockagentAgentVersions#guardrail_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3aef3fc6ff252a63935f2cc128e327ff3523027518b021c6badb52d326d4815)
@@ -206,7 +230,7 @@ class DataAwsBedrockagentAgentVersionsAgentVersionSummaries:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsBedrockagentAgentVersionsAgentVersionSummariesGuardrailConfiguration"]]]:
         '''guardrail_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#guardrail_configuration DataAwsBedrockagentAgentVersions#guardrail_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#guardrail_configuration DataAwsBedrockagentAgentVersions#guardrail_configuration}
         '''
         result = self._values.get("guardrail_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsBedrockagentAgentVersionsAgentVersionSummariesGuardrailConfiguration"]]], result)
@@ -602,6 +626,7 @@ class DataAwsBedrockagentAgentVersionsAgentVersionSummariesOutputReference(
         "provisioners": "provisioners",
         "agent_id": "agentId",
         "agent_version_summaries": "agentVersionSummaries",
+        "region": "region",
     },
 )
 class DataAwsBedrockagentAgentVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -617,6 +642,7 @@ class DataAwsBedrockagentAgentVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         agent_id: builtins.str,
         agent_version_summaries: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsBedrockagentAgentVersionsAgentVersionSummaries, typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -626,8 +652,9 @@ class DataAwsBedrockagentAgentVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param agent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#agent_id DataAwsBedrockagentAgentVersions#agent_id}.
-        :param agent_version_summaries: agent_version_summaries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#agent_version_summaries DataAwsBedrockagentAgentVersions#agent_version_summaries}
+        :param agent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#agent_id DataAwsBedrockagentAgentVersions#agent_id}.
+        :param agent_version_summaries: agent_version_summaries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#agent_version_summaries DataAwsBedrockagentAgentVersions#agent_version_summaries}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#region DataAwsBedrockagentAgentVersions#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -642,6 +669,7 @@ class DataAwsBedrockagentAgentVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument agent_id", value=agent_id, expected_type=type_hints["agent_id"])
             check_type(argname="argument agent_version_summaries", value=agent_version_summaries, expected_type=type_hints["agent_version_summaries"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "agent_id": agent_id,
         }
@@ -661,6 +689,8 @@ class DataAwsBedrockagentAgentVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
             self._values["provisioners"] = provisioners
         if agent_version_summaries is not None:
             self._values["agent_version_summaries"] = agent_version_summaries
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -728,7 +758,7 @@ class DataAwsBedrockagentAgentVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def agent_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#agent_id DataAwsBedrockagentAgentVersions#agent_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#agent_id DataAwsBedrockagentAgentVersions#agent_id}.'''
         result = self._values.get("agent_id")
         assert result is not None, "Required property 'agent_id' is missing"
         return typing.cast(builtins.str, result)
@@ -739,10 +769,19 @@ class DataAwsBedrockagentAgentVersionsConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsBedrockagentAgentVersionsAgentVersionSummaries]]]:
         '''agent_version_summaries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/bedrockagent_agent_versions#agent_version_summaries DataAwsBedrockagentAgentVersions#agent_version_summaries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#agent_version_summaries DataAwsBedrockagentAgentVersions#agent_version_summaries}
         '''
         result = self._values.get("agent_version_summaries")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsBedrockagentAgentVersionsAgentVersionSummaries]]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/bedrockagent_agent_versions#region DataAwsBedrockagentAgentVersions#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -775,6 +814,7 @@ def _typecheckingstub__051bcd11f5444467cc8db952b0a5a16cc36f4f8107835a90197957933
     *,
     agent_id: builtins.str,
     agent_version_summaries: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsBedrockagentAgentVersionsAgentVersionSummaries, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -802,6 +842,12 @@ def _typecheckingstub__47893d86d9fc53cfebf38de83e2ef1adb917ad74351313646ab6a4400
     pass
 
 def _typecheckingstub__4202816450e0c50b0f78c15a43765d328b39603e1fea19a3baa84a0f96b2a0bf(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b889497d3ae270ecdae755ed958e833c209e5383edae57cf821d30c40904bd26(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -937,6 +983,7 @@ def _typecheckingstub__bc925e3236f9ca1248b4e376e61bc19508300da0c06dff24cecd2cc94
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     agent_id: builtins.str,
     agent_version_summaries: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsBedrockagentAgentVersionsAgentVersionSummaries, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

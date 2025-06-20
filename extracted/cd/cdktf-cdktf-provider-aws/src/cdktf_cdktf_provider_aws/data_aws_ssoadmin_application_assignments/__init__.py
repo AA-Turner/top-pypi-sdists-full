@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ssoadmin_application_assignments`
 
-Refer to the Terraform Registry for docs: [`data_aws_ssoadmin_application_assignments`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments).
+Refer to the Terraform Registry for docs: [`data_aws_ssoadmin_application_assignments`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsSsoadminApplicationAssignments(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsSsoadminApplicationAssignments.DataAwsSsoadminApplicationAssignments",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments aws_ssoadmin_application_assignments}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments aws_ssoadmin_application_assignments}.'''
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class DataAwsSsoadminApplicationAssignments(
         id: builtins.str,
         *,
         application_arn: builtins.str,
-        application_assignments: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationAssignmentsApplicationAssignments", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -61,12 +61,12 @@ class DataAwsSsoadminApplicationAssignments(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments aws_ssoadmin_application_assignments} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments aws_ssoadmin_application_assignments} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments#application_arn DataAwsSsoadminApplicationAssignments#application_arn}.
-        :param application_assignments: application_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments#application_assignments DataAwsSsoadminApplicationAssignments#application_assignments}
+        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments#application_arn DataAwsSsoadminApplicationAssignments#application_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments#region DataAwsSsoadminApplicationAssignments#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -81,7 +81,7 @@ class DataAwsSsoadminApplicationAssignments(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsSsoadminApplicationAssignmentsConfig(
             application_arn=application_arn,
-            application_assignments=application_assignments,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -106,7 +106,7 @@ class DataAwsSsoadminApplicationAssignments(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsSsoadminApplicationAssignments to import.
-        :param import_from_id: The id of the existing DataAwsSsoadminApplicationAssignments that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsSsoadminApplicationAssignments that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsSsoadminApplicationAssignments to import is found.
         '''
         if __debug__:
@@ -117,22 +117,9 @@ class DataAwsSsoadminApplicationAssignments(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putApplicationAssignments")
-    def put_application_assignments(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationAssignmentsApplicationAssignments", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac97c2af767f5eadd36a5d2e8e15d430273b2715e48ef638df01d84f7711c11f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putApplicationAssignments", [value]))
-
-    @jsii.member(jsii_name="resetApplicationAssignments")
-    def reset_application_assignments(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetApplicationAssignments", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -165,11 +152,9 @@ class DataAwsSsoadminApplicationAssignments(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationArnInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="applicationAssignmentsInput")
-    def application_assignments_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationAssignmentsApplicationAssignments"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationAssignmentsApplicationAssignments"]]], jsii.get(self, "applicationAssignmentsInput"))
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationArn")
@@ -182,6 +167,18 @@ class DataAwsSsoadminApplicationAssignments(
             type_hints = typing.get_type_hints(_typecheckingstub__65a974652fe9b5f24605b573f025afbff72396004a4f70443c4ecc333b347733)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c57017edea1b51fcd590c5f5caf6ff8bd7787a523a501fc617a9f44f10b9ee0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -280,23 +277,6 @@ class DataAwsSsoadminApplicationAssignmentsApplicationAssignmentsList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationAssignmentsApplicationAssignments]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationAssignmentsApplicationAssignments]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationAssignmentsApplicationAssignments]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c276dfa3b23113c67784ddef9f9e40bcf98e647b38fffdafc327d547a5b22aac)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsSsoadminApplicationAssignmentsApplicationAssignmentsOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -343,13 +323,13 @@ class DataAwsSsoadminApplicationAssignmentsApplicationAssignmentsOutputReference
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationAssignmentsApplicationAssignments]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationAssignmentsApplicationAssignments]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsSsoadminApplicationAssignmentsApplicationAssignments]:
+        return typing.cast(typing.Optional[DataAwsSsoadminApplicationAssignmentsApplicationAssignments], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationAssignmentsApplicationAssignments]],
+        value: typing.Optional[DataAwsSsoadminApplicationAssignmentsApplicationAssignments],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a22051cb4890aab8f3bd9e7f0e4df565548610e8d423ebc134b3c30ab40d5f3d)
@@ -369,7 +349,7 @@ class DataAwsSsoadminApplicationAssignmentsApplicationAssignmentsOutputReference
         "provider": "provider",
         "provisioners": "provisioners",
         "application_arn": "applicationArn",
-        "application_assignments": "applicationAssignments",
+        "region": "region",
     },
 )
 class DataAwsSsoadminApplicationAssignmentsConfig(
@@ -386,7 +366,7 @@ class DataAwsSsoadminApplicationAssignmentsConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         application_arn: builtins.str,
-        application_assignments: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationAssignmentsApplicationAssignments, typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -396,8 +376,8 @@ class DataAwsSsoadminApplicationAssignmentsConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments#application_arn DataAwsSsoadminApplicationAssignments#application_arn}.
-        :param application_assignments: application_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments#application_assignments DataAwsSsoadminApplicationAssignments#application_assignments}
+        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments#application_arn DataAwsSsoadminApplicationAssignments#application_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments#region DataAwsSsoadminApplicationAssignments#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -411,7 +391,7 @@ class DataAwsSsoadminApplicationAssignmentsConfig(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument application_assignments", value=application_assignments, expected_type=type_hints["application_assignments"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_arn": application_arn,
         }
@@ -429,8 +409,8 @@ class DataAwsSsoadminApplicationAssignmentsConfig(
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if application_assignments is not None:
-            self._values["application_assignments"] = application_assignments
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -498,21 +478,19 @@ class DataAwsSsoadminApplicationAssignmentsConfig(
 
     @builtins.property
     def application_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments#application_arn DataAwsSsoadminApplicationAssignments#application_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments#application_arn DataAwsSsoadminApplicationAssignments#application_arn}.'''
         result = self._values.get("application_arn")
         assert result is not None, "Required property 'application_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def application_assignments(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationAssignmentsApplicationAssignments]]]:
-        '''application_assignments block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_assignments#application_assignments DataAwsSsoadminApplicationAssignments#application_assignments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_assignments#region DataAwsSsoadminApplicationAssignments#region}
         '''
-        result = self._values.get("application_assignments")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationAssignmentsApplicationAssignments]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -541,7 +519,7 @@ def _typecheckingstub__762e75500b27f6be92282506e29e133a93c281cfbfa11c85fc6eff725
     id: builtins.str,
     *,
     application_arn: builtins.str,
-    application_assignments: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationAssignmentsApplicationAssignments, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -562,13 +540,13 @@ def _typecheckingstub__7674527e9f6eaaf2dc9c3b970dfde31d0948bbddc249863f94c1a7a3f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ac97c2af767f5eadd36a5d2e8e15d430273b2715e48ef638df01d84f7711c11f(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationAssignmentsApplicationAssignments, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__65a974652fe9b5f24605b573f025afbff72396004a4f70443c4ecc333b347733(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__65a974652fe9b5f24605b573f025afbff72396004a4f70443c4ecc333b347733(
+def _typecheckingstub__4c57017edea1b51fcd590c5f5caf6ff8bd7787a523a501fc617a9f44f10b9ee0(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -606,12 +584,6 @@ def _typecheckingstub__3912a6c64e469d66c47f519f4b3a7fdc16466f286fd6abbcf4a2612ca
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c276dfa3b23113c67784ddef9f9e40bcf98e647b38fffdafc327d547a5b22aac(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationAssignmentsApplicationAssignments]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e8b9f3730c822c09e0252698127a36f661bf845e1def9f41a45ba3e66a2070e6(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -622,7 +594,7 @@ def _typecheckingstub__e8b9f3730c822c09e0252698127a36f661bf845e1def9f41a45ba3e66
     pass
 
 def _typecheckingstub__a22051cb4890aab8f3bd9e7f0e4df565548610e8d423ebc134b3c30ab40d5f3d(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationAssignmentsApplicationAssignments]],
+    value: typing.Optional[DataAwsSsoadminApplicationAssignmentsApplicationAssignments],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -637,7 +609,7 @@ def _typecheckingstub__cf3235879d9b8edf40f6f443b976a897f9518c5f7782b81a7caa0f73d
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     application_arn: builtins.str,
-    application_assignments: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationAssignmentsApplicationAssignments, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

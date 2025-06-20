@@ -1,7 +1,7 @@
 r'''
 # `data_aws_glue_catalog_table`
 
-Refer to the Terraform Registry for docs: [`data_aws_glue_catalog_table`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table).
+Refer to the Terraform Registry for docs: [`data_aws_glue_catalog_table`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsGlueCatalogTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsGlueCatalogTable.DataAwsGlueCatalogTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table aws_glue_catalog_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table aws_glue_catalog_table}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class DataAwsGlueCatalogTable(
         catalog_id: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         query_as_of_time: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         transaction_id: typing.Optional[jsii.Number] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -65,16 +66,17 @@ class DataAwsGlueCatalogTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table aws_glue_catalog_table} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table aws_glue_catalog_table} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#database_name DataAwsGlueCatalogTable#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#name DataAwsGlueCatalogTable#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#catalog_id DataAwsGlueCatalogTable#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#id DataAwsGlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param query_as_of_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#query_as_of_time DataAwsGlueCatalogTable#query_as_of_time}.
-        :param transaction_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#transaction_id DataAwsGlueCatalogTable#transaction_id}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#database_name DataAwsGlueCatalogTable#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#name DataAwsGlueCatalogTable#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#catalog_id DataAwsGlueCatalogTable#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#id DataAwsGlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param query_as_of_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#query_as_of_time DataAwsGlueCatalogTable#query_as_of_time}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#region DataAwsGlueCatalogTable#region}
+        :param transaction_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#transaction_id DataAwsGlueCatalogTable#transaction_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -93,6 +95,7 @@ class DataAwsGlueCatalogTable(
             catalog_id=catalog_id,
             id=id,
             query_as_of_time=query_as_of_time,
+            region=region,
             transaction_id=transaction_id,
             connection=connection,
             count=count,
@@ -118,7 +121,7 @@ class DataAwsGlueCatalogTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsGlueCatalogTable to import.
-        :param import_from_id: The id of the existing DataAwsGlueCatalogTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsGlueCatalogTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsGlueCatalogTable to import is found.
         '''
         if __debug__:
@@ -140,6 +143,10 @@ class DataAwsGlueCatalogTable(
     @jsii.member(jsii_name="resetQueryAsOfTime")
     def reset_query_as_of_time(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetQueryAsOfTime", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTransactionId")
     def reset_transaction_id(self) -> None:
@@ -244,6 +251,11 @@ class DataAwsGlueCatalogTable(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "queryAsOfTimeInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="transactionIdInput")
     def transaction_id_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "transactionIdInput"))
@@ -309,6 +321,18 @@ class DataAwsGlueCatalogTable(
         jsii.set(self, "queryAsOfTime", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d275ed54fe5377bf4d4e73d18da12651ea02633c83c579232079bcf9a3045a42)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="transactionId")
     def transaction_id(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "transactionId"))
@@ -337,6 +361,7 @@ class DataAwsGlueCatalogTable(
         "catalog_id": "catalogId",
         "id": "id",
         "query_as_of_time": "queryAsOfTime",
+        "region": "region",
         "transaction_id": "transactionId",
     },
 )
@@ -356,6 +381,7 @@ class DataAwsGlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         catalog_id: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         query_as_of_time: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         transaction_id: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -366,12 +392,13 @@ class DataAwsGlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#database_name DataAwsGlueCatalogTable#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#name DataAwsGlueCatalogTable#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#catalog_id DataAwsGlueCatalogTable#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#id DataAwsGlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param query_as_of_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#query_as_of_time DataAwsGlueCatalogTable#query_as_of_time}.
-        :param transaction_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#transaction_id DataAwsGlueCatalogTable#transaction_id}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#database_name DataAwsGlueCatalogTable#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#name DataAwsGlueCatalogTable#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#catalog_id DataAwsGlueCatalogTable#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#id DataAwsGlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param query_as_of_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#query_as_of_time DataAwsGlueCatalogTable#query_as_of_time}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#region DataAwsGlueCatalogTable#region}
+        :param transaction_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#transaction_id DataAwsGlueCatalogTable#transaction_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -389,6 +416,7 @@ class DataAwsGlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument query_as_of_time", value=query_as_of_time, expected_type=type_hints["query_as_of_time"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument transaction_id", value=transaction_id, expected_type=type_hints["transaction_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "database_name": database_name,
@@ -414,6 +442,8 @@ class DataAwsGlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if query_as_of_time is not None:
             self._values["query_as_of_time"] = query_as_of_time
+        if region is not None:
+            self._values["region"] = region
         if transaction_id is not None:
             self._values["transaction_id"] = transaction_id
 
@@ -483,27 +513,27 @@ class DataAwsGlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#database_name DataAwsGlueCatalogTable#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#database_name DataAwsGlueCatalogTable#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#name DataAwsGlueCatalogTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#name DataAwsGlueCatalogTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#catalog_id DataAwsGlueCatalogTable#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#catalog_id DataAwsGlueCatalogTable#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#id DataAwsGlueCatalogTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#id DataAwsGlueCatalogTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -513,13 +543,22 @@ class DataAwsGlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def query_as_of_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#query_as_of_time DataAwsGlueCatalogTable#query_as_of_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#query_as_of_time DataAwsGlueCatalogTable#query_as_of_time}.'''
         result = self._values.get("query_as_of_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#region DataAwsGlueCatalogTable#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def transaction_id(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/glue_catalog_table#transaction_id DataAwsGlueCatalogTable#transaction_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/glue_catalog_table#transaction_id DataAwsGlueCatalogTable#transaction_id}.'''
         result = self._values.get("transaction_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2199,6 +2238,7 @@ def _typecheckingstub__4613541b4736f90ab8768a19a225d0e24bb566e29d6a994c79266dfa4
     catalog_id: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     query_as_of_time: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     transaction_id: typing.Optional[jsii.Number] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -2250,6 +2290,12 @@ def _typecheckingstub__2c5a4ed8cd84923acbf66442f4f66db133cf0e9de2e08a7348e9ef000
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d275ed54fe5377bf4d4e73d18da12651ea02633c83c579232079bcf9a3045a42(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__caa71df1a7e688f0d87e5a70167437a01592ecd85ce11444f1fe5b5343b001f0(
     value: jsii.Number,
 ) -> None:
@@ -2270,6 +2316,7 @@ def _typecheckingstub__e206a4760b02c51c29f04a7ebfc24afca15bf3f2b99e4e9ce10169d7b
     catalog_id: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     query_as_of_time: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     transaction_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

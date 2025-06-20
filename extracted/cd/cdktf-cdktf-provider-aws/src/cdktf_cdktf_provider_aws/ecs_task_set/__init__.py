@@ -1,7 +1,7 @@
 r'''
 # `aws_ecs_task_set`
 
-Refer to the Terraform Registry for docs: [`aws_ecs_task_set`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set).
+Refer to the Terraform Registry for docs: [`aws_ecs_task_set`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EcsTaskSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ecsTaskSet.EcsTaskSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set aws_ecs_task_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set aws_ecs_task_set}.'''
 
     def __init__(
         self,
@@ -62,6 +62,7 @@ class EcsTaskSet(
         load_balancer: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsTaskSetLoadBalancer", typing.Dict[builtins.str, typing.Any]]]]] = None,
         network_configuration: typing.Optional[typing.Union["EcsTaskSetNetworkConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         platform_version: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         scale: typing.Optional[typing.Union["EcsTaskSetScale", typing.Dict[builtins.str, typing.Any]]] = None,
         service_registries: typing.Optional[typing.Union["EcsTaskSetServiceRegistries", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -76,27 +77,28 @@ class EcsTaskSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set aws_ecs_task_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set aws_ecs_task_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#cluster EcsTaskSet#cluster}.
-        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#service EcsTaskSet#service}.
-        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#task_definition EcsTaskSet#task_definition}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#capacity_provider_strategy EcsTaskSet#capacity_provider_strategy}
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#external_id EcsTaskSet#external_id}.
-        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#force_delete EcsTaskSet#force_delete}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#id EcsTaskSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#launch_type EcsTaskSet#launch_type}.
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#load_balancer EcsTaskSet#load_balancer}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#network_configuration EcsTaskSet#network_configuration}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#platform_version EcsTaskSet#platform_version}.
-        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#scale EcsTaskSet#scale}
-        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#service_registries EcsTaskSet#service_registries}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#tags EcsTaskSet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#tags_all EcsTaskSet#tags_all}.
-        :param wait_until_stable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#wait_until_stable EcsTaskSet#wait_until_stable}.
-        :param wait_until_stable_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#wait_until_stable_timeout EcsTaskSet#wait_until_stable_timeout}.
+        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#cluster EcsTaskSet#cluster}.
+        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#service EcsTaskSet#service}.
+        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#task_definition EcsTaskSet#task_definition}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#capacity_provider_strategy EcsTaskSet#capacity_provider_strategy}
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#external_id EcsTaskSet#external_id}.
+        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#force_delete EcsTaskSet#force_delete}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#id EcsTaskSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#launch_type EcsTaskSet#launch_type}.
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#load_balancer EcsTaskSet#load_balancer}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#network_configuration EcsTaskSet#network_configuration}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#platform_version EcsTaskSet#platform_version}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#region EcsTaskSet#region}
+        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#scale EcsTaskSet#scale}
+        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#service_registries EcsTaskSet#service_registries}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#tags EcsTaskSet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#tags_all EcsTaskSet#tags_all}.
+        :param wait_until_stable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#wait_until_stable EcsTaskSet#wait_until_stable}.
+        :param wait_until_stable_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#wait_until_stable_timeout EcsTaskSet#wait_until_stable_timeout}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,6 +123,7 @@ class EcsTaskSet(
             load_balancer=load_balancer,
             network_configuration=network_configuration,
             platform_version=platform_version,
+            region=region,
             scale=scale,
             service_registries=service_registries,
             tags=tags,
@@ -151,7 +154,7 @@ class EcsTaskSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EcsTaskSet to import.
-        :param import_from_id: The id of the existing EcsTaskSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EcsTaskSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EcsTaskSet to import is found.
         '''
         if __debug__:
@@ -197,9 +200,9 @@ class EcsTaskSet(
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#subnets EcsTaskSet#subnets}.
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#assign_public_ip EcsTaskSet#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#security_groups EcsTaskSet#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#subnets EcsTaskSet#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#assign_public_ip EcsTaskSet#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#security_groups EcsTaskSet#security_groups}.
         '''
         value = EcsTaskSetNetworkConfiguration(
             subnets=subnets,
@@ -217,8 +220,8 @@ class EcsTaskSet(
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#unit EcsTaskSet#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#value EcsTaskSet#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#unit EcsTaskSet#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#value EcsTaskSet#value}.
         '''
         value_ = EcsTaskSetScale(unit=unit, value=value)
 
@@ -234,10 +237,10 @@ class EcsTaskSet(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#registry_arn EcsTaskSet#registry_arn}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.
-        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#port EcsTaskSet#port}.
+        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#registry_arn EcsTaskSet#registry_arn}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.
+        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#port EcsTaskSet#port}.
         '''
         value = EcsTaskSetServiceRegistries(
             registry_arn=registry_arn,
@@ -279,6 +282,10 @@ class EcsTaskSet(
     @jsii.member(jsii_name="resetPlatformVersion")
     def reset_platform_version(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPlatformVersion", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetScale")
     def reset_scale(self) -> None:
@@ -416,6 +423,11 @@ class EcsTaskSet(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "platformVersionInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="scaleInput")
     def scale_input(self) -> typing.Optional["EcsTaskSetScale"]:
         return typing.cast(typing.Optional["EcsTaskSetScale"], jsii.get(self, "scaleInput"))
@@ -537,6 +549,18 @@ class EcsTaskSet(
         jsii.set(self, "platformVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a353802a3e00aa5bb8ed3f558288be77c97c506d389737ba2a988ce79380d35)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="service")
     def service(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "service"))
@@ -632,9 +656,9 @@ class EcsTaskSetCapacityProviderStrategy:
         base: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#capacity_provider EcsTaskSet#capacity_provider}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#weight EcsTaskSet#weight}.
-        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#base EcsTaskSet#base}.
+        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#capacity_provider EcsTaskSet#capacity_provider}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#weight EcsTaskSet#weight}.
+        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#base EcsTaskSet#base}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83a857dd9c9871374478a6a3a68270d26e842ef0a08f2f0b520dbed5eea3ee93)
@@ -650,21 +674,21 @@ class EcsTaskSetCapacityProviderStrategy:
 
     @builtins.property
     def capacity_provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#capacity_provider EcsTaskSet#capacity_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#capacity_provider EcsTaskSet#capacity_provider}.'''
         result = self._values.get("capacity_provider")
         assert result is not None, "Required property 'capacity_provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def weight(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#weight EcsTaskSet#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#weight EcsTaskSet#weight}.'''
         result = self._values.get("weight")
         assert result is not None, "Required property 'weight' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def base(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#base EcsTaskSet#base}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#base EcsTaskSet#base}.'''
         result = self._values.get("base")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -894,6 +918,7 @@ class EcsTaskSetCapacityProviderStrategyOutputReference(
         "load_balancer": "loadBalancer",
         "network_configuration": "networkConfiguration",
         "platform_version": "platformVersion",
+        "region": "region",
         "scale": "scale",
         "service_registries": "serviceRegistries",
         "tags": "tags",
@@ -924,6 +949,7 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         load_balancer: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsTaskSetLoadBalancer", typing.Dict[builtins.str, typing.Any]]]]] = None,
         network_configuration: typing.Optional[typing.Union["EcsTaskSetNetworkConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         platform_version: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         scale: typing.Optional[typing.Union["EcsTaskSetScale", typing.Dict[builtins.str, typing.Any]]] = None,
         service_registries: typing.Optional[typing.Union["EcsTaskSetServiceRegistries", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -939,23 +965,24 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#cluster EcsTaskSet#cluster}.
-        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#service EcsTaskSet#service}.
-        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#task_definition EcsTaskSet#task_definition}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#capacity_provider_strategy EcsTaskSet#capacity_provider_strategy}
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#external_id EcsTaskSet#external_id}.
-        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#force_delete EcsTaskSet#force_delete}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#id EcsTaskSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#launch_type EcsTaskSet#launch_type}.
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#load_balancer EcsTaskSet#load_balancer}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#network_configuration EcsTaskSet#network_configuration}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#platform_version EcsTaskSet#platform_version}.
-        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#scale EcsTaskSet#scale}
-        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#service_registries EcsTaskSet#service_registries}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#tags EcsTaskSet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#tags_all EcsTaskSet#tags_all}.
-        :param wait_until_stable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#wait_until_stable EcsTaskSet#wait_until_stable}.
-        :param wait_until_stable_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#wait_until_stable_timeout EcsTaskSet#wait_until_stable_timeout}.
+        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#cluster EcsTaskSet#cluster}.
+        :param service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#service EcsTaskSet#service}.
+        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#task_definition EcsTaskSet#task_definition}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#capacity_provider_strategy EcsTaskSet#capacity_provider_strategy}
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#external_id EcsTaskSet#external_id}.
+        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#force_delete EcsTaskSet#force_delete}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#id EcsTaskSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#launch_type EcsTaskSet#launch_type}.
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#load_balancer EcsTaskSet#load_balancer}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#network_configuration EcsTaskSet#network_configuration}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#platform_version EcsTaskSet#platform_version}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#region EcsTaskSet#region}
+        :param scale: scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#scale EcsTaskSet#scale}
+        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#service_registries EcsTaskSet#service_registries}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#tags EcsTaskSet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#tags_all EcsTaskSet#tags_all}.
+        :param wait_until_stable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#wait_until_stable EcsTaskSet#wait_until_stable}.
+        :param wait_until_stable_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#wait_until_stable_timeout EcsTaskSet#wait_until_stable_timeout}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -985,6 +1012,7 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument load_balancer", value=load_balancer, expected_type=type_hints["load_balancer"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
             check_type(argname="argument platform_version", value=platform_version, expected_type=type_hints["platform_version"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument scale", value=scale, expected_type=type_hints["scale"])
             check_type(argname="argument service_registries", value=service_registries, expected_type=type_hints["service_registries"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1026,6 +1054,8 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["network_configuration"] = network_configuration
         if platform_version is not None:
             self._values["platform_version"] = platform_version
+        if region is not None:
+            self._values["region"] = region
         if scale is not None:
             self._values["scale"] = scale
         if service_registries is not None:
@@ -1105,21 +1135,21 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#cluster EcsTaskSet#cluster}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#cluster EcsTaskSet#cluster}.'''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#service EcsTaskSet#service}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#service EcsTaskSet#service}.'''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def task_definition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#task_definition EcsTaskSet#task_definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#task_definition EcsTaskSet#task_definition}.'''
         result = self._values.get("task_definition")
         assert result is not None, "Required property 'task_definition' is missing"
         return typing.cast(builtins.str, result)
@@ -1130,14 +1160,14 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsTaskSetCapacityProviderStrategy]]]:
         '''capacity_provider_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#capacity_provider_strategy EcsTaskSet#capacity_provider_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#capacity_provider_strategy EcsTaskSet#capacity_provider_strategy}
         '''
         result = self._values.get("capacity_provider_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsTaskSetCapacityProviderStrategy]]], result)
 
     @builtins.property
     def external_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#external_id EcsTaskSet#external_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#external_id EcsTaskSet#external_id}.'''
         result = self._values.get("external_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1145,13 +1175,13 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_delete(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#force_delete EcsTaskSet#force_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#force_delete EcsTaskSet#force_delete}.'''
         result = self._values.get("force_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#id EcsTaskSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#id EcsTaskSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1161,7 +1191,7 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def launch_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#launch_type EcsTaskSet#launch_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#launch_type EcsTaskSet#launch_type}.'''
         result = self._values.get("launch_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1171,7 +1201,7 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskSetLoadBalancer"]]]:
         '''load_balancer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#load_balancer EcsTaskSet#load_balancer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#load_balancer EcsTaskSet#load_balancer}
         '''
         result = self._values.get("load_balancer")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsTaskSetLoadBalancer"]]], result)
@@ -1182,22 +1212,31 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EcsTaskSetNetworkConfiguration"]:
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#network_configuration EcsTaskSet#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#network_configuration EcsTaskSet#network_configuration}
         '''
         result = self._values.get("network_configuration")
         return typing.cast(typing.Optional["EcsTaskSetNetworkConfiguration"], result)
 
     @builtins.property
     def platform_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#platform_version EcsTaskSet#platform_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#platform_version EcsTaskSet#platform_version}.'''
         result = self._values.get("platform_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#region EcsTaskSet#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale(self) -> typing.Optional["EcsTaskSetScale"]:
         '''scale block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#scale EcsTaskSet#scale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#scale EcsTaskSet#scale}
         '''
         result = self._values.get("scale")
         return typing.cast(typing.Optional["EcsTaskSetScale"], result)
@@ -1206,20 +1245,20 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_registries(self) -> typing.Optional["EcsTaskSetServiceRegistries"]:
         '''service_registries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#service_registries EcsTaskSet#service_registries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#service_registries EcsTaskSet#service_registries}
         '''
         result = self._values.get("service_registries")
         return typing.cast(typing.Optional["EcsTaskSetServiceRegistries"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#tags EcsTaskSet#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#tags EcsTaskSet#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#tags_all EcsTaskSet#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#tags_all EcsTaskSet#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1227,13 +1266,13 @@ class EcsTaskSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def wait_until_stable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#wait_until_stable EcsTaskSet#wait_until_stable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#wait_until_stable EcsTaskSet#wait_until_stable}.'''
         result = self._values.get("wait_until_stable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def wait_until_stable_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#wait_until_stable_timeout EcsTaskSet#wait_until_stable_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#wait_until_stable_timeout EcsTaskSet#wait_until_stable_timeout}.'''
         result = self._values.get("wait_until_stable_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1269,10 +1308,10 @@ class EcsTaskSetLoadBalancer:
         target_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.
-        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.
-        :param load_balancer_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#load_balancer_name EcsTaskSet#load_balancer_name}.
-        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#target_group_arn EcsTaskSet#target_group_arn}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.
+        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.
+        :param load_balancer_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#load_balancer_name EcsTaskSet#load_balancer_name}.
+        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#target_group_arn EcsTaskSet#target_group_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71e415488721fb7e88f41e8f3d0fe028017d24cf558abb2f35a9f283cf187614)
@@ -1292,26 +1331,26 @@ class EcsTaskSetLoadBalancer:
 
     @builtins.property
     def container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.'''
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.'''
         result = self._values.get("container_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def load_balancer_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#load_balancer_name EcsTaskSet#load_balancer_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#load_balancer_name EcsTaskSet#load_balancer_name}.'''
         result = self._values.get("load_balancer_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#target_group_arn EcsTaskSet#target_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#target_group_arn EcsTaskSet#target_group_arn}.'''
         result = self._values.get("target_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1559,9 +1598,9 @@ class EcsTaskSetNetworkConfiguration:
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#subnets EcsTaskSet#subnets}.
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#assign_public_ip EcsTaskSet#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#security_groups EcsTaskSet#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#subnets EcsTaskSet#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#assign_public_ip EcsTaskSet#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#security_groups EcsTaskSet#security_groups}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__022aaf7568f370890873d461dc8f98465240b90b3f0bcac48c4b3f883ffb76fc)
@@ -1578,7 +1617,7 @@ class EcsTaskSetNetworkConfiguration:
 
     @builtins.property
     def subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#subnets EcsTaskSet#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#subnets EcsTaskSet#subnets}.'''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1587,13 +1626,13 @@ class EcsTaskSetNetworkConfiguration:
     def assign_public_ip(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#assign_public_ip EcsTaskSet#assign_public_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#assign_public_ip EcsTaskSet#assign_public_ip}.'''
         result = self._values.get("assign_public_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#security_groups EcsTaskSet#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#security_groups EcsTaskSet#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1724,8 +1763,8 @@ class EcsTaskSetScale:
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#unit EcsTaskSet#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#value EcsTaskSet#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#unit EcsTaskSet#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#value EcsTaskSet#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8851c7326c6fd93b9a005e81b5ee0205decbc9e7ded7b29144974c95e0b5df10)
@@ -1739,13 +1778,13 @@ class EcsTaskSetScale:
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#unit EcsTaskSet#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#unit EcsTaskSet#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#value EcsTaskSet#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#value EcsTaskSet#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1856,10 +1895,10 @@ class EcsTaskSetServiceRegistries:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#registry_arn EcsTaskSet#registry_arn}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.
-        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#port EcsTaskSet#port}.
+        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#registry_arn EcsTaskSet#registry_arn}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.
+        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#port EcsTaskSet#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba23ca5ad9d91556604666e586f59a48ab6b06a8a2b69c6e6faf30571e3e8ba5)
@@ -1879,26 +1918,26 @@ class EcsTaskSetServiceRegistries:
 
     @builtins.property
     def registry_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#registry_arn EcsTaskSet#registry_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#registry_arn EcsTaskSet#registry_arn}.'''
         result = self._values.get("registry_arn")
         assert result is not None, "Required property 'registry_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_name EcsTaskSet#container_name}.'''
         result = self._values.get("container_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#container_port EcsTaskSet#container_port}.'''
         result = self._values.get("container_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecs_task_set#port EcsTaskSet#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecs_task_set#port EcsTaskSet#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2064,6 +2103,7 @@ def _typecheckingstub__8a97bbbb3b6e6fc4cdc681b79339b289574455514526d076eaf9d78b9
     load_balancer: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsTaskSetLoadBalancer, typing.Dict[builtins.str, typing.Any]]]]] = None,
     network_configuration: typing.Optional[typing.Union[EcsTaskSetNetworkConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     platform_version: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     scale: typing.Optional[typing.Union[EcsTaskSetScale, typing.Dict[builtins.str, typing.Any]]] = None,
     service_registries: typing.Optional[typing.Union[EcsTaskSetServiceRegistries, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2133,6 +2173,12 @@ def _typecheckingstub__a656cfff3c4499dbf5c0489a136b31512a4a9a52a98a6476536a2921f
     pass
 
 def _typecheckingstub__3d5984ebd2bd473c064e4c5dd5be15510bda207dec753bb80246927bfd302684(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a353802a3e00aa5bb8ed3f558288be77c97c506d389737ba2a988ce79380d35(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -2274,6 +2320,7 @@ def _typecheckingstub__2c15f9d418ff09a06e69d7c9a02d5c23ac0de35aa91e35d6a8255dbad
     load_balancer: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsTaskSetLoadBalancer, typing.Dict[builtins.str, typing.Any]]]]] = None,
     network_configuration: typing.Optional[typing.Union[EcsTaskSetNetworkConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     platform_version: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     scale: typing.Optional[typing.Union[EcsTaskSetScale, typing.Dict[builtins.str, typing.Any]]] = None,
     service_registries: typing.Optional[typing.Union[EcsTaskSetServiceRegistries, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

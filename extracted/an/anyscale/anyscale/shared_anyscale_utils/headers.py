@@ -25,6 +25,10 @@ class RequestHeaders(str, Enum):
     # Identifies the source of the client
     SOURCE = "X-Anyscale-Source"
 
+    # W3C Trace Context traceparent header
+    # https://www.w3.org/TR/trace-context/#traceparent-header
+    TRACEPARENT = "traceparent"
+
 
 class ResponseHeaders(str, Enum):
     """

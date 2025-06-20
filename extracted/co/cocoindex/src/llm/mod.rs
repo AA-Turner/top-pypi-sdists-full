@@ -13,6 +13,8 @@ pub enum LlmApiType {
     OpenAi,
     Gemini,
     Anthropic,
+    LiteLlm,
+    OpenRouter,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +58,8 @@ mod anthropic;
 mod gemini;
 mod ollama;
 mod openai;
+mod litellm;
+mod openrouter;
 
 pub async fn new_llm_generation_client(spec: LlmSpec) -> Result<Box<dyn LlmGenerationClient>> {
     let client = match spec.api_type {
@@ -71,6 +75,14 @@ pub async fn new_llm_generation_client(spec: LlmSpec) -> Result<Box<dyn LlmGener
         LlmApiType::Anthropic => {
             Box::new(anthropic::Client::new(spec).await?) as Box<dyn LlmGenerationClient>
         }
+        LlmApiType::LiteLlm => {
+            Box::new(litellm::Client::new_litellm(spec).await?) as Box<dyn LlmGenerationClient>
+        }
+        LlmApiType::OpenRouter => {
+            Box::new(openrouter::Client::new_openrouter(spec).await?) as Box<dyn LlmGenerationClient>
+        }
+
+
     };
     Ok(client)
 }

@@ -12,7 +12,6 @@
 
 """Y and CY gates."""
 
-from math import pi
 from typing import Optional, Union
 
 # pylint: disable=cyclic-import
@@ -70,7 +69,7 @@ class YGate(SingletonGate):
         |1\rangle \rightarrow -i|0\rangle
     """
 
-    _standard_gate = StandardGate.YGate
+    _standard_gate = StandardGate.Y
 
     def __init__(self, label: Optional[str] = None):
         """Create new Y gate."""
@@ -79,17 +78,17 @@ class YGate(SingletonGate):
     _singleton_lookup_key = stdlib_singleton_key()
 
     def _define(self):
+        """Default definition"""
         # pylint: disable=cyclic-import
-        from qiskit.circuit import QuantumCircuit, QuantumRegister
-        from .u3 import U3Gate
+        from qiskit.circuit import QuantumCircuit
 
-        q = QuantumRegister(1, "q")
-        qc = QuantumCircuit(q, name=self.name)
-        rules = [(U3Gate(pi, pi / 2, pi / 2), [q[0]], [])]
-        for instr, qargs, cargs in rules:
-            qc._append(instr, qargs, cargs)
+        #    ┌──────────────┐
+        # q: ┤ U(π,π/2,π/2) ├
+        #    └──────────────┘
 
-        self.definition = qc
+        self.definition = QuantumCircuit._from_circuit_data(
+            StandardGate.Y._get_definition(self.params), add_regs=True, name=self.name
+        )
 
     def control(
         self,
@@ -200,7 +199,7 @@ class CYGate(SingletonControlledGate):
 
     """
 
-    _standard_gate = StandardGate.CYGate
+    _standard_gate = StandardGate.CY
 
     def __init__(
         self,
@@ -223,21 +222,18 @@ class CYGate(SingletonControlledGate):
     _singleton_lookup_key = stdlib_singleton_key(num_ctrl_qubits=1)
 
     def _define(self):
-        """
-        gate cy a,b { sdg b; cx a,b; s b; }
-        """
+        """Default definition"""
         # pylint: disable=cyclic-import
-        from qiskit.circuit import QuantumCircuit, QuantumRegister
-        from .s import SGate, SdgGate
-        from .x import CXGate
+        from qiskit.circuit import QuantumCircuit
 
-        q = QuantumRegister(2, "q")
-        qc = QuantumCircuit(q, name=self.name)
-        rules = [(SdgGate(), [q[1]], []), (CXGate(), [q[0], q[1]], []), (SGate(), [q[1]], [])]
-        for instr, qargs, cargs in rules:
-            qc._append(instr, qargs, cargs)
+        # q_0: ─────────■───────
+        #      ┌─────┐┌─┴─┐┌───┐
+        # q_1: ┤ Sdg ├┤ X ├┤ S ├
+        #      └─────┘└───┘└───┘
 
-        self.definition = qc
+        self.definition = QuantumCircuit._from_circuit_data(
+            StandardGate.CY._get_definition(self.params), add_regs=True, name=self.name
+        )
 
     def inverse(self, annotated: bool = False):
         """Return inverted CY gate (itself).

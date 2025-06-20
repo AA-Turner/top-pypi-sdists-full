@@ -35,12 +35,12 @@ def gen(
 ) -> RuleNode:
     if stop is not None and stop_regex is not None:
         raise ValueError("You cannot specify both a stop and a stop_regex")
+
+    stop_value: Union[LiteralNode, RegexNode, None] = None
     if stop is not None:
         stop_value = LiteralNode(stop)
     elif stop_regex is not None:
         stop_value = RegexNode(stop_regex)
-    else:
-        stop_value = None
 
     node = RuleNode(
         name=name or "gen",
@@ -117,18 +117,20 @@ def select(
 def repeat(
     value: Union[str, int, float, GrammarNode], min: int, max: Optional[int] = None
 ) -> GrammarNode:
+    node: GrammarNode
     if isinstance(value, (int, float)):
         node = string(str(value))
     elif isinstance(value, str):
-        node = _parse_tags(value)
-        if isinstance(node, Function):
+        _node = _parse_tags(value)
+        if isinstance(_node, Function):
             raise ValueError(
                 "You cannot repeat a stateful function in the current guidance implementation!"
             )
-        if callable(node):
+        if callable(_node):
             raise ValueError(
                 "Did you pass a function without calling it? You need to pass the results of a called guidance function to repeat."
             )
+        node = _node
     elif isinstance(value, GrammarNode):
         node = value
     else:
@@ -142,13 +144,15 @@ def repeat(
 
 def token_limit(value: GrammarNode, max_tokens: int) -> RuleNode:
     """This sets the token limit to be used for the given portion of the grammar."""
-    try:
+    def inner(value: GrammarNode) -> RuleNode:
         if isinstance(value, RuleNode):
             return dataclasses.replace(value, max_tokens=max_tokens)
         else:
             return RuleNode(name="token_limit", value=value, max_tokens=max_tokens)
+    try:
+        return inner(value)
     except ValueError:
-        return RuleNode(name="token_limit", value=subgrammar(value), max_tokens=max_tokens)
+        return inner(subgrammar(value))
 
 
 def with_temperature(value: GrammarNode, temperature: float) -> RuleNode:
@@ -157,13 +161,15 @@ def with_temperature(value: GrammarNode, temperature: float) -> RuleNode:
     Note that if the grammar passed to us already has some portions with a temperature
     setting in place, those settings will not be overridden.
     """
-    try:
+    def inner(value: GrammarNode) -> RuleNode:
         if isinstance(value, RuleNode):
             return dataclasses.replace(value, temperature=temperature)
         else:
             return RuleNode(name="with_temperature", value=value, temperature=temperature)
+    try:
+        return inner(value)
     except ValueError:
-        return RuleNode(name="with_temperature", value=subgrammar(value), temperature=temperature)
+        return inner(subgrammar(value))
 
 
 def capture(value: GrammarNode, name: str, list_append: bool = False) -> RuleNode:
@@ -173,10 +179,13 @@ def capture(value: GrammarNode, name: str, list_append: bool = False) -> RuleNod
         return RuleNode(name="capture", value=value, capture=name, list_append=list_append)
 
 
-def subgrammar(body: GrammarNode, name: Optional[str] = None, skip_regex: Optional[str] = None, max_tokens: Optional[int] = None, temperature: Optional[float] = None) -> SubgrammarNode:
+def subgrammar(body: GrammarNode, name: Optional[str] = None, skip_regex: Optional[str] = None, max_tokens: Optional[int] = None, temperature: Optional[float] = None) -> RuleNode:
     capture_name = name
     name = name or (body.name if isinstance(body, RuleNode) else "subgrammar")
-    node = SubgrammarNode(name=name, body=body, skip_regex=skip_regex)
+    node = RuleNode(
+        name=name or "subgrammar",
+        value=SubgrammarNode(body=body, skip_regex=skip_regex)
+    )
     if max_tokens:
         node = token_limit(node, max_tokens)
     if temperature:

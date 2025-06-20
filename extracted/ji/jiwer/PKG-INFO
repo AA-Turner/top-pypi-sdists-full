@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jiwer
-Version: 3.1.0
+Version: 4.0.0
 Summary: Evaluate your speech-to-text system with similarity measures such as word error rate (WER)
 Author-email: Nik Vaessen <nikvaes@gmail.com>
 License-Expression: Apache-2.0
@@ -8,17 +8,6 @@ License-File: LICENSE
 Requires-Python: >=3.8
 Requires-Dist: click>=8.1.8
 Requires-Dist: rapidfuzz>=3.9.7
-Provides-Extra: dev
-Requires-Dist: black>=24.8.0; extra == 'dev'
-Requires-Dist: flake8>=5.0.4; extra == 'dev'
-Requires-Dist: pytest-benchmark>=4.0.0; extra == 'dev'
-Requires-Dist: pytest>=8.3.4; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: mkdocs-gen-files>=0.5.0; extra == 'docs'
-Requires-Dist: mkdocs-literate-nav>=0.6.1; extra == 'docs'
-Requires-Dist: mkdocs-material>=9.5.50; extra == 'docs'
-Requires-Dist: mkdocs>=1.6.1; extra == 'docs'
-Requires-Dist: mkdocstrings[python]>=0.26.1; extra == 'docs'
 Description-Content-Type: text/markdown
 
 # JiWER
@@ -64,6 +53,44 @@ reference = "hello world"
 hypothesis = "hello duck"
 
 error = wer(reference, hypothesis)
+```
+
+
+## A note on empty references
+
+There is undefined behaviour when you apply an empty reference and hypothesis pair
+to the WER formula, as you get a division by zero.
+
+As of version 4.0, `jiwer` defines the behaviour as follows, and thereby also
+lifts the requirement for reference strings to be non-empty.
+This allows for testing whether models hallucinate on silent audio.
+Note that usually, there are multiple reference and hypothesis pairs.
+It now supported that one or more of these references are empty, but to test well,
+most references should still be non-empty.
+
+```python3
+import jiwer
+
+# when ref and hyp are both empty, there is no error as
+# an ASR system correctly predicted silence/non-speech.
+assert jiwer.wer('', '') == 0 
+assert jiwer.mer('', '') == 0
+assert jiwer.wip('', '') == 1
+assert jiwer.wil('', '') == 0
+
+assert jiwer.cer('', '') == 0
+```
+
+When the hypothesis is non-empty, every word or character counts as an insertion:
+```python3
+import jiwer
+
+assert jiwer.wer('', 'silence') == 1
+assert jiwer.wer('', 'peaceful silence') == 2
+assert jiwer.process_words('', 'now defined behaviour').insertions == 3
+
+assert jiwer.cer('', 'a') == 1
+assert jiwer.cer('', 'abcde') == 5
 ```
 
 ## Licence

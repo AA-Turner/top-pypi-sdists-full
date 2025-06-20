@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-environment
-Version: 10.5.42
+Version: 10.5.43
 Summary: passagemath: System and software environment
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -29,11 +29,11 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/x-rst
 Provides-Extra: conf
-Requires-Dist: passagemath-conf~=10.5.42.0; extra == "conf"
+Requires-Dist: passagemath-conf~=10.5.43.0; extra == "conf"
 Provides-Extra: docbuild
-Requires-Dist: passagemath-docbuild~=10.5.42.0; extra == "docbuild"
+Requires-Dist: passagemath-docbuild~=10.5.43.0; extra == "docbuild"
 Provides-Extra: sage
-Requires-Dist: passagemath-standard~=10.5.42.0; extra == "sage"
+Requires-Dist: passagemath-standard~=10.5.43.0; extra == "sage"
 Provides-Extra: cython
 Requires-Dist: cython!=3.0.3,<4.0,>=3.0; extra == "cython"
 Requires-Dist: cython<3.1.0,>=3.0.8; extra == "cython"
@@ -44,7 +44,7 @@ Requires-Dist: rst2ipynb>=0.2.2; extra == "rst2ipynb"
 Provides-Extra: tox
 Requires-Dist: tox>=4.11; extra == "tox"
 Provides-Extra: sws2rst
-Requires-Dist: passagemath-sws2rst~=10.5.42.0; extra == "sws2rst"
+Requires-Dist: passagemath-sws2rst~=10.5.43.0; extra == "sws2rst"
 
 =========================================================================
  passagemath: System and software environment

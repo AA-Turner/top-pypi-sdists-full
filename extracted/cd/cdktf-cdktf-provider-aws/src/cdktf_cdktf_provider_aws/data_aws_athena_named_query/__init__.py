@@ -1,7 +1,7 @@
 r'''
 # `data_aws_athena_named_query`
 
-Refer to the Terraform Registry for docs: [`data_aws_athena_named_query`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query).
+Refer to the Terraform Registry for docs: [`data_aws_athena_named_query`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsAthenaNamedQuery(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsAthenaNamedQuery.DataAwsAthenaNamedQuery",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query aws_athena_named_query}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query aws_athena_named_query}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class DataAwsAthenaNamedQuery(
         *,
         name: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         workgroup: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -62,13 +63,14 @@ class DataAwsAthenaNamedQuery(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query aws_athena_named_query} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query aws_athena_named_query} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#name DataAwsAthenaNamedQuery#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#id DataAwsAthenaNamedQuery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#workgroup DataAwsAthenaNamedQuery#workgroup}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#name DataAwsAthenaNamedQuery#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#id DataAwsAthenaNamedQuery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#region DataAwsAthenaNamedQuery#region}
+        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#workgroup DataAwsAthenaNamedQuery#workgroup}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -84,6 +86,7 @@ class DataAwsAthenaNamedQuery(
         config = DataAwsAthenaNamedQueryConfig(
             name=name,
             id=id,
+            region=region,
             workgroup=workgroup,
             connection=connection,
             count=count,
@@ -109,7 +112,7 @@ class DataAwsAthenaNamedQuery(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsAthenaNamedQuery to import.
-        :param import_from_id: The id of the existing DataAwsAthenaNamedQuery that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsAthenaNamedQuery that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsAthenaNamedQuery to import is found.
         '''
         if __debug__:
@@ -123,6 +126,10 @@ class DataAwsAthenaNamedQuery(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetWorkgroup")
     def reset_workgroup(self) -> None:
@@ -167,6 +174,11 @@ class DataAwsAthenaNamedQuery(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="workgroupInput")
     def workgroup_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workgroupInput"))
@@ -196,6 +208,18 @@ class DataAwsAthenaNamedQuery(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__673a40f6d78aea296f12cf6baa93b05229dc297a2fb94060c4fe52f4ec0f7277)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="workgroup")
     def workgroup(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "workgroup"))
@@ -221,6 +245,7 @@ class DataAwsAthenaNamedQuery(
         "provisioners": "provisioners",
         "name": "name",
         "id": "id",
+        "region": "region",
         "workgroup": "workgroup",
     },
 )
@@ -237,6 +262,7 @@ class DataAwsAthenaNamedQueryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         name: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         workgroup: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -247,9 +273,10 @@ class DataAwsAthenaNamedQueryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#name DataAwsAthenaNamedQuery#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#id DataAwsAthenaNamedQuery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#workgroup DataAwsAthenaNamedQuery#workgroup}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#name DataAwsAthenaNamedQuery#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#id DataAwsAthenaNamedQuery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#region DataAwsAthenaNamedQuery#region}
+        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#workgroup DataAwsAthenaNamedQuery#workgroup}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -264,6 +291,7 @@ class DataAwsAthenaNamedQueryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument workgroup", value=workgroup, expected_type=type_hints["workgroup"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -284,6 +312,8 @@ class DataAwsAthenaNamedQueryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
         if workgroup is not None:
             self._values["workgroup"] = workgroup
 
@@ -353,14 +383,14 @@ class DataAwsAthenaNamedQueryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#name DataAwsAthenaNamedQuery#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#name DataAwsAthenaNamedQuery#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#id DataAwsAthenaNamedQuery#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#id DataAwsAthenaNamedQuery#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -369,8 +399,17 @@ class DataAwsAthenaNamedQueryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#region DataAwsAthenaNamedQuery#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def workgroup(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/athena_named_query#workgroup DataAwsAthenaNamedQuery#workgroup}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/athena_named_query#workgroup DataAwsAthenaNamedQuery#workgroup}.'''
         result = self._values.get("workgroup")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -399,6 +438,7 @@ def _typecheckingstub__28b8d5db885beeefecbe6b0929bac5bcd278fd162d7956958280ba278
     *,
     name: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     workgroup: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -432,6 +472,12 @@ def _typecheckingstub__1f0d40c7c36a36291db98b6078d1f9a6a86e658a90142b289c20436fa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__673a40f6d78aea296f12cf6baa93b05229dc297a2fb94060c4fe52f4ec0f7277(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__65b8775b0404ce7ff445031c070bc74ba13964f37f4399110a6c30251a9dfb63(
     value: builtins.str,
 ) -> None:
@@ -449,6 +495,7 @@ def _typecheckingstub__bf9bdd6b5cddddc2d6fa3c115b1d2e46bb9889a398b3b8933f876b51b
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     name: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     workgroup: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

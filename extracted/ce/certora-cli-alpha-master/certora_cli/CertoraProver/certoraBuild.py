@@ -1365,47 +1365,48 @@ class CertoraBuildGenerator:
 
         return bytecode
 
-    def get_via_ir_value(self, contract_file_path: str) -> bool:
-        if not self.context.solc_via_ir_map and not self.context.solc_via_ir:
-            return False
-        if self.context.solc_via_ir_map:
-            return bool(Util.match_path_to_mapping_key(Path(contract_file_path), self.context.solc_via_ir_map))
-        return self.context.solc_via_ir
+    def get_solc_via_ir_value(self, contract_file_path: Path) -> bool:
+        match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_via_ir')
+        assert isinstance(match, (bool, type(None))), f"Expected solc_via_ir to be bool or None, got {type(match)}"
+        return bool(match)
 
-    def _handle_via_ir(self, contract_file_path: str, settings_dict: Dict[str, Any]) -> None:
-        if self.get_via_ir_value(contract_file_path):
+    def get_solc_evm_version_value(self, contract_file_path: Path) -> Optional[str]:
+        match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_evm_version')
+        assert isinstance(match, (str, type(None))), f"Expected solc_evm_version to be string or None, got {type(match)}"
+        return match
+
+    def get_solc_optimize_value(self, contract_file_path: Path) -> Optional[str]:
+        match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_optimize')
+        assert isinstance(match, (str, type(None))), f"Expected solc_optimize to be string or None, got {type(match)}"
+        return match
+
+    def _handle_via_ir(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:
+        if self.get_solc_via_ir_value(contract_file_path):
             settings_dict["viaIR"] = True
 
-    def _handle_evm_version(self, contract_file_path: str, settings_dict: Dict[str, Any]) -> None:
-        if self.context.solc_evm_version_map:
-            match = Util.match_path_to_mapping_key(Path(contract_file_path), self.context.solc_evm_version_map)
-            if match:
-                settings_dict["evmVersion"] = match
-        elif self.context.solc_evm_version:
-            settings_dict["evmVersion"] = self.context.solc_evm_version
+    def _handle_evm_version(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:
+        match = self.get_solc_evm_version_value(contract_file_path)
+        if match:
+            settings_dict["evmVersion"] = match
 
-    def _handle_optimize(self, contract_file_path: str, settings_dict: Dict[str, Any],
+    def _handle_optimize(self, contract_file_path: Path, settings_dict: Dict[str, Any],
                          compiler_collector: CompilerCollector) -> None:
         """
         @param contract_file_path: the contract that we are working on
         @param settings_dict: data structure for sending to the solc compiler
         """
-        if self.context.solc_optimize_map:
-            match = Util.match_path_to_mapping_key(Path(contract_file_path), self.context.solc_optimize_map)
-            if match and int(match) > 0:
-                settings_dict["optimizer"] = {"enabled": True}
-                settings_dict["optimizer"]['runs'] = int(match)
-        elif self.context.solc_optimize:
+        match = self.get_solc_optimize_value(contract_file_path)
+        if match:
             settings_dict["optimizer"] = {"enabled": True}
-            if int(self.context.solc_optimize) > 0:
-                settings_dict["optimizer"]['runs'] = int(self.context.solc_optimize)
+            if int(match) > 0:
+                settings_dict["optimizer"]['runs'] = int(match)
 
         # if optimizer is true, we should also define settings_dict["optimizer"]["details"]
         # for both optimize map and optimize
         optimizer = settings_dict.get("optimizer")
         if optimizer and isinstance(optimizer, dict) and optimizer.get('enabled'):
             # if we are not disabling finder friendly optimizer specifically, enable it whenever viaIR is also enabled
-            if not self.context.strict_solc_optimizer and self.get_via_ir_value(contract_file_path):
+            if not self.context.strict_solc_optimizer and self.get_solc_via_ir_value(contract_file_path):
                 # The default optimizer steps (taken from libsolidity/interface/OptimiserSettings.h) but with the
                 # full inliner step removed
                 solc0_8_26_to_0_8_30 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
@@ -1475,7 +1476,7 @@ class CertoraBuildGenerator:
                 for opt_pass in self.context.disable_solc_optimizers:
                     settings_dict["optimizer"]["details"][opt_pass] = False
 
-    def _fill_codegen_related_options(self, contract_file_path: str, settings_dict: Dict[str, Any],
+    def _fill_codegen_related_options(self, contract_file_path: Path, settings_dict: Dict[str, Any],
                                       compiler_collector: CompilerCollector) -> None:
         """
         Fills options that control how we call solc and affect the bytecode in some way
@@ -1556,7 +1557,7 @@ class CertoraBuildGenerator:
                 }
             }
 
-        self._fill_codegen_related_options(contract_file_as_provided, settings_dict, compiler_collector)
+        self._fill_codegen_related_options(Path(contract_file_as_provided), settings_dict, compiler_collector)
 
         result_dict = {"language": compiler_collector_lang.name, "sources": sources_dict, "settings": settings_dict}
         # debug_print("Standard json input")
@@ -2291,7 +2292,7 @@ class CertoraBuildGenerator:
 
         if compiler_lang == CompilerLangSol():
             settings_dict: Dict[str, Any] = {}
-            self._fill_codegen_related_options(build_arg_contract_file, settings_dict,
+            self._fill_codegen_related_options(Path(build_arg_contract_file), settings_dict,
                                                compiler_collector_for_contract_file)
             solc_optimizer_on, solc_optimizer_runs = self.solc_setting_optimizer_runs(settings_dict)
             solc_via_ir = self.solc_setting_via_ir(settings_dict)
@@ -2421,7 +2422,7 @@ class CertoraBuildGenerator:
                 # if no function finder mode set, determine based on viaIR enabled or not:
                 if self.context.function_finder_mode is None:
                     # in via-ir, should not compress
-                    if self.get_via_ir_value(contract_file):
+                    if self.get_solc_via_ir_value(Path(contract_file)):
                         should_compress = False
                     else:
                         should_compress = True

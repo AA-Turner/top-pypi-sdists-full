@@ -27,6 +27,7 @@ from typing import Iterable, List, Sequence, Union
 from qiskit._accelerate.circuit import StandardGate
 from qiskit.circuit import (
     library,
+    Annotation,
     Barrier,
     CircuitInstruction,
     Clbit,
@@ -42,6 +43,7 @@ from qiskit.circuit import (
     Bit,
     Register,
 )
+from qiskit.circuit.annotation import iter_namespaces, OpenQASM3Serializer
 from qiskit.circuit.classical import expr, types
 from qiskit.circuit.controlflow import (
     BoxOp,
@@ -136,6 +138,7 @@ class Exporter:
         allow_aliasing: bool = None,
         indent: str = "  ",
         experimental: ExperimentalFeatures = ExperimentalFeatures(0),
+        annotation_handlers: dict[str, OpenQASM3Serializer] | None = None,
     ):
         """
         Args:
@@ -172,6 +175,10 @@ class Exporter:
                 set to the empty string to disable indentation.
             experimental: any experimental features to enable during the export.  See
                 :class:`ExperimentalFeatures` for more details.
+            annotation_handlers: a mapping of namespaces to annotation serializers.  When an
+                :class:`.Annotation` object is encountered, the most specific namespace in this
+                mapping that matches the annotation's :attr:`~.Annotation.namespace` attribute will
+                be used to serialize it.
         """
         self.basis_gates = basis_gates
         self.disable_constants = disable_constants
@@ -181,6 +188,7 @@ class Exporter:
         self.includes = list(includes)
         self.indent = indent
         self.experimental = experimental
+        self.annotation_handlers = {} if annotation_handlers is None else annotation_handlers
 
     def dumps(self, circuit):
         """Convert the circuit to OpenQASM 3, returning the result as a string."""
@@ -197,6 +205,7 @@ class Exporter:
             disable_constants=self.disable_constants,
             allow_aliasing=self.allow_aliasing,
             experimental=self.experimental,
+            annotation_handlers=self.annotation_handlers,
         )
         BasicPrinter(stream, indent=self.indent, experimental=self.experimental).visit(
             builder.build_program()
@@ -225,43 +234,43 @@ _CANONICAL_CONTROLLED_STANDARD_GATES = {
 # Mapping of symbols defined by `stdgates.inc` to their gate definition source.
 _KNOWN_INCLUDES = {
     "stdgates.inc": {
-        "p": _CANONICAL_STANDARD_GATES[StandardGate.PhaseGate],
-        "x": _CANONICAL_STANDARD_GATES[StandardGate.XGate],
-        "y": _CANONICAL_STANDARD_GATES[StandardGate.YGate],
-        "z": _CANONICAL_STANDARD_GATES[StandardGate.ZGate],
-        "h": _CANONICAL_STANDARD_GATES[StandardGate.HGate],
-        "s": _CANONICAL_STANDARD_GATES[StandardGate.SGate],
-        "sdg": _CANONICAL_STANDARD_GATES[StandardGate.SdgGate],
-        "t": _CANONICAL_STANDARD_GATES[StandardGate.TGate],
-        "tdg": _CANONICAL_STANDARD_GATES[StandardGate.TdgGate],
-        "sx": _CANONICAL_STANDARD_GATES[StandardGate.SXGate],
-        "rx": _CANONICAL_STANDARD_GATES[StandardGate.RXGate],
-        "ry": _CANONICAL_STANDARD_GATES[StandardGate.RYGate],
-        "rz": _CANONICAL_STANDARD_GATES[StandardGate.RZGate],
-        "cx": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CXGate][1],
-        "cy": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CYGate][1],
-        "cz": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CZGate][1],
-        "cp": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CPhaseGate][1],
-        "crx": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CRXGate][1],
-        "cry": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CRYGate][1],
-        "crz": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CRZGate][1],
-        "ch": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CHGate][1],
-        "swap": _CANONICAL_STANDARD_GATES[StandardGate.SwapGate],
-        "ccx": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CCXGate][3],
-        "cswap": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CSwapGate][1],
-        "cu": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CUGate][1],
-        "CX": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CXGate][1],
-        "phase": _CANONICAL_STANDARD_GATES[StandardGate.PhaseGate],
-        "cphase": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CPhaseGate][1],
-        "id": _CANONICAL_STANDARD_GATES[StandardGate.IGate],
-        "u1": _CANONICAL_STANDARD_GATES[StandardGate.U1Gate],
-        "u2": _CANONICAL_STANDARD_GATES[StandardGate.U2Gate],
-        "u3": _CANONICAL_STANDARD_GATES[StandardGate.U3Gate],
+        "p": _CANONICAL_STANDARD_GATES[StandardGate.Phase],
+        "x": _CANONICAL_STANDARD_GATES[StandardGate.X],
+        "y": _CANONICAL_STANDARD_GATES[StandardGate.Y],
+        "z": _CANONICAL_STANDARD_GATES[StandardGate.Z],
+        "h": _CANONICAL_STANDARD_GATES[StandardGate.H],
+        "s": _CANONICAL_STANDARD_GATES[StandardGate.S],
+        "sdg": _CANONICAL_STANDARD_GATES[StandardGate.Sdg],
+        "t": _CANONICAL_STANDARD_GATES[StandardGate.T],
+        "tdg": _CANONICAL_STANDARD_GATES[StandardGate.Tdg],
+        "sx": _CANONICAL_STANDARD_GATES[StandardGate.SX],
+        "rx": _CANONICAL_STANDARD_GATES[StandardGate.RX],
+        "ry": _CANONICAL_STANDARD_GATES[StandardGate.RY],
+        "rz": _CANONICAL_STANDARD_GATES[StandardGate.RZ],
+        "cx": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CX][1],
+        "cy": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CY][1],
+        "cz": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CZ][1],
+        "cp": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CPhase][1],
+        "crx": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CRX][1],
+        "cry": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CRY][1],
+        "crz": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CRZ][1],
+        "ch": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CH][1],
+        "swap": _CANONICAL_STANDARD_GATES[StandardGate.Swap],
+        "ccx": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CCX][3],
+        "cswap": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CSwap][1],
+        "cu": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CU][1],
+        "CX": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CX][1],
+        "phase": _CANONICAL_STANDARD_GATES[StandardGate.Phase],
+        "cphase": _CANONICAL_CONTROLLED_STANDARD_GATES[StandardGate.CPhase][1],
+        "id": _CANONICAL_STANDARD_GATES[StandardGate.I],
+        "u1": _CANONICAL_STANDARD_GATES[StandardGate.U1],
+        "u2": _CANONICAL_STANDARD_GATES[StandardGate.U2],
+        "u3": _CANONICAL_STANDARD_GATES[StandardGate.U3],
     },
 }
 
 _BUILTIN_GATES = {
-    "U": _CANONICAL_STANDARD_GATES[StandardGate.UGate],
+    "U": _CANONICAL_STANDARD_GATES[StandardGate.U],
 }
 
 
@@ -563,6 +572,7 @@ class QASM3Builder:
         disable_constants,
         allow_aliasing,
         experimental=ExperimentalFeatures(0),
+        annotation_handlers=None,
     ):
         self.scope = BuildScope(
             quantumcircuit,
@@ -582,6 +592,7 @@ class QASM3Builder:
         self.includes = includeslist
         self.basis_gates = basis_gates
         self.experimental = experimental
+        self.annotation_handlers = {} if annotation_handlers is None else annotation_handlers
 
     @contextlib.contextmanager
     def new_scope(self, circuit: QuantumCircuit, qubits: Iterable[Qubit], clbits: Iterable[Clbit]):
@@ -991,8 +1002,8 @@ class QASM3Builder:
                 measurement = ast.QuantumMeasurement(
                     [self._lookup_bit(operand) for operand in instruction.qubits]
                 )
-                qubit = self._lookup_bit(instruction.clbits[0])
-                nodes = [ast.QuantumMeasurementAssignment(qubit, measurement)]
+                clbit = self._lookup_bit(instruction.clbits[0])
+                nodes = [ast.QuantumMeasurementAssignment(clbit, measurement)]
             elif isinstance(instruction.operation, Reset):
                 nodes = [
                     ast.QuantumReset(self._lookup_bit(operand)) for operand in instruction.qubits
@@ -1090,10 +1101,13 @@ class QASM3Builder:
         """Build a :class:`.BoxOp` into a :class:`.ast.BoxStatement`."""
         duration = self.build_duration(instruction.operation.duration, instruction.operation.unit)
         body_circuit = instruction.operation.blocks[0]
+        annotations = [
+            self.build_annotation(annotation) for annotation in instruction.operation.annotations
+        ]
         with self.new_scope(body_circuit, instruction.qubits, instruction.clbits):
             # TODO: handle no-op qubits (see https://github.com/openqasm/openqasm/issues/584).
             body = ast.ProgramBlock(self.build_current_scope())
-        return ast.BoxStatement(body, duration)
+        return ast.BoxStatement(body, duration, annotations=annotations)
 
     def build_while_loop(self, instruction: CircuitInstruction) -> ast.WhileLoopStatement:
         """Build a :obj:`.WhileLoopOp` into a :obj:`.ast.WhileLoopStatement`."""
@@ -1128,6 +1142,15 @@ class QASM3Builder:
                     ) from None
             body_ast = ast.ProgramBlock(self.build_current_scope())
         return ast.ForLoopStatement(indexset_ast, loop_parameter_ast, body_ast)
+
+    def build_annotation(self, annotation: Annotation) -> ast.Annotation:
+        """Use the custom serializers to construct an annotation object."""
+        for namespace in iter_namespaces(annotation.namespace):
+            if (serializer := self.annotation_handlers.get(namespace, None)) is not None and (
+                payload := serializer.dump(annotation)
+            ) is not NotImplemented:
+                return ast.Annotation(annotation.namespace, payload)
+        raise QASM3ExporterError(f"No configured annotation serializer could handle {annotation}")
 
     def _lookup_variable_for_expression(self, var):
         if isinstance(var, Bit):

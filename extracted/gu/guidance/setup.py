@@ -16,31 +16,24 @@ import os
 import re
 import codecs
 from setuptools import setup, find_packages
-from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-llamacpp_requires = ["llama-cpp-python==0.3.7"]
-transformers_requires = ["transformers==4.48.2"]
+llamacpp_requires = ["llama-cpp-python==0.3.9"]
+transformers_requires = ["transformers==4.51.3"]
 
 install_requires = [
-    "diskcache",
     "numpy",
-    "ordered_set",
-    "platformdirs",
     "pydantic",
-    "referencing",
     "requests",
     "psutil",
-    "tiktoken>=0.3",
-    "guidance-stitch",
-    "llguidance==0.6.31",
-    "setuptools" # TODO - Remove before release, used for multimodal mocks in python 3.12
+    "guidance-stitch==0.1.5",
+    "llguidance==0.7.26",
 ]
 
 # Our basic list of 'extras'
 extras_requires = {
-    "azureai": ["openai>=1.0"],
+    "azureai": ["openai>=1.0", "azure-ai-inference"],
     "openai": ["openai>=1.0"],
 }
 
@@ -48,6 +41,12 @@ extras_requires = {
 all_requires = set()
 for v in extras_requires.values():
     all_requires = all_requires.union(v)
+
+# See
+# https://github.com/guidance-ai/guidance/issues/1222
+sentencepiece_dependency = (
+    "sentencepiece" if sys.version_info.minor != 13 else "dbowring-sentencepiece"
+)
 
 # Required for builds etc.
 doc_requires = [
@@ -65,36 +64,27 @@ unittest_requires = [
     "jsonschema",
     "pytest",
     "pytest-cov",
+    "pytest-asyncio",
     "tokenizers",
 ]
 test_requires = [
     "types-regex",
     "types-requests",
     "types-jsonschema",
+    "diskcache",
     "requests",
     "azure-identity",
     "bitsandbytes",
     "jupyter",
     "papermill",
+    "pillow",
     "protobuf",
-    "sentencepiece",
+    sentencepiece_dependency,
     "torch",
     "transformers",
+    "tiktoken>=0.3",
     "mypy==1.9.0",
 ] + unittest_requires
-
-bench_requires = [
-    "pandas",
-    "huggingface_hub",
-    "langchain_benchmarks",
-    "langchain-community",
-    "langsmith",
-    "json_stream",
-    "llama-cpp-python",
-    "setuptools",
-    "powerlift"
-]
-
 
 def read(*parts):
     with codecs.open(os.path.join(here, *parts), "r") as fp:
@@ -119,12 +109,6 @@ setup(
     long_description="Guidance enables you to control modern language models more effectively and efficiently than traditional prompting or chaining. Guidance programs allow you to interleave generation, prompting, and logical control into a single continuous flow matching how the language model actually processes the text.",
     packages=find_packages(exclude=["notebooks", "client", "tests", "tests.*"]),
     package_data={"guidance": ["resources/*"]},
-    ext_modules=[
-        Pybind11Extension(
-            "guidance.cpp", ["guidance/_cpp/main.cpp", "guidance/_cpp/byte_trie.cpp"]
-        )
-    ],
-    cmdclass={"build_ext": build_ext},
     python_requires=">=3.9",
     install_requires=install_requires,
     extras_require={
@@ -134,7 +118,6 @@ setup(
         "transformers": transformers_requires,
         "test": test_requires,
         "docs": doc_requires,
-        "bench": bench_requires,
         **extras_requires,
     },
 )

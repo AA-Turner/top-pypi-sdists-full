@@ -303,9 +303,6 @@ ANYSCALE_IAM_PERMISSIONS_SERVICE_STEADY_STATE = {
                 "elasticloadbalancing:SetSubnets",
             ],
             "Resource": "*",
-            "Condition": {
-                "StringEquals": {"aws:CalledViaFirst": "cloudformation.amazonaws.com"}
-            },
         },
         {
             "Sid": "CreateELBServiceLinkedRole",

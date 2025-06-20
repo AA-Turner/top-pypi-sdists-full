@@ -59,7 +59,7 @@ impl SyntaxText {
         let end = span.end().unwrap_or(tombi_text::Offset::new(self.len()));
         assert!(start <= end);
         let len = end - start;
-        let start = self.span.start() + start;
+        let start = self.span.start + start;
         let end = start + len;
         let span = tombi_text::Span::new(start, end);
 
@@ -103,16 +103,13 @@ impl SyntaxText {
             .filter_map(move |token| {
                 let token_span = token.span();
                 let span = span.intersect(token_span)?;
-                Some((token, span - token_span.start()))
+                Some((token, span - token_span.start))
             })
     }
 }
 
 fn found<T>(res: Result<(), T>) -> Option<T> {
-    match res {
-        Ok(()) => None,
-        Err(it) => Some(it),
-    }
+    res.err()
 }
 
 impl fmt::Debug for SyntaxText {
@@ -197,8 +194,8 @@ fn zip_texts<I: Iterator<Item = (SyntaxToken, tombi_text::Span)>>(
             return Some(());
         }
         let advance = tombi_text::Offset::new(std::cmp::min(x.1.len(), y.1.len()));
-        x.1 = tombi_text::Span::new(x.1.start() + advance, x.1.end());
-        y.1 = tombi_text::Span::new(y.1.start() + advance, y.1.end());
+        x.1 = tombi_text::Span::new(x.1.start + advance, x.1.end);
+        y.1 = tombi_text::Span::new(y.1.start + advance, y.1.end);
     }
 }
 
@@ -214,10 +211,10 @@ mod private {
 
     impl SyntaxTextSpan for tombi_text::Span {
         fn start(&self) -> Option<tombi_text::Offset> {
-            Some(tombi_text::Span::start(*self))
+            Some(self.start)
         }
         fn end(&self) -> Option<tombi_text::Offset> {
-            Some(tombi_text::Span::end(*self))
+            Some(self.end)
         }
     }
 

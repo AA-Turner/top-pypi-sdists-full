@@ -55,6 +55,15 @@ impl PartialEq<SchemaAccessor> for Accessor {
     }
 }
 
+impl PartialEq<&str> for Accessor {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            Accessor::Key(key) => key == *other,
+            _ => false,
+        }
+    }
+}
+
 /// A collection of `Accessor`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Accessors(Vec<Accessor>);
@@ -101,4 +110,23 @@ impl std::fmt::Display for Accessors {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccessorKeyKind {
+    Header,
+    Dotted,
+    KeyValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyContext {
+    pub kind: AccessorKeyKind,
+    pub range: tombi_text::Range,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AccessorContext {
+    Key(KeyContext),
+    Index,
 }

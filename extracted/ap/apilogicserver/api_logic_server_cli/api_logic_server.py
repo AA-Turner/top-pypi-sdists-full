@@ -12,10 +12,10 @@ ApiLogicServer CLI: given a database url, create [and run] customizable ApiLogic
 Called from api_logic_server_cli.py, by instantiating the ProjectRun object.
 '''
 
-__version__ = "15.00.19"  # last public release: 15.00.19 (15.00.12)
+__version__ = "15.00.20"  # last public release: 15.00.19 (15.00.12)
 recent_changes = \
     f'\n\nRecent Changes:\n' +\
-    "\t06/17/2024 - 15.00.19: Tech Preview: als genai-app \n"\
+    "\t06/19/2024 - 15.00.20: Tech Preview: als genai-app, import fix, bug [96] \n"\
     "\t06/10/2024 - 15.00.12: MCP Security, win fixes for readme, graphics quotes \n"\
     "\t06/08/2024 - 15.00.10: MCP, optional shortening of stacktrace lines, bugfix[92] \n"\
     "\t05/16/2024 - 14.05.00: safrs 3.1.7, running mcp preview \n"\
@@ -1174,7 +1174,7 @@ from database import <project.bind_key>_models
     @staticmethod                               
     def set_provider(from_value: str, to_value: str, config_file: str) -> None:
         """ update import statement to set provider type in config.py """
-        if from_value == to_value:
+        if from_value == to_value or to_value == "None":
             pass
             # log.debug(f'.. .. (provider type unchanged)')
         else:
@@ -1243,7 +1243,7 @@ from database import <project.bind_key>_models
         provider_note = f"Setting security provider type = {self.auth_provider_type}, @server = {self.auth_db_url} \n"
         #                    f'(was: {was_provider_type}, {is_enabled_note})\n'
 
-        if self.auth_provider_type == 'none':  # none means disable
+        if self.auth_provider_type in ['none', 'None']:  # none means disable
             if is_enabled:
                 log.info(f'\n\n.. ..Disabling security for current provider type: {was_provider_type}\n')
                 create_utils.assign_value_to_key_in_file(value=False, 

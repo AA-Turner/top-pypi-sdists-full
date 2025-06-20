@@ -1,7 +1,7 @@
 r'''
 # `aws_codeartifact_repository`
 
-Refer to the Terraform Registry for docs: [`aws_codeartifact_repository`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository).
+Refer to the Terraform Registry for docs: [`aws_codeartifact_repository`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodeartifactRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codeartifactRepository.CodeartifactRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository aws_codeartifact_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository aws_codeartifact_repository}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class CodeartifactRepository(
         domain_owner: typing.Optional[builtins.str] = None,
         external_connections: typing.Optional[typing.Union["CodeartifactRepositoryExternalConnections", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         upstream: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CodeartifactRepositoryUpstream", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -68,19 +69,20 @@ class CodeartifactRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository aws_codeartifact_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository aws_codeartifact_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#domain CodeartifactRepository#domain}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#repository CodeartifactRepository#repository}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#description CodeartifactRepository#description}.
-        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#domain_owner CodeartifactRepository#domain_owner}.
-        :param external_connections: external_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#external_connections CodeartifactRepository#external_connections}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#id CodeartifactRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#tags CodeartifactRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#tags_all CodeartifactRepository#tags_all}.
-        :param upstream: upstream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#upstream CodeartifactRepository#upstream}
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#domain CodeartifactRepository#domain}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#repository CodeartifactRepository#repository}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#description CodeartifactRepository#description}.
+        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#domain_owner CodeartifactRepository#domain_owner}.
+        :param external_connections: external_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#external_connections CodeartifactRepository#external_connections}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#id CodeartifactRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#region CodeartifactRepository#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#tags CodeartifactRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#tags_all CodeartifactRepository#tags_all}.
+        :param upstream: upstream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#upstream CodeartifactRepository#upstream}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -100,6 +102,7 @@ class CodeartifactRepository(
             domain_owner=domain_owner,
             external_connections=external_connections,
             id=id,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             upstream=upstream,
@@ -127,7 +130,7 @@ class CodeartifactRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodeartifactRepository to import.
-        :param import_from_id: The id of the existing CodeartifactRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodeartifactRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodeartifactRepository to import is found.
         '''
         if __debug__:
@@ -145,7 +148,7 @@ class CodeartifactRepository(
         external_connection_name: builtins.str,
     ) -> None:
         '''
-        :param external_connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#external_connection_name CodeartifactRepository#external_connection_name}.
+        :param external_connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#external_connection_name CodeartifactRepository#external_connection_name}.
         '''
         value = CodeartifactRepositoryExternalConnections(
             external_connection_name=external_connection_name
@@ -181,6 +184,10 @@ class CodeartifactRepository(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -257,6 +264,11 @@ class CodeartifactRepository(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="repositoryInput")
     def repository_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "repositoryInput"))
@@ -329,6 +341,18 @@ class CodeartifactRepository(
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfe8395615e2387d49c5d895be0e2b455799f8df1c8113d1a40d6aba49b7f281)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="repository")
     def repository(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "repository"))
@@ -382,6 +406,7 @@ class CodeartifactRepository(
         "domain_owner": "domainOwner",
         "external_connections": "externalConnections",
         "id": "id",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
         "upstream": "upstream",
@@ -404,6 +429,7 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         domain_owner: typing.Optional[builtins.str] = None,
         external_connections: typing.Optional[typing.Union["CodeartifactRepositoryExternalConnections", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         upstream: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CodeartifactRepositoryUpstream", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -416,15 +442,16 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#domain CodeartifactRepository#domain}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#repository CodeartifactRepository#repository}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#description CodeartifactRepository#description}.
-        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#domain_owner CodeartifactRepository#domain_owner}.
-        :param external_connections: external_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#external_connections CodeartifactRepository#external_connections}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#id CodeartifactRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#tags CodeartifactRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#tags_all CodeartifactRepository#tags_all}.
-        :param upstream: upstream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#upstream CodeartifactRepository#upstream}
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#domain CodeartifactRepository#domain}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#repository CodeartifactRepository#repository}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#description CodeartifactRepository#description}.
+        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#domain_owner CodeartifactRepository#domain_owner}.
+        :param external_connections: external_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#external_connections CodeartifactRepository#external_connections}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#id CodeartifactRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#region CodeartifactRepository#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#tags CodeartifactRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#tags_all CodeartifactRepository#tags_all}.
+        :param upstream: upstream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#upstream CodeartifactRepository#upstream}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -445,6 +472,7 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument domain_owner", value=domain_owner, expected_type=type_hints["domain_owner"])
             check_type(argname="argument external_connections", value=external_connections, expected_type=type_hints["external_connections"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
             check_type(argname="argument upstream", value=upstream, expected_type=type_hints["upstream"])
@@ -474,6 +502,8 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["external_connections"] = external_connections
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -547,27 +577,27 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#domain CodeartifactRepository#domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#domain CodeartifactRepository#domain}.'''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#repository CodeartifactRepository#repository}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#repository CodeartifactRepository#repository}.'''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#description CodeartifactRepository#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#description CodeartifactRepository#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#domain_owner CodeartifactRepository#domain_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#domain_owner CodeartifactRepository#domain_owner}.'''
         result = self._values.get("domain_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -577,14 +607,14 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CodeartifactRepositoryExternalConnections"]:
         '''external_connections block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#external_connections CodeartifactRepository#external_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#external_connections CodeartifactRepository#external_connections}
         '''
         result = self._values.get("external_connections")
         return typing.cast(typing.Optional["CodeartifactRepositoryExternalConnections"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#id CodeartifactRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#id CodeartifactRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -593,14 +623,23 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#region CodeartifactRepository#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#tags CodeartifactRepository#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#tags CodeartifactRepository#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#tags_all CodeartifactRepository#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#tags_all CodeartifactRepository#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -610,7 +649,7 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodeartifactRepositoryUpstream"]]]:
         '''upstream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#upstream CodeartifactRepository#upstream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#upstream CodeartifactRepository#upstream}
         '''
         result = self._values.get("upstream")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodeartifactRepositoryUpstream"]]], result)
@@ -635,7 +674,7 @@ class CodeartifactRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CodeartifactRepositoryExternalConnections:
     def __init__(self, *, external_connection_name: builtins.str) -> None:
         '''
-        :param external_connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#external_connection_name CodeartifactRepository#external_connection_name}.
+        :param external_connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#external_connection_name CodeartifactRepository#external_connection_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e39f2bdcbcbd879d45b2c3766e054ac4a78f0c44e7556e6e63bdadc1eef52fb)
@@ -646,7 +685,7 @@ class CodeartifactRepositoryExternalConnections:
 
     @builtins.property
     def external_connection_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#external_connection_name CodeartifactRepository#external_connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#external_connection_name CodeartifactRepository#external_connection_name}.'''
         result = self._values.get("external_connection_name")
         assert result is not None, "Required property 'external_connection_name' is missing"
         return typing.cast(builtins.str, result)
@@ -736,7 +775,7 @@ class CodeartifactRepositoryExternalConnectionsOutputReference(
 class CodeartifactRepositoryUpstream:
     def __init__(self, *, repository_name: builtins.str) -> None:
         '''
-        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#repository_name CodeartifactRepository#repository_name}.
+        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#repository_name CodeartifactRepository#repository_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a89e8b07f39759d61f832289b8519494402b21859eb814988cb2dda4b4059d9)
@@ -747,7 +786,7 @@ class CodeartifactRepositoryUpstream:
 
     @builtins.property
     def repository_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/codeartifact_repository#repository_name CodeartifactRepository#repository_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_repository#repository_name CodeartifactRepository#repository_name}.'''
         result = self._values.get("repository_name")
         assert result is not None, "Required property 'repository_name' is missing"
         return typing.cast(builtins.str, result)
@@ -940,6 +979,7 @@ def _typecheckingstub__6fc973f4719dcd3b2397a20bf1ea03b80979db1853d92d1e2ded9e5bd
     domain_owner: typing.Optional[builtins.str] = None,
     external_connections: typing.Optional[typing.Union[CodeartifactRepositoryExternalConnections, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     upstream: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CodeartifactRepositoryUpstream, typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -993,6 +1033,12 @@ def _typecheckingstub__ca271842988d6a6685f1c3d4bfcb8f1623e3a216fb2fa25d3d82821c3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dfe8395615e2387d49c5d895be0e2b455799f8df1c8113d1a40d6aba49b7f281(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__713391ce8a5e89e512a1c0a7ae2d97c3bc3e0f54519e26ead6df6fe8a4e31dc5(
     value: builtins.str,
 ) -> None:
@@ -1026,6 +1072,7 @@ def _typecheckingstub__7cf40c8842e60f734fcf35123bff8d83130e326a6dafa3c67853a264f
     domain_owner: typing.Optional[builtins.str] = None,
     external_connections: typing.Optional[typing.Union[CodeartifactRepositoryExternalConnections, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     upstream: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CodeartifactRepositoryUpstream, typing.Dict[builtins.str, typing.Any]]]]] = None,

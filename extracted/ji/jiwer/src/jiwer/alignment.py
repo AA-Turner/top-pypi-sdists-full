@@ -17,21 +17,22 @@
 #
 
 """
-Utility method to visualize the alignment between one or more reference and hypothesis
-pairs.
+Utility method to visualize the alignment and errors between one or more reference
+and hypothesis pairs.
 """
-
-from typing import List, Union
+from collections import defaultdict
+from typing import List, Union, Optional
 
 from jiwer.process import CharacterOutput, WordOutput, AlignmentChunk
 
-__all__ = ["visualize_alignment"]
+__all__ = ["visualize_alignment", "collect_error_counts", "visualize_error_counts"]
 
 
 def visualize_alignment(
     output: Union[WordOutput, CharacterOutput],
     show_measures: bool = True,
     skip_correct: bool = True,
+    line_width: Optional[int] = None,
 ) -> str:
     """
     Visualize the output of [jiwer.process_words][process.process_words] and
@@ -45,12 +46,14 @@ def visualize_alignment(
         show_measures: If enabled, the visualization will include measures like the WER
                        or CER
         skip_correct: If enabled, the visualization will exclude correct reference and hypothesis pairs
+        line_width: If set, try, at best effort, to spit sentences into multiple lines if they exceed the width.
 
     Returns:
         (str): The visualization as a string
 
     Example:
         This code snippet
+
         ```python
         import jiwer
 
@@ -61,18 +64,23 @@ def visualize_alignment(
 
         print(jiwer.visualize_alignment(out))
         ```
+
         will produce this visualization:
+
         ```txt
-        sentence 1
+        === SENTENCE 1 ===
+
         REF:    # short one here
         HYP: shoe order one    *
                 I     S        D
 
-        sentence 2
+        === SENTENCE 2 ===
+
         REF: quite a bit of  #    #  longer sentence    #
         HYP: quite * bit of an even longest sentence here
                    D         I    I       S             I
 
+        === SUMMARY ===
         number of sentences: 2
         substitutions=2 deletions=2 insertions=4 hits=5
 
@@ -85,15 +93,30 @@ def visualize_alignment(
         When `show_measures=False`, only the alignment will be printed:
 
         ```txt
-        sentence 1
+        === SENTENCE 1 ===
+
         REF:    # short one here
         HYP: shoe order one    *
                 I     S        D
 
-        sentence 2
+        === SENTENCE 2 ===
+
         REF: quite a bit of  #    #  longer sentence    #
         HYP: quite * bit of an even longest sentence here
                    D         I    I       S             I
+        ```
+
+        When setting `line_width=80`, the following output will be split into multiple lines:
+
+        ```txt
+        === SENTENCE 1 ===
+
+        REF: This is a very  long sentence that is *** much longer than the previous one
+        HYP: This is a very loong sentence that is not much longer than the previous one
+                                S                    I
+        REF: or the one before that
+        HYP: or *** one before that
+                  D
         ```
     """
     references = output.references
@@ -103,16 +126,19 @@ def visualize_alignment(
 
     final_str = ""
     for idx, (gt, hp, chunks) in enumerate(zip(references, hypothesis, alignment)):
-        if skip_correct and len(chunks) == 1 and chunks[0].type == "equal":
+        if skip_correct and (
+            len(chunks) == 0 or (len(chunks) == 1 and chunks[0].type == "equal")
+        ):
             continue
 
-        final_str += f"sentence {idx+1}\n"
+        final_str += f"=== SENTENCE {idx+1} ===\n\n"
         final_str += _construct_comparison_string(
-            gt, hp, chunks, include_space_seperator=not is_cer
+            gt, hp, chunks, include_space_seperator=not is_cer, line_width=line_width
         )
         final_str += "\n"
 
     if show_measures:
+        final_str += "=== SUMMARY ===\n"
         final_str += f"number of sentences: {len(alignment)}\n"
         final_str += f"substitutions={output.substitutions} "
         final_str += f"deletions={output.deletions} "
@@ -138,10 +164,12 @@ def _construct_comparison_string(
     hypothesis: List[str],
     ops: List[AlignmentChunk],
     include_space_seperator: bool = False,
+    line_width: Optional[int] = None,
 ) -> str:
     ref_str = "REF: "
     hyp_str = "HYP: "
     op_str = "     "
+    agg_str = ""  # aggregate string for max_chars split
 
     for op in ops:
         if op.type == "equal" or op.type == "substitute":
@@ -163,6 +191,19 @@ def _construct_comparison_string(
         for rf, hp, c in zip(ref, hyp, op_chars):
             str_len = max(len(rf), len(hp), len(c))
 
+            if line_width is not None:
+                if len(ref_str) + str_len > line_width:
+                    # aggregate the strings
+                    if include_space_seperator:
+                        agg_str += f"{ref_str[:-1]}\n{hyp_str[:-1]}\n{op_str[:-1]}\n\n"
+                    else:
+                        agg_str += f"{ref_str}\n{hyp_str}\n{op_str}\n\n"
+
+                    # reset the strings
+                    ref_str = "REF: "
+                    hyp_str = "HYP: "
+                    op_str = "     "
+
             if rf == "*":
                 rf = "".join(["*"] * str_len)
             elif hp == "*":
@@ -179,6 +220,149 @@ def _construct_comparison_string(
 
     if include_space_seperator:
         # remove last space
-        return f"{ref_str[:-1]}\n{hyp_str[:-1]}\n{op_str[:-1]}\n"
+        return agg_str + f"{ref_str[:-1]}\n{hyp_str[:-1]}\n{op_str[:-1]}\n"
     else:
-        return f"{ref_str}\n{hyp_str}\n{op_str}\n"
+        return agg_str + f"{ref_str}\n{hyp_str}\n{op_str}\n"
+
+
+def collect_error_counts(output: Union[WordOutput, CharacterOutput]):
+    """
+    Retrieve three dictionaries, which count the frequency of how often
+    each word or character was substituted, inserted, or deleted.
+    The substitution dictionary has, as keys, a 2-tuple (from, to).
+    The other two dictionaries have the inserted/deleted words or characters as keys.
+
+    Args:
+        output: The processed output of reference and hypothesis pair(s).
+
+    Returns:
+        A three-tuple of dictionaries, in the order substitutions, insertions, deletions.
+    """
+    substitutions = defaultdict(lambda: 0)
+    insertions = defaultdict(lambda: 0)
+    deletions = defaultdict(lambda: 0)
+
+    for idx, sentence_chunks in enumerate(output.alignments):
+        ref = output.references[idx]
+        hyp = output.hypotheses[idx]
+        sep = " " if isinstance(output, WordOutput) else ""
+
+        for chunk in sentence_chunks:
+            if chunk.type == "insert":
+                inserted = sep.join(hyp[chunk.hyp_start_idx : chunk.hyp_end_idx])
+                insertions[inserted] += 1
+            if chunk.type == "delete":
+                deleted = sep.join(ref[chunk.ref_start_idx : chunk.ref_end_idx])
+                deletions[deleted] += 1
+            if chunk.type == "substitute":
+                replaced = sep.join(ref[chunk.ref_start_idx : chunk.ref_end_idx])
+                by = sep.join(hyp[chunk.hyp_start_idx : chunk.hyp_end_idx])
+                substitutions[(replaced, by)] += 1
+
+    return substitutions, insertions, deletions
+
+
+def visualize_error_counts(
+    output: Union[WordOutput, CharacterOutput],
+    show_substitutions: bool = True,
+    show_insertions: bool = True,
+    show_deletions: bool = True,
+    top_k: Optional[int] = None,
+):
+    """
+    Visualize which words (or characters), and how often, were substituted, inserted, or deleted.
+
+    Args:
+        output: The processed output of reference and hypothesis pair(s).
+        show_substitutions: If true, visualize substitution errors.
+        show_insertions: If true, visualize insertion errors.
+        show_deletions: If true, visualize deletion errors.
+        top_k: If set, only visualize the k most frequent errors.
+
+    Returns:
+         (str): A string which visualizes the words/characters and their frequencies.
+
+    Example:
+        The code snippet
+        ```python3
+        import jiwer
+
+        out = jiwer.process_words(
+            ["short one here", "quite a bit of longer sentence"],
+            ["shoe order one", "quite bit of an even longest sentence here"],
+        )
+        print(jiwer.visualize_error_counts(out))
+        ```
+
+        will print the following:
+
+        ```txt
+        === SUBSTITUTIONS ===
+        short   --> order   = 1x
+        longer  --> longest = 1x
+
+        === INSERTIONS ===
+        shoe    = 1x
+        an even = 1x
+        here    = 1x
+
+        === DELETIONS ===
+        here = 1x
+        a    = 1x
+        ```
+    """
+    s, i, d = collect_error_counts(output)
+
+    def build_list(errors: dict):
+        if len(errors) == 0:
+            return "none"
+
+        keys = [k for k in errors.keys()]
+        keys = sorted(keys, reverse=True, key=lambda k: errors[k])
+
+        if top_k is not None:
+            keys = keys[:top_k]
+
+        # we get the maximum length of all words to nicely pad output
+        ln = max(len(k) if isinstance(k, str) else max(len(e) for e in k) for k in keys)
+
+        # here we construct the string
+        build = ""
+
+        for count, (k, v) in enumerate(
+            sorted(errors.items(), key=lambda tpl: tpl[1], reverse=True)
+        ):
+            if top_k is not None and count >= top_k:
+                break
+
+            if isinstance(k, tuple):
+                build += f"{k[0]: <{ln}} --> {k[1]:<{ln}} = {v}x\n"
+            else:
+                build += f"{k:<{ln}} = {v}x\n"
+
+        return build
+
+    output = ""
+
+    if show_substitutions:
+        if output != "":
+            output += "\n"
+        output += "=== SUBSTITUTIONS ===\n"
+        output += build_list(s)
+
+    if show_insertions:
+        if output != "":
+            output += "\n"
+        output += "=== INSERTIONS ===\n"
+        output += build_list(i)
+
+    if show_deletions:
+        if output != "":
+            output += "\n"
+        output += "=== DELETIONS ===\n"
+        output += build_list(d)
+
+    if output[-1:] == "\n":
+        output = output[:-1]
+
+    return output

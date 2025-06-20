@@ -10,11 +10,14 @@
 // copyright notice, and modified files need to carry a notice indicating
 // that they have been altered from the originals.
 
+use std::env;
+
+pub mod annotation;
 pub mod bit;
-pub mod bit_data;
 pub mod bit_locator;
 pub mod circuit_data;
 pub mod circuit_instruction;
+pub mod classical;
 pub mod converters;
 pub mod dag_circuit;
 pub mod dag_node;
@@ -24,65 +27,80 @@ pub mod error;
 pub mod gate_matrix;
 pub mod imports;
 pub mod interner;
+pub mod nlayout;
+pub mod object_registry;
 pub mod operations;
 pub mod packed_instruction;
+pub mod parameter_expression;
 pub mod parameter_table;
 pub mod register_data;
 pub mod slice;
+pub mod symbol_expr;
+pub mod symbol_parser;
 pub mod util;
 
-mod rustworkx_core_vnext;
+pub mod rustworkx_core_vnext;
 
 use pyo3::prelude::*;
 use pyo3::types::{PySequence, PyTuple};
 use pyo3::PyTypeInfo;
 
-pub type BitType = u32;
 #[derive(Copy, Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, FromPyObject)]
-pub struct Qubit(pub BitType);
+pub struct Qubit(pub u32);
 
-impl Qubit {
-    /// Construct a new Qubit object from a usize, if you have a u32 you can
-    /// create a `Qubit` object directly with `Qubit(0u32)`. This will panic
-    /// if the `usize` index exceeds `u32::MAX`.
-    #[inline(always)]
-    pub fn new(index: usize) -> Self {
-        Qubit(
-            index.try_into().unwrap_or_else(|_| {
-                panic!("Index value '{}' exceeds the maximum bit width!", index)
-            }),
-        )
-    }
+#[derive(Copy, Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, FromPyObject)]
+pub struct Clbit(pub u32);
 
-    /// Convert a Qubit to a usize
-    #[inline(always)]
-    pub fn index(&self) -> usize {
-        self.0 as usize
-    }
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct Var(u32);
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct Stretch(u32);
+
+pub use nlayout::PhysicalQubit;
+pub use nlayout::VirtualQubit;
+
+macro_rules! impl_circuit_identifier {
+    ($type:ident) => {
+        impl $type {
+            /// Construct a new identifier from a usize, if you have a u32 you can
+            /// construct one directly via [$type()]. This will panic if the `usize`
+            /// index exceeds `u32::MAX`.
+            #[inline(always)]
+            pub fn new(index: usize) -> Self {
+                $type(index.try_into().unwrap_or_else(|_| {
+                    panic!(
+                        "Index value '{}' exceeds the maximum identifier width!",
+                        index
+                    )
+                }))
+            }
+
+            /// Convert to a usize.
+            #[inline(always)]
+            pub fn index(&self) -> usize {
+                self.0 as usize
+            }
+        }
+
+        impl From<u32> for $type {
+            fn from(value: u32) -> Self {
+                $type(value)
+            }
+        }
+
+        impl From<$type> for u32 {
+            fn from(value: $type) -> Self {
+                value.0
+            }
+        }
+    };
 }
 
-#[derive(Copy, Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Clbit(pub BitType);
-
-impl Clbit {
-    /// Construct a new Clbit object from a usize. if you have a u32 you can
-    /// create a `Clbit` object directly with `Clbit(0u32)`. This will panic
-    /// if the `usize` index exceeds `u32::MAX`.
-    #[inline(always)]
-    pub fn new(index: usize) -> Self {
-        Clbit(
-            index.try_into().unwrap_or_else(|_| {
-                panic!("Index value '{}' exceeds the maximum bit width!", index)
-            }),
-        )
-    }
-
-    /// Convert a Clbit to a usize
-    #[inline(always)]
-    pub fn index(&self) -> usize {
-        self.0 as usize
-    }
-}
+impl_circuit_identifier!(Qubit);
+impl_circuit_identifier!(Clbit);
+impl_circuit_identifier!(Var);
+impl_circuit_identifier!(Stretch);
 
 pub struct TupleLikeArg<'py> {
     value: Bound<'py, PyTuple>,
@@ -100,30 +118,6 @@ impl<'py> FromPyObject<'py> for TupleLikeArg<'py> {
             )?,
         };
         Ok(TupleLikeArg { value })
-    }
-}
-
-impl From<BitType> for Qubit {
-    fn from(value: BitType) -> Self {
-        Qubit(value)
-    }
-}
-
-impl From<Qubit> for BitType {
-    fn from(value: Qubit) -> Self {
-        value.0
-    }
-}
-
-impl From<BitType> for Clbit {
-    fn from(value: BitType) -> Self {
-        Clbit(value)
-    }
-}
-
-impl From<Clbit> for BitType {
-    fn from(value: Clbit) -> Self {
-        value.0
     }
 }
 
@@ -161,7 +155,21 @@ macro_rules! impl_intopyobject_for_copy_pyclass {
     };
 }
 
+#[inline]
+pub fn getenv_use_multiple_threads() -> bool {
+    let parallel_context = env::var("QISKIT_IN_PARALLEL")
+        .unwrap_or_else(|_| "FALSE".to_string())
+        .to_uppercase()
+        == "TRUE";
+    let force_threads = env::var("QISKIT_FORCE_THREADS")
+        .unwrap_or_else(|_| "FALSE".to_string())
+        .to_uppercase()
+        == "TRUE";
+    !parallel_context || force_threads
+}
+
 pub fn circuit(m: &Bound<PyModule>) -> PyResult<()> {
+    m.add_class::<annotation::PyAnnotation>()?;
     m.add_class::<bit::PyBit>()?;
     m.add_class::<bit::PyClbit>()?;
     m.add_class::<bit::PyQubit>()?;
@@ -205,6 +213,10 @@ pub fn circuit(m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<dag_circuit::PyBitLocations>()?;
     m.add_class::<operations::StandardGate>()?;
     m.add_class::<operations::StandardInstructionType>()?;
+    m.add_class::<parameter_expression::ParameterExpression>()?;
+    let classical_mod = PyModule::new(m.py(), "classical")?;
+    classical::register_python(&classical_mod)?;
+    m.add_submodule(&classical_mod)?;
     Ok(())
 }
 

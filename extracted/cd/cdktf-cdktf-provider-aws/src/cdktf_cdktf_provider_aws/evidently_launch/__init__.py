@@ -1,7 +1,7 @@
 r'''
 # `aws_evidently_launch`
 
-Refer to the Terraform Registry for docs: [`aws_evidently_launch`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch).
+Refer to the Terraform Registry for docs: [`aws_evidently_launch`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EvidentlyLaunch(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.evidentlyLaunch.EvidentlyLaunch",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch aws_evidently_launch}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch aws_evidently_launch}.'''
 
     def __init__(
         self,
@@ -58,6 +58,7 @@ class EvidentlyLaunch(
         id: typing.Optional[builtins.str] = None,
         metric_monitors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EvidentlyLaunchMetricMonitors", typing.Dict[builtins.str, typing.Any]]]]] = None,
         randomization_salt: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         scheduled_splits_config: typing.Optional[typing.Union["EvidentlyLaunchScheduledSplitsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -70,21 +71,22 @@ class EvidentlyLaunch(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch aws_evidently_launch} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch aws_evidently_launch} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#groups EvidentlyLaunch#groups}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#project EvidentlyLaunch#project}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#id EvidentlyLaunch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metric_monitors: metric_monitors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#metric_monitors EvidentlyLaunch#metric_monitors}
-        :param randomization_salt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#randomization_salt EvidentlyLaunch#randomization_salt}.
-        :param scheduled_splits_config: scheduled_splits_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#scheduled_splits_config EvidentlyLaunch#scheduled_splits_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#tags EvidentlyLaunch#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#tags_all EvidentlyLaunch#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#timeouts EvidentlyLaunch#timeouts}
+        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#groups EvidentlyLaunch#groups}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#project EvidentlyLaunch#project}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#id EvidentlyLaunch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metric_monitors: metric_monitors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#metric_monitors EvidentlyLaunch#metric_monitors}
+        :param randomization_salt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#randomization_salt EvidentlyLaunch#randomization_salt}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#region EvidentlyLaunch#region}
+        :param scheduled_splits_config: scheduled_splits_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#scheduled_splits_config EvidentlyLaunch#scheduled_splits_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#tags EvidentlyLaunch#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#tags_all EvidentlyLaunch#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#timeouts EvidentlyLaunch#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -105,6 +107,7 @@ class EvidentlyLaunch(
             id=id,
             metric_monitors=metric_monitors,
             randomization_salt=randomization_salt,
+            region=region,
             scheduled_splits_config=scheduled_splits_config,
             tags=tags,
             tags_all=tags_all,
@@ -133,7 +136,7 @@ class EvidentlyLaunch(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EvidentlyLaunch to import.
-        :param import_from_id: The id of the existing EvidentlyLaunch that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EvidentlyLaunch that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EvidentlyLaunch to import is found.
         '''
         if __debug__:
@@ -177,7 +180,7 @@ class EvidentlyLaunch(
         steps: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EvidentlyLaunchScheduledSplitsConfigSteps", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#steps EvidentlyLaunch#steps}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#steps EvidentlyLaunch#steps}
         '''
         value = EvidentlyLaunchScheduledSplitsConfig(steps=steps)
 
@@ -192,9 +195,9 @@ class EvidentlyLaunch(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#create EvidentlyLaunch#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#delete EvidentlyLaunch#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#update EvidentlyLaunch#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#create EvidentlyLaunch#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#delete EvidentlyLaunch#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#update EvidentlyLaunch#update}.
         '''
         value = EvidentlyLaunchTimeouts(create=create, delete=delete, update=update)
 
@@ -215,6 +218,10 @@ class EvidentlyLaunch(
     @jsii.member(jsii_name="resetRandomizationSalt")
     def reset_randomization_salt(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRandomizationSalt", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetScheduledSplitsConfig")
     def reset_scheduled_splits_config(self) -> None:
@@ -342,6 +349,11 @@ class EvidentlyLaunch(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "randomizationSaltInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="scheduledSplitsConfigInput")
     def scheduled_splits_config_input(
         self,
@@ -428,6 +440,18 @@ class EvidentlyLaunch(
         jsii.set(self, "randomizationSalt", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74af0c509a484d5dca5d650a1c4c783e162d6c1b700d9496c87482252b8f50e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tags"))
@@ -470,6 +494,7 @@ class EvidentlyLaunch(
         "id": "id",
         "metric_monitors": "metricMonitors",
         "randomization_salt": "randomizationSalt",
+        "region": "region",
         "scheduled_splits_config": "scheduledSplitsConfig",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -494,6 +519,7 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         metric_monitors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EvidentlyLaunchMetricMonitors", typing.Dict[builtins.str, typing.Any]]]]] = None,
         randomization_salt: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         scheduled_splits_config: typing.Optional[typing.Union["EvidentlyLaunchScheduledSplitsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -507,17 +533,18 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#groups EvidentlyLaunch#groups}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#project EvidentlyLaunch#project}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#id EvidentlyLaunch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metric_monitors: metric_monitors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#metric_monitors EvidentlyLaunch#metric_monitors}
-        :param randomization_salt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#randomization_salt EvidentlyLaunch#randomization_salt}.
-        :param scheduled_splits_config: scheduled_splits_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#scheduled_splits_config EvidentlyLaunch#scheduled_splits_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#tags EvidentlyLaunch#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#tags_all EvidentlyLaunch#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#timeouts EvidentlyLaunch#timeouts}
+        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#groups EvidentlyLaunch#groups}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#project EvidentlyLaunch#project}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#id EvidentlyLaunch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metric_monitors: metric_monitors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#metric_monitors EvidentlyLaunch#metric_monitors}
+        :param randomization_salt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#randomization_salt EvidentlyLaunch#randomization_salt}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#region EvidentlyLaunch#region}
+        :param scheduled_splits_config: scheduled_splits_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#scheduled_splits_config EvidentlyLaunch#scheduled_splits_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#tags EvidentlyLaunch#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#tags_all EvidentlyLaunch#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#timeouts EvidentlyLaunch#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -541,6 +568,7 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument metric_monitors", value=metric_monitors, expected_type=type_hints["metric_monitors"])
             check_type(argname="argument randomization_salt", value=randomization_salt, expected_type=type_hints["randomization_salt"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument scheduled_splits_config", value=scheduled_splits_config, expected_type=type_hints["scheduled_splits_config"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -572,6 +600,8 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["metric_monitors"] = metric_monitors
         if randomization_salt is not None:
             self._values["randomization_salt"] = randomization_salt
+        if region is not None:
+            self._values["region"] = region
         if scheduled_splits_config is not None:
             self._values["scheduled_splits_config"] = scheduled_splits_config
         if tags is not None:
@@ -651,7 +681,7 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EvidentlyLaunchGroups"]]:
         '''groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#groups EvidentlyLaunch#groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#groups EvidentlyLaunch#groups}
         '''
         result = self._values.get("groups")
         assert result is not None, "Required property 'groups' is missing"
@@ -659,27 +689,27 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def project(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#project EvidentlyLaunch#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#project EvidentlyLaunch#project}.'''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#id EvidentlyLaunch#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#id EvidentlyLaunch#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -693,15 +723,24 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EvidentlyLaunchMetricMonitors"]]]:
         '''metric_monitors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#metric_monitors EvidentlyLaunch#metric_monitors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#metric_monitors EvidentlyLaunch#metric_monitors}
         '''
         result = self._values.get("metric_monitors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EvidentlyLaunchMetricMonitors"]]], result)
 
     @builtins.property
     def randomization_salt(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#randomization_salt EvidentlyLaunch#randomization_salt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#randomization_salt EvidentlyLaunch#randomization_salt}.'''
         result = self._values.get("randomization_salt")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#region EvidentlyLaunch#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -710,20 +749,20 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EvidentlyLaunchScheduledSplitsConfig"]:
         '''scheduled_splits_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#scheduled_splits_config EvidentlyLaunch#scheduled_splits_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#scheduled_splits_config EvidentlyLaunch#scheduled_splits_config}
         '''
         result = self._values.get("scheduled_splits_config")
         return typing.cast(typing.Optional["EvidentlyLaunchScheduledSplitsConfig"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#tags EvidentlyLaunch#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#tags EvidentlyLaunch#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#tags_all EvidentlyLaunch#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#tags_all EvidentlyLaunch#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -731,7 +770,7 @@ class EvidentlyLaunchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EvidentlyLaunchTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#timeouts EvidentlyLaunch#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#timeouts EvidentlyLaunch#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EvidentlyLaunchTimeouts"], result)
@@ -911,10 +950,10 @@ class EvidentlyLaunchGroups:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param feature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#feature EvidentlyLaunch#feature}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
-        :param variation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#variation EvidentlyLaunch#variation}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.
+        :param feature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#feature EvidentlyLaunch#feature}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
+        :param variation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#variation EvidentlyLaunch#variation}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e5de07f77f50c85c5d38f318d611a22d58e6777a91a7b8ad80650d3c8df00e2)
@@ -932,28 +971,28 @@ class EvidentlyLaunchGroups:
 
     @builtins.property
     def feature(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#feature EvidentlyLaunch#feature}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#feature EvidentlyLaunch#feature}.'''
         result = self._values.get("feature")
         assert result is not None, "Required property 'feature' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def variation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#variation EvidentlyLaunch#variation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#variation EvidentlyLaunch#variation}.'''
         result = self._values.get("variation")
         assert result is not None, "Required property 'variation' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#description EvidentlyLaunch#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1187,7 +1226,7 @@ class EvidentlyLaunchMetricMonitors:
         metric_definition: typing.Union["EvidentlyLaunchMetricMonitorsMetricDefinition", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param metric_definition: metric_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#metric_definition EvidentlyLaunch#metric_definition}
+        :param metric_definition: metric_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#metric_definition EvidentlyLaunch#metric_definition}
         '''
         if isinstance(metric_definition, dict):
             metric_definition = EvidentlyLaunchMetricMonitorsMetricDefinition(**metric_definition)
@@ -1202,7 +1241,7 @@ class EvidentlyLaunchMetricMonitors:
     def metric_definition(self) -> "EvidentlyLaunchMetricMonitorsMetricDefinition":
         '''metric_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#metric_definition EvidentlyLaunch#metric_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#metric_definition EvidentlyLaunch#metric_definition}
         '''
         result = self._values.get("metric_definition")
         assert result is not None, "Required property 'metric_definition' is missing"
@@ -1332,11 +1371,11 @@ class EvidentlyLaunchMetricMonitorsMetricDefinition:
         unit_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param entity_id_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#entity_id_key EvidentlyLaunch#entity_id_key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
-        :param value_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#value_key EvidentlyLaunch#value_key}.
-        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#event_pattern EvidentlyLaunch#event_pattern}.
-        :param unit_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#unit_label EvidentlyLaunch#unit_label}.
+        :param entity_id_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#entity_id_key EvidentlyLaunch#entity_id_key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
+        :param value_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#value_key EvidentlyLaunch#value_key}.
+        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#event_pattern EvidentlyLaunch#event_pattern}.
+        :param unit_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#unit_label EvidentlyLaunch#unit_label}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e00f8b104c9d42a1165ea4cee900c562a3cd55934b1224e83abc0cd72651ef84)
@@ -1357,34 +1396,34 @@ class EvidentlyLaunchMetricMonitorsMetricDefinition:
 
     @builtins.property
     def entity_id_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#entity_id_key EvidentlyLaunch#entity_id_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#entity_id_key EvidentlyLaunch#entity_id_key}.'''
         result = self._values.get("entity_id_key")
         assert result is not None, "Required property 'entity_id_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#value_key EvidentlyLaunch#value_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#value_key EvidentlyLaunch#value_key}.'''
         result = self._values.get("value_key")
         assert result is not None, "Required property 'value_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def event_pattern(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#event_pattern EvidentlyLaunch#event_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#event_pattern EvidentlyLaunch#event_pattern}.'''
         result = self._values.get("event_pattern")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def unit_label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#unit_label EvidentlyLaunch#unit_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#unit_label EvidentlyLaunch#unit_label}.'''
         result = self._values.get("unit_label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1568,11 +1607,11 @@ class EvidentlyLaunchMetricMonitorsOutputReference(
         unit_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param entity_id_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#entity_id_key EvidentlyLaunch#entity_id_key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
-        :param value_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#value_key EvidentlyLaunch#value_key}.
-        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#event_pattern EvidentlyLaunch#event_pattern}.
-        :param unit_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#unit_label EvidentlyLaunch#unit_label}.
+        :param entity_id_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#entity_id_key EvidentlyLaunch#entity_id_key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#name EvidentlyLaunch#name}.
+        :param value_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#value_key EvidentlyLaunch#value_key}.
+        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#event_pattern EvidentlyLaunch#event_pattern}.
+        :param unit_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#unit_label EvidentlyLaunch#unit_label}.
         '''
         value = EvidentlyLaunchMetricMonitorsMetricDefinition(
             entity_id_key=entity_id_key,
@@ -1628,7 +1667,7 @@ class EvidentlyLaunchScheduledSplitsConfig:
         steps: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EvidentlyLaunchScheduledSplitsConfigSteps", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#steps EvidentlyLaunch#steps}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#steps EvidentlyLaunch#steps}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cf06d84cbde4f6beced4d79d35d34637181e6fd1d0cd86f84cdd212013d88e8)
@@ -1643,7 +1682,7 @@ class EvidentlyLaunchScheduledSplitsConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EvidentlyLaunchScheduledSplitsConfigSteps"]]:
         '''steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#steps EvidentlyLaunch#steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#steps EvidentlyLaunch#steps}
         '''
         result = self._values.get("steps")
         assert result is not None, "Required property 'steps' is missing"
@@ -1740,9 +1779,9 @@ class EvidentlyLaunchScheduledSplitsConfigSteps:
         segment_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EvidentlyLaunchScheduledSplitsConfigStepsSegmentOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param group_weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#group_weights EvidentlyLaunch#group_weights}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#start_time EvidentlyLaunch#start_time}.
-        :param segment_overrides: segment_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#segment_overrides EvidentlyLaunch#segment_overrides}
+        :param group_weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#group_weights EvidentlyLaunch#group_weights}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#start_time EvidentlyLaunch#start_time}.
+        :param segment_overrides: segment_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#segment_overrides EvidentlyLaunch#segment_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5e92e31c6a2b948ed80d64dc76aff76eff4ff8b570fb56535bf0e6fadf6f882)
@@ -1758,14 +1797,14 @@ class EvidentlyLaunchScheduledSplitsConfigSteps:
 
     @builtins.property
     def group_weights(self) -> typing.Mapping[builtins.str, jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#group_weights EvidentlyLaunch#group_weights}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#group_weights EvidentlyLaunch#group_weights}.'''
         result = self._values.get("group_weights")
         assert result is not None, "Required property 'group_weights' is missing"
         return typing.cast(typing.Mapping[builtins.str, jsii.Number], result)
 
     @builtins.property
     def start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#start_time EvidentlyLaunch#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#start_time EvidentlyLaunch#start_time}.'''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
         return typing.cast(builtins.str, result)
@@ -1776,7 +1815,7 @@ class EvidentlyLaunchScheduledSplitsConfigSteps:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EvidentlyLaunchScheduledSplitsConfigStepsSegmentOverrides"]]]:
         '''segment_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#segment_overrides EvidentlyLaunch#segment_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#segment_overrides EvidentlyLaunch#segment_overrides}
         '''
         result = self._values.get("segment_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EvidentlyLaunchScheduledSplitsConfigStepsSegmentOverrides"]]], result)
@@ -2015,9 +2054,9 @@ class EvidentlyLaunchScheduledSplitsConfigStepsSegmentOverrides:
         weights: typing.Mapping[builtins.str, jsii.Number],
     ) -> None:
         '''
-        :param evaluation_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#evaluation_order EvidentlyLaunch#evaluation_order}.
-        :param segment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#segment EvidentlyLaunch#segment}.
-        :param weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#weights EvidentlyLaunch#weights}.
+        :param evaluation_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#evaluation_order EvidentlyLaunch#evaluation_order}.
+        :param segment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#segment EvidentlyLaunch#segment}.
+        :param weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#weights EvidentlyLaunch#weights}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8f0e612c72459608f593fa1ba572a07dc0333070757d5aa6eed7186091e16c3)
@@ -2032,21 +2071,21 @@ class EvidentlyLaunchScheduledSplitsConfigStepsSegmentOverrides:
 
     @builtins.property
     def evaluation_order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#evaluation_order EvidentlyLaunch#evaluation_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#evaluation_order EvidentlyLaunch#evaluation_order}.'''
         result = self._values.get("evaluation_order")
         assert result is not None, "Required property 'evaluation_order' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def segment(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#segment EvidentlyLaunch#segment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#segment EvidentlyLaunch#segment}.'''
         result = self._values.get("segment")
         assert result is not None, "Required property 'segment' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def weights(self) -> typing.Mapping[builtins.str, jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#weights EvidentlyLaunch#weights}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#weights EvidentlyLaunch#weights}.'''
         result = self._values.get("weights")
         assert result is not None, "Required property 'weights' is missing"
         return typing.cast(typing.Mapping[builtins.str, jsii.Number], result)
@@ -2267,9 +2306,9 @@ class EvidentlyLaunchTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#create EvidentlyLaunch#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#delete EvidentlyLaunch#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#update EvidentlyLaunch#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#create EvidentlyLaunch#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#delete EvidentlyLaunch#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#update EvidentlyLaunch#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75d220dd1df2b0433ddf31c80fd979a55243ef169e2d14dc7a6700a8de561e06)
@@ -2286,19 +2325,19 @@ class EvidentlyLaunchTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#create EvidentlyLaunch#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#create EvidentlyLaunch#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#delete EvidentlyLaunch#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#delete EvidentlyLaunch#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/evidently_launch#update EvidentlyLaunch#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/evidently_launch#update EvidentlyLaunch#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2454,6 +2493,7 @@ def _typecheckingstub__76dbb14bfab3a77fa7df39da6757e0a54f2ee8fe1770b5da65933980a
     id: typing.Optional[builtins.str] = None,
     metric_monitors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EvidentlyLaunchMetricMonitors, typing.Dict[builtins.str, typing.Any]]]]] = None,
     randomization_salt: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     scheduled_splits_config: typing.Optional[typing.Union[EvidentlyLaunchScheduledSplitsConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2520,6 +2560,12 @@ def _typecheckingstub__0515570fbb3eee37115c077c221391b9cdf1ba79164294b51f5266e66
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__74af0c509a484d5dca5d650a1c4c783e162d6c1b700d9496c87482252b8f50e8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4f50bf6f934648ae22753e8cd8e3a312035c723df16d99effdf9b5b377ccb979(
     value: typing.Mapping[builtins.str, builtins.str],
 ) -> None:
@@ -2548,6 +2594,7 @@ def _typecheckingstub__5e97f7c300c6f94120e6415e5704442553b1bcccaa2c573812147cafd
     id: typing.Optional[builtins.str] = None,
     metric_monitors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EvidentlyLaunchMetricMonitors, typing.Dict[builtins.str, typing.Any]]]]] = None,
     randomization_salt: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     scheduled_splits_config: typing.Optional[typing.Union[EvidentlyLaunchScheduledSplitsConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

@@ -1,7 +1,7 @@
 r'''
 # `helm_release`
 
-Refer to the Terraform Registry for docs: [`helm_release`](https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release).
+Refer to the Terraform Registry for docs: [`helm_release`](https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,12 +44,12 @@ class Release(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-helm.release.Release",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release helm_release}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release helm_release}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
-        id_: builtins.str,
+        id: builtins.str,
         *,
         chart: builtins.str,
         name: builtins.str,
@@ -63,7 +63,6 @@ class Release(
         disable_openapi_validation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         disable_webhooks: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         force_update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-        id: typing.Optional[builtins.str] = None,
         keyring: typing.Optional[builtins.str] = None,
         lint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         max_history: typing.Optional[jsii.Number] = None,
@@ -84,9 +83,10 @@ class Release(
         set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSet", typing.Dict[builtins.str, typing.Any]]]]] = None,
         set_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSetListStruct", typing.Dict[builtins.str, typing.Any]]]]] = None,
         set_sensitive: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSetSensitive", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        set_wo: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSetWo", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        set_wo_revision: typing.Optional[jsii.Number] = None,
         skip_crds: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeout: typing.Optional[jsii.Number] = None,
-        upgrade_install: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
         verify: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         version: typing.Optional[builtins.str] = None,
@@ -100,51 +100,51 @@ class Release(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release helm_release} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release helm_release} Resource.
 
         :param scope: The scope in which to define this construct.
-        :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param chart: Chart name to be installed. A path may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#chart Release#chart}
-        :param name: Release name. The length must not be longer than 53 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}
-        :param atomic: If set, installation process purges chart on fail. The wait flag will be set automatically if atomic is used. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#atomic Release#atomic}
-        :param cleanup_on_fail: Allow deletion of new resources created in this upgrade when upgrade fails. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#cleanup_on_fail Release#cleanup_on_fail}
-        :param create_namespace: Create the namespace if it does not exist. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#create_namespace Release#create_namespace}
-        :param dependency_update: Run helm dependency update before installing the chart. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#dependency_update Release#dependency_update}
-        :param description: Add a custom description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#description Release#description}
-        :param devel: Use chart development versions, too. Equivalent to version '>0.0.0-0'. If ``version`` is set, this is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#devel Release#devel}
-        :param disable_crd_hooks: Prevent CRD hooks from, running, but run other hooks. See helm install --no-crd-hook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_crd_hooks Release#disable_crd_hooks}
-        :param disable_openapi_validation: If set, the installation process will not validate rendered templates against the Kubernetes OpenAPI Schema. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_openapi_validation Release#disable_openapi_validation}
-        :param disable_webhooks: Prevent hooks from running.Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_webhooks Release#disable_webhooks}
-        :param force_update: Force resource update through delete/recreate if needed. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#force_update Release#force_update}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#id Release#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keyring: Location of public keys used for verification. Used only if ``verify`` is true. Defaults to ``/.gnupg/pubring.gpg`` in the location set by ``home``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#keyring Release#keyring}
-        :param lint: Run helm lint when planning. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#lint Release#lint}
-        :param max_history: Limit the maximum number of revisions saved per release. Use 0 for no limit. Defaults to 0 (no limit). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#max_history Release#max_history}
-        :param namespace: Namespace to install the release into. Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#namespace Release#namespace}
-        :param pass_credentials: Pass credentials to all domains. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#pass_credentials Release#pass_credentials}
-        :param postrender: postrender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#postrender Release#postrender}
-        :param recreate_pods: Perform pods restart during upgrade/rollback. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#recreate_pods Release#recreate_pods}
-        :param render_subchart_notes: If set, render subchart notes along with the parent. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#render_subchart_notes Release#render_subchart_notes}
-        :param replace: Re-use the given name, even if that name is already used. This is unsafe in production. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#replace Release#replace}
-        :param repository: Repository where to locate the requested chart. If is a URL the chart is installed without installing the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository Release#repository}
-        :param repository_ca_file: The Repositories CA File. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_ca_file Release#repository_ca_file}
-        :param repository_cert_file: The repositories cert file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_cert_file Release#repository_cert_file}
-        :param repository_key_file: The repositories cert key file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_key_file Release#repository_key_file}
-        :param repository_password: Password for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_password Release#repository_password}
-        :param repository_username: Username for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_username Release#repository_username}
-        :param reset_values: When upgrading, reset the values to the ones built into the chart. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#reset_values Release#reset_values}
-        :param reuse_values: When upgrading, reuse the last release's values and merge in any overrides. If 'reset_values' is specified, this is ignored. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#reuse_values Release#reuse_values}
-        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set Release#set}
-        :param set_list: set_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set_list Release#set_list}
-        :param set_sensitive: set_sensitive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set_sensitive Release#set_sensitive}
-        :param skip_crds: If set, no CRDs will be installed. By default, CRDs are installed if not already present. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#skip_crds Release#skip_crds}
-        :param timeout: Time in seconds to wait for any individual kubernetes operation. Defaults to 300 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#timeout Release#timeout}
-        :param upgrade_install: If true, the provider will install the release at the specified version even if a release not controlled by the provider is present: this is equivalent to running 'helm upgrade --install' with the Helm CLI. WARNING: this may not be suitable for production use -- see the 'Upgrade Mode' note in the provider documentation. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#upgrade_install Release#upgrade_install}
-        :param values: List of values in raw yaml format to pass to helm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#values Release#values}
-        :param verify: Verify the package before installing it.Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#verify Release#verify}
-        :param version: Specify the exact chart version to install. If this is not specified, the latest version is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#version Release#version}
-        :param wait: Will wait until all resources are in a ready state before marking the release as successful. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#wait Release#wait}
-        :param wait_for_jobs: If wait is enabled, will wait until all Jobs have been completed before marking the release as successful. Defaults to `false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#wait_for_jobs Release#wait_for_jobs}
+        :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
+        :param chart: Chart name to be installed. A path may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#chart Release#chart}
+        :param name: Release name. The length must not be longer than 53 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}
+        :param atomic: If set, installation process purges chart on fail. The wait flag will be set automatically if atomic is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#atomic Release#atomic}
+        :param cleanup_on_fail: Allow deletion of new resources created in this upgrade when upgrade fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#cleanup_on_fail Release#cleanup_on_fail}
+        :param create_namespace: Create the namespace if it does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#create_namespace Release#create_namespace}
+        :param dependency_update: Run helm dependency update before installing the chart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#dependency_update Release#dependency_update}
+        :param description: Add a custom description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#description Release#description}
+        :param devel: Use chart development versions, too. Equivalent to version '>0.0.0-0'. If 'version' is set, this is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#devel Release#devel}
+        :param disable_crd_hooks: Prevent CRD hooks from running, but run other hooks. See helm install --no-crd-hook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_crd_hooks Release#disable_crd_hooks}
+        :param disable_openapi_validation: If set, the installation process will not validate rendered templates against the Kubernetes OpenAPI Schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_openapi_validation Release#disable_openapi_validation}
+        :param disable_webhooks: Prevent hooks from running. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_webhooks Release#disable_webhooks}
+        :param force_update: Force resource update through delete/recreate if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#force_update Release#force_update}
+        :param keyring: Location of public keys used for verification, Used only if 'verify is true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#keyring Release#keyring}
+        :param lint: Run helm lint when planning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#lint Release#lint}
+        :param max_history: Limit the maximum number of revisions saved per release. Use 0 for no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#max_history Release#max_history}
+        :param namespace: Namespace to install the release into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#namespace Release#namespace}
+        :param pass_credentials: Pass credentials to all domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#pass_credentials Release#pass_credentials}
+        :param postrender: Postrender command config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#postrender Release#postrender}
+        :param recreate_pods: Perform pods restart during upgrade/rollback. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#recreate_pods Release#recreate_pods}
+        :param render_subchart_notes: If set, render subchart notes along with the parent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#render_subchart_notes Release#render_subchart_notes}
+        :param replace: Re-use the given name, even if that name is already used. This is unsafe in production. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#replace Release#replace}
+        :param repository: Repository where to locate the requested chart. If it is a URL, the chart is installed without installing the repository Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository Release#repository}
+        :param repository_ca_file: The Repositories CA file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_ca_file Release#repository_ca_file}
+        :param repository_cert_file: The repositories cert file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_cert_file Release#repository_cert_file}
+        :param repository_key_file: The repositories cert key file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_key_file Release#repository_key_file}
+        :param repository_password: Password for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_password Release#repository_password}
+        :param repository_username: Username for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_username Release#repository_username}
+        :param reset_values: When upgrading, reset the values to the ones built into the chart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#reset_values Release#reset_values}
+        :param reuse_values: When upgrading, reuse the last release's values and merge in any overrides. If 'reset_values' is specified, this is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#reuse_values Release#reuse_values}
+        :param set: Custom values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set Release#set}
+        :param set_list: Custom sensitive values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_list Release#set_list}
+        :param set_sensitive: Custom sensitive values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_sensitive Release#set_sensitive}
+        :param set_wo: Custom values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_wo Release#set_wo}
+        :param set_wo_revision: The current revision of the write-only "set_wo" attribute. Incrementing this integer value will cause Terraform to update the write-only value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_wo_revision Release#set_wo_revision}
+        :param skip_crds: If set, no CRDs will be installed. By default, CRDs are installed if not already present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#skip_crds Release#skip_crds}
+        :param timeout: Time in seconds to wait for any individual kubernetes operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#timeout Release#timeout}
+        :param values: List of values in raw YAML format to pass to helm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#values Release#values}
+        :param verify: Verify the package before installing it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#verify Release#verify}
+        :param version: Specify the exact chart version to install. If this is not specified, the latest version is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#version Release#version}
+        :param wait: Will wait until all resources are in a ready state before marking the release as successful. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#wait Release#wait}
+        :param wait_for_jobs: If wait is enabled, will wait until all Jobs have been completed before marking the release as successful. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#wait_for_jobs Release#wait_for_jobs}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -156,7 +156,7 @@ class Release(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc75acd85229e479b8b9aa92aa7d1b843987201bf6028137a9a9eb6a0d093d27)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = ReleaseConfig(
             chart=chart,
             name=name,
@@ -170,7 +170,6 @@ class Release(
             disable_openapi_validation=disable_openapi_validation,
             disable_webhooks=disable_webhooks,
             force_update=force_update,
-            id=id,
             keyring=keyring,
             lint=lint,
             max_history=max_history,
@@ -191,9 +190,10 @@ class Release(
             set=set,
             set_list=set_list,
             set_sensitive=set_sensitive,
+            set_wo=set_wo,
+            set_wo_revision=set_wo_revision,
             skip_crds=skip_crds,
             timeout=timeout,
-            upgrade_install=upgrade_install,
             values=values,
             verify=verify,
             version=version,
@@ -208,7 +208,7 @@ class Release(
             provisioners=provisioners,
         )
 
-        jsii.create(self.__class__, self, [scope, id_, config])
+        jsii.create(self.__class__, self, [scope, id, config])
 
     @jsii.member(jsii_name="generateConfigForImport")
     @builtins.classmethod
@@ -223,7 +223,7 @@ class Release(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Release to import.
-        :param import_from_id: The id of the existing Release that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Release that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Release to import is found.
         '''
         if __debug__:
@@ -242,8 +242,8 @@ class Release(
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param binary_path: The command binary path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#binary_path Release#binary_path}
-        :param args: an argument to the post-renderer (can specify multiple). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#args Release#args}
+        :param binary_path: The common binary path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#binary_path Release#binary_path}
+        :param args: An argument to the post-renderer (can specify multiple). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#args Release#args}
         '''
         value = ReleasePostrender(binary_path=binary_path, args=args)
 
@@ -288,6 +288,19 @@ class Release(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putSetSensitive", [value]))
 
+    @jsii.member(jsii_name="putSetWo")
+    def put_set_wo(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSetWo", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__348d8f84de46e2c85afa109d2e4e18ebe58dbf6a5a00304197583870aeba301d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putSetWo", [value]))
+
     @jsii.member(jsii_name="resetAtomic")
     def reset_atomic(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAtomic", []))
@@ -327,10 +340,6 @@ class Release(
     @jsii.member(jsii_name="resetForceUpdate")
     def reset_force_update(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetForceUpdate", []))
-
-    @jsii.member(jsii_name="resetId")
-    def reset_id(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetId", []))
 
     @jsii.member(jsii_name="resetKeyring")
     def reset_keyring(self) -> None:
@@ -412,6 +421,14 @@ class Release(
     def reset_set_sensitive(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSetSensitive", []))
 
+    @jsii.member(jsii_name="resetSetWo")
+    def reset_set_wo(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSetWo", []))
+
+    @jsii.member(jsii_name="resetSetWoRevision")
+    def reset_set_wo_revision(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSetWoRevision", []))
+
     @jsii.member(jsii_name="resetSkipCrds")
     def reset_skip_crds(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSkipCrds", []))
@@ -423,10 +440,6 @@ class Release(
     @jsii.member(jsii_name="resetTimeout")
     def reset_timeout(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTimeout", []))
-
-    @jsii.member(jsii_name="resetUpgradeInstall")
-    def reset_upgrade_install(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetUpgradeInstall", []))
 
     @jsii.member(jsii_name="resetVerify")
     def reset_verify(self) -> None:
@@ -458,14 +471,19 @@ class Release(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
+    @jsii.member(jsii_name="id")
+    def id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "id"))
+
+    @builtins.property
     @jsii.member(jsii_name="manifest")
     def manifest(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "manifest"))
 
     @builtins.property
     @jsii.member(jsii_name="metadata")
-    def metadata(self) -> "ReleaseMetadataList":
-        return typing.cast("ReleaseMetadataList", jsii.get(self, "metadata"))
+    def metadata(self) -> "ReleaseMetadataOutputReference":
+        return typing.cast("ReleaseMetadataOutputReference", jsii.get(self, "metadata"))
 
     @builtins.property
     @jsii.member(jsii_name="postrender")
@@ -486,6 +504,11 @@ class Release(
     @jsii.member(jsii_name="setSensitive")
     def set_sensitive(self) -> "ReleaseSetSensitiveList":
         return typing.cast("ReleaseSetSensitiveList", jsii.get(self, "setSensitive"))
+
+    @builtins.property
+    @jsii.member(jsii_name="setWo")
+    def set_wo(self) -> "ReleaseSetWoList":
+        return typing.cast("ReleaseSetWoList", jsii.get(self, "setWo"))
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -566,11 +589,6 @@ class Release(
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "forceUpdateInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="idInput")
-    def id_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="keyringInput")
     def keyring_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyringInput"))
@@ -606,8 +624,10 @@ class Release(
 
     @builtins.property
     @jsii.member(jsii_name="postrenderInput")
-    def postrender_input(self) -> typing.Optional["ReleasePostrender"]:
-        return typing.cast(typing.Optional["ReleasePostrender"], jsii.get(self, "postrenderInput"))
+    def postrender_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "ReleasePostrender"]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "ReleasePostrender"]], jsii.get(self, "postrenderInput"))
 
     @builtins.property
     @jsii.member(jsii_name="recreatePodsInput")
@@ -696,6 +716,18 @@ class Release(
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetSensitive"]]], jsii.get(self, "setSensitiveInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="setWoInput")
+    def set_wo_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetWo"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetWo"]]], jsii.get(self, "setWoInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="setWoRevisionInput")
+    def set_wo_revision_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "setWoRevisionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="skipCrdsInput")
     def skip_crds_input(
         self,
@@ -706,13 +738,6 @@ class Release(
     @jsii.member(jsii_name="timeoutInput")
     def timeout_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "timeoutInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="upgradeInstallInput")
-    def upgrade_install_input(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "upgradeInstallInput"))
 
     @builtins.property
     @jsii.member(jsii_name="valuesInput")
@@ -915,18 +940,6 @@ class Release(
             type_hints = typing.get_type_hints(_typecheckingstub__f00fb4fd9f947ec509a72ea5df207806c78db1f0bdb4dc5dfb98bb4e165fa124)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "forceUpdate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="id")
-    def id(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "id"))
-
-    @id.setter
-    def id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2570442e115475cd277eceea5eed233829333063e4f0c63bfafe626edd98158)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="keyring")
@@ -1158,6 +1171,18 @@ class Release(
         jsii.set(self, "reuseValues", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="setWoRevision")
+    def set_wo_revision(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "setWoRevision"))
+
+    @set_wo_revision.setter
+    def set_wo_revision(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__126382aa9f62f1a4a6eb6642cd56021452a3570e6b4c218b63f16f2227b48418)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "setWoRevision", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="skipCrds")
     def skip_crds(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "skipCrds"))
@@ -1183,23 +1208,6 @@ class Release(
             type_hints = typing.get_type_hints(_typecheckingstub__8ce093763d1e99d1031c3d9f244d12dc614bf528e5ba752c43ccca3d29d96f4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeout", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="upgradeInstall")
-    def upgrade_install(
-        self,
-    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "upgradeInstall"))
-
-    @upgrade_install.setter
-    def upgrade_install(
-        self,
-        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e040cb6f772911d449f940cee80348faef32f2238eb03dc741b26399c10fd3f1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "upgradeInstall", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="values")
@@ -1294,7 +1302,6 @@ class Release(
         "disable_openapi_validation": "disableOpenapiValidation",
         "disable_webhooks": "disableWebhooks",
         "force_update": "forceUpdate",
-        "id": "id",
         "keyring": "keyring",
         "lint": "lint",
         "max_history": "maxHistory",
@@ -1315,9 +1322,10 @@ class Release(
         "set": "set",
         "set_list": "setList",
         "set_sensitive": "setSensitive",
+        "set_wo": "setWo",
+        "set_wo_revision": "setWoRevision",
         "skip_crds": "skipCrds",
         "timeout": "timeout",
-        "upgrade_install": "upgradeInstall",
         "values": "values",
         "verify": "verify",
         "version": "version",
@@ -1348,7 +1356,6 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         disable_openapi_validation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         disable_webhooks: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         force_update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-        id: typing.Optional[builtins.str] = None,
         keyring: typing.Optional[builtins.str] = None,
         lint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         max_history: typing.Optional[jsii.Number] = None,
@@ -1369,9 +1376,10 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSet", typing.Dict[builtins.str, typing.Any]]]]] = None,
         set_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSetListStruct", typing.Dict[builtins.str, typing.Any]]]]] = None,
         set_sensitive: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSetSensitive", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        set_wo: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ReleaseSetWo", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        set_wo_revision: typing.Optional[jsii.Number] = None,
         skip_crds: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeout: typing.Optional[jsii.Number] = None,
-        upgrade_install: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
         verify: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         version: typing.Optional[builtins.str] = None,
@@ -1386,47 +1394,47 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param chart: Chart name to be installed. A path may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#chart Release#chart}
-        :param name: Release name. The length must not be longer than 53 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}
-        :param atomic: If set, installation process purges chart on fail. The wait flag will be set automatically if atomic is used. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#atomic Release#atomic}
-        :param cleanup_on_fail: Allow deletion of new resources created in this upgrade when upgrade fails. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#cleanup_on_fail Release#cleanup_on_fail}
-        :param create_namespace: Create the namespace if it does not exist. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#create_namespace Release#create_namespace}
-        :param dependency_update: Run helm dependency update before installing the chart. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#dependency_update Release#dependency_update}
-        :param description: Add a custom description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#description Release#description}
-        :param devel: Use chart development versions, too. Equivalent to version '>0.0.0-0'. If ``version`` is set, this is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#devel Release#devel}
-        :param disable_crd_hooks: Prevent CRD hooks from, running, but run other hooks. See helm install --no-crd-hook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_crd_hooks Release#disable_crd_hooks}
-        :param disable_openapi_validation: If set, the installation process will not validate rendered templates against the Kubernetes OpenAPI Schema. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_openapi_validation Release#disable_openapi_validation}
-        :param disable_webhooks: Prevent hooks from running.Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_webhooks Release#disable_webhooks}
-        :param force_update: Force resource update through delete/recreate if needed. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#force_update Release#force_update}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#id Release#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keyring: Location of public keys used for verification. Used only if ``verify`` is true. Defaults to ``/.gnupg/pubring.gpg`` in the location set by ``home``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#keyring Release#keyring}
-        :param lint: Run helm lint when planning. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#lint Release#lint}
-        :param max_history: Limit the maximum number of revisions saved per release. Use 0 for no limit. Defaults to 0 (no limit). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#max_history Release#max_history}
-        :param namespace: Namespace to install the release into. Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#namespace Release#namespace}
-        :param pass_credentials: Pass credentials to all domains. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#pass_credentials Release#pass_credentials}
-        :param postrender: postrender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#postrender Release#postrender}
-        :param recreate_pods: Perform pods restart during upgrade/rollback. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#recreate_pods Release#recreate_pods}
-        :param render_subchart_notes: If set, render subchart notes along with the parent. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#render_subchart_notes Release#render_subchart_notes}
-        :param replace: Re-use the given name, even if that name is already used. This is unsafe in production. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#replace Release#replace}
-        :param repository: Repository where to locate the requested chart. If is a URL the chart is installed without installing the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository Release#repository}
-        :param repository_ca_file: The Repositories CA File. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_ca_file Release#repository_ca_file}
-        :param repository_cert_file: The repositories cert file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_cert_file Release#repository_cert_file}
-        :param repository_key_file: The repositories cert key file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_key_file Release#repository_key_file}
-        :param repository_password: Password for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_password Release#repository_password}
-        :param repository_username: Username for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_username Release#repository_username}
-        :param reset_values: When upgrading, reset the values to the ones built into the chart. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#reset_values Release#reset_values}
-        :param reuse_values: When upgrading, reuse the last release's values and merge in any overrides. If 'reset_values' is specified, this is ignored. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#reuse_values Release#reuse_values}
-        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set Release#set}
-        :param set_list: set_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set_list Release#set_list}
-        :param set_sensitive: set_sensitive block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set_sensitive Release#set_sensitive}
-        :param skip_crds: If set, no CRDs will be installed. By default, CRDs are installed if not already present. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#skip_crds Release#skip_crds}
-        :param timeout: Time in seconds to wait for any individual kubernetes operation. Defaults to 300 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#timeout Release#timeout}
-        :param upgrade_install: If true, the provider will install the release at the specified version even if a release not controlled by the provider is present: this is equivalent to running 'helm upgrade --install' with the Helm CLI. WARNING: this may not be suitable for production use -- see the 'Upgrade Mode' note in the provider documentation. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#upgrade_install Release#upgrade_install}
-        :param values: List of values in raw yaml format to pass to helm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#values Release#values}
-        :param verify: Verify the package before installing it.Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#verify Release#verify}
-        :param version: Specify the exact chart version to install. If this is not specified, the latest version is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#version Release#version}
-        :param wait: Will wait until all resources are in a ready state before marking the release as successful. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#wait Release#wait}
-        :param wait_for_jobs: If wait is enabled, will wait until all Jobs have been completed before marking the release as successful. Defaults to `false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#wait_for_jobs Release#wait_for_jobs}
+        :param chart: Chart name to be installed. A path may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#chart Release#chart}
+        :param name: Release name. The length must not be longer than 53 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}
+        :param atomic: If set, installation process purges chart on fail. The wait flag will be set automatically if atomic is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#atomic Release#atomic}
+        :param cleanup_on_fail: Allow deletion of new resources created in this upgrade when upgrade fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#cleanup_on_fail Release#cleanup_on_fail}
+        :param create_namespace: Create the namespace if it does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#create_namespace Release#create_namespace}
+        :param dependency_update: Run helm dependency update before installing the chart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#dependency_update Release#dependency_update}
+        :param description: Add a custom description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#description Release#description}
+        :param devel: Use chart development versions, too. Equivalent to version '>0.0.0-0'. If 'version' is set, this is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#devel Release#devel}
+        :param disable_crd_hooks: Prevent CRD hooks from running, but run other hooks. See helm install --no-crd-hook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_crd_hooks Release#disable_crd_hooks}
+        :param disable_openapi_validation: If set, the installation process will not validate rendered templates against the Kubernetes OpenAPI Schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_openapi_validation Release#disable_openapi_validation}
+        :param disable_webhooks: Prevent hooks from running. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_webhooks Release#disable_webhooks}
+        :param force_update: Force resource update through delete/recreate if needed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#force_update Release#force_update}
+        :param keyring: Location of public keys used for verification, Used only if 'verify is true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#keyring Release#keyring}
+        :param lint: Run helm lint when planning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#lint Release#lint}
+        :param max_history: Limit the maximum number of revisions saved per release. Use 0 for no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#max_history Release#max_history}
+        :param namespace: Namespace to install the release into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#namespace Release#namespace}
+        :param pass_credentials: Pass credentials to all domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#pass_credentials Release#pass_credentials}
+        :param postrender: Postrender command config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#postrender Release#postrender}
+        :param recreate_pods: Perform pods restart during upgrade/rollback. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#recreate_pods Release#recreate_pods}
+        :param render_subchart_notes: If set, render subchart notes along with the parent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#render_subchart_notes Release#render_subchart_notes}
+        :param replace: Re-use the given name, even if that name is already used. This is unsafe in production. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#replace Release#replace}
+        :param repository: Repository where to locate the requested chart. If it is a URL, the chart is installed without installing the repository Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository Release#repository}
+        :param repository_ca_file: The Repositories CA file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_ca_file Release#repository_ca_file}
+        :param repository_cert_file: The repositories cert file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_cert_file Release#repository_cert_file}
+        :param repository_key_file: The repositories cert key file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_key_file Release#repository_key_file}
+        :param repository_password: Password for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_password Release#repository_password}
+        :param repository_username: Username for HTTP basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_username Release#repository_username}
+        :param reset_values: When upgrading, reset the values to the ones built into the chart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#reset_values Release#reset_values}
+        :param reuse_values: When upgrading, reuse the last release's values and merge in any overrides. If 'reset_values' is specified, this is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#reuse_values Release#reuse_values}
+        :param set: Custom values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set Release#set}
+        :param set_list: Custom sensitive values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_list Release#set_list}
+        :param set_sensitive: Custom sensitive values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_sensitive Release#set_sensitive}
+        :param set_wo: Custom values to be merged with the values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_wo Release#set_wo}
+        :param set_wo_revision: The current revision of the write-only "set_wo" attribute. Incrementing this integer value will cause Terraform to update the write-only value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_wo_revision Release#set_wo_revision}
+        :param skip_crds: If set, no CRDs will be installed. By default, CRDs are installed if not already present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#skip_crds Release#skip_crds}
+        :param timeout: Time in seconds to wait for any individual kubernetes operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#timeout Release#timeout}
+        :param values: List of values in raw YAML format to pass to helm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#values Release#values}
+        :param verify: Verify the package before installing it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#verify Release#verify}
+        :param version: Specify the exact chart version to install. If this is not specified, the latest version is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#version Release#version}
+        :param wait: Will wait until all resources are in a ready state before marking the release as successful. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#wait Release#wait}
+        :param wait_for_jobs: If wait is enabled, will wait until all Jobs have been completed before marking the release as successful. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#wait_for_jobs Release#wait_for_jobs}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1453,7 +1461,6 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument disable_openapi_validation", value=disable_openapi_validation, expected_type=type_hints["disable_openapi_validation"])
             check_type(argname="argument disable_webhooks", value=disable_webhooks, expected_type=type_hints["disable_webhooks"])
             check_type(argname="argument force_update", value=force_update, expected_type=type_hints["force_update"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument keyring", value=keyring, expected_type=type_hints["keyring"])
             check_type(argname="argument lint", value=lint, expected_type=type_hints["lint"])
             check_type(argname="argument max_history", value=max_history, expected_type=type_hints["max_history"])
@@ -1474,9 +1481,10 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument set", value=set, expected_type=type_hints["set"])
             check_type(argname="argument set_list", value=set_list, expected_type=type_hints["set_list"])
             check_type(argname="argument set_sensitive", value=set_sensitive, expected_type=type_hints["set_sensitive"])
+            check_type(argname="argument set_wo", value=set_wo, expected_type=type_hints["set_wo"])
+            check_type(argname="argument set_wo_revision", value=set_wo_revision, expected_type=type_hints["set_wo_revision"])
             check_type(argname="argument skip_crds", value=skip_crds, expected_type=type_hints["skip_crds"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument upgrade_install", value=upgrade_install, expected_type=type_hints["upgrade_install"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             check_type(argname="argument verify", value=verify, expected_type=type_hints["verify"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -1520,8 +1528,6 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["disable_webhooks"] = disable_webhooks
         if force_update is not None:
             self._values["force_update"] = force_update
-        if id is not None:
-            self._values["id"] = id
         if keyring is not None:
             self._values["keyring"] = keyring
         if lint is not None:
@@ -1562,12 +1568,14 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["set_list"] = set_list
         if set_sensitive is not None:
             self._values["set_sensitive"] = set_sensitive
+        if set_wo is not None:
+            self._values["set_wo"] = set_wo
+        if set_wo_revision is not None:
+            self._values["set_wo_revision"] = set_wo_revision
         if skip_crds is not None:
             self._values["skip_crds"] = skip_crds
         if timeout is not None:
             self._values["timeout"] = timeout
-        if upgrade_install is not None:
-            self._values["upgrade_install"] = upgrade_install
         if values is not None:
             self._values["values"] = values
         if verify is not None:
@@ -1647,7 +1655,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def chart(self) -> builtins.str:
         '''Chart name to be installed. A path may be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#chart Release#chart}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#chart Release#chart}
         '''
         result = self._values.get("chart")
         assert result is not None, "Required property 'chart' is missing"
@@ -1657,7 +1665,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Release name. The length must not be longer than 53 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1667,11 +1675,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def atomic(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''If set, installation process purges chart on fail.
+        '''If set, installation process purges chart on fail. The wait flag will be set automatically if atomic is used.
 
-        The wait flag will be set automatically if atomic is used. Defaults to ``false``.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#atomic Release#atomic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#atomic Release#atomic}
         '''
         result = self._values.get("atomic")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1680,9 +1686,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cleanup_on_fail(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Allow deletion of new resources created in this upgrade when upgrade fails. Defaults to ``false``.
+        '''Allow deletion of new resources created in this upgrade when upgrade fails.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#cleanup_on_fail Release#cleanup_on_fail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#cleanup_on_fail Release#cleanup_on_fail}
         '''
         result = self._values.get("cleanup_on_fail")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1691,9 +1697,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def create_namespace(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Create the namespace if it does not exist. Defaults to ``false``.
+        '''Create the namespace if it does not exist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#create_namespace Release#create_namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#create_namespace Release#create_namespace}
         '''
         result = self._values.get("create_namespace")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1702,9 +1708,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dependency_update(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Run helm dependency update before installing the chart. Defaults to ``false``.
+        '''Run helm dependency update before installing the chart.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#dependency_update Release#dependency_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#dependency_update Release#dependency_update}
         '''
         result = self._values.get("dependency_update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1713,7 +1719,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Add a custom description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#description Release#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#description Release#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1722,9 +1728,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def devel(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Use chart development versions, too. Equivalent to version '>0.0.0-0'. If ``version`` is set, this is ignored.
+        '''Use chart development versions, too. Equivalent to version '>0.0.0-0'. If 'version' is set, this is ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#devel Release#devel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#devel Release#devel}
         '''
         result = self._values.get("devel")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1733,9 +1739,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_crd_hooks(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Prevent CRD hooks from, running, but run other hooks.  See helm install --no-crd-hook.
+        '''Prevent CRD hooks from running, but run other hooks. See helm install --no-crd-hook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_crd_hooks Release#disable_crd_hooks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_crd_hooks Release#disable_crd_hooks}
         '''
         result = self._values.get("disable_crd_hooks")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1744,9 +1750,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_openapi_validation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''If set, the installation process will not validate rendered templates against the Kubernetes OpenAPI Schema. Defaults to ``false``.
+        '''If set, the installation process will not validate rendered templates against the Kubernetes OpenAPI Schema.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_openapi_validation Release#disable_openapi_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_openapi_validation Release#disable_openapi_validation}
         '''
         result = self._values.get("disable_openapi_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1755,9 +1761,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_webhooks(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Prevent hooks from running.Defaults to ``false``.
+        '''Prevent hooks from running.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#disable_webhooks Release#disable_webhooks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#disable_webhooks Release#disable_webhooks}
         '''
         result = self._values.get("disable_webhooks")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1766,30 +1772,18 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_update(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Force resource update through delete/recreate if needed. Defaults to ``false``.
+        '''Force resource update through delete/recreate if needed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#force_update Release#force_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#force_update Release#force_update}
         '''
         result = self._values.get("force_update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
-    def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#id Release#id}.
-
-        Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
-        If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        '''
-        result = self._values.get("id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def keyring(self) -> typing.Optional[builtins.str]:
-        '''Location of public keys used for verification.
+        '''Location of public keys used for verification, Used only if 'verify is true'.
 
-        Used only if ``verify`` is true. Defaults to ``/.gnupg/pubring.gpg`` in the location set by ``home``.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#keyring Release#keyring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#keyring Release#keyring}
         '''
         result = self._values.get("keyring")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1798,27 +1792,27 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lint(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Run helm lint when planning. Defaults to ``false``.
+        '''Run helm lint when planning.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#lint Release#lint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#lint Release#lint}
         '''
         result = self._values.get("lint")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def max_history(self) -> typing.Optional[jsii.Number]:
-        '''Limit the maximum number of revisions saved per release. Use 0 for no limit. Defaults to 0 (no limit).
+        '''Limit the maximum number of revisions saved per release. Use 0 for no limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#max_history Release#max_history}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#max_history Release#max_history}
         '''
         result = self._values.get("max_history")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def namespace(self) -> typing.Optional[builtins.str]:
-        '''Namespace to install the release into. Defaults to ``default``.
+        '''Namespace to install the release into.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#namespace Release#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#namespace Release#namespace}
         '''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1827,18 +1821,18 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pass_credentials(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Pass credentials to all domains. Defaults to ``false``.
+        '''Pass credentials to all domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#pass_credentials Release#pass_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#pass_credentials Release#pass_credentials}
         '''
         result = self._values.get("pass_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def postrender(self) -> typing.Optional["ReleasePostrender"]:
-        '''postrender block.
+        '''Postrender command config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#postrender Release#postrender}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#postrender Release#postrender}
         '''
         result = self._values.get("postrender")
         return typing.cast(typing.Optional["ReleasePostrender"], result)
@@ -1847,9 +1841,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def recreate_pods(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Perform pods restart during upgrade/rollback. Defaults to ``false``.
+        '''Perform pods restart during upgrade/rollback.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#recreate_pods Release#recreate_pods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#recreate_pods Release#recreate_pods}
         '''
         result = self._values.get("recreate_pods")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1858,9 +1852,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def render_subchart_notes(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''If set, render subchart notes along with the parent. Defaults to ``true``.
+        '''If set, render subchart notes along with the parent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#render_subchart_notes Release#render_subchart_notes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#render_subchart_notes Release#render_subchart_notes}
         '''
         result = self._values.get("render_subchart_notes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1869,27 +1863,29 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replace(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Re-use the given name, even if that name is already used. This is unsafe in production. Defaults to ``false``.
+        '''Re-use the given name, even if that name is already used. This is unsafe in production.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#replace Release#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#replace Release#replace}
         '''
         result = self._values.get("replace")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
-        '''Repository where to locate the requested chart. If is a URL the chart is installed without installing the repository.
+        '''Repository where to locate the requested chart.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository Release#repository}
+        If it is a URL, the chart is installed without installing the repository
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository Release#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def repository_ca_file(self) -> typing.Optional[builtins.str]:
-        '''The Repositories CA File.
+        '''The Repositories CA file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_ca_file Release#repository_ca_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_ca_file Release#repository_ca_file}
         '''
         result = self._values.get("repository_ca_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1898,7 +1894,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository_cert_file(self) -> typing.Optional[builtins.str]:
         '''The repositories cert file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_cert_file Release#repository_cert_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_cert_file Release#repository_cert_file}
         '''
         result = self._values.get("repository_cert_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1907,7 +1903,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository_key_file(self) -> typing.Optional[builtins.str]:
         '''The repositories cert key file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_key_file Release#repository_key_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_key_file Release#repository_key_file}
         '''
         result = self._values.get("repository_key_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1916,7 +1912,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository_password(self) -> typing.Optional[builtins.str]:
         '''Password for HTTP basic authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_password Release#repository_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_password Release#repository_password}
         '''
         result = self._values.get("repository_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1925,7 +1921,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository_username(self) -> typing.Optional[builtins.str]:
         '''Username for HTTP basic authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#repository_username Release#repository_username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#repository_username Release#repository_username}
         '''
         result = self._values.get("repository_username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1934,9 +1930,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def reset_values(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''When upgrading, reset the values to the ones built into the chart. Defaults to ``false``.
+        '''When upgrading, reset the values to the ones built into the chart.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#reset_values Release#reset_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#reset_values Release#reset_values}
         '''
         result = self._values.get("reset_values")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1945,11 +1941,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def reuse_values(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''When upgrading, reuse the last release's values and merge in any overrides.
+        '''When upgrading, reuse the last release's values and merge in any overrides. If 'reset_values' is specified, this is ignored.
 
-        If 'reset_values' is specified, this is ignored. Defaults to ``false``.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#reuse_values Release#reuse_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#reuse_values Release#reuse_values}
         '''
         result = self._values.get("reuse_values")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1958,9 +1952,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def set(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSet"]]]:
-        '''set block.
+        '''Custom values to be merged with the values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set Release#set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set Release#set}
         '''
         result = self._values.get("set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSet"]]], result)
@@ -1969,9 +1963,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def set_list(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetListStruct"]]]:
-        '''set_list block.
+        '''Custom sensitive values to be merged with the values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set_list Release#set_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_list Release#set_list}
         '''
         result = self._values.get("set_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetListStruct"]]], result)
@@ -1980,51 +1974,60 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def set_sensitive(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetSensitive"]]]:
-        '''set_sensitive block.
+        '''Custom sensitive values to be merged with the values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#set_sensitive Release#set_sensitive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_sensitive Release#set_sensitive}
         '''
         result = self._values.get("set_sensitive")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetSensitive"]]], result)
 
     @builtins.property
+    def set_wo(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetWo"]]]:
+        '''Custom values to be merged with the values.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_wo Release#set_wo}
+        '''
+        result = self._values.get("set_wo")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ReleaseSetWo"]]], result)
+
+    @builtins.property
+    def set_wo_revision(self) -> typing.Optional[jsii.Number]:
+        '''The current revision of the write-only "set_wo" attribute.
+
+        Incrementing this integer value will cause Terraform to update the write-only value.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#set_wo_revision Release#set_wo_revision}
+        '''
+        result = self._values.get("set_wo_revision")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def skip_crds(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''If set, no CRDs will be installed. By default, CRDs are installed if not already present. Defaults to ``false``.
+        '''If set, no CRDs will be installed. By default, CRDs are installed if not already present.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#skip_crds Release#skip_crds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#skip_crds Release#skip_crds}
         '''
         result = self._values.get("skip_crds")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Time in seconds to wait for any individual kubernetes operation. Defaults to 300 seconds.
+        '''Time in seconds to wait for any individual kubernetes operation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#timeout Release#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#timeout Release#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def upgrade_install(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''If true, the provider will install the release at the specified version even if a release not controlled by the provider is present: this is equivalent to running 'helm upgrade --install' with the Helm CLI.
-
-        WARNING: this may not be suitable for production use -- see the 'Upgrade Mode' note in the provider documentation. Defaults to ``false``.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#upgrade_install Release#upgrade_install}
-        '''
-        result = self._values.get("upgrade_install")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
-
-    @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''List of values in raw yaml format to pass to helm.
+        '''List of values in raw YAML format to pass to helm.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#values Release#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#values Release#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2033,9 +2036,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def verify(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Verify the package before installing it.Defaults to ``false``.
+        '''Verify the package before installing it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#verify Release#verify}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#verify Release#verify}
         '''
         result = self._values.get("verify")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2044,7 +2047,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def version(self) -> typing.Optional[builtins.str]:
         '''Specify the exact chart version to install. If this is not specified, the latest version is installed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#version Release#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#version Release#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2053,9 +2056,9 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def wait(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Will wait until all resources are in a ready state before marking the release as successful. Defaults to ``true``.
+        '''Will wait until all resources are in a ready state before marking the release as successful.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#wait Release#wait}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#wait Release#wait}
         '''
         result = self._values.get("wait")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2066,9 +2069,7 @@ class ReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If wait is enabled, will wait until all Jobs have been completed before marking the release as successful.
 
-        Defaults to `false``.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#wait_for_jobs Release#wait_for_jobs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#wait_for_jobs Release#wait_for_jobs}
         '''
         result = self._values.get("wait_for_jobs")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2106,79 +2107,6 @@ class ReleaseMetadata:
         )
 
 
-class ReleaseMetadataList(
-    _cdktf_9a9027ec.ComplexList,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-helm.release.ReleaseMetadataList",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-        wraps_set: builtins.bool,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45fff0a0a9415e8ab8e1fd7e93f9096987d7326fb982c119a6bb9e340d5acec3)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
-
-    @jsii.member(jsii_name="get")
-    def get(self, index: jsii.Number) -> "ReleaseMetadataOutputReference":
-        '''
-        :param index: the index of the item to return.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8517a0befbc8f404e40827ca3ae6bda9ec1ef0df841f0b9d29099c5cf5ab673)
-            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
-        return typing.cast("ReleaseMetadataOutputReference", jsii.invoke(self, "get", [index]))
-
-    @builtins.property
-    @jsii.member(jsii_name="terraformAttribute")
-    def _terraform_attribute(self) -> builtins.str:
-        '''The attribute on the parent resource this class is referencing.'''
-        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
-
-    @_terraform_attribute.setter
-    def _terraform_attribute(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4379cc33fdb4d6ac76a9969bd6371ebe7c51ca7de62dfe8db723a25af416a353)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="terraformResource")
-    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
-        '''The parent resource.'''
-        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
-
-    @_terraform_resource.setter
-    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9386bf8e48f6a03658a67242b9c00524bbe6106b46bcff286ce187ba48b6cdfd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="wrapsSet")
-    def _wraps_set(self) -> builtins.bool:
-        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
-        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
-
-    @_wraps_set.setter
-    def _wraps_set(self, value: builtins.bool) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b1266bf567de04a521ed4f88fca72cb2f6429b7c5a2531e6385625d883fb582)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
-
-
 class ReleaseMetadataOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -2188,22 +2116,16 @@ class ReleaseMetadataOutputReference(
         self,
         terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
         terraform_attribute: builtins.str,
-        complex_object_index: jsii.Number,
-        complex_object_is_from_set: builtins.bool,
     ) -> None:
         '''
         :param terraform_resource: The parent resource.
         :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        :param complex_object_index: the index of this item in the list.
-        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61490c34098948e59690943dad087e722da0311d13b99853b9a18bcc8b623f4f)
             check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
-            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
     @builtins.property
     @jsii.member(jsii_name="appVersion")
@@ -2281,8 +2203,8 @@ class ReleasePostrender:
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param binary_path: The command binary path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#binary_path Release#binary_path}
-        :param args: an argument to the post-renderer (can specify multiple). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#args Release#args}
+        :param binary_path: The common binary path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#binary_path Release#binary_path}
+        :param args: An argument to the post-renderer (can specify multiple). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#args Release#args}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__981056baac01e08a9be241caf4b8905301446900d1d7eecfc096ec7c50fd4c55)
@@ -2296,9 +2218,9 @@ class ReleasePostrender:
 
     @builtins.property
     def binary_path(self) -> builtins.str:
-        '''The command binary path.
+        '''The common binary path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#binary_path Release#binary_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#binary_path Release#binary_path}
         '''
         result = self._values.get("binary_path")
         assert result is not None, "Required property 'binary_path' is missing"
@@ -2306,9 +2228,9 @@ class ReleasePostrender:
 
     @builtins.property
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''an argument to the post-renderer (can specify multiple).
+        '''An argument to the post-renderer (can specify multiple).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#args Release#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#args Release#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2385,11 +2307,16 @@ class ReleasePostrenderOutputReference(
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
-    def internal_value(self) -> typing.Optional[ReleasePostrender]:
-        return typing.cast(typing.Optional[ReleasePostrender], jsii.get(self, "internalValue"))
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleasePostrender]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleasePostrender]], jsii.get(self, "internalValue"))
 
     @internal_value.setter
-    def internal_value(self, value: typing.Optional[ReleasePostrender]) -> None:
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleasePostrender]],
+    ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__844a501608c2a9c6233555fbfed820dc99204232e5cdf42f37235c0257764013)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2399,51 +2326,51 @@ class ReleasePostrenderOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-helm.release.ReleaseSet",
     jsii_struct_bases=[],
-    name_mapping={"name": "name", "value": "value", "type": "type"},
+    name_mapping={"name": "name", "type": "type", "value": "value"},
 )
 class ReleaseSet:
     def __init__(
         self,
         *,
         name: builtins.str,
-        value: builtins.str,
         type: typing.Optional[builtins.str] = None,
+        value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#value Release#value}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#type Release#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#type Release#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b40ee13479cae3240c1ba06fd537a3e15ab3fbca99f29411b2d968f452c5a980)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
-            "value": value,
         }
         if type is not None:
             self._values["type"] = type
+        if value is not None:
+            self._values["value"] = value
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#value Release#value}.'''
-        result = self._values.get("value")
-        assert result is not None, "Required property 'value' is missing"
-        return typing.cast(builtins.str, result)
+    def type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#type Release#type}.'''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#type Release#type}.'''
-        result = self._values.get("type")
+    def value(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.'''
+        result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2561,8 +2488,8 @@ class ReleaseSetListStruct:
         value: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#value Release#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__508f3584f37548827519997a7378963046271d485d0bb70d9ba0ee49230f97b1)
@@ -2575,14 +2502,14 @@ class ReleaseSetListStruct:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#value Release#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2797,6 +2724,10 @@ class ReleaseSetOutputReference(
     def reset_type(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetType", []))
 
+    @jsii.member(jsii_name="resetValue")
+    def reset_value(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetValue", []))
+
     @builtins.property
     @jsii.member(jsii_name="nameInput")
     def name_input(self) -> typing.Optional[builtins.str]:
@@ -2880,9 +2811,9 @@ class ReleaseSetSensitive:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#value Release#value}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#type Release#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#type Release#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__819e69b309674d2d9b39573b21155edba86166772433bfb823f741b56247a94e)
@@ -2898,21 +2829,21 @@ class ReleaseSetSensitive:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#name Release#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#value Release#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/2.17.0/docs/resources/release#type Release#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#type Release#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3117,11 +3048,261 @@ class ReleaseSetSensitiveOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-helm.release.ReleaseSetWo",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "value": "value", "type": "type"},
+)
+class ReleaseSetWo:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        value: builtins.str,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#type Release#type}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__382d5fafb9edfe6976872de67b0f06002699ff2d8f9910132a2dfd628848deba)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "value": value,
+        }
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#name Release#name}.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#value Release#value}.'''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/helm/3.0.1/docs/resources/release#type Release#type}.'''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReleaseSetWo(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ReleaseSetWoList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-helm.release.ReleaseSetWoList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b2d7e258aded12f30ee5120519f0f28fe44bdfe0f1801dcf651a45c930e3354)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(self, index: jsii.Number) -> "ReleaseSetWoOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0eed53bb762101c39869be420e8dc42735b54d77a0e2df57d1e1984abdc7decc)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("ReleaseSetWoOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd9183283013278742154ef4e69c714ed7742a1ef7fbb679e15b61bce31d96be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7798c6a10b7aed2b3cec0a988e748ad310bc85a5af335ba7ac32384f7322149a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dbc1aece30ff98bd104de09fdac3e1caf5aea9a4b294f02765463a5d4f8b5fd8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ReleaseSetWo]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ReleaseSetWo]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ReleaseSetWo]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4760ee5dccf7a3debace4c4bb55ffadce2fe63414574df908d0d9ac513719317)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class ReleaseSetWoOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-helm.release.ReleaseSetWoOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c877b112773e5dff54b01884cce3efc221e01974b0b1cdfeafdf230156ed5104)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetType")
+    def reset_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetType", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="nameInput")
+    def name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="typeInput")
+    def type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="valueInput")
+    def value_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "valueInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b758d4cae37b0f4dddb35b59a9186f1efcc9a15e7dd4c06a57b7bd14e1e8d44)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f31e4e8b95129d065326badba0c8a437eae0f7d4bb95ee3eee7a104ffc81237e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+    @value.setter
+    def value(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c13053390dc1400101bfa6e94d06a51bc7e1475b637cf0555fecb5237cc8f947)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "value", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleaseSetWo]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleaseSetWo]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleaseSetWo]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18d1ac40d275788a3c4ae3038e78a09c503e2518b2b22232976104bf8c22f9cb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "Release",
     "ReleaseConfig",
     "ReleaseMetadata",
-    "ReleaseMetadataList",
     "ReleaseMetadataOutputReference",
     "ReleasePostrender",
     "ReleasePostrenderOutputReference",
@@ -3134,13 +3315,16 @@ __all__ = [
     "ReleaseSetSensitive",
     "ReleaseSetSensitiveList",
     "ReleaseSetSensitiveOutputReference",
+    "ReleaseSetWo",
+    "ReleaseSetWoList",
+    "ReleaseSetWoOutputReference",
 ]
 
 publication.publish()
 
 def _typecheckingstub__dc75acd85229e479b8b9aa92aa7d1b843987201bf6028137a9a9eb6a0d093d27(
     scope: _constructs_77d1e7e8.Construct,
-    id_: builtins.str,
+    id: builtins.str,
     *,
     chart: builtins.str,
     name: builtins.str,
@@ -3154,7 +3338,6 @@ def _typecheckingstub__dc75acd85229e479b8b9aa92aa7d1b843987201bf6028137a9a9eb6a0
     disable_openapi_validation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     disable_webhooks: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     force_update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-    id: typing.Optional[builtins.str] = None,
     keyring: typing.Optional[builtins.str] = None,
     lint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     max_history: typing.Optional[jsii.Number] = None,
@@ -3175,9 +3358,10 @@ def _typecheckingstub__dc75acd85229e479b8b9aa92aa7d1b843987201bf6028137a9a9eb6a0
     set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSet, typing.Dict[builtins.str, typing.Any]]]]] = None,
     set_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetListStruct, typing.Dict[builtins.str, typing.Any]]]]] = None,
     set_sensitive: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetSensitive, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    set_wo: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetWo, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    set_wo_revision: typing.Optional[jsii.Number] = None,
     skip_crds: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeout: typing.Optional[jsii.Number] = None,
-    upgrade_install: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     values: typing.Optional[typing.Sequence[builtins.str]] = None,
     verify: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     version: typing.Optional[builtins.str] = None,
@@ -3217,6 +3401,12 @@ def _typecheckingstub__64e66f987c47878d4a6946a5a1dc06f0d9f1ca6ba2ae98348676c4bd5
 
 def _typecheckingstub__aaf9382a783d49a3885b1e5db3d0b63f63fc7a33b8cdeefbeace8a470ca85b20(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetSensitive, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__348d8f84de46e2c85afa109d2e4e18ebe58dbf6a5a00304197583870aeba301d(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetWo, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3283,12 +3473,6 @@ def _typecheckingstub__8bd480ec846441f10de7b93fcd878789f6a39b3f26f9557124d682352
 
 def _typecheckingstub__f00fb4fd9f947ec509a72ea5df207806c78db1f0bdb4dc5dfb98bb4e165fa124(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f2570442e115475cd277eceea5eed233829333063e4f0c63bfafe626edd98158(
-    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3395,6 +3579,12 @@ def _typecheckingstub__39bdd2d1d76a4eaa3b8bcdc62bb294e13642ab521d59e8683a345c63e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__126382aa9f62f1a4a6eb6642cd56021452a3570e6b4c218b63f16f2227b48418(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__842028bb5398dae0afe025b331cfac2e399e0b3392a25e154a8b45e9e6df62fa(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
@@ -3403,12 +3593,6 @@ def _typecheckingstub__842028bb5398dae0afe025b331cfac2e399e0b3392a25e154a8b45e9e
 
 def _typecheckingstub__8ce093763d1e99d1031c3d9f244d12dc614bf528e5ba752c43ccca3d29d96f4c(
     value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e040cb6f772911d449f940cee80348faef32f2238eb03dc741b26399c10fd3f1(
-    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3464,7 +3648,6 @@ def _typecheckingstub__3351956da04ddf8ca86567e1dd64c43a3a02b9b30bc17a13da12597bc
     disable_openapi_validation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     disable_webhooks: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     force_update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
-    id: typing.Optional[builtins.str] = None,
     keyring: typing.Optional[builtins.str] = None,
     lint: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     max_history: typing.Optional[jsii.Number] = None,
@@ -3485,9 +3668,10 @@ def _typecheckingstub__3351956da04ddf8ca86567e1dd64c43a3a02b9b30bc17a13da12597bc
     set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSet, typing.Dict[builtins.str, typing.Any]]]]] = None,
     set_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetListStruct, typing.Dict[builtins.str, typing.Any]]]]] = None,
     set_sensitive: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetSensitive, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    set_wo: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ReleaseSetWo, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    set_wo_revision: typing.Optional[jsii.Number] = None,
     skip_crds: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeout: typing.Optional[jsii.Number] = None,
-    upgrade_install: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     values: typing.Optional[typing.Sequence[builtins.str]] = None,
     verify: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     version: typing.Optional[builtins.str] = None,
@@ -3497,43 +3681,9 @@ def _typecheckingstub__3351956da04ddf8ca86567e1dd64c43a3a02b9b30bc17a13da12597bc
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__45fff0a0a9415e8ab8e1fd7e93f9096987d7326fb982c119a6bb9e340d5acec3(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-    wraps_set: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a8517a0befbc8f404e40827ca3ae6bda9ec1ef0df841f0b9d29099c5cf5ab673(
-    index: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4379cc33fdb4d6ac76a9969bd6371ebe7c51ca7de62dfe8db723a25af416a353(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9386bf8e48f6a03658a67242b9c00524bbe6106b46bcff286ce187ba48b6cdfd(
-    value: _cdktf_9a9027ec.IInterpolatingParent,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4b1266bf567de04a521ed4f88fca72cb2f6429b7c5a2531e6385625d883fb582(
-    value: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__61490c34098948e59690943dad087e722da0311d13b99853b9a18bcc8b623f4f(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
-    complex_object_index: jsii.Number,
-    complex_object_is_from_set: builtins.bool,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3572,7 +3722,7 @@ def _typecheckingstub__ee4b033c3e9de1722a215756c780e8ff0378d0493e7c0f883e1c093e3
     pass
 
 def _typecheckingstub__844a501608c2a9c6233555fbfed820dc99204232e5cdf42f37235c0257764013(
-    value: typing.Optional[ReleasePostrender],
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleasePostrender]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3580,8 +3730,8 @@ def _typecheckingstub__844a501608c2a9c6233555fbfed820dc99204232e5cdf42f37235c025
 def _typecheckingstub__b40ee13479cae3240c1ba06fd537a3e15ab3fbca99f29411b2d968f452c5a980(
     *,
     name: builtins.str,
-    value: builtins.str,
     type: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3806,6 +3956,86 @@ def _typecheckingstub__c3a8b0628c2879ecfc03aa347dd950544b66941f82f1bcad89a49300c
 
 def _typecheckingstub__eb736301413166055dd669397c951f73d8e5d9a18078bd1ea2f70ab9f137ba88(
     value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleaseSetSensitive]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__382d5fafb9edfe6976872de67b0f06002699ff2d8f9910132a2dfd628848deba(
+    *,
+    name: builtins.str,
+    value: builtins.str,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b2d7e258aded12f30ee5120519f0f28fe44bdfe0f1801dcf651a45c930e3354(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0eed53bb762101c39869be420e8dc42735b54d77a0e2df57d1e1984abdc7decc(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd9183283013278742154ef4e69c714ed7742a1ef7fbb679e15b61bce31d96be(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7798c6a10b7aed2b3cec0a988e748ad310bc85a5af335ba7ac32384f7322149a(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbc1aece30ff98bd104de09fdac3e1caf5aea9a4b294f02765463a5d4f8b5fd8(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4760ee5dccf7a3debace4c4bb55ffadce2fe63414574df908d0d9ac513719317(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ReleaseSetWo]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c877b112773e5dff54b01884cce3efc221e01974b0b1cdfeafdf230156ed5104(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b758d4cae37b0f4dddb35b59a9186f1efcc9a15e7dd4c06a57b7bd14e1e8d44(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f31e4e8b95129d065326badba0c8a437eae0f7d4bb95ee3eee7a104ffc81237e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c13053390dc1400101bfa6e94d06a51bc7e1475b637cf0555fecb5237cc8f947(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18d1ac40d275788a3c4ae3038e78a09c503e2518b2b22232976104bf8c22f9cb(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ReleaseSetWo]],
 ) -> None:
     """Type checking stubs"""
     pass

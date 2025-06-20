@@ -1,7 +1,7 @@
 r'''
 # `data_aws_redshift_producer_data_shares`
 
-Refer to the Terraform Registry for docs: [`data_aws_redshift_producer_data_shares`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares).
+Refer to the Terraform Registry for docs: [`data_aws_redshift_producer_data_shares`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsRedshiftProducerDataShares(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsRedshiftProducerDataShares.DataAwsRedshiftProducerDataShares",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares aws_redshift_producer_data_shares}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares aws_redshift_producer_data_shares}.'''
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class DataAwsRedshiftProducerDataShares(
         id: builtins.str,
         *,
         producer_arn: builtins.str,
-        data_shares: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsRedshiftProducerDataSharesDataShares", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -62,13 +62,13 @@ class DataAwsRedshiftProducerDataShares(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares aws_redshift_producer_data_shares} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares aws_redshift_producer_data_shares} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param producer_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#producer_arn DataAwsRedshiftProducerDataShares#producer_arn}.
-        :param data_shares: data_shares block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#data_shares DataAwsRedshiftProducerDataShares#data_shares}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#status DataAwsRedshiftProducerDataShares#status}.
+        :param producer_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#producer_arn DataAwsRedshiftProducerDataShares#producer_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#region DataAwsRedshiftProducerDataShares#region}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#status DataAwsRedshiftProducerDataShares#status}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -83,7 +83,7 @@ class DataAwsRedshiftProducerDataShares(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsRedshiftProducerDataSharesConfig(
             producer_arn=producer_arn,
-            data_shares=data_shares,
+            region=region,
             status=status,
             connection=connection,
             count=count,
@@ -109,7 +109,7 @@ class DataAwsRedshiftProducerDataShares(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsRedshiftProducerDataShares to import.
-        :param import_from_id: The id of the existing DataAwsRedshiftProducerDataShares that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsRedshiftProducerDataShares that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsRedshiftProducerDataShares to import is found.
         '''
         if __debug__:
@@ -120,22 +120,9 @@ class DataAwsRedshiftProducerDataShares(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putDataShares")
-    def put_data_shares(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsRedshiftProducerDataSharesDataShares", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18414118cd3cef3d880d1b77eb2f654c8c1bb884bc922448aee68714248a9e6c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putDataShares", [value]))
-
-    @jsii.member(jsii_name="resetDataShares")
-    def reset_data_shares(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetDataShares", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetStatus")
     def reset_status(self) -> None:
@@ -165,16 +152,14 @@ class DataAwsRedshiftProducerDataShares(
         return typing.cast(builtins.str, jsii.get(self, "id"))
 
     @builtins.property
-    @jsii.member(jsii_name="dataSharesInput")
-    def data_shares_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsRedshiftProducerDataSharesDataShares"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsRedshiftProducerDataSharesDataShares"]]], jsii.get(self, "dataSharesInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="producerArnInput")
     def producer_arn_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "producerArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="statusInput")
@@ -192,6 +177,18 @@ class DataAwsRedshiftProducerDataShares(
             type_hints = typing.get_type_hints(_typecheckingstub__9931603f6ec4b964b9f80f32fee861c98eb3a7357eff8915efaec67d2e51ce35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "producerArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c90db860a5d964289d71f35f1d9609f63cc7b5f0a64bc8d8c7eb8ed3a4e8343f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -218,7 +215,7 @@ class DataAwsRedshiftProducerDataShares(
         "provider": "provider",
         "provisioners": "provisioners",
         "producer_arn": "producerArn",
-        "data_shares": "dataShares",
+        "region": "region",
         "status": "status",
     },
 )
@@ -234,7 +231,7 @@ class DataAwsRedshiftProducerDataSharesConfig(_cdktf_9a9027ec.TerraformMetaArgum
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         producer_arn: builtins.str,
-        data_shares: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsRedshiftProducerDataSharesDataShares", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -245,9 +242,9 @@ class DataAwsRedshiftProducerDataSharesConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param producer_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#producer_arn DataAwsRedshiftProducerDataShares#producer_arn}.
-        :param data_shares: data_shares block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#data_shares DataAwsRedshiftProducerDataShares#data_shares}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#status DataAwsRedshiftProducerDataShares#status}.
+        :param producer_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#producer_arn DataAwsRedshiftProducerDataShares#producer_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#region DataAwsRedshiftProducerDataShares#region}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#status DataAwsRedshiftProducerDataShares#status}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -261,7 +258,7 @@ class DataAwsRedshiftProducerDataSharesConfig(_cdktf_9a9027ec.TerraformMetaArgum
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument producer_arn", value=producer_arn, expected_type=type_hints["producer_arn"])
-            check_type(argname="argument data_shares", value=data_shares, expected_type=type_hints["data_shares"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "producer_arn": producer_arn,
@@ -280,8 +277,8 @@ class DataAwsRedshiftProducerDataSharesConfig(_cdktf_9a9027ec.TerraformMetaArgum
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if data_shares is not None:
-            self._values["data_shares"] = data_shares
+        if region is not None:
+            self._values["region"] = region
         if status is not None:
             self._values["status"] = status
 
@@ -351,25 +348,23 @@ class DataAwsRedshiftProducerDataSharesConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def producer_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#producer_arn DataAwsRedshiftProducerDataShares#producer_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#producer_arn DataAwsRedshiftProducerDataShares#producer_arn}.'''
         result = self._values.get("producer_arn")
         assert result is not None, "Required property 'producer_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def data_shares(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsRedshiftProducerDataSharesDataShares"]]]:
-        '''data_shares block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#data_shares DataAwsRedshiftProducerDataShares#data_shares}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#region DataAwsRedshiftProducerDataShares#region}
         '''
-        result = self._values.get("data_shares")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsRedshiftProducerDataSharesDataShares"]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/redshift_producer_data_shares#status DataAwsRedshiftProducerDataShares#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/redshift_producer_data_shares#status DataAwsRedshiftProducerDataShares#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -481,23 +476,6 @@ class DataAwsRedshiftProducerDataSharesDataSharesList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsRedshiftProducerDataSharesDataShares]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsRedshiftProducerDataSharesDataShares]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsRedshiftProducerDataSharesDataShares]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bbdd99dee6a2e003b135a54690a65f5e32a47cb5614ba3aae42429ac968d071)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsRedshiftProducerDataSharesDataSharesOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -544,13 +522,13 @@ class DataAwsRedshiftProducerDataSharesDataSharesOutputReference(
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsRedshiftProducerDataSharesDataShares]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsRedshiftProducerDataSharesDataShares]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsRedshiftProducerDataSharesDataShares]:
+        return typing.cast(typing.Optional[DataAwsRedshiftProducerDataSharesDataShares], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsRedshiftProducerDataSharesDataShares]],
+        value: typing.Optional[DataAwsRedshiftProducerDataSharesDataShares],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__099ba8806facf88dbe7a9d91d3cf5c3bc152027c8b7a599df0d9f3afdf2640d3)
@@ -573,7 +551,7 @@ def _typecheckingstub__81f131c56017873aad69cc535e251592b5c7115d16f845227f22951ce
     id: builtins.str,
     *,
     producer_arn: builtins.str,
-    data_shares: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsRedshiftProducerDataSharesDataShares, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -595,13 +573,13 @@ def _typecheckingstub__67fff16e42ae853fd16d5789e81b6532fb5a2a941b8da8506f5eee219
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__18414118cd3cef3d880d1b77eb2f654c8c1bb884bc922448aee68714248a9e6c(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsRedshiftProducerDataSharesDataShares, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__9931603f6ec4b964b9f80f32fee861c98eb3a7357eff8915efaec67d2e51ce35(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9931603f6ec4b964b9f80f32fee861c98eb3a7357eff8915efaec67d2e51ce35(
+def _typecheckingstub__c90db860a5d964289d71f35f1d9609f63cc7b5f0a64bc8d8c7eb8ed3a4e8343f(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -623,7 +601,7 @@ def _typecheckingstub__00204186c43bc63944059a2a173a16f0bf8c9df117829b7ce421b3ea4
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     producer_arn: builtins.str,
-    data_shares: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsRedshiftProducerDataSharesDataShares, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -661,12 +639,6 @@ def _typecheckingstub__659df97d2eb9c86ecc480f376c047c33fa6d8335847b4aa6c9bc95649
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1bbdd99dee6a2e003b135a54690a65f5e32a47cb5614ba3aae42429ac968d071(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsRedshiftProducerDataSharesDataShares]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__615def5f293c1614aec831677c0faeaa24359e4d92523a040d5bb2505687e8c0(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -677,7 +649,7 @@ def _typecheckingstub__615def5f293c1614aec831677c0faeaa24359e4d92523a040d5bb2505
     pass
 
 def _typecheckingstub__099ba8806facf88dbe7a9d91d3cf5c3bc152027c8b7a599df0d9f3afdf2640d3(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsRedshiftProducerDataSharesDataShares]],
+    value: typing.Optional[DataAwsRedshiftProducerDataSharesDataShares],
 ) -> None:
     """Type checking stubs"""
     pass

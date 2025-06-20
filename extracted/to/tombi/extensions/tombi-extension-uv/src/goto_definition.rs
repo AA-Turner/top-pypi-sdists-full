@@ -1,5 +1,5 @@
 use tombi_config::TomlVersion;
-use tombi_schema_store::match_accessors;
+use tombi_schema_store::matches_accessors;
 use tower_lsp::lsp_types::TextDocumentIdentifier;
 
 use crate::{
@@ -20,7 +20,7 @@ pub async fn goto_definition(
         return Ok(Default::default());
     };
 
-    let locations = if match_accessors!(
+    let locations = if matches_accessors!(
         accessors[..accessors.len().min(3)],
         ["tool", "uv", "sources"]
     ) {
@@ -31,7 +31,7 @@ pub async fn goto_definition(
             toml_version,
             true,
         )?
-    } else if match_accessors!(
+    } else if matches_accessors!(
         accessors[..accessors.len().min(3)],
         ["tool", "uv", "workspace"]
     ) {

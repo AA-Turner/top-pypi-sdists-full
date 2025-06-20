@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: isolate_proto
-Version: 0.9.1
+Version: 0.10.1
 Summary: (internal) gRPC definitions for Isolate Cloud
 Author: Features & Labels <support@fal.ai>
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: grpcio==1.64.0
+Requires-Dist: grpcio<2,>=1.64.0
 Requires-Dist: protobuf
 Requires-Dist: isolate[build]<1.14.0,>=0.13.0
 Provides-Extra: test

@@ -1,7 +1,7 @@
 r'''
 # `aws_config_delivery_channel`
 
-Refer to the Terraform Registry for docs: [`aws_config_delivery_channel`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel).
+Refer to the Terraform Registry for docs: [`aws_config_delivery_channel`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConfigDeliveryChannel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.configDeliveryChannel.ConfigDeliveryChannel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel aws_config_delivery_channel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel aws_config_delivery_channel}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class ConfigDeliveryChannel(
         s3_bucket_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         s3_kms_key_arn: typing.Optional[builtins.str] = None,
         snapshot_delivery_properties: typing.Optional[typing.Union["ConfigDeliveryChannelSnapshotDeliveryProperties", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -66,17 +67,18 @@ class ConfigDeliveryChannel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel aws_config_delivery_channel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel aws_config_delivery_channel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_bucket_name ConfigDeliveryChannel#s3_bucket_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#id ConfigDeliveryChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#name ConfigDeliveryChannel#name}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_key_prefix ConfigDeliveryChannel#s3_key_prefix}.
-        :param s3_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_kms_key_arn ConfigDeliveryChannel#s3_kms_key_arn}.
-        :param snapshot_delivery_properties: snapshot_delivery_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#snapshot_delivery_properties ConfigDeliveryChannel#snapshot_delivery_properties}
-        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#sns_topic_arn ConfigDeliveryChannel#sns_topic_arn}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_bucket_name ConfigDeliveryChannel#s3_bucket_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#id ConfigDeliveryChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#name ConfigDeliveryChannel#name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#region ConfigDeliveryChannel#region}
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_key_prefix ConfigDeliveryChannel#s3_key_prefix}.
+        :param s3_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_kms_key_arn ConfigDeliveryChannel#s3_kms_key_arn}.
+        :param snapshot_delivery_properties: snapshot_delivery_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#snapshot_delivery_properties ConfigDeliveryChannel#snapshot_delivery_properties}
+        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#sns_topic_arn ConfigDeliveryChannel#sns_topic_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -93,6 +95,7 @@ class ConfigDeliveryChannel(
             s3_bucket_name=s3_bucket_name,
             id=id,
             name=name,
+            region=region,
             s3_key_prefix=s3_key_prefix,
             s3_kms_key_arn=s3_kms_key_arn,
             snapshot_delivery_properties=snapshot_delivery_properties,
@@ -121,7 +124,7 @@ class ConfigDeliveryChannel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConfigDeliveryChannel to import.
-        :param import_from_id: The id of the existing ConfigDeliveryChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConfigDeliveryChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConfigDeliveryChannel to import is found.
         '''
         if __debug__:
@@ -139,7 +142,7 @@ class ConfigDeliveryChannel(
         delivery_frequency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delivery_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#delivery_frequency ConfigDeliveryChannel#delivery_frequency}.
+        :param delivery_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#delivery_frequency ConfigDeliveryChannel#delivery_frequency}.
         '''
         value = ConfigDeliveryChannelSnapshotDeliveryProperties(
             delivery_frequency=delivery_frequency
@@ -154,6 +157,10 @@ class ConfigDeliveryChannel(
     @jsii.member(jsii_name="resetName")
     def reset_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetName", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetS3KeyPrefix")
     def reset_s3_key_prefix(self) -> None:
@@ -200,6 +207,11 @@ class ConfigDeliveryChannel(
     @jsii.member(jsii_name="nameInput")
     def name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="s3BucketNameInput")
@@ -251,6 +263,18 @@ class ConfigDeliveryChannel(
             type_hints = typing.get_type_hints(_typecheckingstub__6c1a8d81c3d26adf874b34fbe01b751dacbf99aa26ed85ad1c75eb148f7cf2ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da8a920728a5b1eb6ed3b9d5783ae2da67e83e0832592a49cddfa6bce9158456)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="s3BucketName")
@@ -315,6 +339,7 @@ class ConfigDeliveryChannel(
         "s3_bucket_name": "s3BucketName",
         "id": "id",
         "name": "name",
+        "region": "region",
         "s3_key_prefix": "s3KeyPrefix",
         "s3_kms_key_arn": "s3KmsKeyArn",
         "snapshot_delivery_properties": "snapshotDeliveryProperties",
@@ -335,6 +360,7 @@ class ConfigDeliveryChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         s3_bucket_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         s3_kms_key_arn: typing.Optional[builtins.str] = None,
         snapshot_delivery_properties: typing.Optional[typing.Union["ConfigDeliveryChannelSnapshotDeliveryProperties", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -348,13 +374,14 @@ class ConfigDeliveryChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_bucket_name ConfigDeliveryChannel#s3_bucket_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#id ConfigDeliveryChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#name ConfigDeliveryChannel#name}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_key_prefix ConfigDeliveryChannel#s3_key_prefix}.
-        :param s3_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_kms_key_arn ConfigDeliveryChannel#s3_kms_key_arn}.
-        :param snapshot_delivery_properties: snapshot_delivery_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#snapshot_delivery_properties ConfigDeliveryChannel#snapshot_delivery_properties}
-        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#sns_topic_arn ConfigDeliveryChannel#sns_topic_arn}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_bucket_name ConfigDeliveryChannel#s3_bucket_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#id ConfigDeliveryChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#name ConfigDeliveryChannel#name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#region ConfigDeliveryChannel#region}
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_key_prefix ConfigDeliveryChannel#s3_key_prefix}.
+        :param s3_kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_kms_key_arn ConfigDeliveryChannel#s3_kms_key_arn}.
+        :param snapshot_delivery_properties: snapshot_delivery_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#snapshot_delivery_properties ConfigDeliveryChannel#snapshot_delivery_properties}
+        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#sns_topic_arn ConfigDeliveryChannel#sns_topic_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -372,6 +399,7 @@ class ConfigDeliveryChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
             check_type(argname="argument s3_kms_key_arn", value=s3_kms_key_arn, expected_type=type_hints["s3_kms_key_arn"])
             check_type(argname="argument snapshot_delivery_properties", value=snapshot_delivery_properties, expected_type=type_hints["snapshot_delivery_properties"])
@@ -397,6 +425,8 @@ class ConfigDeliveryChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if name is not None:
             self._values["name"] = name
+        if region is not None:
+            self._values["region"] = region
         if s3_key_prefix is not None:
             self._values["s3_key_prefix"] = s3_key_prefix
         if s3_kms_key_arn is not None:
@@ -472,14 +502,14 @@ class ConfigDeliveryChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_bucket_name ConfigDeliveryChannel#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_bucket_name ConfigDeliveryChannel#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#id ConfigDeliveryChannel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#id ConfigDeliveryChannel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -489,19 +519,28 @@ class ConfigDeliveryChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#name ConfigDeliveryChannel#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#name ConfigDeliveryChannel#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#region ConfigDeliveryChannel#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_key_prefix ConfigDeliveryChannel#s3_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_key_prefix ConfigDeliveryChannel#s3_key_prefix}.'''
         result = self._values.get("s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#s3_kms_key_arn ConfigDeliveryChannel#s3_kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#s3_kms_key_arn ConfigDeliveryChannel#s3_kms_key_arn}.'''
         result = self._values.get("s3_kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -511,14 +550,14 @@ class ConfigDeliveryChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ConfigDeliveryChannelSnapshotDeliveryProperties"]:
         '''snapshot_delivery_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#snapshot_delivery_properties ConfigDeliveryChannel#snapshot_delivery_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#snapshot_delivery_properties ConfigDeliveryChannel#snapshot_delivery_properties}
         '''
         result = self._values.get("snapshot_delivery_properties")
         return typing.cast(typing.Optional["ConfigDeliveryChannelSnapshotDeliveryProperties"], result)
 
     @builtins.property
     def sns_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#sns_topic_arn ConfigDeliveryChannel#sns_topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#sns_topic_arn ConfigDeliveryChannel#sns_topic_arn}.'''
         result = self._values.get("sns_topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -546,7 +585,7 @@ class ConfigDeliveryChannelSnapshotDeliveryProperties:
         delivery_frequency: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delivery_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#delivery_frequency ConfigDeliveryChannel#delivery_frequency}.
+        :param delivery_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#delivery_frequency ConfigDeliveryChannel#delivery_frequency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f49b4153955d5e8e6578ae0fde8338a0b50c5a95d9eac3e5abd2daf813ca79b3)
@@ -557,7 +596,7 @@ class ConfigDeliveryChannelSnapshotDeliveryProperties:
 
     @builtins.property
     def delivery_frequency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_delivery_channel#delivery_frequency ConfigDeliveryChannel#delivery_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_delivery_channel#delivery_frequency ConfigDeliveryChannel#delivery_frequency}.'''
         result = self._values.get("delivery_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -648,6 +687,7 @@ def _typecheckingstub__bdf786a0271c7a9da5252cc2bea5bfec513234e6d5f4737ae1b1702bc
     s3_bucket_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     s3_kms_key_arn: typing.Optional[builtins.str] = None,
     snapshot_delivery_properties: typing.Optional[typing.Union[ConfigDeliveryChannelSnapshotDeliveryProperties, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -679,6 +719,12 @@ def _typecheckingstub__b88615cfb836d8d300da47432aff0ba521e35fed883ab599cf32bcb95
     pass
 
 def _typecheckingstub__6c1a8d81c3d26adf874b34fbe01b751dacbf99aa26ed85ad1c75eb148f7cf2ba(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da8a920728a5b1eb6ed3b9d5783ae2da67e83e0832592a49cddfa6bce9158456(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -720,6 +766,7 @@ def _typecheckingstub__ccf58dbb002df87645a74ff7b68160b283d0edefc11896c5c6c08f6ff
     s3_bucket_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     s3_kms_key_arn: typing.Optional[builtins.str] = None,
     snapshot_delivery_properties: typing.Optional[typing.Union[ConfigDeliveryChannelSnapshotDeliveryProperties, typing.Dict[builtins.str, typing.Any]]] = None,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyahocorasick
-Version: 2.1.0
+Version: 2.2.0
 Summary: pyahocorasick is a fast and memory efficient library for exact or approximate multi-pattern string search.  With the ``ahocorasick.Automaton`` class, you can find multiple key string occurrences at once in some input text.  You can use it as a plain dict-like Trie or convert a Trie to an automaton for efficient Aho-Corasick search. And pickle to disk for easy reuse of large automatons. Implemented in C and tested on Python 3.6+. Works on Linux, macOS and Windows. BSD-3-Cause license.
 Home-page: http://github.com/WojciechMula/pyahocorasick
 Author: Wojciech Muła
@@ -13,20 +13,33 @@ Platform: Linux
 Platform: MacOSX
 Platform: Windows
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Text Editors :: Text Processing
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-License-File: README.rst
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: twine; extra == "testing"
 Requires-Dist: setuptools; extra == "testing"
 Requires-Dist: wheel; extra == "testing"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 ========================================================================
                           pyahocorasick
@@ -43,7 +56,7 @@ of time and saved (as a pickle) to disk to reload and reuse later.  The library
 provides an `ahocorasick` Python module that you can use as a plain dict-like
 Trie or convert a Trie to an automaton for efficient Aho-Corasick search.
 
-**pyahocorasick** is implemented in C and tested on Python 3.8 and up.
+**pyahocorasick** is implemented in C and tested on Python 3.9 and up.
 It works on 64 bits Linux, macOS and Windows.
 
 The license_ is BSD-3-Clause. Some utilities, such as tests and the pure Python

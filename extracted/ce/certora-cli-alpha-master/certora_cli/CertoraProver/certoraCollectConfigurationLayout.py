@@ -25,12 +25,13 @@ sys.path.insert(0, str(scripts_dir_path))
 import CertoraProver.certoraContextAttributes as Attrs
 from CertoraProver.certoraCollectRunMetadata import RunMetaData, MetadataEncoder
 import Shared.certoraUtils as Utils
+from typing import List
 
 
 class MainSection(Enum):
     GENERAL = "GENERAL"
+    OPTIONS = "OPTIONS"
     SOLIDITY_COMPILER = "SOLIDITY_COMPILER"
-    GIT = "GIT"
     NEW_SECTION = "NEW_SECTION"
 
 
@@ -47,13 +48,11 @@ class InnerContent:
     content: Any
     doc_link: str = ''
     tooltip: str = ''
-    unsound: str = 'false'
+    unsound: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.content, bool):
             self.content = 'true' if self.content else 'false'
-        if isinstance(self.unsound, bool):
-            self.unsound = 'true' if self.unsound else 'false'
 
 
 @dataclasses.dataclass
@@ -65,6 +64,7 @@ class CardContent:
 
 DOC_LINK_PREFIX = 'https://docs.certora.com/en/latest/docs/'
 GIT_ATTRIBUTES = ['origin', 'revision', 'branch', 'dirty']
+ARG_LIST_ATTRIBUTES = ['prover_args', 'java_args']
 
 
 class AttributeJobConfigData:
@@ -73,13 +73,13 @@ class AttributeJobConfigData:
     This should be added to the AttributeDefinition and configured for every new attribute
     presented in the Rule report.
 
-    Note: Attributes which do not contain specific information will be assigned as a Flag in the General main section!
+    Note: Attributes that do not contain specific information will be presented in the OPTIONS main section!
 
     arguments:
     - main_section : MainSection -- the main section inside the config tab
-        default: MainSection.GENERAL
-    - subsection : str -- the subsection within the main_section (e.g Flags)
-        default: Flags
+        default: MainSection.OPTIONS
+    - subsection : str -- the subsection within the main_section
+        default: None - they will be presented inside the OPTIONS card
     - doc_link : Optional[str] -- a link to the Documentation page of this attribute (if exists)
         default: 'https://docs.certora.com/en/latest/docs/' + Solana/EVM path + #<attribute_name>
     - tooltip : Optional[str] -- a description of this attribute to present in the config tab
@@ -88,7 +88,7 @@ class AttributeJobConfigData:
         default: False
     """
 
-    def __init__(self, main_section: MainSection = MainSection.GENERAL, subsection: str = '',
+    def __init__(self, main_section: MainSection = MainSection.OPTIONS, subsection: str = '',
                  doc_link: Optional[str] = '', tooltip: Optional[str] = '', unsound: bool = False):
         self.main_section = main_section
         self.subsection = subsection
@@ -201,6 +201,40 @@ def create_or_get_card_content(output: list[CardContent], name: str) -> CardCont
     return main_section
 
 
+def split_and_sort_arg_list_value(args_list: List[str]) -> List[str]:
+    """
+    Splits a unified CLI argument list of strings into a sorted list of flag+value groups.
+    This is useful mainly for --prover_args and --java_args.
+
+    For example:
+    "-depth 15 -adaptiveSolverConfig false" → ["-adaptiveSolverConfig false", "-depth 15"]
+
+    Assumes each flag starts with '-' and its value follows immediately, if exists.
+    Lines are sorted alphabetically.
+    """
+    unified_args = ''.join(args_list)
+
+    if not unified_args.strip():
+        return []
+
+    lines: List[str] = []
+    tokens = unified_args.split()
+    curr_line = ""
+
+    for token in tokens:
+        if token.startswith('-'):
+            if curr_line:
+                lines.append(curr_line)
+            curr_line = token
+        else:
+            curr_line += f" {token}"
+
+    if curr_line:
+        lines.append(curr_line)
+
+    return sorted(lines)
+
+
 def create_inner_content(name: str, content_type: ContentType, value: Any, doc_link: str,
                          config_data: AttributeJobConfigData) -> InnerContent:
     return InnerContent(
@@ -209,7 +243,7 @@ def create_inner_content(name: str, content_type: ContentType, value: Any, doc_l
         content=value,
         doc_link=doc_link,
         tooltip=config_data.tooltip or '',
-        unsound='true' if config_data.unsound else 'false'
+        unsound=config_data.unsound
     )
 
 
@@ -260,35 +294,23 @@ def collect_attribute_configs(metadata: dict) -> list[CardContent]:
             )
             continue
 
-        # Find or create the subsection (if it exists)
+        # Find or create the subsection (if it doesn't exist)
         if isinstance(attr_value, list):
-            current_section: Any = main_section
             content_type = ContentType.SIMPLE
+            if attr_name in ARG_LIST_ATTRIBUTES:
+                attr_value = split_and_sort_arg_list_value(attr_value)
 
         elif isinstance(attr_value, dict):
-            current_section = main_section
             content_type = ContentType.COMPLEX
             attr_value = [
                 create_inner_content(key, ContentType.FLAG, value, doc_link, config_data)
                 for key, value in attr_value.items()
             ]
         else:
-            # this attribute is a value attribute without a subsection, it will be placed in flags.
-            subsection_key = config_data.subsection.lower() if config_data.subsection else 'flags'
-            current_section = next((section for section in main_section.content
-                                    if section.inner_title == subsection_key), None)
-            if current_section is None:
-                current_section = InnerContent(
-                    inner_title=subsection_key,
-                    content_type=ContentType.COMPLEX.value,
-                    content=[]
-                )
-                main_section.content.append(current_section)
-
             content_type = ContentType.FLAG
 
         # Update the current section with attribute details
-        current_section.content.append(
+        main_section.content.append(
             create_inner_content(attr_name, content_type, attr_value, doc_link, config_data)
         )
 
@@ -300,36 +322,22 @@ def collect_run_config_from_metadata(attributes_configs: list[CardContent], meta
     Adding CLI and Git configuration from metadata
     """
 
-    # Define a mapping of metadata attributes to their keys in general_section
-    metadata_mappings = {
-        'CLI Version': metadata.get('CLI_version'),
-        'Verify': metadata.get('conf', {}).get('verify'),
-    }
-
     general_section = create_or_get_card_content(attributes_configs, MainSection.GENERAL.value.lower())
 
-    # Add metadata attributes dynamically if they exist
-    for key, value in metadata_mappings.items():
-        if value:
-            general_section.content.append(InnerContent(
-                inner_title=key,
-                content_type=ContentType.FLAG.value,
-                content=value,
-            ))
+    if cli_version := metadata.get('CLI_version'):
+        general_section.content.append(InnerContent(
+            inner_title='CLI Version',
+            content_type=ContentType.FLAG.value,
+            content=cli_version,
+        ))
 
-    # Adding GIT configuration from metadata only if attributes are found
-    git_content = []
     for attr in GIT_ATTRIBUTES:
         if attr_value := metadata.get(attr):
-            git_content.append(InnerContent(
+            general_section.content.append(InnerContent(
                 inner_title=attr,
                 content_type=ContentType.FLAG.value,
                 content=attr_value,
             ))
-
-    if git_content:
-        git_section = create_or_get_card_content(attributes_configs, MainSection.GIT.value.lower())
-        git_section.content = git_content
 
     return attributes_configs
 
@@ -338,14 +346,17 @@ def sort_configuration_layout(data: list[CardContent]) -> list[CardContent]:
     """
     Sorts a configuration layout:
     - Top-level sorted by 'card_title'
-    - Nested content sorted by 'inner_title', with 'Verify' first
+    - Nested content sorted by 'inner_title', with 'verify' first
     """
     priority = {
-        "Verify": 0,
+        # Priorities for top-level cards
         "general": 0,
+        "files": 1,
+        "options": 2,
+        # Top level items inside their respective cards
+        "verify": 0,
         "solc": 0,
-        "CLI Version": 1,
-        "flags": 2
+        "CLI Version": 0
     }
 
     def inner_sort_key(item: Any) -> Any:

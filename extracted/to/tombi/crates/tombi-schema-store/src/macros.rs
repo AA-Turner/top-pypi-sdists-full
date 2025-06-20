@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! match_accessors {
+macro_rules! matches_accessors {
     ($accessors:expr, []) => {
         false
     };
@@ -9,13 +9,13 @@ macro_rules! match_accessors {
             false
         } else {
             let mut iter = $accessors.iter();
-            $crate::match_accessors_inner!(iter, $($pattern),*)
+            $crate::matches_accessors_inner!(iter, $($pattern),*)
         }
     }};
 }
 
 #[macro_export]
-macro_rules! match_accessors_inner {
+macro_rules! matches_accessors_inner {
     ($iter:expr) => {
         $iter.next().is_none()
     };
@@ -33,13 +33,13 @@ macro_rules! match_accessors_inner {
     };
     ($iter:expr, $key:literal, $($rest:tt),* $(,)?) => {
         match $iter.next() {
-            Some($crate::Accessor::Key(k)) if k == $key => $crate::match_accessors_inner!($iter, $($rest),*),
+            Some($crate::Accessor::Key(k)) if k == $key => $crate::matches_accessors_inner!($iter, $($rest),*),
             _ => false,
         }
     };
     ($iter:expr, _, $($rest:tt),* $(,)?) => {
         match $iter.next() {
-            Some(_) => $crate::match_accessors_inner!($iter, $($rest),*),
+            Some(_) => $crate::matches_accessors_inner!($iter, $($rest),*),
             None => false,
         }
     };
@@ -50,7 +50,7 @@ mod tests {
     use crate::accessor::Accessor;
 
     #[test]
-    fn test_match_accessors() {
+    fn test_matches_accessors() {
         let accessors = vec![
             Accessor::Key("tool".to_string()),
             Accessor::Key("uv".to_string()),
@@ -60,40 +60,40 @@ mod tests {
         ];
 
         // Exact match
-        assert!(match_accessors!(
+        assert!(matches_accessors!(
             &accessors,
             ["tool", "uv", "sources", "local", "workspace"]
         ));
 
         // Wildcard
-        assert!(match_accessors!(
+        assert!(matches_accessors!(
             &accessors,
             ["tool", "uv", "sources", _, "workspace"]
         ));
 
         // Partial match should fail
-        assert!(!match_accessors!(&accessors, ["tool", "uv", "sources"]));
+        assert!(!matches_accessors!(&accessors, ["tool", "uv", "sources"]));
 
         // Mismatch
-        assert!(!match_accessors!(&accessors, ["tool", "uv", "invalid"]));
-        assert!(!match_accessors!(
+        assert!(!matches_accessors!(&accessors, ["tool", "uv", "invalid"]));
+        assert!(!matches_accessors!(
             &accessors,
             ["tool", "uv", "sources", "local", "invalid"]
         ));
 
         // Different array length
-        assert!(!match_accessors!(
+        assert!(!matches_accessors!(
             &accessors,
             ["tool", "uv", "sources", "local", "workspace", "extra"]
         ));
 
         // Empty accessors
         let empty_accessors: Vec<Accessor> = vec![];
-        assert!(!match_accessors!(&empty_accessors, ["tool"]));
+        assert!(!matches_accessors!(&empty_accessors, ["tool"]));
     }
 
     #[test]
-    fn test_match_accessors_with_index() {
+    fn test_matches_accessors_with_index() {
         let accessors = vec![
             Accessor::Key("tool".to_string()),
             Accessor::Key("uv".to_string()),
@@ -102,10 +102,13 @@ mod tests {
         ];
 
         // Pattern with index
-        assert!(match_accessors!(&accessors, ["tool", "uv", _, "workspace"]));
+        assert!(matches_accessors!(
+            &accessors,
+            ["tool", "uv", _, "workspace"]
+        ));
 
         // Pattern with specified index (should not match)
-        assert!(!match_accessors!(
+        assert!(!matches_accessors!(
             &accessors,
             ["tool", "uv", "sources", "workspace"]
         ));

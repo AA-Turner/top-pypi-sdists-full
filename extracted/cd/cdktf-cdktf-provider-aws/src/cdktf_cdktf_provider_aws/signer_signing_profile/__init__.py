@@ -1,7 +1,7 @@
 r'''
 # `aws_signer_signing_profile`
 
-Refer to the Terraform Registry for docs: [`aws_signer_signing_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile).
+Refer to the Terraform Registry for docs: [`aws_signer_signing_profile`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SignerSigningProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.signerSigningProfile.SignerSigningProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile aws_signer_signing_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile aws_signer_signing_profile}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class SignerSigningProfile(
         id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         name_prefix: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         signature_validity_period: typing.Optional[typing.Union["SignerSigningProfileSignatureValidityPeriod", typing.Dict[builtins.str, typing.Any]]] = None,
         signing_material: typing.Optional[typing.Union["SignerSigningProfileSigningMaterial", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -67,18 +68,19 @@ class SignerSigningProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile aws_signer_signing_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile aws_signer_signing_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param platform_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#platform_id SignerSigningProfile#platform_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#id SignerSigningProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#name SignerSigningProfile#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#name_prefix SignerSigningProfile#name_prefix}.
-        :param signature_validity_period: signature_validity_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#signature_validity_period SignerSigningProfile#signature_validity_period}
-        :param signing_material: signing_material block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#signing_material SignerSigningProfile#signing_material}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#tags SignerSigningProfile#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#tags_all SignerSigningProfile#tags_all}.
+        :param platform_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#platform_id SignerSigningProfile#platform_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#id SignerSigningProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#name SignerSigningProfile#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#name_prefix SignerSigningProfile#name_prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#region SignerSigningProfile#region}
+        :param signature_validity_period: signature_validity_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#signature_validity_period SignerSigningProfile#signature_validity_period}
+        :param signing_material: signing_material block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#signing_material SignerSigningProfile#signing_material}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#tags SignerSigningProfile#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#tags_all SignerSigningProfile#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -96,6 +98,7 @@ class SignerSigningProfile(
             id=id,
             name=name,
             name_prefix=name_prefix,
+            region=region,
             signature_validity_period=signature_validity_period,
             signing_material=signing_material,
             tags=tags,
@@ -124,7 +127,7 @@ class SignerSigningProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SignerSigningProfile to import.
-        :param import_from_id: The id of the existing SignerSigningProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SignerSigningProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SignerSigningProfile to import is found.
         '''
         if __debug__:
@@ -143,8 +146,8 @@ class SignerSigningProfile(
         value: jsii.Number,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#type SignerSigningProfile#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#value SignerSigningProfile#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#type SignerSigningProfile#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#value SignerSigningProfile#value}.
         '''
         value_ = SignerSigningProfileSignatureValidityPeriod(type=type, value=value)
 
@@ -153,7 +156,7 @@ class SignerSigningProfile(
     @jsii.member(jsii_name="putSigningMaterial")
     def put_signing_material(self, *, certificate_arn: builtins.str) -> None:
         '''
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#certificate_arn SignerSigningProfile#certificate_arn}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#certificate_arn SignerSigningProfile#certificate_arn}.
         '''
         value = SignerSigningProfileSigningMaterial(certificate_arn=certificate_arn)
 
@@ -170,6 +173,10 @@ class SignerSigningProfile(
     @jsii.member(jsii_name="resetNamePrefix")
     def reset_name_prefix(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetNamePrefix", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSignatureValidityPeriod")
     def reset_signature_validity_period(self) -> None:
@@ -263,6 +270,11 @@ class SignerSigningProfile(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "platformIdInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="signatureValidityPeriodInput")
     def signature_validity_period_input(
         self,
@@ -337,6 +349,18 @@ class SignerSigningProfile(
         jsii.set(self, "platformId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b60b1d88666134e5a6b94e1abcbf3b85fdca7c197de69fa8683851c1642def9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tags"))
@@ -376,6 +400,7 @@ class SignerSigningProfile(
         "id": "id",
         "name": "name",
         "name_prefix": "namePrefix",
+        "region": "region",
         "signature_validity_period": "signatureValidityPeriod",
         "signing_material": "signingMaterial",
         "tags": "tags",
@@ -397,6 +422,7 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         name_prefix: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         signature_validity_period: typing.Optional[typing.Union["SignerSigningProfileSignatureValidityPeriod", typing.Dict[builtins.str, typing.Any]]] = None,
         signing_material: typing.Optional[typing.Union["SignerSigningProfileSigningMaterial", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -410,14 +436,15 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param platform_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#platform_id SignerSigningProfile#platform_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#id SignerSigningProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#name SignerSigningProfile#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#name_prefix SignerSigningProfile#name_prefix}.
-        :param signature_validity_period: signature_validity_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#signature_validity_period SignerSigningProfile#signature_validity_period}
-        :param signing_material: signing_material block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#signing_material SignerSigningProfile#signing_material}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#tags SignerSigningProfile#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#tags_all SignerSigningProfile#tags_all}.
+        :param platform_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#platform_id SignerSigningProfile#platform_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#id SignerSigningProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#name SignerSigningProfile#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#name_prefix SignerSigningProfile#name_prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#region SignerSigningProfile#region}
+        :param signature_validity_period: signature_validity_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#signature_validity_period SignerSigningProfile#signature_validity_period}
+        :param signing_material: signing_material block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#signing_material SignerSigningProfile#signing_material}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#tags SignerSigningProfile#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#tags_all SignerSigningProfile#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -438,6 +465,7 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument name_prefix", value=name_prefix, expected_type=type_hints["name_prefix"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument signature_validity_period", value=signature_validity_period, expected_type=type_hints["signature_validity_period"])
             check_type(argname="argument signing_material", value=signing_material, expected_type=type_hints["signing_material"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -465,6 +493,8 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["name"] = name
         if name_prefix is not None:
             self._values["name_prefix"] = name_prefix
+        if region is not None:
+            self._values["region"] = region
         if signature_validity_period is not None:
             self._values["signature_validity_period"] = signature_validity_period
         if signing_material is not None:
@@ -540,14 +570,14 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def platform_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#platform_id SignerSigningProfile#platform_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#platform_id SignerSigningProfile#platform_id}.'''
         result = self._values.get("platform_id")
         assert result is not None, "Required property 'platform_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#id SignerSigningProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#id SignerSigningProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -557,14 +587,23 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#name SignerSigningProfile#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#name SignerSigningProfile#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#name_prefix SignerSigningProfile#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#name_prefix SignerSigningProfile#name_prefix}.'''
         result = self._values.get("name_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#region SignerSigningProfile#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -573,7 +612,7 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SignerSigningProfileSignatureValidityPeriod"]:
         '''signature_validity_period block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#signature_validity_period SignerSigningProfile#signature_validity_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#signature_validity_period SignerSigningProfile#signature_validity_period}
         '''
         result = self._values.get("signature_validity_period")
         return typing.cast(typing.Optional["SignerSigningProfileSignatureValidityPeriod"], result)
@@ -584,20 +623,20 @@ class SignerSigningProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SignerSigningProfileSigningMaterial"]:
         '''signing_material block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#signing_material SignerSigningProfile#signing_material}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#signing_material SignerSigningProfile#signing_material}
         '''
         result = self._values.get("signing_material")
         return typing.cast(typing.Optional["SignerSigningProfileSigningMaterial"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#tags SignerSigningProfile#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#tags SignerSigningProfile#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#tags_all SignerSigningProfile#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#tags_all SignerSigningProfile#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -775,8 +814,8 @@ class SignerSigningProfileRevocationRecordOutputReference(
 class SignerSigningProfileSignatureValidityPeriod:
     def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#type SignerSigningProfile#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#value SignerSigningProfile#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#type SignerSigningProfile#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#value SignerSigningProfile#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f63793e95e5c65e45d623e9c0f4da3689b2e013bddbfd7cbf761d5098e161e81)
@@ -789,14 +828,14 @@ class SignerSigningProfileSignatureValidityPeriod:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#type SignerSigningProfile#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#type SignerSigningProfile#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#value SignerSigningProfile#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#value SignerSigningProfile#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -893,7 +932,7 @@ class SignerSigningProfileSignatureValidityPeriodOutputReference(
 class SignerSigningProfileSigningMaterial:
     def __init__(self, *, certificate_arn: builtins.str) -> None:
         '''
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#certificate_arn SignerSigningProfile#certificate_arn}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#certificate_arn SignerSigningProfile#certificate_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3ebd101b4303c9663bfa455797a73bd58afe1a4cdbb7eb637cdd93ee68e2b73)
@@ -904,7 +943,7 @@ class SignerSigningProfileSigningMaterial:
 
     @builtins.property
     def certificate_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_profile#certificate_arn SignerSigningProfile#certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_profile#certificate_arn SignerSigningProfile#certificate_arn}.'''
         result = self._values.get("certificate_arn")
         assert result is not None, "Required property 'certificate_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -996,6 +1035,7 @@ def _typecheckingstub__470dac13393a57e8fac5ac93406f60ea1663c8af391a589ddae2cad47
     id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     name_prefix: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     signature_validity_period: typing.Optional[typing.Union[SignerSigningProfileSignatureValidityPeriod, typing.Dict[builtins.str, typing.Any]]] = None,
     signing_material: typing.Optional[typing.Union[SignerSigningProfileSigningMaterial, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1044,6 +1084,12 @@ def _typecheckingstub__e1d0108772b876153fdfe391b4232d05428c6875e4a51f4b971d560b9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2b60b1d88666134e5a6b94e1abcbf3b85fdca7c197de69fa8683851c1642def9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1ca12e2837923ecf539d04d7ec2315bb2c047017b902e4cd1506c5e51add09f6(
     value: typing.Mapping[builtins.str, builtins.str],
 ) -> None:
@@ -1069,6 +1115,7 @@ def _typecheckingstub__bc178926b88170bb819265107757011d72e3ae23997df63dc5cd93fb1
     id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     name_prefix: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     signature_validity_period: typing.Optional[typing.Union[SignerSigningProfileSignatureValidityPeriod, typing.Dict[builtins.str, typing.Any]]] = None,
     signing_material: typing.Optional[typing.Union[SignerSigningProfileSigningMaterial, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

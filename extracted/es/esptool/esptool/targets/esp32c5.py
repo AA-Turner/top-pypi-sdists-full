@@ -6,15 +6,17 @@ import struct
 import time
 from typing import Dict
 
+from .esp32c3 import ESP32C3ROM
 from .esp32c6 import ESP32C6ROM
 from ..loader import ESPLoader
-from ..reset import HardReset
 from ..util import FatalError
 
 
 class ESP32C5ROM(ESP32C6ROM):
     CHIP_NAME = "ESP32-C5"
     IMAGE_CHIP_ID = 23
+
+    BOOTLOADER_FLASH_OFFSET = 0x2000
 
     EFUSE_BASE = 0x600B4800
     EFUSE_BLOCK1_ADDR = EFUSE_BASE + 0x044
@@ -23,17 +25,17 @@ class ESP32C5ROM(ESP32C6ROM):
     EFUSE_RD_REG_BASE = EFUSE_BASE + 0x030  # BLOCK0 read base address
 
     EFUSE_PURPOSE_KEY0_REG = EFUSE_BASE + 0x34
-    EFUSE_PURPOSE_KEY0_SHIFT = 24
+    EFUSE_PURPOSE_KEY0_SHIFT = 22
     EFUSE_PURPOSE_KEY1_REG = EFUSE_BASE + 0x34
-    EFUSE_PURPOSE_KEY1_SHIFT = 28
+    EFUSE_PURPOSE_KEY1_SHIFT = 27
     EFUSE_PURPOSE_KEY2_REG = EFUSE_BASE + 0x38
     EFUSE_PURPOSE_KEY2_SHIFT = 0
     EFUSE_PURPOSE_KEY3_REG = EFUSE_BASE + 0x38
-    EFUSE_PURPOSE_KEY3_SHIFT = 4
+    EFUSE_PURPOSE_KEY3_SHIFT = 5
     EFUSE_PURPOSE_KEY4_REG = EFUSE_BASE + 0x38
-    EFUSE_PURPOSE_KEY4_SHIFT = 8
+    EFUSE_PURPOSE_KEY4_SHIFT = 10
     EFUSE_PURPOSE_KEY5_REG = EFUSE_BASE + 0x38
-    EFUSE_PURPOSE_KEY5_SHIFT = 12
+    EFUSE_PURPOSE_KEY5_SHIFT = 15
 
     EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG = EFUSE_RD_REG_BASE
     EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT = 1 << 20
@@ -45,18 +47,15 @@ class ESP32C5ROM(ESP32C6ROM):
     EFUSE_SECURE_BOOT_EN_MASK = 1 << 20
 
     IROM_MAP_START = 0x42000000
-    IROM_MAP_END = 0x42800000
-    DROM_MAP_START = 0x42800000
-    DROM_MAP_END = 0x43000000
+    IROM_MAP_END = 0x44000000
+    DROM_MAP_START = 0x42000000
+    DROM_MAP_END = 0x44000000
 
     PCR_SYSCLK_CONF_REG = 0x60096110
     PCR_SYSCLK_XTAL_FREQ_V = 0x7F << 24
     PCR_SYSCLK_XTAL_FREQ_S = 24
 
     UARTDEV_BUF_NO = 0x4085F51C  # Variable in ROM .bss which indicates the port in use
-
-    # Magic value for ESP32C5
-    CHIP_DETECT_MAGIC_VALUE = [0x1101406F]
 
     FLASH_FREQUENCY = {
         "80m": 0xF,
@@ -66,12 +65,12 @@ class ESP32C5ROM(ESP32C6ROM):
 
     MEMORY_MAP = [
         [0x00000000, 0x00010000, "PADDING"],
-        [0x42800000, 0x43000000, "DROM"],
+        [0x42000000, 0x44000000, "DROM"],
         [0x40800000, 0x40860000, "DRAM"],
         [0x40800000, 0x40860000, "BYTE_ACCESSIBLE"],
         [0x4003A000, 0x40040000, "DROM_MASK"],
         [0x40000000, 0x4003A000, "IROM_MASK"],
-        [0x42000000, 0x42800000, "IROM"],
+        [0x42000000, 0x44000000, "IROM"],
         [0x40800000, 0x40860000, "IRAM"],
         [0x50000000, 0x50004000, "RTC_IRAM"],
         [0x50000000, 0x50004000, "RTC_DRAM"],
@@ -128,8 +127,7 @@ class ESP32C5ROM(ESP32C6ROM):
         ) >> self.PCR_SYSCLK_XTAL_FREQ_S
 
     def hard_reset(self):
-        print("Hard resetting via RTS pin...")
-        HardReset(self._port, self.uses_usb_jtag_serial())()
+        ESPLoader.hard_reset(self, self.uses_usb_jtag_serial())
 
     def change_baud(self, baud):
         if not self.IS_STUB:
@@ -158,6 +156,30 @@ class ESP32C5ROM(ESP32C6ROM):
         else:
             ESPLoader.change_baud(self, baud)
 
+    def get_key_block_purpose(self, key_block):
+        if key_block < 0 or key_block > self.EFUSE_MAX_KEY:
+            raise FatalError(
+                f"Valid key block numbers must be in range 0-{self.EFUSE_MAX_KEY}"
+            )
+
+        reg, shift = [
+            (self.EFUSE_PURPOSE_KEY0_REG, self.EFUSE_PURPOSE_KEY0_SHIFT),
+            (self.EFUSE_PURPOSE_KEY1_REG, self.EFUSE_PURPOSE_KEY1_SHIFT),
+            (self.EFUSE_PURPOSE_KEY2_REG, self.EFUSE_PURPOSE_KEY2_SHIFT),
+            (self.EFUSE_PURPOSE_KEY3_REG, self.EFUSE_PURPOSE_KEY3_SHIFT),
+            (self.EFUSE_PURPOSE_KEY4_REG, self.EFUSE_PURPOSE_KEY4_SHIFT),
+            (self.EFUSE_PURPOSE_KEY5_REG, self.EFUSE_PURPOSE_KEY5_SHIFT),
+        ][key_block]
+        return (self.read_reg(reg) >> shift) & 0x1F
+
+    def is_flash_encryption_key_valid(self):
+        # Need to see an AES-128 key
+        purposes = [
+            self.get_key_block_purpose(b) for b in range(self.EFUSE_MAX_KEY + 1)
+        ]
+
+        return any(p == self.PURPOSE_VAL_XTS_AES128_KEY for p in purposes)
+
     def check_spi_connection(self, spi_connection):
         if not set(spi_connection).issubset(set(range(0, 29))):
             raise FatalError("SPI Pin numbers must be in the range 0-28.")
@@ -166,6 +188,10 @@ class ESP32C5ROM(ESP32C6ROM):
                 "WARNING: GPIO pins 13 and 14 are used by USB-Serial/JTAG, "
                 "consider using other pins for SPI flash connection."
             )
+
+    def watchdog_reset(self):
+        # Watchdog reset disabled in parent (ESP32-C6) ROM, re-enable it
+        ESP32C3ROM.watchdog_reset(self)
 
 
 class ESP32C5StubLoader(ESP32C5ROM):

@@ -1546,7 +1546,7 @@ def capture_global(
             pass
 
         try:
-            if is_pydantic_basemodel(global_value):
+            if is_pydantic_basemodel(global_value) or dataclasses.is_dataclass(global_value):
                 return FunctionCapturedGlobalStruct(
                     name=global_value.__name__,
                     module=global_value.__module__,
@@ -1554,7 +1554,6 @@ def capture_global(
                 )
         except:
             pass
-
         try:
             if issubclass(global_value, google.protobuf.message.Message):
                 return FunctionCapturedGlobalProto(

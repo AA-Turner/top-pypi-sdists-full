@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: coveo-systools
-Version: 3.0
+Version: 3.0.1
 Summary: Filesystem, language and OS related tools.
 Home-page: https://github.com/coveooss/coveo-python-oss/tree/main/coveo-systools
 License: Apache-2.0

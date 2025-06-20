@@ -1,7 +1,7 @@
 r'''
 # `aws_xray_encryption_config`
 
-Refer to the Terraform Registry for docs: [`aws_xray_encryption_config`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config).
+Refer to the Terraform Registry for docs: [`aws_xray_encryption_config`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class XrayEncryptionConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.xrayEncryptionConfig.XrayEncryptionConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config aws_xray_encryption_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config aws_xray_encryption_config}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class XrayEncryptionConfig(
         type: builtins.str,
         id: typing.Optional[builtins.str] = None,
         key_id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class XrayEncryptionConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config aws_xray_encryption_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config aws_xray_encryption_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#type XrayEncryptionConfig#type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#id XrayEncryptionConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#key_id XrayEncryptionConfig#key_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#type XrayEncryptionConfig#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#id XrayEncryptionConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#key_id XrayEncryptionConfig#key_id}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#region XrayEncryptionConfig#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class XrayEncryptionConfig(
             type=type,
             id=id,
             key_id=key_id,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class XrayEncryptionConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the XrayEncryptionConfig to import.
-        :param import_from_id: The id of the existing XrayEncryptionConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing XrayEncryptionConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the XrayEncryptionConfig to import is found.
         '''
         if __debug__:
@@ -127,6 +130,10 @@ class XrayEncryptionConfig(
     @jsii.member(jsii_name="resetKeyId")
     def reset_key_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKeyId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -150,6 +157,11 @@ class XrayEncryptionConfig(
     @jsii.member(jsii_name="keyIdInput")
     def key_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="typeInput")
@@ -181,6 +193,18 @@ class XrayEncryptionConfig(
         jsii.set(self, "keyId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c786196e0a229169982a8d0df73f401fe13b94495caf612744baa2fdc125ec53)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "type"))
@@ -207,6 +231,7 @@ class XrayEncryptionConfig(
         "type": "type",
         "id": "id",
         "key_id": "keyId",
+        "region": "region",
     },
 )
 class XrayEncryptionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -223,6 +248,7 @@ class XrayEncryptionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         type: builtins.str,
         id: typing.Optional[builtins.str] = None,
         key_id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -232,9 +258,10 @@ class XrayEncryptionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#type XrayEncryptionConfig#type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#id XrayEncryptionConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#key_id XrayEncryptionConfig#key_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#type XrayEncryptionConfig#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#id XrayEncryptionConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#key_id XrayEncryptionConfig#key_id}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#region XrayEncryptionConfig#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -250,6 +277,7 @@ class XrayEncryptionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "type": type,
         }
@@ -271,6 +299,8 @@ class XrayEncryptionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if key_id is not None:
             self._values["key_id"] = key_id
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -338,14 +368,14 @@ class XrayEncryptionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#type XrayEncryptionConfig#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#type XrayEncryptionConfig#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#id XrayEncryptionConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#id XrayEncryptionConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -355,8 +385,17 @@ class XrayEncryptionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/xray_encryption_config#key_id XrayEncryptionConfig#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#key_id XrayEncryptionConfig#key_id}.'''
         result = self._values.get("key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/xray_encryption_config#region XrayEncryptionConfig#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -385,6 +424,7 @@ def _typecheckingstub__5ba7b54cd7bec46a15fd55827c28622244d3812a67f1a9ee43c522f2d
     type: builtins.str,
     id: typing.Optional[builtins.str] = None,
     key_id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -417,6 +457,12 @@ def _typecheckingstub__20376f1a3293837be285a96526a9b5bedfff2953569dee8aab543fa1a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c786196e0a229169982a8d0df73f401fe13b94495caf612744baa2fdc125ec53(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__46c8abaad48d0ce2be8bea4efb5760b30cddf9d4f1b49fda5f482ecc6d4a2d4d(
     value: builtins.str,
 ) -> None:
@@ -435,6 +481,7 @@ def _typecheckingstub__8972a41333ae64931e4630dad0bd8949060a7b30b9ccffde87affd439
     type: builtins.str,
     id: typing.Optional[builtins.str] = None,
     key_id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

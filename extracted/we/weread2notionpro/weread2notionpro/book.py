@@ -158,7 +158,7 @@ def main():
     global archive_dict
     bookshelf_books = weread_api.get_bookshelf()
     notion_books = notion_helper.get_all_book()
-    bookProgress = bookshelf_books.get("bookProgress")
+    bookProgress = bookshelf_books.get("bookProgress",[])
     bookProgress = {book.get("bookId"): book for book in bookProgress}
     for archive in bookshelf_books.get("archive"):
         name = archive.get("name")

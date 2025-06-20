@@ -529,12 +529,17 @@ static gchar * frida_python_authentication_service_authenticate_finish (FridaAut
 static void frida_python_authentication_service_do_authenticate (GTask * task, FridaPythonAuthenticationService * self);
 
 static int PyCompiler_init (PyCompiler * self, PyObject * args, PyObject * kw);
+static void PyCompiler_dealloc (PyCompiler * self);
 static PyObject * PyCompiler_build (PyCompiler * self, PyObject * args, PyObject * kw);
 static PyObject * PyCompiler_watch (PyCompiler * self, PyObject * args, PyObject * kw);
 static gboolean PyCompiler_set_options (FridaCompilerOptions * options, const gchar * project_root_value, const gchar * output_format_value,
     const gchar * bundle_format_value, const gchar * type_check_value, const gchar * source_maps_value, const gchar * compression_value);
 
 static int PyPackageManager_init (PyPackageManager * self, PyObject * args, PyObject * kw);
+static void PyPackageManager_dealloc (PyPackageManager * self);
+static PyObject * PyPackageManager_repr (PyPackageManager * self);
+static PyObject * PyPackageManager_get_registry (PyPackageManager * self, void * closure);
+static int PyPackageManager_set_registry (PyPackageManager * self, PyObject * val, void * closure);
 static PyObject * PyPackageManager_search (PyPackageManager * self, PyObject * args, PyObject * kw);
 static PyObject * PyPackageManager_install (PyPackageManager * self, PyObject * args, PyObject * kw);
 static FridaPackageInstallOptions * PyPackageManager_parse_install_options (const gchar * project_root, PyObject * specs_value);
@@ -543,18 +548,22 @@ static PyObject * PyPackage_new_take_handle (FridaPackage * handle);
 static int PyPackage_init (PyPackage * self, PyObject * args, PyObject * kw);
 static void PyPackage_init_from_handle (PyPackage * self, FridaPackage * handle);
 static void PyPackage_dealloc (PyPackage * self);
+static PyObject * PyPackage_repr (PyPackage * self);
 
 static PyObject * PyPackageSearchResult_new_take_handle (FridaPackageSearchResult * handle);
 static int PyPackageSearchResult_init (PyPackageSearchResult * self, PyObject * args, PyObject * kw);
 static void PyPackageSearchResult_init_from_handle (PyPackageSearchResult * self, FridaPackageSearchResult * handle);
 static void PyPackageSearchResult_dealloc (PyPackageSearchResult * self);
+static PyObject * PyPackageSearchResult_repr (PyPackageSearchResult * self);
 
 static PyObject * PyPackageInstallResult_new_take_handle (FridaPackageInstallResult * handle);
 static int PyPackageInstallResult_init (PyPackageInstallResult * self, PyObject * args, PyObject * kw);
 static void PyPackageInstallResult_init_from_handle (PyPackageInstallResult * self, FridaPackageInstallResult * handle);
 static void PyPackageInstallResult_dealloc (PyPackageInstallResult * self);
+static PyObject * PyPackageInstallResult_repr (PyPackageInstallResult * self);
 
 static int PyFileMonitor_init (PyFileMonitor * self, PyObject * args, PyObject * kw);
+static void PyFileMonitor_dealloc (PyFileMonitor * self);
 static PyObject * PyFileMonitor_enable (PyFileMonitor * self);
 static PyObject * PyFileMonitor_disable (PyFileMonitor * self);
 
@@ -776,6 +785,12 @@ static PyMethodDef PyCompiler_methods[] =
   { NULL }
 };
 
+static PyGetSetDef PyPackageManager_getset[] =
+{
+  { "registry", (getter) PyPackageManager_get_registry, (setter) PyPackageManager_set_registry, "The registry to use.", NULL },
+  { NULL }
+};
+
 static PyMethodDef PyPackageManager_methods[] =
 {
   { "search", (PyCFunction) PyPackageManager_search, METH_VARARGS | METH_KEYWORDS, "Search for packages to install." },
@@ -953,12 +968,16 @@ PYFRIDA_DEFINE_TYPE ("_frida.EndpointParameters", EndpointParameters, GObject, N
 PYFRIDA_DEFINE_TYPE ("_frida.Compiler", Compiler, GObject, NULL, frida_unref,
   { Py_tp_doc, "Frida Compiler" },
   { Py_tp_init, PyCompiler_init },
+  { Py_tp_dealloc, PyCompiler_dealloc },
   { Py_tp_methods, PyCompiler_methods },
 );
 
 PYFRIDA_DEFINE_TYPE ("_frida.PackageManager", PackageManager, GObject, NULL, frida_unref,
   { Py_tp_doc, "Frida Package Manager" },
   { Py_tp_init, PyPackageManager_init },
+  { Py_tp_dealloc, PyPackageManager_dealloc },
+  { Py_tp_repr, PyPackageManager_repr },
+  { Py_tp_getset, PyPackageManager_getset },
   { Py_tp_methods, PyPackageManager_methods },
 );
 
@@ -966,6 +985,7 @@ PYFRIDA_DEFINE_TYPE ("_frida.Package", Package, GObject, PyPackage_init_from_han
   { Py_tp_doc, "Frida Package" },
   { Py_tp_init, PyPackage_init },
   { Py_tp_dealloc, PyPackage_dealloc },
+  { Py_tp_repr, PyPackage_repr },
   { Py_tp_members, PyPackage_members },
 );
 
@@ -973,6 +993,7 @@ PYFRIDA_DEFINE_TYPE ("_frida.PackageSearchResult", PackageSearchResult, GObject,
   { Py_tp_doc, "Frida Package Search Result" },
   { Py_tp_init, PyPackageSearchResult_init },
   { Py_tp_dealloc, PyPackageSearchResult_dealloc },
+  { Py_tp_repr, PyPackageSearchResult_repr },
   { Py_tp_members, PyPackageSearchResult_members },
 );
 
@@ -980,12 +1001,14 @@ PYFRIDA_DEFINE_TYPE ("_frida.PackageInstallResult", PackageInstallResult, GObjec
   { Py_tp_doc, "Frida Package Install Result" },
   { Py_tp_init, PyPackageInstallResult_init },
   { Py_tp_dealloc, PyPackageInstallResult_dealloc },
+  { Py_tp_repr, PyPackageInstallResult_repr },
   { Py_tp_members, PyPackageInstallResult_members },
 );
 
 PYFRIDA_DEFINE_TYPE ("_frida.FileMonitor", FileMonitor, GObject, NULL, frida_unref,
   { Py_tp_doc, "Frida File Monitor" },
   { Py_tp_init, PyFileMonitor_init },
+  { Py_tp_dealloc, PyFileMonitor_dealloc },
   { Py_tp_methods, PyFileMonitor_methods },
 );
 
@@ -4861,9 +4884,19 @@ PyCompiler_init (PyCompiler * self, PyObject * args, PyObject * kw)
   if (PyGObject_tp_init ((PyObject *) self, args, kw) < 0)
     return -1;
 
+  g_atomic_int_inc (&toplevel_objects_alive);
+
   PyGObject_take_handle (&self->parent, frida_compiler_new (NULL), PYFRIDA_TYPE (Compiler));
 
   return 0;
+}
+
+static void
+PyCompiler_dealloc (PyCompiler * self)
+{
+  g_atomic_int_dec_and_test (&toplevel_objects_alive);
+
+  PyGObject_tp_dealloc ((PyObject *) self);
 }
 
 static PyObject *
@@ -5022,7 +5055,49 @@ PyPackageManager_init (PyPackageManager * self, PyObject * args, PyObject * kw)
   if (PyGObject_tp_init ((PyObject *) self, args, kw) < 0)
     return -1;
 
+  g_atomic_int_inc (&toplevel_objects_alive);
+
   PyGObject_take_handle (&self->parent, frida_package_manager_new (), PYFRIDA_TYPE (PackageManager));
+
+  return 0;
+}
+
+static void
+PyPackageManager_dealloc (PyPackageManager * self)
+{
+  g_atomic_int_dec_and_test (&toplevel_objects_alive);
+
+  PyGObject_tp_dealloc ((PyObject *) self);
+}
+
+static PyObject *
+PyPackageManager_repr (PyPackageManager * self)
+{
+  PyObject * result;
+  gchar * repr;
+
+  repr = g_strdup_printf ("PackageManager(registry=\"%s\")", frida_package_manager_get_registry (PY_GOBJECT_HANDLE (self)));
+  result = PyUnicode_FromString (repr);
+  g_free (repr);
+
+  return result;
+}
+
+static PyObject *
+PyPackageManager_get_registry (PyPackageManager * self, void * closure)
+{
+  return PyUnicode_FromString (frida_package_manager_get_registry (PY_GOBJECT_HANDLE (self)));
+}
+
+static int
+PyPackageManager_set_registry (PyPackageManager * self, PyObject * val, void * closure)
+{
+  gchar * registry;
+
+  if (!PyGObject_unmarshal_string (val, &registry))
+    return -1;
+  frida_package_manager_set_registry (PY_GOBJECT_HANDLE (self), registry);
+  g_free (registry);
 
   return 0;
 }
@@ -5174,6 +5249,43 @@ PyPackage_dealloc (PyPackage * self)
   PyGObject_tp_dealloc ((PyObject *) self);
 }
 
+static PyObject *
+PyPackage_repr (PyPackage * self)
+{
+  PyObject * result;
+  FridaPackage * handle;
+  GString * repr;
+  const gchar * description, * url;
+
+  handle = PY_GOBJECT_HANDLE (self);
+
+  repr = g_string_sized_new (256);
+
+  g_string_append_printf (repr, "Package(name=\"%s\", version=\"%s\"",
+      frida_package_get_name (handle),
+      frida_package_get_version (handle));
+
+  description = frida_package_get_description (handle);
+  if (description != NULL)
+  {
+    gchar * escaped = g_strescape (description, NULL);
+    g_string_append_printf (repr, ", description=\"%s\"", escaped);
+    g_free (escaped);
+  }
+
+  url = frida_package_get_url (handle);
+  if (url != NULL)
+    g_string_append_printf (repr, ", url=\"%s\"", url);
+
+  g_string_append (repr, ")");
+
+  result = PyUnicode_FromString (repr->str);
+
+  g_string_free (repr, TRUE);
+
+  return result;
+}
+
 
 static PyObject *
 PyPackageList_marshal (FridaPackageList * list)
@@ -5223,6 +5335,30 @@ PyPackageSearchResult_dealloc (PyPackageSearchResult * self)
   PyGObject_tp_dealloc ((PyObject *) self);
 }
 
+static PyObject *
+PyPackageSearchResult_repr (PyPackageSearchResult * self)
+{
+  PyObject * result;
+  GString * repr;
+  gint num_packages;
+
+  repr = g_string_new ("PackageSearchResult(packages=");
+
+  num_packages = frida_package_list_size (frida_package_search_result_get_packages (PY_GOBJECT_HANDLE (self)));
+  if (num_packages != 0)
+    g_string_append_printf (repr, "[<%u package%s>]", num_packages, (num_packages == 1) ? "" : "s");
+  else
+    g_string_append (repr, "[]");
+
+  g_string_append_printf (repr, ", total=%u)", self->total);
+
+  result = PyUnicode_FromString (repr->str);
+
+  g_string_free (repr, TRUE);
+
+  return result;
+}
+
 
 static PyObject *
 PyPackageInstallResult_new_take_handle (FridaPackageInstallResult * handle)
@@ -5255,6 +5391,30 @@ PyPackageInstallResult_dealloc (PyPackageInstallResult * self)
   PyGObject_tp_dealloc ((PyObject *) self);
 }
 
+static PyObject *
+PyPackageInstallResult_repr (PyPackageInstallResult * self)
+{
+  PyObject * result;
+  GString * repr;
+  gint num_packages;
+
+  repr = g_string_new ("PackageInstallResult(packages=");
+
+  num_packages = frida_package_list_size (frida_package_install_result_get_packages (PY_GOBJECT_HANDLE (self)));
+  if (num_packages != 0)
+    g_string_append_printf (repr, "[<%u package%s>]", num_packages, (num_packages == 1) ? "" : "s");
+  else
+    g_string_append (repr, "[]");
+
+  g_string_append (repr, ")");
+
+  result = PyUnicode_FromString (repr->str);
+
+  g_string_free (repr, TRUE);
+
+  return result;
+}
+
 
 static int
 PyFileMonitor_init (PyFileMonitor * self, PyObject * args, PyObject * kw)
@@ -5267,9 +5427,19 @@ PyFileMonitor_init (PyFileMonitor * self, PyObject * args, PyObject * kw)
   if (!PyArg_ParseTuple (args, "s", &path))
     return -1;
 
+  g_atomic_int_inc (&toplevel_objects_alive);
+
   PyGObject_take_handle (&self->parent, frida_file_monitor_new (path), PYFRIDA_TYPE (FileMonitor));
 
   return 0;
+}
+
+static void
+PyFileMonitor_dealloc (PyFileMonitor * self)
+{
+  g_atomic_int_dec_and_test (&toplevel_objects_alive);
+
+  PyGObject_tp_dealloc ((PyObject *) self);
 }
 
 static PyObject *

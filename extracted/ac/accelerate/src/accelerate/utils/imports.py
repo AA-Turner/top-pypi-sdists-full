@@ -63,13 +63,10 @@ def is_torch_distributed_available() -> bool:
 
 
 def is_xccl_available():
-    # Currently IPEX uses custom "ccl" distributed backend. Return False for "xccl"
-    # here to avoid collisions.
+    if is_torch_version(">=", "2.7.0"):
+        return torch.distributed.distributed_c10d.is_xccl_available()
     if is_ipex_available():
         return False
-    # TODO: switch to is_torch_version() once torch 2.7 will be released
-    if version.parse(torch.__version__).release >= version.parse("2.7").release:
-        return torch.distributed.distributed_c10d.is_xccl_available()
     return False
 
 
@@ -78,14 +75,11 @@ def is_ccl_available():
         pass
     except ImportError:
         print(
-            "Intel(R) oneCCL Bindings for PyTorch* is required to run DDP on Intel(R) GPUs, but it is not"
+            "Intel(R) oneCCL Bindings for PyTorch* is required to run DDP on Intel(R) XPUs, but it is not"
             " detected. If you see \"ValueError: Invalid backend: 'ccl'\" error, please install Intel(R) oneCCL"
             " Bindings for PyTorch*."
         )
-    return (
-        importlib.util.find_spec("torch_ccl") is not None
-        or importlib.util.find_spec("oneccl_bindings_for_pytorch") is not None
-    )
+    return importlib.util.find_spec("oneccl_bindings_for_pytorch") is not None
 
 
 def get_ccl_version():
@@ -176,6 +170,8 @@ def is_bf16_available(ignore_tpu=False):
         return torch.cuda.is_bf16_supported()
     if is_mlu_available():
         return torch.mlu.is_bf16_supported()
+    if is_xpu_available():
+        return torch.xpu.is_bf16_supported()
     if is_mps_available():
         return False
     return True
@@ -283,6 +279,10 @@ def is_wandb_available():
 
 def is_comet_ml_available():
     return _is_package_available("comet_ml")
+
+
+def is_swanlab_available():
+    return _is_package_available("swanlab")
 
 
 def is_boto3_available():

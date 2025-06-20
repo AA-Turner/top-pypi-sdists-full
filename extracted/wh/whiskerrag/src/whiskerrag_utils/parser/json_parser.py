@@ -5,11 +5,12 @@ from langchain_text_splitters import RecursiveJsonSplitter
 
 from whiskerrag_types.interface.parser_interface import BaseParser, ParseResult
 from whiskerrag_types.model import JSONSplitConfig, Knowledge
+from whiskerrag_types.model.knowledge import KnowledgeTypeEnum
 from whiskerrag_types.model.multi_modal import Text
 from whiskerrag_utils.registry import RegisterTypeEnum, register
 
 
-@register(RegisterTypeEnum.PARSER, "json")
+@register(RegisterTypeEnum.PARSER, KnowledgeTypeEnum.JSON)
 class JSONParser(BaseParser[Text]):
     async def parse(
         self,

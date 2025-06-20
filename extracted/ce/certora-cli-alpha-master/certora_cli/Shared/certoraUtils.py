@@ -30,7 +30,7 @@ import urllib3.util
 from collections import defaultdict
 from types import SimpleNamespace
 
-from typing import Any, Callable, Dict, List, Optional, Set, Union, Generator, Tuple, Iterable, Sequence, TypeVar, OrderedDict
+from typing import Any, Callable, Dict, List, Optional, Set, Union, Generator, Tuple, Iterable, Sequence, TypeVar
 from pathlib import Path
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
@@ -44,7 +44,6 @@ import tempfile
 from datetime import datetime
 from rich.console import Console
 from rich.text import Text
-from wcmatch import glob
 
 CONSOLE = Console()
 
@@ -1172,35 +1171,8 @@ class Singleton(type):
             cls.__instancesinstances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls.__instancesinstances[cls]
 
-
 class AbstractAndSingleton(Singleton, ABCMeta):
     pass
-
-
-def match_path_to_mapping_key(path: Path, m: OrderedDict[str, str]) -> Optional[str]:
-    """
-    Matches the path to the first key in the map that matches the path.
-    paths may include wildcards
-
-    For example, if the ordered dictionary in compiler_map has the mapping:
-
-    dir/a.sol -> solc7.1
-    dir/*.sol -> solc6.3
-    **/*.sol -> 8.10
-
-    dir/a.sol will be matched by the first rule
-    dir/b.sol by the second rule
-    and
-    a.sol by the third rule
-
-    @param path: the path to match against
-    @param m: the map whose keys we're searching
-    @return: the value from the map that best matches the path, None if not found.
-    """
-    for k, v in m.items():
-        if glob.globmatch(str(path), k, flags=glob.GLOBSTAR):
-            return v
-    return None  # No match
 
 def find_in(dir_path: Path, file_to_find: Path) -> Optional[Path]:
     """

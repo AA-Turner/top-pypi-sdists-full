@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2014-2022 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -18,6 +18,7 @@ __all__ = [
     "merge_bin",
     "read_flash",
     "read_flash_status",
+    "read_flash_sfdp",
     "read_mac",
     "read_mem",
     "run",
@@ -28,7 +29,7 @@ __all__ = [
     "write_mem",
 ]
 
-__version__ = "4.8.1"
+__version__ = "4.9.0"
 
 import argparse
 import inspect
@@ -134,7 +135,7 @@ def main(argv=None, esp=None):
     parser.add_argument(
         "--port-filter",
         action="append",
-        help="Serial port device filter, can be vid=NUMBER, pid=NUMBER, name=SUBSTRING",
+        help="Serial port device filter, can be vid=NUMBER, pid=NUMBER, name=SUBSTRING, serial=SUBSTRING",
         type=str,
         default=[],
     )
@@ -150,7 +151,13 @@ def main(argv=None, esp=None):
         "--after",
         "-a",
         help="What to do after esptool.py is finished",
-        choices=["hard_reset", "soft_reset", "no_reset", "no_reset_stub"],
+        choices=[
+            "hard_reset",
+            "soft_reset",
+            "no_reset",
+            "no_reset_stub",
+            "watchdog_reset",
+        ],
         default=os.environ.get("ESPTOOL_AFTER", "hard_reset"),
     )
 
@@ -727,6 +734,7 @@ def main(argv=None, esp=None):
     args.filterVids = []
     args.filterPids = []
     args.filterNames = []
+    args.filterSerials = []
     for f in args.port_filter:
         kvp = f.split("=")
         if len(kvp) != 2:
@@ -737,6 +745,8 @@ def main(argv=None, esp=None):
             args.filterPids.append(arg_auto_int(kvp[1]))
         elif kvp[0] == "name":
             args.filterNames.append(kvp[1])
+        elif kvp[0] == "serial":
+            args.filterSerials.append(kvp[1])
         else:
             raise FatalError("Option --port-filter argument key not recognized")
 
@@ -775,7 +785,9 @@ def main(argv=None, esp=None):
             initial_baud = args.baud
 
         if args.port is None:
-            ser_list = get_port_list(args.filterVids, args.filterPids, args.filterNames)
+            ser_list = get_port_list(
+                args.filterVids, args.filterPids, args.filterNames, args.filterSerials
+            )
             print("Found %d serial ports" % len(ser_list))
         else:
             ser_list = [args.port]
@@ -817,11 +829,14 @@ def main(argv=None, esp=None):
             )
 
         if esp.secure_download_mode:
-            print("Chip is %s in Secure Download Mode" % esp.CHIP_NAME)
+            print(f"Chip is {esp.CHIP_NAME} in Secure Download Mode")
         else:
-            print("Chip is %s" % (esp.get_chip_description()))
-            print("Features: %s" % ", ".join(esp.get_chip_features()))
-            print("Crystal is %dMHz" % esp.get_crystal_freq())
+            print(f"Chip is {esp.get_chip_description()}")
+            print(f"Features: {', '.join(esp.get_chip_features())}")
+            print(f"Crystal is {esp.get_crystal_freq()}MHz")
+            usb_mode = esp.get_usb_mode()
+            if usb_mode is not None:
+                print(f"USB mode: {usb_mode}")
             read_mac(esp, args)
 
         if not args.no_stub:
@@ -834,6 +849,15 @@ def main(argv=None, esp=None):
             elif not esp.IS_STUB and esp.stub_is_disabled:
                 print(
                     "WARNING: Stub loader has been disabled for compatibility, "
+                    "setting --no-stub"
+                )
+                args.no_stub = True
+            elif esp.CHIP_NAME in [
+                "ESP32-H21",
+                "ESP32-H4",
+            ]:  # TODO: [ESP32H21] IDF-11509   [ESP32H4] IDF-12271
+                print(
+                    f"WARNING: Stub loader is not yet supported on {esp.CHIP_NAME}, "
                     "setting --no-stub"
                 )
                 args.no_stub = True
@@ -956,7 +980,7 @@ def main(argv=None, esp=None):
         if not esp.secure_download_mode:
             try:
                 flash_id = esp.flash_id()
-                if flash_id in (0xFFFFFF, 0x000000):
+                if flash_id in (0xFFFFFF, 0x000000, 0xFFFF3F):
                     print(
                         "WARNING: Failed to communicate with the flash chip, "
                         "read/write operations will fail. "
@@ -1000,7 +1024,7 @@ def main(argv=None, esp=None):
                 # Check if stub supports chosen flash size
                 if (
                     esp.IS_STUB
-                    and esp.CHIP_NAME != "ESP32-S3"
+                    and esp.CHIP_NAME not in ["ESP32-S3", "ESP32-P4"]
                     and flash_size_bytes(flash_size) > 16 * 1024 * 1024
                 ):
                     print(
@@ -1026,7 +1050,10 @@ def main(argv=None, esp=None):
             args.size = flash_size_bytes(size_str)
 
         if esp.IS_STUB and hasattr(args, "address") and hasattr(args, "size"):
-            if esp.CHIP_NAME != "ESP32-S3" and args.address + args.size > 0x1000000:
+            if (
+                esp.CHIP_NAME not in ["ESP32-S3", "ESP32-P4"]
+                and args.address + args.size > 0x1000000
+            ):
                 print(
                     "WARNING: Flasher stub doesn't fully support flash size larger "
                     "than 16MB, in case of failure use --no-stub."
@@ -1053,6 +1080,15 @@ def main(argv=None, esp=None):
             esp.soft_reset(False)
         elif args.after == "no_reset_stub":
             print("Staying in flasher stub.")
+        elif args.after == "watchdog_reset":
+            if esp.secure_download_mode:
+                print(
+                    "WARNING: Watchdog hard reset is not supported in Secure Download "
+                    "Mode, attempting classic hard reset instead."
+                )
+                esp.hard_reset()
+            else:
+                esp.watchdog_reset()
         else:  # args.after == 'no_reset'
             print("Staying in bootloader.")
             if esp.IS_STUB:
@@ -1081,7 +1117,7 @@ def arg_auto_chunk_size(string: str) -> int:
     return num
 
 
-def get_port_list(vids=[], pids=[], names=[]):
+def get_port_list(vids=[], pids=[], names=[], serials=[]):
     if list_ports is None:
         raise FatalError(
             "Listing all serial ports is currently not available. "
@@ -1100,6 +1136,11 @@ def get_port_list(vids=[], pids=[], names=[]):
             continue
         if names and (
             port.name is None or all(name not in port.name for name in names)
+        ):
+            continue
+        if serials and (
+            port.serial_number is None
+            or all(serial not in port.serial_number for serial in serials)
         ):
             continue
         ports.append(port.device)
@@ -1250,7 +1291,12 @@ class AutoHex2BinAction(argparse.Action):
             with open(value, "rb") as f:
                 # if hex file was detected replace hex file with converted temp bin
                 # otherwise keep the original file
-                value = intel_hex_to_bin(f).name
+                converted = intel_hex_to_bin(f)
+                if len(converted) != 1:
+                    print(
+                        "Note: Detected merged IntelHex file, processing only first file"
+                    )
+                value = converted[0][1].name
         except IOError as e:
             raise argparse.ArgumentError(self, e)
         setattr(namespace, self.dest, value)
@@ -1285,8 +1331,7 @@ class AddrFilenamePairAction(argparse.Action):
                     "and the binary filename to write there",
                 )
             # check for intel hex files and convert them to bin
-            argfile = intel_hex_to_bin(argfile, address)
-            pairs.append((address, argfile))
+            pairs.extend(intel_hex_to_bin(argfile, address))
 
         # Sort the addresses and check for overlapping
         end = 0

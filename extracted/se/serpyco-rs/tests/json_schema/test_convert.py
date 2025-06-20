@@ -423,13 +423,14 @@ def test_to_json_schema__bytes():
     }
 
 
-def test_to_json_schema__use_ref_for_repeated_types():
+def test_to_json_schema__no_ref_sharing_between_different_generic_instances():
     @dataclass
     class Data:
         a: list[str]
         b: list[str]
 
-    ref = 'tests.json_schema.test_convert.test_to_json_schema__use_ref_for_repeated_types.<locals>.Data'
+    prefix = 'tests.json_schema.test_convert.test_to_json_schema__no_ref_sharing_between_different_generic_instances'
+    ref = f'{prefix}.<locals>.Data'
     serializer = Serializer(Data)
     assert serializer.get_json_schema() == {
         '$ref': f'#/components/schemas/{ref}',
@@ -438,18 +439,50 @@ def test_to_json_schema__use_ref_for_repeated_types():
             'schemas': {
                 ref: {
                     'properties': {
-                        'a': {'$ref': '#/components/schemas/list[str]'},
-                        'b': {'$ref': '#/components/schemas/list[str]'},
+                        'a': {
+                            'items': {'type': 'string'},
+                            'type': 'array',
+                        },
+                        'b': {
+                            'items': {'type': 'string'},
+                            'type': 'array',
+                        },
                     },
                     'type': 'object',
                     'required': ['a', 'b'],
-                },
-                'list[str]': {
-                    'items': {'type': 'string'},
-                    'type': 'array',
-                },
+                }
             }
         },
+    }
+
+
+def test_to_json_schema__enums_have_some_namespace_repr():
+    class Foo(Enum):
+        a = 'a'
+
+    class NewNamespace:
+        class Foo(Enum):
+            b = 'b'
+
+    assert repr(Foo) == repr(NewNamespace.Foo)
+
+    serializer = Serializer(Union[Foo, NewNamespace.Foo])
+    assert serializer.get_json_schema() == {
+        '$schema': 'https://json-schema.org/draft/2020-12/schema',
+        'oneOf': [
+            {
+                'enum': [
+                    'a',
+                ],
+                'type': 'string',
+            },
+            {
+                'enum': [
+                    'b',
+                ],
+                'type': 'string',
+            },
+        ],
     }
 
 

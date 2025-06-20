@@ -1,7 +1,7 @@
 r'''
 # `data_aws_polly_voices`
 
-Refer to the Terraform Registry for docs: [`data_aws_polly_voices`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices).
+Refer to the Terraform Registry for docs: [`data_aws_polly_voices`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsPollyVoices(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsPollyVoices.DataAwsPollyVoices",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices aws_polly_voices}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices aws_polly_voices}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class DataAwsPollyVoices(
         engine: typing.Optional[builtins.str] = None,
         include_additional_language_codes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         language_code: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         voices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsPollyVoicesVoices", typing.Dict[builtins.str, typing.Any]]]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -63,14 +64,15 @@ class DataAwsPollyVoices(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices aws_polly_voices} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices aws_polly_voices} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#engine DataAwsPollyVoices#engine}.
-        :param include_additional_language_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#include_additional_language_codes DataAwsPollyVoices#include_additional_language_codes}.
-        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#language_code DataAwsPollyVoices#language_code}.
-        :param voices: voices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#voices DataAwsPollyVoices#voices}
+        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#engine DataAwsPollyVoices#engine}.
+        :param include_additional_language_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#include_additional_language_codes DataAwsPollyVoices#include_additional_language_codes}.
+        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#language_code DataAwsPollyVoices#language_code}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#region DataAwsPollyVoices#region}
+        :param voices: voices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#voices DataAwsPollyVoices#voices}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -87,6 +89,7 @@ class DataAwsPollyVoices(
             engine=engine,
             include_additional_language_codes=include_additional_language_codes,
             language_code=language_code,
+            region=region,
             voices=voices,
             connection=connection,
             count=count,
@@ -112,7 +115,7 @@ class DataAwsPollyVoices(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsPollyVoices to import.
-        :param import_from_id: The id of the existing DataAwsPollyVoices that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsPollyVoices that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsPollyVoices to import is found.
         '''
         if __debug__:
@@ -147,6 +150,10 @@ class DataAwsPollyVoices(
     @jsii.member(jsii_name="resetLanguageCode")
     def reset_language_code(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLanguageCode", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetVoices")
     def reset_voices(self) -> None:
@@ -191,6 +198,11 @@ class DataAwsPollyVoices(
     @jsii.member(jsii_name="languageCodeInput")
     def language_code_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "languageCodeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="voicesInput")
@@ -240,6 +252,18 @@ class DataAwsPollyVoices(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "languageCode", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2597328afeb7fa96998d4a15b448fc5174a13df0a92a11be0f995199b75b230e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.dataAwsPollyVoices.DataAwsPollyVoicesConfig",
@@ -255,6 +279,7 @@ class DataAwsPollyVoices(
         "engine": "engine",
         "include_additional_language_codes": "includeAdditionalLanguageCodes",
         "language_code": "languageCode",
+        "region": "region",
         "voices": "voices",
     },
 )
@@ -272,6 +297,7 @@ class DataAwsPollyVoicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         engine: typing.Optional[builtins.str] = None,
         include_additional_language_codes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         language_code: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         voices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsPollyVoicesVoices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
@@ -282,10 +308,11 @@ class DataAwsPollyVoicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#engine DataAwsPollyVoices#engine}.
-        :param include_additional_language_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#include_additional_language_codes DataAwsPollyVoices#include_additional_language_codes}.
-        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#language_code DataAwsPollyVoices#language_code}.
-        :param voices: voices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#voices DataAwsPollyVoices#voices}
+        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#engine DataAwsPollyVoices#engine}.
+        :param include_additional_language_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#include_additional_language_codes DataAwsPollyVoices#include_additional_language_codes}.
+        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#language_code DataAwsPollyVoices#language_code}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#region DataAwsPollyVoices#region}
+        :param voices: voices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#voices DataAwsPollyVoices#voices}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -301,6 +328,7 @@ class DataAwsPollyVoicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument include_additional_language_codes", value=include_additional_language_codes, expected_type=type_hints["include_additional_language_codes"])
             check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument voices", value=voices, expected_type=type_hints["voices"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
@@ -323,6 +351,8 @@ class DataAwsPollyVoicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["include_additional_language_codes"] = include_additional_language_codes
         if language_code is not None:
             self._values["language_code"] = language_code
+        if region is not None:
+            self._values["region"] = region
         if voices is not None:
             self._values["voices"] = voices
 
@@ -392,7 +422,7 @@ class DataAwsPollyVoicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def engine(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#engine DataAwsPollyVoices#engine}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#engine DataAwsPollyVoices#engine}.'''
         result = self._values.get("engine")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -400,14 +430,23 @@ class DataAwsPollyVoicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def include_additional_language_codes(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#include_additional_language_codes DataAwsPollyVoices#include_additional_language_codes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#include_additional_language_codes DataAwsPollyVoices#include_additional_language_codes}.'''
         result = self._values.get("include_additional_language_codes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def language_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#language_code DataAwsPollyVoices#language_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#language_code DataAwsPollyVoices#language_code}.'''
         result = self._values.get("language_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#region DataAwsPollyVoices#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -416,7 +455,7 @@ class DataAwsPollyVoicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsPollyVoicesVoices"]]]:
         '''voices block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/polly_voices#voices DataAwsPollyVoices#voices}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/polly_voices#voices DataAwsPollyVoices#voices}
         '''
         result = self._values.get("voices")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsPollyVoicesVoices"]]], result)
@@ -640,6 +679,7 @@ def _typecheckingstub__545a8d571d8eaa2ee1231ec248cbee5aa5d683f3ee4d90f32943922da
     engine: typing.Optional[builtins.str] = None,
     include_additional_language_codes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     language_code: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     voices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsPollyVoicesVoices, typing.Dict[builtins.str, typing.Any]]]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -685,6 +725,12 @@ def _typecheckingstub__180195fbfd389d522ee79985352b4abb52e61d7b1d334c37a36640927
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2597328afeb7fa96998d4a15b448fc5174a13df0a92a11be0f995199b75b230e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e2aa60c7b0b60c9ef92eb698859a2a1d4c49524f367d7d7a4319f25d59308aba(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -697,6 +743,7 @@ def _typecheckingstub__e2aa60c7b0b60c9ef92eb698859a2a1d4c49524f367d7d7a4319f25d5
     engine: typing.Optional[builtins.str] = None,
     include_additional_language_codes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     language_code: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     voices: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsPollyVoicesVoices, typing.Dict[builtins.str, typing.Any]]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -41,7 +41,11 @@ class WorkspaceTemplate(object):
         'url': 'str',
         'maximum_uptime_minutes': 'int',
         'logo_ids': 'list[str]',
-        'oa_group_name': 'str'
+        'oa_group_name': 'str',
+        'icon_type': 'str',
+        'icon_bg_color': 'str',
+        'mins_to_complete': 'int',
+        'complexity': 'ComplexityLevel'
     }
 
     attribute_map = {
@@ -53,10 +57,14 @@ class WorkspaceTemplate(object):
         'url': 'url',
         'maximum_uptime_minutes': 'maximum_uptime_minutes',
         'logo_ids': 'logo_ids',
-        'oa_group_name': 'oa_group_name'
+        'oa_group_name': 'oa_group_name',
+        'icon_type': 'icon_type',
+        'icon_bg_color': 'icon_bg_color',
+        'mins_to_complete': 'mins_to_complete',
+        'complexity': 'complexity'
     }
 
-    def __init__(self, id=None, title=None, description=None, emoji=None, labels=None, url=None, maximum_uptime_minutes=None, logo_ids=None, oa_group_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, title=None, description=None, emoji=None, labels=None, url=None, maximum_uptime_minutes=None, logo_ids=None, oa_group_name=None, icon_type=None, icon_bg_color=None, mins_to_complete=None, complexity=None, local_vars_configuration=None):  # noqa: E501
         """WorkspaceTemplate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -71,6 +79,10 @@ class WorkspaceTemplate(object):
         self._maximum_uptime_minutes = None
         self._logo_ids = None
         self._oa_group_name = None
+        self._icon_type = None
+        self._icon_bg_color = None
+        self._mins_to_complete = None
+        self._complexity = None
         self.discriminator = None
 
         self.id = id
@@ -84,6 +96,14 @@ class WorkspaceTemplate(object):
         self.logo_ids = logo_ids
         if oa_group_name is not None:
             self.oa_group_name = oa_group_name
+        if icon_type is not None:
+            self.icon_type = icon_type
+        if icon_bg_color is not None:
+            self.icon_bg_color = icon_bg_color
+        if mins_to_complete is not None:
+            self.mins_to_complete = mins_to_complete
+        if complexity is not None:
+            self.complexity = complexity
 
     @property
     def id(self):
@@ -305,6 +325,98 @@ class WorkspaceTemplate(object):
         """
 
         self._oa_group_name = oa_group_name
+
+    @property
+    def icon_type(self):
+        """Gets the icon_type of this WorkspaceTemplate.  # noqa: E501
+
+        The type of the icon for the workspace template  # noqa: E501
+
+        :return: The icon_type of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._icon_type
+
+    @icon_type.setter
+    def icon_type(self, icon_type):
+        """Sets the icon_type of this WorkspaceTemplate.
+
+        The type of the icon for the workspace template  # noqa: E501
+
+        :param icon_type: The icon_type of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+
+        self._icon_type = icon_type
+
+    @property
+    def icon_bg_color(self):
+        """Gets the icon_bg_color of this WorkspaceTemplate.  # noqa: E501
+
+        The background color of the icon for the workspace template  # noqa: E501
+
+        :return: The icon_bg_color of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._icon_bg_color
+
+    @icon_bg_color.setter
+    def icon_bg_color(self, icon_bg_color):
+        """Sets the icon_bg_color of this WorkspaceTemplate.
+
+        The background color of the icon for the workspace template  # noqa: E501
+
+        :param icon_bg_color: The icon_bg_color of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+
+        self._icon_bg_color = icon_bg_color
+
+    @property
+    def mins_to_complete(self):
+        """Gets the mins_to_complete of this WorkspaceTemplate.  # noqa: E501
+
+        The number of minutes expected to complete the template  # noqa: E501
+
+        :return: The mins_to_complete of this WorkspaceTemplate.  # noqa: E501
+        :rtype: int
+        """
+        return self._mins_to_complete
+
+    @mins_to_complete.setter
+    def mins_to_complete(self, mins_to_complete):
+        """Sets the mins_to_complete of this WorkspaceTemplate.
+
+        The number of minutes expected to complete the template  # noqa: E501
+
+        :param mins_to_complete: The mins_to_complete of this WorkspaceTemplate.  # noqa: E501
+        :type: int
+        """
+
+        self._mins_to_complete = mins_to_complete
+
+    @property
+    def complexity(self):
+        """Gets the complexity of this WorkspaceTemplate.  # noqa: E501
+
+        The complexity of the workspace template  # noqa: E501
+
+        :return: The complexity of this WorkspaceTemplate.  # noqa: E501
+        :rtype: ComplexityLevel
+        """
+        return self._complexity
+
+    @complexity.setter
+    def complexity(self, complexity):
+        """Sets the complexity of this WorkspaceTemplate.
+
+        The complexity of the workspace template  # noqa: E501
+
+        :param complexity: The complexity of this WorkspaceTemplate.  # noqa: E501
+        :type: ComplexityLevel
+        """
+
+        self._complexity = complexity
 
     def to_dict(self):
         """Returns the model properties as a dict"""

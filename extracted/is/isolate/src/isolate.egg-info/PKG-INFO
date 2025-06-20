@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isolate
-Version: 0.17.0
+Version: 0.18.0
 Summary: Managed isolated environments for Python
 Author-email: Features & Labels <hello@fal.ai>
 Project-URL: Issues, https://github.com/fal-ai/isolate/issues
@@ -8,7 +8,7 @@ Project-URL: Source, https://github.com/fal-ai/isolate
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: grpcio==1.64.0
+Requires-Dist: grpcio<2,>=1.64.0
 Requires-Dist: protobuf
 Requires-Dist: tblib>=1.7.0
 Requires-Dist: platformdirs

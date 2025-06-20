@@ -31,7 +31,7 @@ def insert_to_notion(page_id, timestamp, duration):
         "时长": get_number(duration),
         "时间戳": get_number(timestamp),
     }
-    notion_helper.get_date_relation(datetime.utcfromtimestamp(timestamp) + timedelta(hours=8))
+    notion_helper.get_date_relation(properties,datetime.utcfromtimestamp(timestamp) + timedelta(hours=8),False)
     if page_id != None:
         notion_helper.update_page(page_id=page_id, properties=properties)
     else:
@@ -82,16 +82,17 @@ def main():
     if today_timestamp not in readTimes:
         readTimes[today_timestamp] = 0
     readTimes = dict(sorted(readTimes.items()))
-    results = notion_helper.query_all(database_id=notion_helper.day_database_id)
-    for result in results:
-        timestamp = result.get("properties").get("时间戳").get("number")
-        duration = result.get("properties").get("时长").get("number")
-        id = result.get("id")
-        if timestamp in readTimes:
-            value = readTimes.pop(timestamp)
-            if value != duration:
-                insert_to_notion(page_id=id, timestamp=timestamp, duration=value)
-    for key, value in readTimes.items():
-        insert_to_notion(None, int(key), value)
+    if notion_helper.day_database_id is not None:
+        results = notion_helper.query_all(database_id=notion_helper.day_database_id)
+        for result in results:
+            timestamp = result.get("properties").get("时间戳").get("number")
+            duration = result.get("properties").get("时长").get("number")
+            id = result.get("id")
+            if timestamp in readTimes:
+                value = readTimes.pop(timestamp)
+                if value != duration:
+                    insert_to_notion(page_id=id, timestamp=timestamp, duration=value)
+        for key, value in readTimes.items():
+            insert_to_notion(None, int(key), value)
 if __name__ == "__main__":
     main()

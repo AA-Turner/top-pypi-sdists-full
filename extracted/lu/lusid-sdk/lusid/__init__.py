@@ -738,6 +738,7 @@ from lusid.models.option_exercise_election import OptionExerciseElection
 from lusid.models.option_exercise_physical_event import OptionExercisePhysicalEvent
 from lusid.models.optionality_schedule import OptionalitySchedule
 from lusid.models.order import Order
+from lusid.models.order_breach_history import OrderBreachHistory
 from lusid.models.order_by_spec import OrderBySpec
 from lusid.models.order_flow_configuration import OrderFlowConfiguration
 from lusid.models.order_graph_block import OrderGraphBlock
@@ -764,6 +765,7 @@ from lusid.models.order_instruction import OrderInstruction
 from lusid.models.order_instruction_request import OrderInstructionRequest
 from lusid.models.order_instruction_set_request import OrderInstructionSetRequest
 from lusid.models.order_request import OrderRequest
+from lusid.models.order_rule_breach import OrderRuleBreach
 from lusid.models.order_set_request import OrderSetRequest
 from lusid.models.order_update_request import OrderUpdateRequest
 from lusid.models.otc_confirmation import OtcConfirmation
@@ -812,6 +814,7 @@ from lusid.models.paged_resource_list_of_instrument_event_instruction import Pag
 from lusid.models.paged_resource_list_of_item_and_workspace import PagedResourceListOfItemAndWorkspace
 from lusid.models.paged_resource_list_of_legal_entity import PagedResourceListOfLegalEntity
 from lusid.models.paged_resource_list_of_order import PagedResourceListOfOrder
+from lusid.models.paged_resource_list_of_order_breach_history import PagedResourceListOfOrderBreachHistory
 from lusid.models.paged_resource_list_of_order_graph_block import PagedResourceListOfOrderGraphBlock
 from lusid.models.paged_resource_list_of_order_graph_placement import PagedResourceListOfOrderGraphPlacement
 from lusid.models.paged_resource_list_of_order_instruction import PagedResourceListOfOrderInstruction
@@ -885,6 +888,8 @@ from lusid.models.portfolio_trade_ticket import PortfolioTradeTicket
 from lusid.models.portfolio_type import PortfolioType
 from lusid.models.portfolio_without_href import PortfolioWithoutHref
 from lusid.models.portfolios_reconciliation_request import PortfoliosReconciliationRequest
+from lusid.models.post_close_activities_request import PostCloseActivitiesRequest
+from lusid.models.post_close_activity import PostCloseActivity
 from lusid.models.posting_module_details import PostingModuleDetails
 from lusid.models.posting_module_request import PostingModuleRequest
 from lusid.models.posting_module_response import PostingModuleResponse
@@ -2056,6 +2061,7 @@ __all__ = [
     "OptionExercisePhysicalEvent",
     "OptionalitySchedule",
     "Order",
+    "OrderBreachHistory",
     "OrderBySpec",
     "OrderFlowConfiguration",
     "OrderGraphBlock",
@@ -2082,6 +2088,7 @@ __all__ = [
     "OrderInstructionRequest",
     "OrderInstructionSetRequest",
     "OrderRequest",
+    "OrderRuleBreach",
     "OrderSetRequest",
     "OrderUpdateRequest",
     "OtcConfirmation",
@@ -2130,6 +2137,7 @@ __all__ = [
     "PagedResourceListOfItemAndWorkspace",
     "PagedResourceListOfLegalEntity",
     "PagedResourceListOfOrder",
+    "PagedResourceListOfOrderBreachHistory",
     "PagedResourceListOfOrderGraphBlock",
     "PagedResourceListOfOrderGraphPlacement",
     "PagedResourceListOfOrderInstruction",
@@ -2203,6 +2211,8 @@ __all__ = [
     "PortfolioType",
     "PortfolioWithoutHref",
     "PortfoliosReconciliationRequest",
+    "PostCloseActivitiesRequest",
+    "PostCloseActivity",
     "PostingModuleDetails",
     "PostingModuleRequest",
     "PostingModuleResponse",

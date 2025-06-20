@@ -1,7 +1,7 @@
 r'''
 # `aws_flow_log`
 
-Refer to the Terraform Registry for docs: [`aws_flow_log`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log).
+Refer to the Terraform Registry for docs: [`aws_flow_log`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FlowLog(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.flowLog.FlowLog",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log aws_flow_log}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log aws_flow_log}.'''
 
     def __init__(
         self,
@@ -59,8 +59,8 @@ class FlowLog(
         log_destination: typing.Optional[builtins.str] = None,
         log_destination_type: typing.Optional[builtins.str] = None,
         log_format: typing.Optional[builtins.str] = None,
-        log_group_name: typing.Optional[builtins.str] = None,
         max_aggregation_interval: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         subnet_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -76,27 +76,27 @@ class FlowLog(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log aws_flow_log} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log aws_flow_log} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param deliver_cross_account_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#deliver_cross_account_role FlowLog#deliver_cross_account_role}.
-        :param destination_options: destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#destination_options FlowLog#destination_options}
-        :param eni_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#eni_id FlowLog#eni_id}.
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#iam_role_arn FlowLog#iam_role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#id FlowLog#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_destination FlowLog#log_destination}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_destination_type FlowLog#log_destination_type}.
-        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_format FlowLog#log_format}.
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_group_name FlowLog#log_group_name}.
-        :param max_aggregation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#max_aggregation_interval FlowLog#max_aggregation_interval}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#subnet_id FlowLog#subnet_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#tags FlowLog#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#tags_all FlowLog#tags_all}.
-        :param traffic_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#traffic_type FlowLog#traffic_type}.
-        :param transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#transit_gateway_attachment_id FlowLog#transit_gateway_attachment_id}.
-        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#transit_gateway_id FlowLog#transit_gateway_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#vpc_id FlowLog#vpc_id}.
+        :param deliver_cross_account_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#deliver_cross_account_role FlowLog#deliver_cross_account_role}.
+        :param destination_options: destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#destination_options FlowLog#destination_options}
+        :param eni_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#eni_id FlowLog#eni_id}.
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#iam_role_arn FlowLog#iam_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#id FlowLog#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_destination FlowLog#log_destination}.
+        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_destination_type FlowLog#log_destination_type}.
+        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_format FlowLog#log_format}.
+        :param max_aggregation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#max_aggregation_interval FlowLog#max_aggregation_interval}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#region FlowLog#region}
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#subnet_id FlowLog#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#tags FlowLog#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#tags_all FlowLog#tags_all}.
+        :param traffic_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#traffic_type FlowLog#traffic_type}.
+        :param transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#transit_gateway_attachment_id FlowLog#transit_gateway_attachment_id}.
+        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#transit_gateway_id FlowLog#transit_gateway_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#vpc_id FlowLog#vpc_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,8 +118,8 @@ class FlowLog(
             log_destination=log_destination,
             log_destination_type=log_destination_type,
             log_format=log_format,
-            log_group_name=log_group_name,
             max_aggregation_interval=max_aggregation_interval,
+            region=region,
             subnet_id=subnet_id,
             tags=tags,
             tags_all=tags_all,
@@ -151,7 +151,7 @@ class FlowLog(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FlowLog to import.
-        :param import_from_id: The id of the existing FlowLog that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FlowLog that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FlowLog to import is found.
         '''
         if __debug__:
@@ -171,9 +171,9 @@ class FlowLog(
         per_hour_partition: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#file_format FlowLog#file_format}.
-        :param hive_compatible_partitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#hive_compatible_partitions FlowLog#hive_compatible_partitions}.
-        :param per_hour_partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#per_hour_partition FlowLog#per_hour_partition}.
+        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#file_format FlowLog#file_format}.
+        :param hive_compatible_partitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#hive_compatible_partitions FlowLog#hive_compatible_partitions}.
+        :param per_hour_partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#per_hour_partition FlowLog#per_hour_partition}.
         '''
         value = FlowLogDestinationOptions(
             file_format=file_format,
@@ -215,13 +215,13 @@ class FlowLog(
     def reset_log_format(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogFormat", []))
 
-    @jsii.member(jsii_name="resetLogGroupName")
-    def reset_log_group_name(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetLogGroupName", []))
-
     @jsii.member(jsii_name="resetMaxAggregationInterval")
     def reset_max_aggregation_interval(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMaxAggregationInterval", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSubnetId")
     def reset_subnet_id(self) -> None:
@@ -315,14 +315,14 @@ class FlowLog(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "logFormatInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="logGroupNameInput")
-    def log_group_name_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "logGroupNameInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="maxAggregationIntervalInput")
     def max_aggregation_interval_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxAggregationIntervalInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="subnetIdInput")
@@ -446,18 +446,6 @@ class FlowLog(
         jsii.set(self, "logFormat", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="logGroupName")
-    def log_group_name(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "logGroupName"))
-
-    @log_group_name.setter
-    def log_group_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__044f5fe4996ab5dc06d127c6e8ce974a40c91e3a769b4110c09cd39dfaa1e23e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="maxAggregationInterval")
     def max_aggregation_interval(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "maxAggregationInterval"))
@@ -468,6 +456,18 @@ class FlowLog(
             type_hints = typing.get_type_hints(_typecheckingstub__0d85f6c516443007538a1b228298feb63fc06a2be74119db765711a96d215f4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxAggregationInterval", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a4f703d58a9ebf5926ba53015fd679a5e3088b7fcb1223e1453a473a49acac1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="subnetId")
@@ -573,8 +573,8 @@ class FlowLog(
         "log_destination": "logDestination",
         "log_destination_type": "logDestinationType",
         "log_format": "logFormat",
-        "log_group_name": "logGroupName",
         "max_aggregation_interval": "maxAggregationInterval",
+        "region": "region",
         "subnet_id": "subnetId",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -603,8 +603,8 @@ class FlowLogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         log_destination: typing.Optional[builtins.str] = None,
         log_destination_type: typing.Optional[builtins.str] = None,
         log_format: typing.Optional[builtins.str] = None,
-        log_group_name: typing.Optional[builtins.str] = None,
         max_aggregation_interval: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         subnet_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -621,23 +621,23 @@ class FlowLogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param deliver_cross_account_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#deliver_cross_account_role FlowLog#deliver_cross_account_role}.
-        :param destination_options: destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#destination_options FlowLog#destination_options}
-        :param eni_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#eni_id FlowLog#eni_id}.
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#iam_role_arn FlowLog#iam_role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#id FlowLog#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_destination FlowLog#log_destination}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_destination_type FlowLog#log_destination_type}.
-        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_format FlowLog#log_format}.
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_group_name FlowLog#log_group_name}.
-        :param max_aggregation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#max_aggregation_interval FlowLog#max_aggregation_interval}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#subnet_id FlowLog#subnet_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#tags FlowLog#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#tags_all FlowLog#tags_all}.
-        :param traffic_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#traffic_type FlowLog#traffic_type}.
-        :param transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#transit_gateway_attachment_id FlowLog#transit_gateway_attachment_id}.
-        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#transit_gateway_id FlowLog#transit_gateway_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#vpc_id FlowLog#vpc_id}.
+        :param deliver_cross_account_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#deliver_cross_account_role FlowLog#deliver_cross_account_role}.
+        :param destination_options: destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#destination_options FlowLog#destination_options}
+        :param eni_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#eni_id FlowLog#eni_id}.
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#iam_role_arn FlowLog#iam_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#id FlowLog#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_destination FlowLog#log_destination}.
+        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_destination_type FlowLog#log_destination_type}.
+        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_format FlowLog#log_format}.
+        :param max_aggregation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#max_aggregation_interval FlowLog#max_aggregation_interval}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#region FlowLog#region}
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#subnet_id FlowLog#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#tags FlowLog#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#tags_all FlowLog#tags_all}.
+        :param traffic_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#traffic_type FlowLog#traffic_type}.
+        :param transit_gateway_attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#transit_gateway_attachment_id FlowLog#transit_gateway_attachment_id}.
+        :param transit_gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#transit_gateway_id FlowLog#transit_gateway_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#vpc_id FlowLog#vpc_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -660,8 +660,8 @@ class FlowLogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument log_destination", value=log_destination, expected_type=type_hints["log_destination"])
             check_type(argname="argument log_destination_type", value=log_destination_type, expected_type=type_hints["log_destination_type"])
             check_type(argname="argument log_format", value=log_format, expected_type=type_hints["log_format"])
-            check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
             check_type(argname="argument max_aggregation_interval", value=max_aggregation_interval, expected_type=type_hints["max_aggregation_interval"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -700,10 +700,10 @@ class FlowLogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["log_destination_type"] = log_destination_type
         if log_format is not None:
             self._values["log_format"] = log_format
-        if log_group_name is not None:
-            self._values["log_group_name"] = log_group_name
         if max_aggregation_interval is not None:
             self._values["max_aggregation_interval"] = max_aggregation_interval
+        if region is not None:
+            self._values["region"] = region
         if subnet_id is not None:
             self._values["subnet_id"] = subnet_id
         if tags is not None:
@@ -785,7 +785,7 @@ class FlowLogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def deliver_cross_account_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#deliver_cross_account_role FlowLog#deliver_cross_account_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#deliver_cross_account_role FlowLog#deliver_cross_account_role}.'''
         result = self._values.get("deliver_cross_account_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -793,26 +793,26 @@ class FlowLogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination_options(self) -> typing.Optional["FlowLogDestinationOptions"]:
         '''destination_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#destination_options FlowLog#destination_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#destination_options FlowLog#destination_options}
         '''
         result = self._values.get("destination_options")
         return typing.cast(typing.Optional["FlowLogDestinationOptions"], result)
 
     @builtins.property
     def eni_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#eni_id FlowLog#eni_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#eni_id FlowLog#eni_id}.'''
         result = self._values.get("eni_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#iam_role_arn FlowLog#iam_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#iam_role_arn FlowLog#iam_role_arn}.'''
         result = self._values.get("iam_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#id FlowLog#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#id FlowLog#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -822,73 +822,76 @@ class FlowLogConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def log_destination(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_destination FlowLog#log_destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_destination FlowLog#log_destination}.'''
         result = self._values.get("log_destination")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_destination_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_destination_type FlowLog#log_destination_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_destination_type FlowLog#log_destination_type}.'''
         result = self._values.get("log_destination_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_format FlowLog#log_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#log_format FlowLog#log_format}.'''
         result = self._values.get("log_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def log_group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#log_group_name FlowLog#log_group_name}.'''
-        result = self._values.get("log_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def max_aggregation_interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#max_aggregation_interval FlowLog#max_aggregation_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#max_aggregation_interval FlowLog#max_aggregation_interval}.'''
         result = self._values.get("max_aggregation_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#region FlowLog#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#subnet_id FlowLog#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#subnet_id FlowLog#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#tags FlowLog#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#tags FlowLog#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#tags_all FlowLog#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#tags_all FlowLog#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def traffic_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#traffic_type FlowLog#traffic_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#traffic_type FlowLog#traffic_type}.'''
         result = self._values.get("traffic_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transit_gateway_attachment_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#transit_gateway_attachment_id FlowLog#transit_gateway_attachment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#transit_gateway_attachment_id FlowLog#transit_gateway_attachment_id}.'''
         result = self._values.get("transit_gateway_attachment_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transit_gateway_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#transit_gateway_id FlowLog#transit_gateway_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#transit_gateway_id FlowLog#transit_gateway_id}.'''
         result = self._values.get("transit_gateway_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#vpc_id FlowLog#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#vpc_id FlowLog#vpc_id}.'''
         result = self._values.get("vpc_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -922,9 +925,9 @@ class FlowLogDestinationOptions:
         per_hour_partition: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#file_format FlowLog#file_format}.
-        :param hive_compatible_partitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#hive_compatible_partitions FlowLog#hive_compatible_partitions}.
-        :param per_hour_partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#per_hour_partition FlowLog#per_hour_partition}.
+        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#file_format FlowLog#file_format}.
+        :param hive_compatible_partitions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#hive_compatible_partitions FlowLog#hive_compatible_partitions}.
+        :param per_hour_partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#per_hour_partition FlowLog#per_hour_partition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23032f9469f0ad0c17f47f73846a34f22566cdc788fa1c4a21554e11d5c3e93a)
@@ -941,7 +944,7 @@ class FlowLogDestinationOptions:
 
     @builtins.property
     def file_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#file_format FlowLog#file_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#file_format FlowLog#file_format}.'''
         result = self._values.get("file_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -949,7 +952,7 @@ class FlowLogDestinationOptions:
     def hive_compatible_partitions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#hive_compatible_partitions FlowLog#hive_compatible_partitions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#hive_compatible_partitions FlowLog#hive_compatible_partitions}.'''
         result = self._values.get("hive_compatible_partitions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -957,7 +960,7 @@ class FlowLogDestinationOptions:
     def per_hour_partition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/flow_log#per_hour_partition FlowLog#per_hour_partition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/flow_log#per_hour_partition FlowLog#per_hour_partition}.'''
         result = self._values.get("per_hour_partition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1104,8 +1107,8 @@ def _typecheckingstub__0a02552eb39a4bb1ed1b9d601fd1da7400cbeea030a2faf4945282e5f
     log_destination: typing.Optional[builtins.str] = None,
     log_destination_type: typing.Optional[builtins.str] = None,
     log_format: typing.Optional[builtins.str] = None,
-    log_group_name: typing.Optional[builtins.str] = None,
     max_aggregation_interval: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     subnet_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1175,14 +1178,14 @@ def _typecheckingstub__ad837e59903c9b557c35c8ef899a05ba86d1cf587ab5a791e1a498de9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__044f5fe4996ab5dc06d127c6e8ce974a40c91e3a769b4110c09cd39dfaa1e23e(
-    value: builtins.str,
+def _typecheckingstub__0d85f6c516443007538a1b228298feb63fc06a2be74119db765711a96d215f4e(
+    value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0d85f6c516443007538a1b228298feb63fc06a2be74119db765711a96d215f4e(
-    value: jsii.Number,
+def _typecheckingstub__4a4f703d58a9ebf5926ba53015fd679a5e3088b7fcb1223e1453a473a49acac1(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1246,8 +1249,8 @@ def _typecheckingstub__543097f5e3fae4b11153fa52eb9e47f01bca3997d5b18e5a731e7b127
     log_destination: typing.Optional[builtins.str] = None,
     log_destination_type: typing.Optional[builtins.str] = None,
     log_format: typing.Optional[builtins.str] = None,
-    log_group_name: typing.Optional[builtins.str] = None,
     max_aggregation_interval: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     subnet_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

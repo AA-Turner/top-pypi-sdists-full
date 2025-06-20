@@ -1,7 +1,7 @@
 r'''
 # `aws_signer_signing_job`
 
-Refer to the Terraform Registry for docs: [`aws_signer_signing_job`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job).
+Refer to the Terraform Registry for docs: [`aws_signer_signing_job`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SignerSigningJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.signerSigningJob.SignerSigningJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job aws_signer_signing_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job aws_signer_signing_job}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class SignerSigningJob(
         source: typing.Union["SignerSigningJobSource", typing.Dict[builtins.str, typing.Any]],
         id: typing.Optional[builtins.str] = None,
         ignore_signing_job_failure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -64,15 +65,16 @@ class SignerSigningJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job aws_signer_signing_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job aws_signer_signing_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#destination SignerSigningJob#destination}
-        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#profile_name SignerSigningJob#profile_name}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#source SignerSigningJob#source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#id SignerSigningJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_signing_job_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#ignore_signing_job_failure SignerSigningJob#ignore_signing_job_failure}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#destination SignerSigningJob#destination}
+        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#profile_name SignerSigningJob#profile_name}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#source SignerSigningJob#source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#id SignerSigningJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_signing_job_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#ignore_signing_job_failure SignerSigningJob#ignore_signing_job_failure}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#region SignerSigningJob#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -91,6 +93,7 @@ class SignerSigningJob(
             source=source,
             id=id,
             ignore_signing_job_failure=ignore_signing_job_failure,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -115,7 +118,7 @@ class SignerSigningJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SignerSigningJob to import.
-        :param import_from_id: The id of the existing SignerSigningJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SignerSigningJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SignerSigningJob to import is found.
         '''
         if __debug__:
@@ -133,7 +136,7 @@ class SignerSigningJob(
         s3: typing.Union["SignerSigningJobDestinationS3", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
         '''
         value = SignerSigningJobDestination(s3=s3)
 
@@ -146,7 +149,7 @@ class SignerSigningJob(
         s3: typing.Union["SignerSigningJobSourceS3", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
         '''
         value = SignerSigningJobSource(s3=s3)
 
@@ -159,6 +162,10 @@ class SignerSigningJob(
     @jsii.member(jsii_name="resetIgnoreSigningJobFailure")
     def reset_ignore_signing_job_failure(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIgnoreSigningJobFailure", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -276,6 +283,11 @@ class SignerSigningJob(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "profileNameInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="sourceInput")
     def source_input(self) -> typing.Optional["SignerSigningJobSource"]:
         return typing.cast(typing.Optional["SignerSigningJobSource"], jsii.get(self, "sourceInput"))
@@ -321,6 +333,18 @@ class SignerSigningJob(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "profileName", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91096e78e5d00bc10bc99a730a879f94f44e8f67ea6c31db3b41d639648511f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.signerSigningJob.SignerSigningJobConfig",
@@ -338,6 +362,7 @@ class SignerSigningJob(
         "source": "source",
         "id": "id",
         "ignore_signing_job_failure": "ignoreSigningJobFailure",
+        "region": "region",
     },
 )
 class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -356,6 +381,7 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         source: typing.Union["SignerSigningJobSource", typing.Dict[builtins.str, typing.Any]],
         id: typing.Optional[builtins.str] = None,
         ignore_signing_job_failure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -365,11 +391,12 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#destination SignerSigningJob#destination}
-        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#profile_name SignerSigningJob#profile_name}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#source SignerSigningJob#source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#id SignerSigningJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_signing_job_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#ignore_signing_job_failure SignerSigningJob#ignore_signing_job_failure}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#destination SignerSigningJob#destination}
+        :param profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#profile_name SignerSigningJob#profile_name}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#source SignerSigningJob#source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#id SignerSigningJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_signing_job_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#ignore_signing_job_failure SignerSigningJob#ignore_signing_job_failure}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#region SignerSigningJob#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -391,6 +418,7 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ignore_signing_job_failure", value=ignore_signing_job_failure, expected_type=type_hints["ignore_signing_job_failure"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "destination": destination,
             "profile_name": profile_name,
@@ -414,6 +442,8 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if ignore_signing_job_failure is not None:
             self._values["ignore_signing_job_failure"] = ignore_signing_job_failure
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -483,7 +513,7 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination(self) -> "SignerSigningJobDestination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#destination SignerSigningJob#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#destination SignerSigningJob#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -491,7 +521,7 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def profile_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#profile_name SignerSigningJob#profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#profile_name SignerSigningJob#profile_name}.'''
         result = self._values.get("profile_name")
         assert result is not None, "Required property 'profile_name' is missing"
         return typing.cast(builtins.str, result)
@@ -500,7 +530,7 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source(self) -> "SignerSigningJobSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#source SignerSigningJob#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#source SignerSigningJob#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -508,7 +538,7 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#id SignerSigningJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#id SignerSigningJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -520,9 +550,18 @@ class SignerSigningJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ignore_signing_job_failure(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#ignore_signing_job_failure SignerSigningJob#ignore_signing_job_failure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#ignore_signing_job_failure SignerSigningJob#ignore_signing_job_failure}.'''
         result = self._values.get("ignore_signing_job_failure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#region SignerSigningJob#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -548,7 +587,7 @@ class SignerSigningJobDestination:
         s3: typing.Union["SignerSigningJobDestinationS3", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
         '''
         if isinstance(s3, dict):
             s3 = SignerSigningJobDestinationS3(**s3)
@@ -563,7 +602,7 @@ class SignerSigningJobDestination:
     def s3(self) -> "SignerSigningJobDestinationS3":
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
         '''
         result = self._values.get("s3")
         assert result is not None, "Required property 's3' is missing"
@@ -609,8 +648,8 @@ class SignerSigningJobDestinationOutputReference(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#prefix SignerSigningJob#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#prefix SignerSigningJob#prefix}.
         '''
         value = SignerSigningJobDestinationS3(bucket=bucket, prefix=prefix)
 
@@ -655,8 +694,8 @@ class SignerSigningJobDestinationS3:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#prefix SignerSigningJob#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#prefix SignerSigningJob#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50b10d6ae76faadab0b9e3b78b0927152d6491f89e246b4fc6a423967d509380)
@@ -670,14 +709,14 @@ class SignerSigningJobDestinationS3:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#prefix SignerSigningJob#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#prefix SignerSigningJob#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1223,7 +1262,7 @@ class SignerSigningJobSource:
         s3: typing.Union["SignerSigningJobSourceS3", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
         '''
         if isinstance(s3, dict):
             s3 = SignerSigningJobSourceS3(**s3)
@@ -1238,7 +1277,7 @@ class SignerSigningJobSource:
     def s3(self) -> "SignerSigningJobSourceS3":
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#s3 SignerSigningJob#s3}
         '''
         result = self._values.get("s3")
         assert result is not None, "Required property 's3' is missing"
@@ -1285,9 +1324,9 @@ class SignerSigningJobSourceOutputReference(
         version: builtins.str,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#key SignerSigningJob#key}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#version SignerSigningJob#version}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#key SignerSigningJob#key}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#version SignerSigningJob#version}.
         '''
         value = SignerSigningJobSourceS3(bucket=bucket, key=key, version=version)
 
@@ -1330,9 +1369,9 @@ class SignerSigningJobSourceS3:
         version: builtins.str,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#key SignerSigningJob#key}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#version SignerSigningJob#version}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#key SignerSigningJob#key}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#version SignerSigningJob#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30301ffb1f491c8de8efb61f1f135f1acce955c5136eb759b985e1dad1f5a3d4)
@@ -1347,21 +1386,21 @@ class SignerSigningJobSourceS3:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#bucket SignerSigningJob#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#key SignerSigningJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#key SignerSigningJob#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/signer_signing_job#version SignerSigningJob#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/signer_signing_job#version SignerSigningJob#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
@@ -1495,6 +1534,7 @@ def _typecheckingstub__121decd14698fd774dad76c7afc1023746354488d8ca878a8de9dddbb
     source: typing.Union[SignerSigningJobSource, typing.Dict[builtins.str, typing.Any]],
     id: typing.Optional[builtins.str] = None,
     ignore_signing_job_failure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -1533,6 +1573,12 @@ def _typecheckingstub__7cf10726365ca269be3c5b917bec604a7289c4ffe55b9b302296b644a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__91096e78e5d00bc10bc99a730a879f94f44e8f67ea6c31db3b41d639648511f2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2f39de3ac019da00bfc2faf762976b61e613d1d23286b4435d430d67f20bc4e4(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1547,6 +1593,7 @@ def _typecheckingstub__2f39de3ac019da00bfc2faf762976b61e613d1d23286b4435d430d67f
     source: typing.Union[SignerSigningJobSource, typing.Dict[builtins.str, typing.Any]],
     id: typing.Optional[builtins.str] = None,
     ignore_signing_job_failure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

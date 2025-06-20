@@ -3,9 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Union
 
-from httpx import BasicAuth, Timeout
+from httpx import AsyncClient, BasicAuth, Client, Timeout
 
-from .utils import AsyncClient, SyncClient, is_http_url, is_valid_jwt
+from .utils import is_http_url, is_valid_jwt
 
 
 class BasePostgrestClient(ABC):
@@ -20,6 +20,7 @@ class BasePostgrestClient(ABC):
         timeout: Union[int, float, Timeout],
         verify: bool = True,
         proxy: Optional[str] = None,
+        http_client: Union[Client, AsyncClient, None] = None,
     ) -> None:
         if not is_http_url(base_url):
             ValueError("base_url must be a valid HTTP URL string")
@@ -33,8 +34,13 @@ class BasePostgrestClient(ABC):
         self.timeout = timeout
         self.verify = verify
         self.proxy = proxy
+        self.http_client = http_client
         self.session = self.create_session(
-            self.base_url, self.headers, self.timeout, self.verify, self.proxy
+            self.base_url,
+            self.headers,
+            self.timeout,
+            self.verify,
+            self.proxy,
         )
 
     @abstractmethod
@@ -45,7 +51,7 @@ class BasePostgrestClient(ABC):
         timeout: Union[int, float, Timeout],
         verify: bool = True,
         proxy: Optional[str] = None,
-    ) -> Union[SyncClient, AsyncClient]:
+    ) -> Union[Client, AsyncClient]:
         raise NotImplementedError()
 
     def auth(

@@ -18,7 +18,6 @@ from pathlib import Path
 import numpy as np
 import torch
 from safetensors.torch import load_model
-from torch.cuda.amp import GradScaler
 
 from .utils import (
     MODEL_NAME,
@@ -36,12 +35,18 @@ from .utils import (
     is_mlu_available,
     is_musa_available,
     is_sdaa_available,
+    is_torch_version,
     is_torch_xla_available,
     is_xpu_available,
     load,
     save,
 )
 
+
+if is_torch_version(">=", "2.4.0"):
+    from torch.amp import GradScaler
+else:
+    from torch.cuda.amp import GradScaler
 
 if is_torch_xla_available():
     import torch_xla.core.xla_model as xm
@@ -180,6 +185,7 @@ def load_accelerator_state(
     process_index,
     scaler=None,
     map_location=None,
+    load_kwargs=None,
     **load_model_func_kwargs,
 ):
     """
@@ -200,6 +206,8 @@ def load_accelerator_state(
             An optional *GradScaler* instance to load
         map_location (`str`, *optional*):
             What device to load the optimizer state onto. Should be one of either "cpu" or "on_device".
+        load_kwargs (`dict`, *optional*):
+            Additional arguments that can be passed to the `load` function.
         load_model_func_kwargs (`dict`, *optional*):
             Additional arguments that can be passed to the model's `load_state_dict` method.
 
@@ -216,6 +224,9 @@ def load_accelerator_state(
         map_location = "cpu"
     elif map_location == "on_device":
         map_location = PartialState().device
+
+    if load_kwargs is None:
+        load_kwargs = {}
 
     input_dir = Path(input_dir)
     # Model states
@@ -235,7 +246,7 @@ def load_accelerator_state(
     for i, opt in enumerate(optimizers):
         optimizer_name = f"{OPTIMIZER_NAME}.bin" if i == 0 else f"{OPTIMIZER_NAME}_{i}.bin"
         input_optimizer_file = input_dir.joinpath(optimizer_name)
-        optimizer_state = load(input_optimizer_file, map_location=map_location)
+        optimizer_state = load(input_optimizer_file, map_location=map_location, **load_kwargs)
         optimizers[i].load_state_dict(optimizer_state)
     logger.info("All optimizer states loaded successfully")
 
@@ -243,7 +254,7 @@ def load_accelerator_state(
     for i, scheduler in enumerate(schedulers):
         scheduler_name = f"{SCHEDULER_NAME}.bin" if i == 0 else f"{SCHEDULER_NAME}_{i}.bin"
         input_scheduler_file = input_dir.joinpath(scheduler_name)
-        scheduler_state = load(input_scheduler_file)
+        scheduler_state = load(input_scheduler_file, **load_kwargs)
         scheduler.load_state_dict(scheduler_state)
     logger.info("All scheduler states loaded successfully")
 
@@ -261,7 +272,7 @@ def load_accelerator_state(
             dataloader_state_dict_name = "dl_state_dict.bin" if i == 0 else f"dl_state_dict_{i}.bin"
             input_dataloader_state_dict_file = input_dir.joinpath(dataloader_state_dict_name)
             if input_dataloader_state_dict_file.exists():
-                state_dict = load(input_dataloader_state_dict_file)
+                state_dict = load(input_dataloader_state_dict_file, **load_kwargs)
                 dataloader.load_state_dict(state_dict)
     logger.info("All dataloader sampler states loaded successfully")
 

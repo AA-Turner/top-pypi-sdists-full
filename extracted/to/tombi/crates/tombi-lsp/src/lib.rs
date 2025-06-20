@@ -1,4 +1,5 @@
 pub mod backend;
+pub mod code_action;
 mod completion;
 mod document;
 mod goto_definition;

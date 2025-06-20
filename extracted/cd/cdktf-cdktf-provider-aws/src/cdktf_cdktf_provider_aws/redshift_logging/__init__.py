@@ -1,7 +1,7 @@
 r'''
 # `aws_redshift_logging`
 
-Refer to the Terraform Registry for docs: [`aws_redshift_logging`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging).
+Refer to the Terraform Registry for docs: [`aws_redshift_logging`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RedshiftLogging(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.redshiftLogging.RedshiftLogging",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging aws_redshift_logging}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging aws_redshift_logging}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class RedshiftLogging(
         bucket_name: typing.Optional[builtins.str] = None,
         log_destination_type: typing.Optional[builtins.str] = None,
         log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -64,15 +65,16 @@ class RedshiftLogging(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging aws_redshift_logging} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging aws_redshift_logging} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
-        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
+        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
+        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#region RedshiftLogging#region}
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -90,6 +92,7 @@ class RedshiftLogging(
             bucket_name=bucket_name,
             log_destination_type=log_destination_type,
             log_exports=log_exports,
+            region=region,
             s3_key_prefix=s3_key_prefix,
             connection=connection,
             count=count,
@@ -115,7 +118,7 @@ class RedshiftLogging(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RedshiftLogging to import.
-        :param import_from_id: The id of the existing RedshiftLogging that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RedshiftLogging that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RedshiftLogging to import is found.
         '''
         if __debug__:
@@ -137,6 +140,10 @@ class RedshiftLogging(
     @jsii.member(jsii_name="resetLogExports")
     def reset_log_exports(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogExports", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetS3KeyPrefix")
     def reset_s3_key_prefix(self) -> None:
@@ -179,6 +186,11 @@ class RedshiftLogging(
     @jsii.member(jsii_name="logExportsInput")
     def log_exports_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "logExportsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="s3KeyPrefixInput")
@@ -234,6 +246,18 @@ class RedshiftLogging(
         jsii.set(self, "logExports", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd3157a762dfdfd15e362c7b541ea245acb9b25b0c4f5759c3437eb54867b3d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="s3KeyPrefix")
     def s3_key_prefix(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "s3KeyPrefix"))
@@ -261,6 +285,7 @@ class RedshiftLogging(
         "bucket_name": "bucketName",
         "log_destination_type": "logDestinationType",
         "log_exports": "logExports",
+        "region": "region",
         "s3_key_prefix": "s3KeyPrefix",
     },
 )
@@ -279,6 +304,7 @@ class RedshiftLoggingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         bucket_name: typing.Optional[builtins.str] = None,
         log_destination_type: typing.Optional[builtins.str] = None,
         log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
         s3_key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -289,11 +315,12 @@ class RedshiftLoggingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
-        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
+        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
+        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#region RedshiftLogging#region}
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -310,6 +337,7 @@ class RedshiftLoggingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
             check_type(argname="argument log_destination_type", value=log_destination_type, expected_type=type_hints["log_destination_type"])
             check_type(argname="argument log_exports", value=log_exports, expected_type=type_hints["log_exports"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_identifier": cluster_identifier,
@@ -334,6 +362,8 @@ class RedshiftLoggingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["log_destination_type"] = log_destination_type
         if log_exports is not None:
             self._values["log_exports"] = log_exports
+        if region is not None:
+            self._values["region"] = region
         if s3_key_prefix is not None:
             self._values["s3_key_prefix"] = s3_key_prefix
 
@@ -403,32 +433,41 @@ class RedshiftLoggingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         assert result is not None, "Required property 'cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_destination_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.'''
         result = self._values.get("log_destination_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_exports(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.'''
         result = self._values.get("log_exports")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#region RedshiftLogging#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.'''
         result = self._values.get("s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -459,6 +498,7 @@ def _typecheckingstub__07488b0eaf2d480b77b1f20b4452411abdbc0d4fa8454dc61eb0cd1fa
     bucket_name: typing.Optional[builtins.str] = None,
     log_destination_type: typing.Optional[builtins.str] = None,
     log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -504,6 +544,12 @@ def _typecheckingstub__a3a4b9e33fba8c4844c3d8ee604a88632451c6714b2cbee4d1e714d1d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bd3157a762dfdfd15e362c7b541ea245acb9b25b0c4f5759c3437eb54867b3d6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__83cd6c99e7816f4b41170fd4f4b765ec9ca8fab772a67971a67bd10e202a8100(
     value: builtins.str,
 ) -> None:
@@ -523,6 +569,7 @@ def _typecheckingstub__85d483ef6df075fd25747ab95797811cbe53cab935849c7ae21b26b38
     bucket_name: typing.Optional[builtins.str] = None,
     log_destination_type: typing.Optional[builtins.str] = None,
     log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

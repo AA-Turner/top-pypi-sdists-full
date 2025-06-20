@@ -206,6 +206,16 @@ class ClientLoginBannerOptions(AWSProperty):
     }
 
 
+class ClientRouteEnforcementOptions(AWSProperty):
+    """
+    `ClientRouteEnforcementOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-clientvpnendpoint-clientrouteenforcementoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enforced": (boolean, False),
+    }
+
+
 class ConnectionLogOptions(AWSProperty):
     """
     `ConnectionLogOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-clientvpnendpoint-connectionlogoptions.html>`__
@@ -230,6 +240,7 @@ class ClientVpnEndpoint(AWSObject):
         "ClientCidrBlock": (str, True),
         "ClientConnectOptions": (ClientConnectOptions, False),
         "ClientLoginBannerOptions": (ClientLoginBannerOptions, False),
+        "ClientRouteEnforcementOptions": (ClientRouteEnforcementOptions, False),
         "ConnectionLogOptions": (ConnectionLogOptions, True),
         "Description": (str, False),
         "DisconnectOnSessionTimeout": (boolean, False),
@@ -307,6 +318,37 @@ class DHCPOptions(AWSObject):
         "NetbiosNodeType": (integer, False),
         "NtpServers": ([str], False),
         "Tags": (validate_tags_or_list, False),
+    }
+
+
+class EBSBlockDevice(AWSProperty):
+    """
+    `EBSBlockDevice <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-ebs.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeleteOnTermination": (boolean, False),
+        "Encrypted": (boolean, False),
+        "Iops": (integer, False),
+        "KmsKeyId": (str, False),
+        "SnapshotId": (str, False),
+        "Throughput": (integer, False),
+        "VolumeInitializationRate": (integer, False),
+        "VolumeSize": (integer, False),
+        "VolumeType": (str, False),
+    }
+
+
+class BlockDeviceMapping(AWSProperty):
+    """
+    `BlockDeviceMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance-blockdevicemapping.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeviceName": (str, True),
+        "Ebs": (EBSBlockDevice, False),
+        "NoDevice": (dict, False),
+        "VirtualName": (str, False),
     }
 
 
@@ -498,6 +540,7 @@ class FleetLaunchTemplateOverridesRequest(AWSProperty):
 
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
+        "BlockDeviceMappings": ([BlockDeviceMapping], False),
         "InstanceRequirements": (InstanceRequirementsRequest, False),
         "InstanceType": (str, False),
         "MaxPrice": (str, False),
@@ -673,6 +716,7 @@ class EgressOnlyInternetGateway(AWSObject):
     resource_type = "AWS::EC2::EgressOnlyInternetGateway"
 
     props: PropsDictType = {
+        "Tags": (Tags, False),
         "VpcId": (str, True),
     }
 
@@ -754,6 +798,7 @@ class Host(AWSObject):
         "InstanceFamily": (str, False),
         "InstanceType": (str, False),
         "OutpostArn": (str, False),
+        "Tags": (Tags, False),
     }
 
 
@@ -791,6 +836,7 @@ class IPAM(AWSObject):
         ),
         "Description": (str, False),
         "EnablePrivateGua": (boolean, False),
+        "MeteredAccount": (str, False),
         "OperatingRegions": ([IpamOperatingRegion], False),
         "Tags": (Tags, False),
         "Tier": (str, False),
@@ -932,36 +978,6 @@ class IPAMScope(AWSObject):
     }
 
 
-class EBSBlockDevice(AWSProperty):
-    """
-    `EBSBlockDevice <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-ebs.html>`__
-    """
-
-    props: PropsDictType = {
-        "DeleteOnTermination": (boolean, False),
-        "Encrypted": (boolean, False),
-        "Iops": (integer, False),
-        "KmsKeyId": (str, False),
-        "SnapshotId": (str, False),
-        "Throughput": (integer, False),
-        "VolumeSize": (integer, False),
-        "VolumeType": (str, False),
-    }
-
-
-class BlockDeviceMapping(AWSProperty):
-    """
-    `BlockDeviceMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance-blockdevicemapping.html>`__
-    """
-
-    props: PropsDictType = {
-        "DeviceName": (str, True),
-        "Ebs": (EBSBlockDevice, False),
-        "NoDevice": (dict, False),
-        "VirtualName": (str, False),
-    }
-
-
 class CpuOptions(AWSProperty):
     """
     `CpuOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-cpuoptions.html>`__
@@ -1054,6 +1070,20 @@ class LicenseSpecification(AWSProperty):
 
     props: PropsDictType = {
         "LicenseConfigurationArn": (str, False),
+    }
+
+
+class MetadataOptions(AWSProperty):
+    """
+    `MetadataOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-metadataoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "HttpEndpoint": (str, False),
+        "HttpProtocolIpv6": (str, False),
+        "HttpPutResponseHopLimit": (integer, False),
+        "HttpTokens": (str, False),
+        "InstanceMetadataTags": (str, False),
     }
 
 
@@ -1178,6 +1208,7 @@ class Instance(AWSObject):
         "KeyName": (str, False),
         "LaunchTemplate": (LaunchTemplateSpecification, False),
         "LicenseSpecifications": ([LicenseSpecification], False),
+        "MetadataOptions": (MetadataOptions, False),
         "Monitoring": (boolean, False),
         "NetworkInterfaces": ([NetworkInterfaceProperty], False),
         "PlacementGroupName": (str, False),
@@ -1503,20 +1534,6 @@ class MaintenanceOptions(AWSProperty):
 
     props: PropsDictType = {
         "AutoRecovery": (str, False),
-    }
-
-
-class MetadataOptions(AWSProperty):
-    """
-    `MetadataOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-metadataoptions.html>`__
-    """
-
-    props: PropsDictType = {
-        "HttpEndpoint": (str, False),
-        "HttpProtocolIpv6": (str, False),
-        "HttpPutResponseHopLimit": (integer, False),
-        "HttpTokens": (str, False),
-        "InstanceMetadataTags": (str, False),
     }
 
 
@@ -1904,6 +1921,7 @@ class NetworkInsightsAnalysis(AWSObject):
     props: PropsDictType = {
         "AdditionalAccounts": ([str], False),
         "FilterInArns": ([str], False),
+        "FilterOutArns": ([str], False),
         "NetworkInsightsPathId": (str, True),
         "Tags": (Tags, False),
     }
@@ -3036,6 +3054,7 @@ class VPCEndpoint(AWSObject):
         "SecurityGroupIds": ([str], False),
         "ServiceName": (str, False),
         "ServiceNetworkArn": (str, False),
+        "ServiceRegion": (str, False),
         "SubnetIds": ([str], False),
         "Tags": (Tags, False),
         "VpcEndpointType": (vpc_endpoint_type, False),
@@ -3610,6 +3629,7 @@ class Volume(AWSObject):
         "SnapshotId": (str, False),
         "Tags": (validate_tags_or_list, False),
         "Throughput": (integer, False),
+        "VolumeInitializationRate": (integer, False),
         "VolumeType": (str, False),
     }
 
@@ -3625,6 +3645,16 @@ class VolumeAttachment(AWSObject):
         "Device": (str, False),
         "InstanceId": (str, True),
         "VolumeId": (str, True),
+    }
+
+
+class BlockPublicAccessStates(AWSProperty):
+    """
+    `BlockPublicAccessStates <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-subnet-blockpublicaccessstates.html>`__
+    """
+
+    props: PropsDictType = {
+        "InternetGatewayBlockMode": (str, False),
     }
 
 

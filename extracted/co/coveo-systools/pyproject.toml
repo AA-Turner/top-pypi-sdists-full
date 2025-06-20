@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "coveo-systools"
-version = "3.0"
+version = "3.0.1"
 description = "Filesystem, language and OS related tools."
 license = "Apache-2.0"
 readme = "README.md"

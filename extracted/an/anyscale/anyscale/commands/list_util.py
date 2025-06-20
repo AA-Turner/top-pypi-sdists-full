@@ -32,7 +32,47 @@ def _paginate(iterator: Iterator[Any], page_size: Optional[int]) -> Iterator[Lis
             yield page
 
 
-def display_list(  # noqa: PLR0913
+def _render_page(
+    page: List[Any],
+    item_formatter: Callable[[Any], Dict[str, Any]],
+    table_creator: Callable[[bool], Table],
+    json_output: bool,
+    is_first: bool,
+    page_num: int,
+    console: Console,
+) -> int:
+    """Render a single page of items."""
+    if page_num > 1:  # Only show page number for pages after first
+        console.print(f"[dim]Page {page_num}[/dim]")
+
+    rows = [item_formatter(item) for item in page]
+    if json_output:
+        json_str = json_dumps(rows, indent=2, cls=AnyscaleJSONEncoder)
+        console.print_json(json=json_str)
+    else:
+        tbl = table_creator(is_first)
+        for row in rows:
+            tbl.add_row(*row.values())
+        console.print(tbl)
+
+    return len(page)
+
+
+def _should_continue_pagination(
+    page_size: int, current_page_size: int, console: Console
+) -> bool:
+    """Prompt user to continue pagination if needed."""
+    if current_page_size < page_size:
+        return False  # Last page, no need to prompt
+
+    console.print()
+    console.print(
+        "[dim]Press [bold]Enter[/bold] to continue, [bold]q[/bold] to quit…[/]"
+    )
+    return input("> ").strip().lower() != "q"
+
+
+def display_list(  # noqa: PLR0913, PLR0912
     iterator: Iterator[Any],
     item_formatter: Callable[[Any], Dict[str, Any]],
     table_creator: Callable[[bool], Table],
@@ -65,56 +105,78 @@ def display_list(  # noqa: PLR0913
     total_count = 0
     pages = _paginate(iterator, page_size if interactive else max_items)
 
-    # fetch first page under spinner
+    # Start interactive session if needed
+    if interactive:
+        try:
+            from anyscale.telemetry import start_interactive_session
+
+            start_interactive_session()
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Fetch and render first page
     with console.status("Retrieving items…", spinner="dots"):
         try:
             first_page = next(pages)
         except StopIteration:
             first_page = []
 
-    def _render(page: List[Any], is_first: bool, page_num: int):
-        nonlocal total_count
-        total_count += len(page)
-        if interactive:
-            console.print(f"[dim]Page {page_num}[/dim]")
-        rows = [item_formatter(item) for item in page]
-        if json_output:
-            json_str = json_dumps(rows, indent=2, cls=AnyscaleJSONEncoder)
-            console.print_json(json=json_str)
-        else:
-            tbl = table_creator(is_first)
-            for row in rows:
-                tbl.add_row(*row.values())
-            console.print(tbl)
-
-    # render first page
     if first_page:
-        _render(first_page, True, page_num=1)
+        total_count += _render_page(
+            first_page, item_formatter, table_creator, json_output, True, 1, console
+        )
 
-    # non-interactive: stop after first page
+    # For interactive commands, mark when command logic completes
+    if interactive:
+        try:
+            from anyscale.telemetry import mark_command_complete
+
+            mark_command_complete()
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Non-interactive: stop after first page
     if not interactive:
         return total_count
 
-    # interactive: prompt after full first page
-    if len(first_page) == page_size:
-        console.print()
-        console.print(
-            "[dim]Press [bold]Enter[/bold] to continue, [bold]q[/bold] to quit…[/]"
-        )
-        if input("> ").strip().lower() == "q":
-            return total_count
+    # Interactive: check if user wants to continue
+    if not _should_continue_pagination(page_size, len(first_page), console):
+        return total_count
 
-    # render remaining pages
+    # Render remaining pages with correct telemetry timing
     page_num = 2
-    for page in pages:
-        _render(page, False, page_num)
-        if len(page) == page_size:
-            console.print()
-            console.print(
-                "[dim]Press [bold]Enter[/bold] to continue, [bold]q[/bold] to quit…[/]"
-            )
-            if input("> ").strip().lower() == "q":
-                break
+    while True:
+        # Start page fetch timing and generate new trace ID BEFORE fetching
+        try:
+            from anyscale.telemetry import mark_page_fetch_start
+
+            mark_page_fetch_start(page_num)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Now fetch the page (with the new trace ID)
+        try:
+            page = next(pages)
+        except StopIteration:
+            break
+
+        # Render the page
+        total_count += _render_page(
+            page, item_formatter, table_creator, json_output, False, page_num, console
+        )
+
+        # Complete page fetch telemetry
+        try:
+            from anyscale.telemetry import mark_page_fetch_complete
+
+            mark_page_fetch_complete(page_num)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Check if user wants to continue or if this was the last page
+        if not _should_continue_pagination(page_size, len(page), console):
+            break
+
         page_num += 1
 
     return total_count

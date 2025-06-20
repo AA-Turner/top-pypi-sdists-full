@@ -1,7 +1,7 @@
 r'''
 # `data_aws_servicequotas_templates`
 
-Refer to the Terraform Registry for docs: [`data_aws_servicequotas_templates`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates).
+Refer to the Terraform Registry for docs: [`data_aws_servicequotas_templates`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,15 +44,15 @@ class DataAwsServicequotasTemplates(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsServicequotasTemplates.DataAwsServicequotasTemplates",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates aws_servicequotas_templates}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates aws_servicequotas_templates}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        region: builtins.str,
-        templates: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsServicequotasTemplatesTemplates", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        aws_region: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -61,12 +61,12 @@ class DataAwsServicequotasTemplates(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates aws_servicequotas_templates} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates aws_servicequotas_templates} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates#region DataAwsServicequotasTemplates#region}.
-        :param templates: templates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates#templates DataAwsServicequotasTemplates#templates}
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates#aws_region DataAwsServicequotasTemplates#aws_region}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates#region DataAwsServicequotasTemplates#region}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -80,8 +80,8 @@ class DataAwsServicequotasTemplates(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsServicequotasTemplatesConfig(
+            aws_region=aws_region,
             region=region,
-            templates=templates,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -106,7 +106,7 @@ class DataAwsServicequotasTemplates(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsServicequotasTemplates to import.
-        :param import_from_id: The id of the existing DataAwsServicequotasTemplates that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsServicequotasTemplates that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsServicequotasTemplates to import is found.
         '''
         if __debug__:
@@ -117,22 +117,13 @@ class DataAwsServicequotasTemplates(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putTemplates")
-    def put_templates(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsServicequotasTemplatesTemplates", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a2937be0a026e2f428a8eca3f34be4dce540dd6fa0530e94d1e4ac6eee2a4ba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putTemplates", [value]))
+    @jsii.member(jsii_name="resetAwsRegion")
+    def reset_aws_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAwsRegion", []))
 
-    @jsii.member(jsii_name="resetTemplates")
-    def reset_templates(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetTemplates", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -158,16 +149,26 @@ class DataAwsServicequotasTemplates(
         return typing.cast("DataAwsServicequotasTemplatesTemplatesList", jsii.get(self, "templates"))
 
     @builtins.property
+    @jsii.member(jsii_name="awsRegionInput")
+    def aws_region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "awsRegionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="regionInput")
     def region_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="templatesInput")
-    def templates_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsServicequotasTemplatesTemplates"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsServicequotasTemplatesTemplates"]]], jsii.get(self, "templatesInput"))
+    @jsii.member(jsii_name="awsRegion")
+    def aws_region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "awsRegion"))
+
+    @aws_region.setter
+    def aws_region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5d7982aa075a3943f973fbaf2e80e5d0ca2d3f4199a7dc92eede88028b61722)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsRegion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="region")
@@ -193,8 +194,8 @@ class DataAwsServicequotasTemplates(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
+        "aws_region": "awsRegion",
         "region": "region",
-        "templates": "templates",
     },
 )
 class DataAwsServicequotasTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -208,8 +209,8 @@ class DataAwsServicequotasTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        region: builtins.str,
-        templates: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsServicequotasTemplatesTemplates", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        aws_region: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -219,8 +220,8 @@ class DataAwsServicequotasTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates#region DataAwsServicequotasTemplates#region}.
-        :param templates: templates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates#templates DataAwsServicequotasTemplates#templates}
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates#aws_region DataAwsServicequotasTemplates#aws_region}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates#region DataAwsServicequotasTemplates#region}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -233,11 +234,9 @@ class DataAwsServicequotasTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
+            check_type(argname="argument aws_region", value=aws_region, expected_type=type_hints["aws_region"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-            check_type(argname="argument templates", value=templates, expected_type=type_hints["templates"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "region": region,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
         if count is not None:
@@ -252,8 +251,10 @@ class DataAwsServicequotasTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if templates is not None:
-            self._values["templates"] = templates
+        if aws_region is not None:
+            self._values["aws_region"] = aws_region
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -320,22 +321,16 @@ class DataAwsServicequotasTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates#region DataAwsServicequotasTemplates#region}.'''
-        result = self._values.get("region")
-        assert result is not None, "Required property 'region' is missing"
-        return typing.cast(builtins.str, result)
+    def aws_region(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates#aws_region DataAwsServicequotasTemplates#aws_region}.'''
+        result = self._values.get("aws_region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def templates(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsServicequotasTemplatesTemplates"]]]:
-        '''templates block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/servicequotas_templates#templates DataAwsServicequotasTemplates#templates}
-        '''
-        result = self._values.get("templates")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsServicequotasTemplatesTemplates"]]], result)
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/servicequotas_templates#region DataAwsServicequotasTemplates#region}.'''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -445,23 +440,6 @@ class DataAwsServicequotasTemplatesTemplatesList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsServicequotasTemplatesTemplates]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsServicequotasTemplatesTemplates]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsServicequotasTemplatesTemplates]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__209612af7c875c3cb05708d3f6a805fcfa09622199a3585aa8fe4bbb8a4fe046)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsServicequotasTemplatesTemplatesOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -531,15 +509,13 @@ class DataAwsServicequotasTemplatesTemplatesOutputReference(
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsServicequotasTemplatesTemplates]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsServicequotasTemplatesTemplates]], jsii.get(self, "internalValue"))
+    def internal_value(self) -> typing.Optional[DataAwsServicequotasTemplatesTemplates]:
+        return typing.cast(typing.Optional[DataAwsServicequotasTemplatesTemplates], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsServicequotasTemplatesTemplates]],
+        value: typing.Optional[DataAwsServicequotasTemplatesTemplates],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__206ec5e1920ceb1c40dd8a4c28a82c0dff0b252a565dfd8ac699119fdd8c955e)
@@ -561,8 +537,8 @@ def _typecheckingstub__9420132351e0a12fbb102b28c6a07ec6d037fd9a23c7c5cc8dcd9eacd
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    region: builtins.str,
-    templates: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsServicequotasTemplatesTemplates, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    aws_region: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -583,8 +559,8 @@ def _typecheckingstub__9eddc2422fadfceb8e68b119c5fa667f0f4ab7276d3766bc033781692
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9a2937be0a026e2f428a8eca3f34be4dce540dd6fa0530e94d1e4ac6eee2a4ba(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsServicequotasTemplatesTemplates, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__d5d7982aa075a3943f973fbaf2e80e5d0ca2d3f4199a7dc92eede88028b61722(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -604,8 +580,8 @@ def _typecheckingstub__0d19546ff093c97ca26fdfa55f72c856af3f9b6129066b8978b843064
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    region: builtins.str,
-    templates: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsServicequotasTemplatesTemplates, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    aws_region: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -642,12 +618,6 @@ def _typecheckingstub__4975c60a1bdb22772473646ee5726dad9638d3bea671d53b083425f83
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__209612af7c875c3cb05708d3f6a805fcfa09622199a3585aa8fe4bbb8a4fe046(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsServicequotasTemplatesTemplates]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1c3037be6c1d57798034eda735dc6003f6cb74e72cd2cb600b6e96b17ecd02e4(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -658,7 +628,7 @@ def _typecheckingstub__1c3037be6c1d57798034eda735dc6003f6cb74e72cd2cb600b6e96b17
     pass
 
 def _typecheckingstub__206ec5e1920ceb1c40dd8a4c28a82c0dff0b252a565dfd8ac699119fdd8c955e(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsServicequotasTemplatesTemplates]],
+    value: typing.Optional[DataAwsServicequotasTemplatesTemplates],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,13 +1,14 @@
-"""The artifact module provides the base Artifact class, along with the various types of artifacts as subclasses.
+"""The `hera.workflows.artifact` module provides the base Artifact class, along with the various types of artifacts as subclasses.
 
-See https://argoproj.github.io/argo-workflows/walk-through/artifacts/ for a tutorial on Artifacts.
+Tip:
+    [Read the Hera walk-through for Artifacts.](../../../walk-through/artifacts.md)
 """
 
 from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import List, Optional, Union, cast
+from typing import Any, Callable, List, Optional, Union, cast
 
 from hera.shared._pydantic import BaseModel
 from hera.workflows.archive import ArchiveStrategy
@@ -29,8 +30,8 @@ from hera.workflows.models import (
     SecretKeySelector,
 )
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.WARNING)
 
 _DEFAULT_ARTIFACT_INPUT_DIRECTORY = "/tmp/hera-inputs/artifacts/"
 
@@ -89,6 +90,18 @@ class Artifact(BaseModel):
 
     Note: A loader value of 'None' must be used with an underlying type of 'str' or Path-like class."""
 
+    loadb: Optional[Callable[[bytes], Any]] = None
+    """used to specify a loader function to deserialise from bytes for Annotated Artifact function parameters"""
+
+    dumpb: Optional[Callable[[Any], bytes]] = None
+    """used to specify a dumper function to serialise the Artifact value as bytes for Annotated Artifact function parameters"""
+
+    loads: Optional[Callable[[str], Any]] = None
+    """used to specify a loader function to deserialise a string representation of an object for Annotated Artifact function parameters"""
+
+    dumps: Optional[Callable[[Any], str]] = None
+    """used to specify a dumper function to serialise the Artifact value as a string for Annotated Artifact function parameters"""
+
     optional: Optional[bool] = None
     """whether the Artifact is optional. For an input Artifact, this means it may possibly not
     exist at the specified path during the template's runtime. For an output Artifact, it may
@@ -137,11 +150,12 @@ class Artifact(BaseModel):
         return _ModelArtifactPaths(**artifact.dict())
 
     def as_name(self, name: str) -> _ModelArtifact:
-        """DEPRECATED, use with_name.
+        """Returns a 'built' copy of the current artifact, renamed using the specified `name`.
 
-        Returns a 'built' copy of the current artifact, renamed using the specified `name`.
+        Warning: DEPRECATED
+            use with_name.
         """
-        logger.warning("'as_name' is deprecated, use 'with_name'")
+        _logger.warning("'as_name' is deprecated, use 'with_name'")
         artifact = self._build_artifact()
         artifact.name = name
         return artifact

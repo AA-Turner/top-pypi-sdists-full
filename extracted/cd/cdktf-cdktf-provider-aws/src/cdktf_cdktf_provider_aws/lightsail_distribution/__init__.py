@@ -1,7 +1,7 @@
 r'''
 # `aws_lightsail_distribution`
 
-Refer to the Terraform Registry for docs: [`aws_lightsail_distribution`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution).
+Refer to the Terraform Registry for docs: [`aws_lightsail_distribution`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LightsailDistribution(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lightsailDistribution.LightsailDistribution",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution aws_lightsail_distribution}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution aws_lightsail_distribution}.'''
 
     def __init__(
         self,
@@ -61,6 +61,7 @@ class LightsailDistribution(
         id: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         is_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["LightsailDistributionTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -72,23 +73,24 @@ class LightsailDistribution(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution aws_lightsail_distribution} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution aws_lightsail_distribution} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bundle_id: The bundle ID to use for the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#bundle_id LightsailDistribution#bundle_id}
-        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#default_cache_behavior LightsailDistribution#default_cache_behavior}
-        :param name: The name of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
-        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#origin LightsailDistribution#origin}
-        :param cache_behavior: cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cache_behavior LightsailDistribution#cache_behavior}
-        :param cache_behavior_settings: cache_behavior_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cache_behavior_settings LightsailDistribution#cache_behavior_settings}
-        :param certificate_name: The name of the SSL/TLS certificate attached to the distribution, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#certificate_name LightsailDistribution#certificate_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#id LightsailDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address_type: The IP address type of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#ip_address_type LightsailDistribution#ip_address_type}
-        :param is_enabled: Indicates whether the distribution is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#is_enabled LightsailDistribution#is_enabled}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#tags LightsailDistribution#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#tags_all LightsailDistribution#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#timeouts LightsailDistribution#timeouts}
+        :param bundle_id: The bundle ID to use for the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#bundle_id LightsailDistribution#bundle_id}
+        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#default_cache_behavior LightsailDistribution#default_cache_behavior}
+        :param name: The name of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
+        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#origin LightsailDistribution#origin}
+        :param cache_behavior: cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cache_behavior LightsailDistribution#cache_behavior}
+        :param cache_behavior_settings: cache_behavior_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cache_behavior_settings LightsailDistribution#cache_behavior_settings}
+        :param certificate_name: The name of the SSL/TLS certificate attached to the distribution, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#certificate_name LightsailDistribution#certificate_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#id LightsailDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address_type: The IP address type of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#ip_address_type LightsailDistribution#ip_address_type}
+        :param is_enabled: Indicates whether the distribution is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#is_enabled LightsailDistribution#is_enabled}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#region LightsailDistribution#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#tags LightsailDistribution#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#tags_all LightsailDistribution#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#timeouts LightsailDistribution#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,6 +114,7 @@ class LightsailDistribution(
             id=id,
             ip_address_type=ip_address_type,
             is_enabled=is_enabled,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             timeouts=timeouts,
@@ -139,7 +142,7 @@ class LightsailDistribution(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LightsailDistribution to import.
-        :param import_from_id: The id of the existing LightsailDistribution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LightsailDistribution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LightsailDistribution to import is found.
         '''
         if __debug__:
@@ -177,14 +180,14 @@ class LightsailDistribution(
         minimum_ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_http_methods: The HTTP methods that are processed and forwarded to the distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#allowed_http_methods LightsailDistribution#allowed_http_methods}
-        :param cached_http_methods: The HTTP method responses that are cached by your distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cached_http_methods LightsailDistribution#cached_http_methods}
-        :param default_ttl: The default amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the content has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#default_ttl LightsailDistribution#default_ttl}
-        :param forwarded_cookies: forwarded_cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_cookies LightsailDistribution#forwarded_cookies}
-        :param forwarded_headers: forwarded_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_headers LightsailDistribution#forwarded_headers}
-        :param forwarded_query_strings: forwarded_query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_query_strings LightsailDistribution#forwarded_query_strings}
-        :param maximum_ttl: The maximum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#maximum_ttl LightsailDistribution#maximum_ttl}
-        :param minimum_ttl: The minimum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#minimum_ttl LightsailDistribution#minimum_ttl}
+        :param allowed_http_methods: The HTTP methods that are processed and forwarded to the distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#allowed_http_methods LightsailDistribution#allowed_http_methods}
+        :param cached_http_methods: The HTTP method responses that are cached by your distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cached_http_methods LightsailDistribution#cached_http_methods}
+        :param default_ttl: The default amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the content has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#default_ttl LightsailDistribution#default_ttl}
+        :param forwarded_cookies: forwarded_cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_cookies LightsailDistribution#forwarded_cookies}
+        :param forwarded_headers: forwarded_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_headers LightsailDistribution#forwarded_headers}
+        :param forwarded_query_strings: forwarded_query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_query_strings LightsailDistribution#forwarded_query_strings}
+        :param maximum_ttl: The maximum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#maximum_ttl LightsailDistribution#maximum_ttl}
+        :param minimum_ttl: The minimum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#minimum_ttl LightsailDistribution#minimum_ttl}
         '''
         value = LightsailDistributionCacheBehaviorSettings(
             allowed_http_methods=allowed_http_methods,
@@ -202,7 +205,7 @@ class LightsailDistribution(
     @jsii.member(jsii_name="putDefaultCacheBehavior")
     def put_default_cache_behavior(self, *, behavior: builtins.str) -> None:
         '''
-        :param behavior: The cache behavior of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
+        :param behavior: The cache behavior of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
         '''
         value = LightsailDistributionDefaultCacheBehavior(behavior=behavior)
 
@@ -217,9 +220,9 @@ class LightsailDistribution(
         protocol_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
-        :param region_name: The AWS Region name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#region_name LightsailDistribution#region_name}
-        :param protocol_policy: The protocol that your Amazon Lightsail distribution uses when establishing a connection with your origin to pull content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#protocol_policy LightsailDistribution#protocol_policy}
+        :param name: The name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
+        :param region_name: The AWS Region name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#region_name LightsailDistribution#region_name}
+        :param protocol_policy: The protocol that your Amazon Lightsail distribution uses when establishing a connection with your origin to pull content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#protocol_policy LightsailDistribution#protocol_policy}
         '''
         value = LightsailDistributionOrigin(
             name=name, region_name=region_name, protocol_policy=protocol_policy
@@ -236,9 +239,9 @@ class LightsailDistribution(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#create LightsailDistribution#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#delete LightsailDistribution#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#update LightsailDistribution#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#create LightsailDistribution#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#delete LightsailDistribution#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#update LightsailDistribution#update}.
         '''
         value = LightsailDistributionTimeouts(
             create=create, delete=delete, update=update
@@ -269,6 +272,10 @@ class LightsailDistribution(
     @jsii.member(jsii_name="resetIsEnabled")
     def reset_is_enabled(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIsEnabled", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -428,6 +435,11 @@ class LightsailDistribution(
         return typing.cast(typing.Optional["LightsailDistributionOrigin"], jsii.get(self, "originInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="tagsAllInput")
     def tags_all_input(
         self,
@@ -522,6 +534,18 @@ class LightsailDistribution(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61b9ec619d5265a14be6ca928a6e89e76fd522d70b750c87c9795b427e3cfdcf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tags"))
@@ -554,8 +578,8 @@ class LightsailDistribution(
 class LightsailDistributionCacheBehavior:
     def __init__(self, *, behavior: builtins.str, path: builtins.str) -> None:
         '''
-        :param behavior: The cache behavior for the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
-        :param path: The path to a directory or file to cached, or not cache. Use an asterisk symbol to specify wildcard directories (path/to/assets/*), and file types (*.html, *jpg, *js). Directories and file paths are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#path LightsailDistribution#path}
+        :param behavior: The cache behavior for the specified path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
+        :param path: The path to a directory or file to cached, or not cache. Use an asterisk symbol to specify wildcard directories (path/to/assets/*), and file types (*.html, *jpg, *js). Directories and file paths are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#path LightsailDistribution#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a00659ec5e4cbdeae265f615342d800e7d6168564adaf4f05146bf46a5d52fa5)
@@ -570,7 +594,7 @@ class LightsailDistributionCacheBehavior:
     def behavior(self) -> builtins.str:
         '''The cache behavior for the specified path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
         '''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
@@ -582,7 +606,7 @@ class LightsailDistributionCacheBehavior:
 
         Use an asterisk symbol to specify wildcard directories (path/to/assets/*), and file types (*.html, *jpg, *js). Directories and file paths are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#path LightsailDistribution#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#path LightsailDistribution#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -799,14 +823,14 @@ class LightsailDistributionCacheBehaviorSettings:
         minimum_ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_http_methods: The HTTP methods that are processed and forwarded to the distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#allowed_http_methods LightsailDistribution#allowed_http_methods}
-        :param cached_http_methods: The HTTP method responses that are cached by your distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cached_http_methods LightsailDistribution#cached_http_methods}
-        :param default_ttl: The default amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the content has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#default_ttl LightsailDistribution#default_ttl}
-        :param forwarded_cookies: forwarded_cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_cookies LightsailDistribution#forwarded_cookies}
-        :param forwarded_headers: forwarded_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_headers LightsailDistribution#forwarded_headers}
-        :param forwarded_query_strings: forwarded_query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_query_strings LightsailDistribution#forwarded_query_strings}
-        :param maximum_ttl: The maximum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#maximum_ttl LightsailDistribution#maximum_ttl}
-        :param minimum_ttl: The minimum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#minimum_ttl LightsailDistribution#minimum_ttl}
+        :param allowed_http_methods: The HTTP methods that are processed and forwarded to the distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#allowed_http_methods LightsailDistribution#allowed_http_methods}
+        :param cached_http_methods: The HTTP method responses that are cached by your distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cached_http_methods LightsailDistribution#cached_http_methods}
+        :param default_ttl: The default amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the content has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#default_ttl LightsailDistribution#default_ttl}
+        :param forwarded_cookies: forwarded_cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_cookies LightsailDistribution#forwarded_cookies}
+        :param forwarded_headers: forwarded_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_headers LightsailDistribution#forwarded_headers}
+        :param forwarded_query_strings: forwarded_query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_query_strings LightsailDistribution#forwarded_query_strings}
+        :param maximum_ttl: The maximum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#maximum_ttl LightsailDistribution#maximum_ttl}
+        :param minimum_ttl: The minimum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#minimum_ttl LightsailDistribution#minimum_ttl}
         '''
         if isinstance(forwarded_cookies, dict):
             forwarded_cookies = LightsailDistributionCacheBehaviorSettingsForwardedCookies(**forwarded_cookies)
@@ -846,7 +870,7 @@ class LightsailDistributionCacheBehaviorSettings:
     def allowed_http_methods(self) -> typing.Optional[builtins.str]:
         '''The HTTP methods that are processed and forwarded to the distribution's origin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#allowed_http_methods LightsailDistribution#allowed_http_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#allowed_http_methods LightsailDistribution#allowed_http_methods}
         '''
         result = self._values.get("allowed_http_methods")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -855,7 +879,7 @@ class LightsailDistributionCacheBehaviorSettings:
     def cached_http_methods(self) -> typing.Optional[builtins.str]:
         '''The HTTP method responses that are cached by your distribution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cached_http_methods LightsailDistribution#cached_http_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cached_http_methods LightsailDistribution#cached_http_methods}
         '''
         result = self._values.get("cached_http_methods")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -864,7 +888,7 @@ class LightsailDistributionCacheBehaviorSettings:
     def default_ttl(self) -> typing.Optional[jsii.Number]:
         '''The default amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the content has been updated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#default_ttl LightsailDistribution#default_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#default_ttl LightsailDistribution#default_ttl}
         '''
         result = self._values.get("default_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -875,7 +899,7 @@ class LightsailDistributionCacheBehaviorSettings:
     ) -> typing.Optional["LightsailDistributionCacheBehaviorSettingsForwardedCookies"]:
         '''forwarded_cookies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_cookies LightsailDistribution#forwarded_cookies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_cookies LightsailDistribution#forwarded_cookies}
         '''
         result = self._values.get("forwarded_cookies")
         return typing.cast(typing.Optional["LightsailDistributionCacheBehaviorSettingsForwardedCookies"], result)
@@ -886,7 +910,7 @@ class LightsailDistributionCacheBehaviorSettings:
     ) -> typing.Optional["LightsailDistributionCacheBehaviorSettingsForwardedHeaders"]:
         '''forwarded_headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_headers LightsailDistribution#forwarded_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_headers LightsailDistribution#forwarded_headers}
         '''
         result = self._values.get("forwarded_headers")
         return typing.cast(typing.Optional["LightsailDistributionCacheBehaviorSettingsForwardedHeaders"], result)
@@ -897,7 +921,7 @@ class LightsailDistributionCacheBehaviorSettings:
     ) -> typing.Optional["LightsailDistributionCacheBehaviorSettingsForwardedQueryStrings"]:
         '''forwarded_query_strings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#forwarded_query_strings LightsailDistribution#forwarded_query_strings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#forwarded_query_strings LightsailDistribution#forwarded_query_strings}
         '''
         result = self._values.get("forwarded_query_strings")
         return typing.cast(typing.Optional["LightsailDistributionCacheBehaviorSettingsForwardedQueryStrings"], result)
@@ -906,7 +930,7 @@ class LightsailDistributionCacheBehaviorSettings:
     def maximum_ttl(self) -> typing.Optional[jsii.Number]:
         '''The maximum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#maximum_ttl LightsailDistribution#maximum_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#maximum_ttl LightsailDistribution#maximum_ttl}
         '''
         result = self._values.get("maximum_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -915,7 +939,7 @@ class LightsailDistributionCacheBehaviorSettings:
     def minimum_ttl(self) -> typing.Optional[jsii.Number]:
         '''The minimum amount of time that objects stay in the distribution's cache before the distribution forwards another request to the origin to determine whether the object has been updated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#minimum_ttl LightsailDistribution#minimum_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#minimum_ttl LightsailDistribution#minimum_ttl}
         '''
         result = self._values.get("minimum_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -945,8 +969,8 @@ class LightsailDistributionCacheBehaviorSettingsForwardedCookies:
         option: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cookies_allow_list: The specific cookies to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cookies_allow_list LightsailDistribution#cookies_allow_list}
-        :param option: Specifies which cookies to forward to the distribution's origin for a cache behavior: all, none, or allow-list to forward only the cookies specified in the cookiesAllowList parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        :param cookies_allow_list: The specific cookies to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cookies_allow_list LightsailDistribution#cookies_allow_list}
+        :param option: Specifies which cookies to forward to the distribution's origin for a cache behavior: all, none, or allow-list to forward only the cookies specified in the cookiesAllowList parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__895017f51ade2cb0f013a5221648c4cd0cb0eef7647774b24de64eeadf03ab05)
@@ -962,7 +986,7 @@ class LightsailDistributionCacheBehaviorSettingsForwardedCookies:
     def cookies_allow_list(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The specific cookies to forward to your distribution's origin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cookies_allow_list LightsailDistribution#cookies_allow_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cookies_allow_list LightsailDistribution#cookies_allow_list}
         '''
         result = self._values.get("cookies_allow_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -971,7 +995,7 @@ class LightsailDistributionCacheBehaviorSettingsForwardedCookies:
     def option(self) -> typing.Optional[builtins.str]:
         '''Specifies which cookies to forward to the distribution's origin for a cache behavior: all, none, or allow-list to forward only the cookies specified in the cookiesAllowList parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
         '''
         result = self._values.get("option")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1081,8 +1105,8 @@ class LightsailDistributionCacheBehaviorSettingsForwardedHeaders:
         option: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param headers_allow_list: The specific headers to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#headers_allow_list LightsailDistribution#headers_allow_list}
-        :param option: The headers that you want your distribution to forward to your origin and base caching on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        :param headers_allow_list: The specific headers to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#headers_allow_list LightsailDistribution#headers_allow_list}
+        :param option: The headers that you want your distribution to forward to your origin and base caching on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed5100db875df959d97b3357e1b3c11636e56f6dcc7566a6cd79161a3df17f61)
@@ -1098,7 +1122,7 @@ class LightsailDistributionCacheBehaviorSettingsForwardedHeaders:
     def headers_allow_list(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The specific headers to forward to your distribution's origin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#headers_allow_list LightsailDistribution#headers_allow_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#headers_allow_list LightsailDistribution#headers_allow_list}
         '''
         result = self._values.get("headers_allow_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1107,7 +1131,7 @@ class LightsailDistributionCacheBehaviorSettingsForwardedHeaders:
     def option(self) -> typing.Optional[builtins.str]:
         '''The headers that you want your distribution to forward to your origin and base caching on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
         '''
         result = self._values.get("option")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1220,8 +1244,8 @@ class LightsailDistributionCacheBehaviorSettingsForwardedQueryStrings:
         query_strings_allowed_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param option: Indicates whether the distribution forwards and caches based on query strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
-        :param query_strings_allowed_list: The specific query strings that the distribution forwards to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#query_strings_allowed_list LightsailDistribution#query_strings_allowed_list}
+        :param option: Indicates whether the distribution forwards and caches based on query strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        :param query_strings_allowed_list: The specific query strings that the distribution forwards to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#query_strings_allowed_list LightsailDistribution#query_strings_allowed_list}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a9a6bdfa81463071226c6d6e0f5c1d7201a480ab495c838d655e1cf6c2cb2e0)
@@ -1239,7 +1263,7 @@ class LightsailDistributionCacheBehaviorSettingsForwardedQueryStrings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the distribution forwards and caches based on query strings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
         '''
         result = self._values.get("option")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1248,7 +1272,7 @@ class LightsailDistributionCacheBehaviorSettingsForwardedQueryStrings:
     def query_strings_allowed_list(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The specific query strings that the distribution forwards to the origin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#query_strings_allowed_list LightsailDistribution#query_strings_allowed_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#query_strings_allowed_list LightsailDistribution#query_strings_allowed_list}
         '''
         result = self._values.get("query_strings_allowed_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1380,8 +1404,8 @@ class LightsailDistributionCacheBehaviorSettingsOutputReference(
         option: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cookies_allow_list: The specific cookies to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cookies_allow_list LightsailDistribution#cookies_allow_list}
-        :param option: Specifies which cookies to forward to the distribution's origin for a cache behavior: all, none, or allow-list to forward only the cookies specified in the cookiesAllowList parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        :param cookies_allow_list: The specific cookies to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cookies_allow_list LightsailDistribution#cookies_allow_list}
+        :param option: Specifies which cookies to forward to the distribution's origin for a cache behavior: all, none, or allow-list to forward only the cookies specified in the cookiesAllowList parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
         '''
         value = LightsailDistributionCacheBehaviorSettingsForwardedCookies(
             cookies_allow_list=cookies_allow_list, option=option
@@ -1397,8 +1421,8 @@ class LightsailDistributionCacheBehaviorSettingsOutputReference(
         option: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param headers_allow_list: The specific headers to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#headers_allow_list LightsailDistribution#headers_allow_list}
-        :param option: The headers that you want your distribution to forward to your origin and base caching on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        :param headers_allow_list: The specific headers to forward to your distribution's origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#headers_allow_list LightsailDistribution#headers_allow_list}
+        :param option: The headers that you want your distribution to forward to your origin and base caching on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
         '''
         value = LightsailDistributionCacheBehaviorSettingsForwardedHeaders(
             headers_allow_list=headers_allow_list, option=option
@@ -1414,8 +1438,8 @@ class LightsailDistributionCacheBehaviorSettingsOutputReference(
         query_strings_allowed_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param option: Indicates whether the distribution forwards and caches based on query strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
-        :param query_strings_allowed_list: The specific query strings that the distribution forwards to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#query_strings_allowed_list LightsailDistribution#query_strings_allowed_list}
+        :param option: Indicates whether the distribution forwards and caches based on query strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#option LightsailDistribution#option}
+        :param query_strings_allowed_list: The specific query strings that the distribution forwards to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#query_strings_allowed_list LightsailDistribution#query_strings_allowed_list}
         '''
         value = LightsailDistributionCacheBehaviorSettingsForwardedQueryStrings(
             option=option, query_strings_allowed_list=query_strings_allowed_list
@@ -1621,6 +1645,7 @@ class LightsailDistributionCacheBehaviorSettingsOutputReference(
         "id": "id",
         "ip_address_type": "ipAddressType",
         "is_enabled": "isEnabled",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
         "timeouts": "timeouts",
@@ -1647,6 +1672,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         is_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["LightsailDistributionTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1659,19 +1685,20 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bundle_id: The bundle ID to use for the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#bundle_id LightsailDistribution#bundle_id}
-        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#default_cache_behavior LightsailDistribution#default_cache_behavior}
-        :param name: The name of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
-        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#origin LightsailDistribution#origin}
-        :param cache_behavior: cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cache_behavior LightsailDistribution#cache_behavior}
-        :param cache_behavior_settings: cache_behavior_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cache_behavior_settings LightsailDistribution#cache_behavior_settings}
-        :param certificate_name: The name of the SSL/TLS certificate attached to the distribution, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#certificate_name LightsailDistribution#certificate_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#id LightsailDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address_type: The IP address type of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#ip_address_type LightsailDistribution#ip_address_type}
-        :param is_enabled: Indicates whether the distribution is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#is_enabled LightsailDistribution#is_enabled}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#tags LightsailDistribution#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#tags_all LightsailDistribution#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#timeouts LightsailDistribution#timeouts}
+        :param bundle_id: The bundle ID to use for the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#bundle_id LightsailDistribution#bundle_id}
+        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#default_cache_behavior LightsailDistribution#default_cache_behavior}
+        :param name: The name of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
+        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#origin LightsailDistribution#origin}
+        :param cache_behavior: cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cache_behavior LightsailDistribution#cache_behavior}
+        :param cache_behavior_settings: cache_behavior_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cache_behavior_settings LightsailDistribution#cache_behavior_settings}
+        :param certificate_name: The name of the SSL/TLS certificate attached to the distribution, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#certificate_name LightsailDistribution#certificate_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#id LightsailDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address_type: The IP address type of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#ip_address_type LightsailDistribution#ip_address_type}
+        :param is_enabled: Indicates whether the distribution is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#is_enabled LightsailDistribution#is_enabled}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#region LightsailDistribution#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#tags LightsailDistribution#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#tags_all LightsailDistribution#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#timeouts LightsailDistribution#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1702,6 +1729,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -1737,6 +1765,8 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["ip_address_type"] = ip_address_type
         if is_enabled is not None:
             self._values["is_enabled"] = is_enabled
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -1812,7 +1842,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bundle_id(self) -> builtins.str:
         '''The bundle ID to use for the distribution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#bundle_id LightsailDistribution#bundle_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#bundle_id LightsailDistribution#bundle_id}
         '''
         result = self._values.get("bundle_id")
         assert result is not None, "Required property 'bundle_id' is missing"
@@ -1822,7 +1852,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_cache_behavior(self) -> "LightsailDistributionDefaultCacheBehavior":
         '''default_cache_behavior block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#default_cache_behavior LightsailDistribution#default_cache_behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#default_cache_behavior LightsailDistribution#default_cache_behavior}
         '''
         result = self._values.get("default_cache_behavior")
         assert result is not None, "Required property 'default_cache_behavior' is missing"
@@ -1832,7 +1862,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the distribution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1842,7 +1872,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def origin(self) -> "LightsailDistributionOrigin":
         '''origin block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#origin LightsailDistribution#origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#origin LightsailDistribution#origin}
         '''
         result = self._values.get("origin")
         assert result is not None, "Required property 'origin' is missing"
@@ -1854,7 +1884,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LightsailDistributionCacheBehavior]]]:
         '''cache_behavior block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cache_behavior LightsailDistribution#cache_behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cache_behavior LightsailDistribution#cache_behavior}
         '''
         result = self._values.get("cache_behavior")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LightsailDistributionCacheBehavior]]], result)
@@ -1865,7 +1895,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[LightsailDistributionCacheBehaviorSettings]:
         '''cache_behavior_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#cache_behavior_settings LightsailDistribution#cache_behavior_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#cache_behavior_settings LightsailDistribution#cache_behavior_settings}
         '''
         result = self._values.get("cache_behavior_settings")
         return typing.cast(typing.Optional[LightsailDistributionCacheBehaviorSettings], result)
@@ -1874,14 +1904,14 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def certificate_name(self) -> typing.Optional[builtins.str]:
         '''The name of the SSL/TLS certificate attached to the distribution, if any.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#certificate_name LightsailDistribution#certificate_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#certificate_name LightsailDistribution#certificate_name}
         '''
         result = self._values.get("certificate_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#id LightsailDistribution#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#id LightsailDistribution#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1893,7 +1923,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ip_address_type(self) -> typing.Optional[builtins.str]:
         '''The IP address type of the distribution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#ip_address_type LightsailDistribution#ip_address_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#ip_address_type LightsailDistribution#ip_address_type}
         '''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1904,20 +1934,29 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the distribution is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#is_enabled LightsailDistribution#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#is_enabled LightsailDistribution#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#region LightsailDistribution#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#tags LightsailDistribution#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#tags LightsailDistribution#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#tags_all LightsailDistribution#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#tags_all LightsailDistribution#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1925,7 +1964,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LightsailDistributionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#timeouts LightsailDistribution#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#timeouts LightsailDistribution#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LightsailDistributionTimeouts"], result)
@@ -1950,7 +1989,7 @@ class LightsailDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class LightsailDistributionDefaultCacheBehavior:
     def __init__(self, *, behavior: builtins.str) -> None:
         '''
-        :param behavior: The cache behavior of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
+        :param behavior: The cache behavior of the distribution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b1879da353fc0e2b01baab54d14cc24774f2421a48b25b9b88987ab048675a6)
@@ -1963,7 +2002,7 @@ class LightsailDistributionDefaultCacheBehavior:
     def behavior(self) -> builtins.str:
         '''The cache behavior of the distribution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#behavior LightsailDistribution#behavior}
         '''
         result = self._values.get("behavior")
         assert result is not None, "Required property 'behavior' is missing"
@@ -2200,9 +2239,9 @@ class LightsailDistributionOrigin:
         protocol_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
-        :param region_name: The AWS Region name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#region_name LightsailDistribution#region_name}
-        :param protocol_policy: The protocol that your Amazon Lightsail distribution uses when establishing a connection with your origin to pull content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#protocol_policy LightsailDistribution#protocol_policy}
+        :param name: The name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
+        :param region_name: The AWS Region name of the origin resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#region_name LightsailDistribution#region_name}
+        :param protocol_policy: The protocol that your Amazon Lightsail distribution uses when establishing a connection with your origin to pull content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#protocol_policy LightsailDistribution#protocol_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca586090d3d4a01fa6ddb9f46b59a648559366fbac198325b50e6157305849a9)
@@ -2220,7 +2259,7 @@ class LightsailDistributionOrigin:
     def name(self) -> builtins.str:
         '''The name of the origin resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#name LightsailDistribution#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2230,7 +2269,7 @@ class LightsailDistributionOrigin:
     def region_name(self) -> builtins.str:
         '''The AWS Region name of the origin resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#region_name LightsailDistribution#region_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#region_name LightsailDistribution#region_name}
         '''
         result = self._values.get("region_name")
         assert result is not None, "Required property 'region_name' is missing"
@@ -2240,7 +2279,7 @@ class LightsailDistributionOrigin:
     def protocol_policy(self) -> typing.Optional[builtins.str]:
         '''The protocol that your Amazon Lightsail distribution uses when establishing a connection with your origin to pull content.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#protocol_policy LightsailDistribution#protocol_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#protocol_policy LightsailDistribution#protocol_policy}
         '''
         result = self._values.get("protocol_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2367,9 +2406,9 @@ class LightsailDistributionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#create LightsailDistribution#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#delete LightsailDistribution#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#update LightsailDistribution#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#create LightsailDistribution#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#delete LightsailDistribution#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#update LightsailDistribution#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f4377ff43944f15885315c1d35a915917afee75b4f9d5c129fe1f7da1cad464)
@@ -2386,19 +2425,19 @@ class LightsailDistributionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#create LightsailDistribution#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#create LightsailDistribution#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#delete LightsailDistribution#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#delete LightsailDistribution#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_distribution#update LightsailDistribution#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_distribution#update LightsailDistribution#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2556,6 +2595,7 @@ def _typecheckingstub__b7d39b704a950211a2aae91e800ee4185e4235bab248799bf8726603b
     id: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     is_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[LightsailDistributionTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2616,6 +2656,12 @@ def _typecheckingstub__5eb6c3a659a477e582c80973e9057375c88f5f0f89e2727a4da8f8c6e
     pass
 
 def _typecheckingstub__a3b12fc79b7bff00721daaa7268e06147e2d39d39c72176fc34167daf87d38cb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61b9ec619d5265a14be6ca928a6e89e76fd522d70b750c87c9795b427e3cfdcf(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -2881,6 +2927,7 @@ def _typecheckingstub__0373eafb8660792800c244f71ea3e533260b83f809be7bad67ac3a81c
     id: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     is_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[LightsailDistributionTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

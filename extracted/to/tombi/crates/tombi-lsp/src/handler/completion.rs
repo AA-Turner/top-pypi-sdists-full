@@ -2,6 +2,7 @@ use itertools::Either;
 use tombi_ast::{algo::ancestors_at_position, AstNode};
 use tombi_document_tree::IntoDocumentTreeAndErrors;
 use tombi_extension::CompletionContent;
+use tombi_schema_store::get_accessors;
 use tombi_syntax::{SyntaxElement, SyntaxKind};
 use tower_lsp::lsp_types::{CompletionParams, TextDocumentPositionParams};
 
@@ -10,7 +11,6 @@ use crate::{
     completion::{
         extract_keys_and_hint, find_completion_contents_with_tree, get_comment_completion_contents,
     },
-    handler::hover::get_hover_accessors,
 };
 
 #[tracing::instrument(level = "debug", skip_all)]
@@ -109,13 +109,14 @@ pub async fn handle_completion(
         .await,
     );
 
-    let accessors = get_hover_accessors(&document_tree, &keys, position);
+    let accessors = get_accessors(&document_tree, &keys, position);
     if let Some(items) = tombi_extension_cargo::completion(
         &text_document,
         &document_tree,
         position,
         &accessors,
         toml_version,
+        completion_hint,
     )
     .await?
     {

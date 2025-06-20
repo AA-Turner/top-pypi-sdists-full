@@ -1,12 +1,12 @@
-"""The parameter module provides the Parameter class.
+"""The `hera.workflows.parameter` module provides the Parameter class.
 
-See https://argoproj.github.io/argo-workflows/walk-through/parameters/
-for a tutorial on Parameters.
+Tip:
+    [Read the Hera walk-through for Parameters.](../../../walk-through/parameters.md)
 """
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from hera.shared._pydantic import root_validator
 from hera.shared.serialization import MISSING, serialize
@@ -21,9 +21,16 @@ class Parameter(_ModelParameter):
     """
 
     name: Optional[str] = None  # type: ignore
+    """the name of the Parameter in the template"""
 
     output: Optional[bool] = False
     """used to specify parameter as an output in function signature annotations"""
+
+    dumps: Optional[Callable[[Any], str]] = None
+    """used to specify a dumper function to serialise an output parameter value as a string for Annotated parameters"""
+
+    loads: Optional[Callable[[str], Any]] = None
+    """used to specify a loader function to deserialise a string representation of an object for Annotated parameters"""
 
     def _check_name(self):
         if not self.name:

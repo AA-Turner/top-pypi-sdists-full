@@ -740,8 +740,7 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.UniqueStore
         },
         affects_build_cache_key=False,
-        disables_build_cache=False,
-        config_data=None
+        disables_build_cache=False
     )
 
     BUILD_CACHE = AttrUtil.AttributeDefinition(

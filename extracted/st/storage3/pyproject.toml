@@ -18,33 +18,35 @@ license = "MIT"
 name = "storage3"
 readme = "README.md"
 repository = "https://github.com/supabase/storage-py"
-version = "0.11.3" # {x-release-please-version}
+version = "0.12.0" # {x-release-please-version}
 
 
 [tool.poetry.dependencies]
 httpx = {version = ">=0.26,<0.29", extras = ["http2"]}
 python = "^3.9"
 python-dateutil = "^2.8.2"
+deprecation = "^2.1.0"
 
-[tool.poetry.dev-dependencies]
-black = "^24.8.0"
-isort = "^6.0.0"
-pre-commit = "^4.1.0"
-pytest = "^8.3.4"
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+isort = "^6.0.1"
+pre-commit = "^4.2.0"
+pytest = "^8.3.5"
 pytest-asyncio = "^0.21.0"
-pytest-cov = "^6.0.0"
-python-dotenv = "^1.0.0"
+pytest-cov = "^6.1.0"
+python-dotenv = "^1.1.0"
 Sphinx = "^7.1.2"
 sphinx-press-theme = "^0.9.1"
 unasync-cli = "^0.0.9"
 coveralls = "^1.8.0"
-
-[tool.poetry.group.dev.dependencies]
 sphinx-toolbox = "^3.4.0"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "tests"
+filterwarnings = [
+    "ignore::DeprecationWarning", # ignore deprecation warnings globally
+]
 
 [build-system]
 build-backend = "poetry.core.masonry.api"

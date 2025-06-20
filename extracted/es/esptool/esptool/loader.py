@@ -143,13 +143,6 @@ def stub_and_esp32_function_only(func):
     )
 
 
-def esp32s3_or_newer_function_only(func):
-    """Attribute for a function only supported by ESP32S3 and later chips ROM"""
-    return check_supported_function(
-        func, lambda o: o.CHIP_NAME not in ["ESP8266", "ESP32", "ESP32-S2"]
-    )
-
-
 class StubFlasher:
     STUB_DIR = os.path.join(os.path.dirname(__file__), "targets", "stub_flasher")
     # directories will be searched in the order of STUB_SUBDIRS
@@ -301,6 +294,9 @@ class ESPLoader(object):
 
     # Number of attempts to write flash data
     WRITE_FLASH_ATTEMPTS = 2
+
+    # Chip uses magic number for chip type autodetection
+    USES_MAGIC_VALUE = True
 
     def __init__(self, port=DEFAULT_PORT, baud=ESP_ROM_BAUD, trace_enabled=False):
         """Base constructor for ESPLoader bootloader interaction
@@ -741,7 +737,7 @@ class ESPLoader(object):
                     " if ESP32-C2 doesn't connect"
                     " (at least 115200 Bd is recommended)."
                 )
-
+            self._port.close()
             raise FatalError(
                 "Failed to connect to {}: {}"
                 f"{additional_msg}"
@@ -752,41 +748,75 @@ class ESPLoader(object):
             )
 
         if not detecting:
-            try:
-                from .targets import ROM_LIST
+            from .targets import ROM_LIST
 
-                # check the date code registers match what we expect to see
+            # Perform a dummy read_reg to check if the chip is in secure download mode
+            try:
                 chip_magic_value = self.read_reg(ESPLoader.CHIP_DETECT_MAGIC_REG_ADDR)
-                if chip_magic_value not in self.CHIP_DETECT_MAGIC_VALUE:
-                    actually = None
-                    for cls in ROM_LIST:
-                        if chip_magic_value in cls.CHIP_DETECT_MAGIC_VALUE:
-                            actually = cls
-                            break
-                    if warnings and actually is None:
-                        print(
-                            "WARNING: This chip doesn't appear to be a %s "
-                            "(chip magic value 0x%08x). "
-                            "Probably it is unsupported by this version of esptool."
-                            % (self.CHIP_NAME, chip_magic_value)
-                        )
-                    else:
-                        raise FatalError(
-                            "This chip is %s not %s. Wrong --chip argument?"
-                            % (actually.CHIP_NAME, self.CHIP_NAME)
-                        )
             except UnsupportedCommandError:
                 self.secure_download_mode = True
 
+            # Check if chip supports reading chip ID from the get_security_info command
             try:
-                self.check_chip_id()
-            except UnsupportedCommandError:
-                # Fix for ROM not responding in SDM, reconnect and try again
-                if self.secure_download_mode:
-                    self._connect_attempt(mode, reset_sequence[0])
-                    self.check_chip_id()
+                chip_id = self.get_chip_id()
+            except (UnsupportedCommandError, struct.error, FatalError):
+                chip_id = None
+
+            detected = None
+            chip_arg_wrong = False
+
+            # If we can read chip ID (ESP32-S3 and later), verify the ID
+            if chip_id and (self.USES_MAGIC_VALUE or chip_id != self.IMAGE_CHIP_ID):
+                chip_arg_wrong = True
+                for cls in ROM_LIST:
+                    if not cls.USES_MAGIC_VALUE and chip_id == cls.IMAGE_CHIP_ID:
+                        detected = cls
+                        break
+            # If we can't read chip ID (ESP8266, ESP32, ESP32-S2),
+            # try to verify the chip by magic value
+            elif (
+                not chip_id
+                and not self.secure_download_mode
+                and (not self.USES_MAGIC_VALUE or chip_magic_value != self.MAGIC_VALUE)
+            ):
+                chip_arg_wrong = True
+                for cls in ROM_LIST:
+                    if cls.USES_MAGIC_VALUE and chip_magic_value == cls.MAGIC_VALUE:
+                        detected = cls
+                        break
+            # If we can't read chip ID and the chip is in SDM (ESP32 or ESP32-S2),
+            # we can't verify
+            elif not chip_id and self.secure_download_mode:
+                if self.CHIP_NAME not in ["ESP32", "ESP32-S2"]:
+                    chip_arg_wrong = True
+                    detected = "ESP32 or ESP32-S2"
                 else:
-                    raise
+                    print(
+                        f"WARNING: Can't verify this chip is {self.CHIP_NAME} "
+                        "because of active Secure Download Mode. "
+                        "Please check it manually."
+                    )
+
+            if chip_arg_wrong:
+                if warnings and detected is None:
+                    specifier = (
+                        f"(read chip ID {chip_id})"
+                        if chip_id
+                        else f"(read chip magic value {chip_magic_value:#08x})"
+                    )
+                    print(
+                        f"WARNING: This chip doesn't appear to be an {self.CHIP_NAME} "
+                        f"{specifier}. Probably it is unsupported by this version "
+                        "of esptool. Will attempt to continue anyway."
+                    )
+                else:
+                    chip_type = (
+                        detected if isinstance(detected, str) else detected.CHIP_NAME
+                    )
+                    raise FatalError(
+                        f"This chip is {chip_type}, not {self.CHIP_NAME}. "
+                        "Wrong --chip argument?"
+                    )
             self._post_connect()
 
     def _post_connect(self):
@@ -891,7 +921,7 @@ class ESPLoader(object):
                 raise
             pass
 
-    def flash_begin(self, size, offset, begin_rom_encrypted=False):
+    def flash_begin(self, size, offset, begin_rom_encrypted=False, logging=True):
         """
         Start downloading to Flash (performs an erase)
 
@@ -916,7 +946,7 @@ class ESPLoader(object):
         self.check_command(
             "enter Flash download mode", self.ESP_FLASH_BEGIN, params, timeout=timeout
         )
-        if size != 0 and not self.IS_STUB:
+        if size != 0 and not self.IS_STUB and logging:
             print("Took %.2fs to erase flash block" % (time.time() - t))
         return num_blocks
 
@@ -1002,7 +1032,6 @@ class ESPLoader(object):
             "api_version": None if esp32s2 else res[10],
         }
 
-    @esp32s3_or_newer_function_only
     def get_chip_id(self):
         if self.cache["chip_id"] is None:
             res = self.check_command(
@@ -1018,9 +1047,34 @@ class ESPLoader(object):
         """
         Read the UARTDEV_BUF_NO register to get the number of the currently used console
         """
-        if self.cache["uart_no"] is None:
-            self.cache["uart_no"] = self.read_reg(self.UARTDEV_BUF_NO) & 0xFF
-        return self.cache["uart_no"]
+        # Some ESP chips do not have this register
+        try:
+            if self.cache["uart_no"] is None:
+                self.cache["uart_no"] = self.read_reg(self.UARTDEV_BUF_NO) & 0xFF
+            return self.cache["uart_no"]
+        except AttributeError:
+            return None
+
+    def uses_usb_jtag_serial(self):
+        """
+        Check if the chip uses USB JTAG/SERIAL mode.
+        """
+        return False
+
+    def uses_usb_otg(self):
+        """
+        Check if the chip uses USB OTG mode.
+        """
+        return False
+
+    def get_usb_mode(self):
+        """
+        Get the USB mode of the chip: USB-Serial/JTAG or USB-OTG. If the usb_mode is None, external USB-UART is used.
+        """
+        usb_jtag_serial = self.uses_usb_jtag_serial()
+        usb_otg = self.uses_usb_otg()
+
+        return "USB-Serial/JTAG" if usb_jtag_serial else "USB-OTG" if usb_otg else None
 
     @classmethod
     def parse_flash_size_arg(cls, arg):
@@ -1196,10 +1250,6 @@ class ESPLoader(object):
 
     @stub_function_only
     def erase_region(self, offset, size):
-        if offset % self.FLASH_SECTOR_SIZE != 0:
-            raise FatalError("Offset to erase from must be a multiple of 4096")
-        if size % self.FLASH_SECTOR_SIZE != 0:
-            raise FatalError("Size of data to erase must be a multiple of 4096")
         timeout = timeout_per_mb(ERASE_REGION_TIMEOUT_PER_MB, size)
         self.check_command(
             "erase region",
@@ -1525,9 +1575,13 @@ class ESPLoader(object):
             )
         return norm_xtal
 
-    def hard_reset(self):
+    def hard_reset(self, uses_usb=False):
         print("Hard resetting via RTS pin...")
-        HardReset(self._port)()
+        cfg_custom_hard_reset_sequence = cfg.get("custom_hard_reset_sequence")
+        if cfg_custom_hard_reset_sequence is not None:
+            CustomReset(self._port, cfg_custom_hard_reset_sequence)()
+        else:
+            HardReset(self._port, uses_usb)()
 
     def soft_reset(self, stay_in_bootloader):
         if not self.IS_STUB:
@@ -1552,22 +1606,12 @@ class ESPLoader(object):
                 # in the stub loader
                 self.command(self.ESP_RUN_USER_CODE, wait_response=False)
 
-    def check_chip_id(self):
-        try:
-            chip_id = self.get_chip_id()
-            if chip_id != self.IMAGE_CHIP_ID:
-                print(
-                    "WARNING: Chip ID {} ({}) doesn't match expected Chip ID {}. "
-                    "esptool may not work correctly.".format(
-                        chip_id,
-                        self.UNSUPPORTED_CHIPS.get(chip_id, "Unknown"),
-                        self.IMAGE_CHIP_ID,
-                    )
-                )
-                # Try to flash anyways by disabling stub
-                self.stub_is_disabled = True
-        except NotImplementedInROMError:
-            pass
+    def watchdog_reset(self):
+        print(
+            f"WARNING: Watchdog hard reset is not supported on {self.CHIP_NAME}, "
+            "attempting classic hard reset instead."
+        )
+        self.hard_reset()
 
 
 def slip_reader(port, trace_function):

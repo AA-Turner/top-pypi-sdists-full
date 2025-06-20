@@ -1,7 +1,7 @@
 r'''
 # `aws_lambda_function_url`
 
-Refer to the Terraform Registry for docs: [`aws_lambda_function_url`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url).
+Refer to the Terraform Registry for docs: [`aws_lambda_function_url`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LambdaFunctionUrl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lambdaFunctionUrl.LambdaFunctionUrl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url aws_lambda_function_url}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url aws_lambda_function_url}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class LambdaFunctionUrl(
         id: typing.Optional[builtins.str] = None,
         invoke_mode: typing.Optional[builtins.str] = None,
         qualifier: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["LambdaFunctionUrlTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -66,17 +67,18 @@ class LambdaFunctionUrl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url aws_lambda_function_url} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url aws_lambda_function_url} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#authorization_type LambdaFunctionUrl#authorization_type}.
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#function_name LambdaFunctionUrl#function_name}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#cors LambdaFunctionUrl#cors}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#id LambdaFunctionUrl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param invoke_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#invoke_mode LambdaFunctionUrl#invoke_mode}.
-        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#qualifier LambdaFunctionUrl#qualifier}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#timeouts LambdaFunctionUrl#timeouts}
+        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#authorization_type LambdaFunctionUrl#authorization_type}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#function_name LambdaFunctionUrl#function_name}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#cors LambdaFunctionUrl#cors}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#id LambdaFunctionUrl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param invoke_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#invoke_mode LambdaFunctionUrl#invoke_mode}.
+        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#qualifier LambdaFunctionUrl#qualifier}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#region LambdaFunctionUrl#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#timeouts LambdaFunctionUrl#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -96,6 +98,7 @@ class LambdaFunctionUrl(
             id=id,
             invoke_mode=invoke_mode,
             qualifier=qualifier,
+            region=region,
             timeouts=timeouts,
             connection=connection,
             count=count,
@@ -121,7 +124,7 @@ class LambdaFunctionUrl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LambdaFunctionUrl to import.
-        :param import_from_id: The id of the existing LambdaFunctionUrl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LambdaFunctionUrl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LambdaFunctionUrl to import is found.
         '''
         if __debug__:
@@ -144,12 +147,12 @@ class LambdaFunctionUrl(
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allow_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_credentials LambdaFunctionUrl#allow_credentials}.
-        :param allow_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_headers LambdaFunctionUrl#allow_headers}.
-        :param allow_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_methods LambdaFunctionUrl#allow_methods}.
-        :param allow_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_origins LambdaFunctionUrl#allow_origins}.
-        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#expose_headers LambdaFunctionUrl#expose_headers}.
-        :param max_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#max_age LambdaFunctionUrl#max_age}.
+        :param allow_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_credentials LambdaFunctionUrl#allow_credentials}.
+        :param allow_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_headers LambdaFunctionUrl#allow_headers}.
+        :param allow_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_methods LambdaFunctionUrl#allow_methods}.
+        :param allow_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_origins LambdaFunctionUrl#allow_origins}.
+        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#expose_headers LambdaFunctionUrl#expose_headers}.
+        :param max_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#max_age LambdaFunctionUrl#max_age}.
         '''
         value = LambdaFunctionUrlCors(
             allow_credentials=allow_credentials,
@@ -165,7 +168,7 @@ class LambdaFunctionUrl(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#create LambdaFunctionUrl#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#create LambdaFunctionUrl#create}.
         '''
         value = LambdaFunctionUrlTimeouts(create=create)
 
@@ -186,6 +189,10 @@ class LambdaFunctionUrl(
     @jsii.member(jsii_name="resetQualifier")
     def reset_qualifier(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetQualifier", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
@@ -260,6 +267,11 @@ class LambdaFunctionUrl(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "qualifierInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="timeoutsInput")
     def timeouts_input(
         self,
@@ -326,6 +338,18 @@ class LambdaFunctionUrl(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "qualifier", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0335c4030794f4d3d2901fd55159e3cec73a78cd8c14a1ebb8a66bda5b0fb55c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.lambdaFunctionUrl.LambdaFunctionUrlConfig",
@@ -344,6 +368,7 @@ class LambdaFunctionUrl(
         "id": "id",
         "invoke_mode": "invokeMode",
         "qualifier": "qualifier",
+        "region": "region",
         "timeouts": "timeouts",
     },
 )
@@ -364,6 +389,7 @@ class LambdaFunctionUrlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         invoke_mode: typing.Optional[builtins.str] = None,
         qualifier: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["LambdaFunctionUrlTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -374,13 +400,14 @@ class LambdaFunctionUrlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#authorization_type LambdaFunctionUrl#authorization_type}.
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#function_name LambdaFunctionUrl#function_name}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#cors LambdaFunctionUrl#cors}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#id LambdaFunctionUrl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param invoke_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#invoke_mode LambdaFunctionUrl#invoke_mode}.
-        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#qualifier LambdaFunctionUrl#qualifier}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#timeouts LambdaFunctionUrl#timeouts}
+        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#authorization_type LambdaFunctionUrl#authorization_type}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#function_name LambdaFunctionUrl#function_name}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#cors LambdaFunctionUrl#cors}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#id LambdaFunctionUrl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param invoke_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#invoke_mode LambdaFunctionUrl#invoke_mode}.
+        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#qualifier LambdaFunctionUrl#qualifier}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#region LambdaFunctionUrl#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#timeouts LambdaFunctionUrl#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -403,6 +430,7 @@ class LambdaFunctionUrlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument invoke_mode", value=invoke_mode, expected_type=type_hints["invoke_mode"])
             check_type(argname="argument qualifier", value=qualifier, expected_type=type_hints["qualifier"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "authorization_type": authorization_type,
@@ -430,6 +458,8 @@ class LambdaFunctionUrlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["invoke_mode"] = invoke_mode
         if qualifier is not None:
             self._values["qualifier"] = qualifier
+        if region is not None:
+            self._values["region"] = region
         if timeouts is not None:
             self._values["timeouts"] = timeouts
 
@@ -499,14 +529,14 @@ class LambdaFunctionUrlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def authorization_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#authorization_type LambdaFunctionUrl#authorization_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#authorization_type LambdaFunctionUrl#authorization_type}.'''
         result = self._values.get("authorization_type")
         assert result is not None, "Required property 'authorization_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def function_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#function_name LambdaFunctionUrl#function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#function_name LambdaFunctionUrl#function_name}.'''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
@@ -515,14 +545,14 @@ class LambdaFunctionUrlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cors(self) -> typing.Optional["LambdaFunctionUrlCors"]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#cors LambdaFunctionUrl#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#cors LambdaFunctionUrl#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional["LambdaFunctionUrlCors"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#id LambdaFunctionUrl#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#id LambdaFunctionUrl#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -532,21 +562,30 @@ class LambdaFunctionUrlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def invoke_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#invoke_mode LambdaFunctionUrl#invoke_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#invoke_mode LambdaFunctionUrl#invoke_mode}.'''
         result = self._values.get("invoke_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def qualifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#qualifier LambdaFunctionUrl#qualifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#qualifier LambdaFunctionUrl#qualifier}.'''
         result = self._values.get("qualifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#region LambdaFunctionUrl#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeouts(self) -> typing.Optional["LambdaFunctionUrlTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#timeouts LambdaFunctionUrl#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#timeouts LambdaFunctionUrl#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LambdaFunctionUrlTimeouts"], result)
@@ -587,12 +626,12 @@ class LambdaFunctionUrlCors:
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allow_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_credentials LambdaFunctionUrl#allow_credentials}.
-        :param allow_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_headers LambdaFunctionUrl#allow_headers}.
-        :param allow_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_methods LambdaFunctionUrl#allow_methods}.
-        :param allow_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_origins LambdaFunctionUrl#allow_origins}.
-        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#expose_headers LambdaFunctionUrl#expose_headers}.
-        :param max_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#max_age LambdaFunctionUrl#max_age}.
+        :param allow_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_credentials LambdaFunctionUrl#allow_credentials}.
+        :param allow_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_headers LambdaFunctionUrl#allow_headers}.
+        :param allow_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_methods LambdaFunctionUrl#allow_methods}.
+        :param allow_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_origins LambdaFunctionUrl#allow_origins}.
+        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#expose_headers LambdaFunctionUrl#expose_headers}.
+        :param max_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#max_age LambdaFunctionUrl#max_age}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8339cdb0ed4ef656b4828e581e04c80e5fc230e3b5be9aba93cbd561fbb017a3)
@@ -620,37 +659,37 @@ class LambdaFunctionUrlCors:
     def allow_credentials(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_credentials LambdaFunctionUrl#allow_credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_credentials LambdaFunctionUrl#allow_credentials}.'''
         result = self._values.get("allow_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def allow_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_headers LambdaFunctionUrl#allow_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_headers LambdaFunctionUrl#allow_headers}.'''
         result = self._values.get("allow_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allow_methods(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_methods LambdaFunctionUrl#allow_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_methods LambdaFunctionUrl#allow_methods}.'''
         result = self._values.get("allow_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allow_origins(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#allow_origins LambdaFunctionUrl#allow_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#allow_origins LambdaFunctionUrl#allow_origins}.'''
         result = self._values.get("allow_origins")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def expose_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#expose_headers LambdaFunctionUrl#expose_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#expose_headers LambdaFunctionUrl#expose_headers}.'''
         result = self._values.get("expose_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def max_age(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#max_age LambdaFunctionUrl#max_age}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#max_age LambdaFunctionUrl#max_age}.'''
         result = self._values.get("max_age")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -840,7 +879,7 @@ class LambdaFunctionUrlCorsOutputReference(
 class LambdaFunctionUrlTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#create LambdaFunctionUrl#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#create LambdaFunctionUrl#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99003ef91de0c420d4342fb81b75ddf3ab71014d7c06886d1820be2f1c24a42a)
@@ -851,7 +890,7 @@ class LambdaFunctionUrlTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_function_url#create LambdaFunctionUrl#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_function_url#create LambdaFunctionUrl#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -947,6 +986,7 @@ def _typecheckingstub__20dc3fce8310a2622166ea100f0fa615cfcbb2551323c721260ae554f
     id: typing.Optional[builtins.str] = None,
     invoke_mode: typing.Optional[builtins.str] = None,
     qualifier: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[LambdaFunctionUrlTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -998,6 +1038,12 @@ def _typecheckingstub__708275cc8438b1d53608c5bf2ab35c96ac08daa5c5acd0eb0f13556c8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0335c4030794f4d3d2901fd55159e3cec73a78cd8c14a1ebb8a66bda5b0fb55c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__52eae1a425dc7d3294ddf1e241108538c021a361012aa6cd563def7018b7c5fd(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1013,6 +1059,7 @@ def _typecheckingstub__52eae1a425dc7d3294ddf1e241108538c021a361012aa6cd563def701
     id: typing.Optional[builtins.str] = None,
     invoke_mode: typing.Optional[builtins.str] = None,
     qualifier: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[LambdaFunctionUrlTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -686,7 +686,7 @@ def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
         if first:
             validation_logger.warning("all via_ir values are set to True '--solc_via_ir' can be used instead")
         else:
-            validation_logger.warning("all via_ir values are set to False, this flag/attribute  can be omitted")
+            validation_logger.warning("all via_ir values are set to False, this flag/attribute can be omitted")
 
 def validate_solc_evm_version_map(args: Dict[str, str]) -> None:
     if not isinstance(args, dict):

@@ -54,7 +54,8 @@ except ImportError:
 
 if TYPE_CHECKING:
     from hera.workflows._mixins import TemplateMixin
-    from hera.workflows.steps import Step
+    from hera.workflows.dag import DAG
+    from hera.workflows.steps import Step, Steps
     from hera.workflows.task import Task
 
 _yaml: Optional[ModuleType] = None
@@ -667,16 +668,11 @@ class TemplateDecoratorFuncsMixin(ContextMixin):
         Note that invoking the function will result in the template associated with the script to be added to the
         workflow context, so users do not have to worry about that.
 
-        Parameters
-        ----------
-        **script_kwargs
-            Keyword arguments to be passed to the Script object.
+        Args:
+            **script_kwargs: Keyword arguments to be passed to the Script object.
 
         Returns:
-        -------
-        Callable
-            Function wrapper that holds a `Script` and allows the function to be called to create a Step or Task if
-            in a Steps or DAG context.
+            Function wrapper that holds a `Script` and allows the function to be called to create a Step or Task if in a Steps or DAG context.
         """
         self._check_if_enabled("script")
 
@@ -750,7 +746,8 @@ class TemplateDecoratorFuncsMixin(ContextMixin):
                 if _context.pieces:
                     return script_template.__call__(*args, **kwargs)
 
-                return func(*args)
+                # Do not allow kwargs
+                return func(*args)  # type: ignore
 
             # Set the wrapped function to the original function so that we can use it later
             script_call_wrapper.wrapped_function = func  # type: ignore
@@ -811,7 +808,9 @@ class TemplateDecoratorFuncsMixin(ContextMixin):
 
                 if _context.pieces:
                     return container_template.__call__(*args, **kwargs)
-                return func(*args)
+
+                # Do not allow kwargs
+                return func(*args)  # type: ignore
 
             # Set the template name to the inferred name
             container_call_wrapper.template_name = name  # type: ignore
@@ -907,7 +906,8 @@ class TemplateDecoratorFuncsMixin(ContextMixin):
 
                     return self._create_subnode(subnode_name, func, template, *args, **kwargs)
 
-                return func(*args)
+                # Do not allow kwargs
+                return func(*args)  # type: ignore
 
             call_wrapper.template_name = name  # type: ignore
 
@@ -921,7 +921,8 @@ class TemplateDecoratorFuncsMixin(ContextMixin):
 
                 # "run" the dag/steps function to collect the tasks/steps
                 _context.declaring = True
-                func_return = func(*input_objs)
+                # Do not allow kwargs
+                func_return = func(*input_objs)  # type: ignore
                 _context.declaring = False
 
                 if func_return is not None:

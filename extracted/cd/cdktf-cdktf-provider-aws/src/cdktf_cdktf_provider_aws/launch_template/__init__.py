@@ -1,7 +1,7 @@
 r'''
 # `aws_launch_template`
 
-Refer to the Terraform Registry for docs: [`aws_launch_template`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template).
+Refer to the Terraform Registry for docs: [`aws_launch_template`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LaunchTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.launchTemplate.LaunchTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template aws_launch_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template aws_launch_template}.'''
 
     def __init__(
         self,
@@ -60,8 +60,6 @@ class LaunchTemplate(
         disable_api_stop: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         disable_api_termination: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         ebs_optimized: typing.Optional[builtins.str] = None,
-        elastic_gpu_specifications: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LaunchTemplateElasticGpuSpecifications", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        elastic_inference_accelerator: typing.Optional[typing.Union["LaunchTemplateElasticInferenceAccelerator", typing.Dict[builtins.str, typing.Any]]] = None,
         enclave_options: typing.Optional[typing.Union["LaunchTemplateEnclaveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         hibernation_options: typing.Optional[typing.Union["LaunchTemplateHibernationOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         iam_instance_profile: typing.Optional[typing.Union["LaunchTemplateIamInstanceProfile", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -83,6 +81,7 @@ class LaunchTemplate(
         placement: typing.Optional[typing.Union["LaunchTemplatePlacement", typing.Dict[builtins.str, typing.Any]]] = None,
         private_dns_name_options: typing.Optional[typing.Union["LaunchTemplatePrivateDnsNameOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         ram_disk_id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -98,49 +97,48 @@ class LaunchTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template aws_launch_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template aws_launch_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param block_device_mappings: block_device_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#block_device_mappings LaunchTemplate#block_device_mappings}
-        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_specification LaunchTemplate#capacity_reservation_specification}
-        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_options LaunchTemplate#cpu_options}
-        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#credit_specification LaunchTemplate#credit_specification}
-        :param default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#default_version LaunchTemplate#default_version}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#description LaunchTemplate#description}.
-        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#disable_api_stop LaunchTemplate#disable_api_stop}.
-        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#disable_api_termination LaunchTemplate#disable_api_termination}.
-        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ebs_optimized LaunchTemplate#ebs_optimized}.
-        :param elastic_gpu_specifications: elastic_gpu_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#elastic_gpu_specifications LaunchTemplate#elastic_gpu_specifications}
-        :param elastic_inference_accelerator: elastic_inference_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#elastic_inference_accelerator LaunchTemplate#elastic_inference_accelerator}
-        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enclave_options LaunchTemplate#enclave_options}
-        :param hibernation_options: hibernation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#hibernation_options LaunchTemplate#hibernation_options}
-        :param iam_instance_profile: iam_instance_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#iam_instance_profile LaunchTemplate#iam_instance_profile}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#id LaunchTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#image_id LaunchTemplate#image_id}.
-        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_initiated_shutdown_behavior LaunchTemplate#instance_initiated_shutdown_behavior}.
-        :param instance_market_options: instance_market_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_market_options LaunchTemplate#instance_market_options}
-        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_requirements LaunchTemplate#instance_requirements}
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_type LaunchTemplate#instance_type}.
-        :param kernel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#kernel_id LaunchTemplate#kernel_id}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#key_name LaunchTemplate#key_name}.
-        :param license_specification: license_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#license_specification LaunchTemplate#license_specification}
-        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#maintenance_options LaunchTemplate#maintenance_options}
-        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#metadata_options LaunchTemplate#metadata_options}
-        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#monitoring LaunchTemplate#monitoring}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name LaunchTemplate#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name_prefix LaunchTemplate#name_prefix}.
-        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interfaces LaunchTemplate#network_interfaces}
-        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#placement LaunchTemplate#placement}
-        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#private_dns_name_options LaunchTemplate#private_dns_name_options}
-        :param ram_disk_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ram_disk_id LaunchTemplate#ram_disk_id}.
-        :param security_group_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#security_group_names LaunchTemplate#security_group_names}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags LaunchTemplate#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags_all LaunchTemplate#tags_all}.
-        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tag_specifications LaunchTemplate#tag_specifications}
-        :param update_default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#update_default_version LaunchTemplate#update_default_version}.
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#user_data LaunchTemplate#user_data}.
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#vpc_security_group_ids LaunchTemplate#vpc_security_group_ids}.
+        :param block_device_mappings: block_device_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#block_device_mappings LaunchTemplate#block_device_mappings}
+        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_specification LaunchTemplate#capacity_reservation_specification}
+        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_options LaunchTemplate#cpu_options}
+        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#credit_specification LaunchTemplate#credit_specification}
+        :param default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#default_version LaunchTemplate#default_version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#description LaunchTemplate#description}.
+        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#disable_api_stop LaunchTemplate#disable_api_stop}.
+        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#disable_api_termination LaunchTemplate#disable_api_termination}.
+        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ebs_optimized LaunchTemplate#ebs_optimized}.
+        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enclave_options LaunchTemplate#enclave_options}
+        :param hibernation_options: hibernation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#hibernation_options LaunchTemplate#hibernation_options}
+        :param iam_instance_profile: iam_instance_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#iam_instance_profile LaunchTemplate#iam_instance_profile}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#id LaunchTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#image_id LaunchTemplate#image_id}.
+        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_initiated_shutdown_behavior LaunchTemplate#instance_initiated_shutdown_behavior}.
+        :param instance_market_options: instance_market_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_market_options LaunchTemplate#instance_market_options}
+        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_requirements LaunchTemplate#instance_requirements}
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_type LaunchTemplate#instance_type}.
+        :param kernel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#kernel_id LaunchTemplate#kernel_id}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#key_name LaunchTemplate#key_name}.
+        :param license_specification: license_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#license_specification LaunchTemplate#license_specification}
+        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#maintenance_options LaunchTemplate#maintenance_options}
+        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#metadata_options LaunchTemplate#metadata_options}
+        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#monitoring LaunchTemplate#monitoring}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name LaunchTemplate#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name_prefix LaunchTemplate#name_prefix}.
+        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interfaces LaunchTemplate#network_interfaces}
+        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#placement LaunchTemplate#placement}
+        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#private_dns_name_options LaunchTemplate#private_dns_name_options}
+        :param ram_disk_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ram_disk_id LaunchTemplate#ram_disk_id}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#region LaunchTemplate#region}
+        :param security_group_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#security_group_names LaunchTemplate#security_group_names}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags LaunchTemplate#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags_all LaunchTemplate#tags_all}.
+        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tag_specifications LaunchTemplate#tag_specifications}
+        :param update_default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#update_default_version LaunchTemplate#update_default_version}.
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#user_data LaunchTemplate#user_data}.
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#vpc_security_group_ids LaunchTemplate#vpc_security_group_ids}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,8 +161,6 @@ class LaunchTemplate(
             disable_api_stop=disable_api_stop,
             disable_api_termination=disable_api_termination,
             ebs_optimized=ebs_optimized,
-            elastic_gpu_specifications=elastic_gpu_specifications,
-            elastic_inference_accelerator=elastic_inference_accelerator,
             enclave_options=enclave_options,
             hibernation_options=hibernation_options,
             iam_instance_profile=iam_instance_profile,
@@ -186,6 +182,7 @@ class LaunchTemplate(
             placement=placement,
             private_dns_name_options=private_dns_name_options,
             ram_disk_id=ram_disk_id,
+            region=region,
             security_group_names=security_group_names,
             tags=tags,
             tags_all=tags_all,
@@ -217,7 +214,7 @@ class LaunchTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LaunchTemplate to import.
-        :param import_from_id: The id of the existing LaunchTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LaunchTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LaunchTemplate to import is found.
         '''
         if __debug__:
@@ -249,8 +246,8 @@ class LaunchTemplate(
         capacity_reservation_target: typing.Optional[typing.Union["LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_preference LaunchTemplate#capacity_reservation_preference}.
-        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_target LaunchTemplate#capacity_reservation_target}
+        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_preference LaunchTemplate#capacity_reservation_preference}.
+        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_target LaunchTemplate#capacity_reservation_target}
         '''
         value = LaunchTemplateCapacityReservationSpecification(
             capacity_reservation_preference=capacity_reservation_preference,
@@ -268,9 +265,9 @@ class LaunchTemplate(
         threads_per_core: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#amd_sev_snp LaunchTemplate#amd_sev_snp}.
-        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#core_count LaunchTemplate#core_count}.
-        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#threads_per_core LaunchTemplate#threads_per_core}.
+        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#amd_sev_snp LaunchTemplate#amd_sev_snp}.
+        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#core_count LaunchTemplate#core_count}.
+        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#threads_per_core LaunchTemplate#threads_per_core}.
         '''
         value = LaunchTemplateCpuOptions(
             amd_sev_snp=amd_sev_snp,
@@ -287,33 +284,11 @@ class LaunchTemplate(
         cpu_credits: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_credits LaunchTemplate#cpu_credits}.
+        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_credits LaunchTemplate#cpu_credits}.
         '''
         value = LaunchTemplateCreditSpecification(cpu_credits=cpu_credits)
 
         return typing.cast(None, jsii.invoke(self, "putCreditSpecification", [value]))
-
-    @jsii.member(jsii_name="putElasticGpuSpecifications")
-    def put_elastic_gpu_specifications(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LaunchTemplateElasticGpuSpecifications", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cb44841779ca6af8410d3160ef4d82cd99c9737b152ed90554834fff62c717e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putElasticGpuSpecifications", [value]))
-
-    @jsii.member(jsii_name="putElasticInferenceAccelerator")
-    def put_elastic_inference_accelerator(self, *, type: builtins.str) -> None:
-        '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#type LaunchTemplate#type}.
-        '''
-        value = LaunchTemplateElasticInferenceAccelerator(type=type)
-
-        return typing.cast(None, jsii.invoke(self, "putElasticInferenceAccelerator", [value]))
 
     @jsii.member(jsii_name="putEnclaveOptions")
     def put_enclave_options(
@@ -322,7 +297,7 @@ class LaunchTemplate(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
         '''
         value = LaunchTemplateEnclaveOptions(enabled=enabled)
 
@@ -335,7 +310,7 @@ class LaunchTemplate(
         configured: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#configured LaunchTemplate#configured}.
+        :param configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#configured LaunchTemplate#configured}.
         '''
         value = LaunchTemplateHibernationOptions(configured=configured)
 
@@ -349,8 +324,8 @@ class LaunchTemplate(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#arn LaunchTemplate#arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name LaunchTemplate#name}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#arn LaunchTemplate#arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name LaunchTemplate#name}.
         '''
         value = LaunchTemplateIamInstanceProfile(arn=arn, name=name)
 
@@ -364,8 +339,8 @@ class LaunchTemplate(
         spot_options: typing.Optional[typing.Union["LaunchTemplateInstanceMarketOptionsSpotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param market_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#market_type LaunchTemplate#market_type}.
-        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_options LaunchTemplate#spot_options}
+        :param market_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#market_type LaunchTemplate#market_type}.
+        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_options LaunchTemplate#spot_options}
         '''
         value = LaunchTemplateInstanceMarketOptions(
             market_type=market_type, spot_options=spot_options
@@ -403,30 +378,30 @@ class LaunchTemplate(
         total_local_storage_gb: typing.Optional[typing.Union["LaunchTemplateInstanceRequirementsTotalLocalStorageGb", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#memory_mib LaunchTemplate#memory_mib}
-        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#vcpu_count LaunchTemplate#vcpu_count}
-        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_count LaunchTemplate#accelerator_count}
-        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_manufacturers LaunchTemplate#accelerator_manufacturers}.
-        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_names LaunchTemplate#accelerator_names}.
-        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_total_memory_mib LaunchTemplate#accelerator_total_memory_mib}
-        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_types LaunchTemplate#accelerator_types}.
-        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#allowed_instance_types LaunchTemplate#allowed_instance_types}.
-        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#bare_metal LaunchTemplate#bare_metal}.
-        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#baseline_ebs_bandwidth_mbps LaunchTemplate#baseline_ebs_bandwidth_mbps}
-        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#burstable_performance LaunchTemplate#burstable_performance}.
-        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_manufacturers LaunchTemplate#cpu_manufacturers}.
-        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#excluded_instance_types LaunchTemplate#excluded_instance_types}.
-        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_generations LaunchTemplate#instance_generations}.
-        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#local_storage LaunchTemplate#local_storage}.
-        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#local_storage_types LaunchTemplate#local_storage_types}.
-        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max_spot_price_as_percentage_of_optimal_on_demand_price LaunchTemplate#max_spot_price_as_percentage_of_optimal_on_demand_price}.
-        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#memory_gib_per_vcpu LaunchTemplate#memory_gib_per_vcpu}
-        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_bandwidth_gbps LaunchTemplate#network_bandwidth_gbps}
-        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interface_count LaunchTemplate#network_interface_count}
-        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#on_demand_max_price_percentage_over_lowest_price LaunchTemplate#on_demand_max_price_percentage_over_lowest_price}.
-        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#require_hibernate_support LaunchTemplate#require_hibernate_support}.
-        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_max_price_percentage_over_lowest_price LaunchTemplate#spot_max_price_percentage_over_lowest_price}.
-        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#total_local_storage_gb LaunchTemplate#total_local_storage_gb}
+        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#memory_mib LaunchTemplate#memory_mib}
+        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#vcpu_count LaunchTemplate#vcpu_count}
+        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_count LaunchTemplate#accelerator_count}
+        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_manufacturers LaunchTemplate#accelerator_manufacturers}.
+        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_names LaunchTemplate#accelerator_names}.
+        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_total_memory_mib LaunchTemplate#accelerator_total_memory_mib}
+        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_types LaunchTemplate#accelerator_types}.
+        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#allowed_instance_types LaunchTemplate#allowed_instance_types}.
+        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#bare_metal LaunchTemplate#bare_metal}.
+        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#baseline_ebs_bandwidth_mbps LaunchTemplate#baseline_ebs_bandwidth_mbps}
+        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#burstable_performance LaunchTemplate#burstable_performance}.
+        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_manufacturers LaunchTemplate#cpu_manufacturers}.
+        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#excluded_instance_types LaunchTemplate#excluded_instance_types}.
+        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_generations LaunchTemplate#instance_generations}.
+        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#local_storage LaunchTemplate#local_storage}.
+        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#local_storage_types LaunchTemplate#local_storage_types}.
+        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max_spot_price_as_percentage_of_optimal_on_demand_price LaunchTemplate#max_spot_price_as_percentage_of_optimal_on_demand_price}.
+        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#memory_gib_per_vcpu LaunchTemplate#memory_gib_per_vcpu}
+        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_bandwidth_gbps LaunchTemplate#network_bandwidth_gbps}
+        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interface_count LaunchTemplate#network_interface_count}
+        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#on_demand_max_price_percentage_over_lowest_price LaunchTemplate#on_demand_max_price_percentage_over_lowest_price}.
+        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#require_hibernate_support LaunchTemplate#require_hibernate_support}.
+        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_max_price_percentage_over_lowest_price LaunchTemplate#spot_max_price_percentage_over_lowest_price}.
+        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#total_local_storage_gb LaunchTemplate#total_local_storage_gb}
         '''
         value = LaunchTemplateInstanceRequirements(
             memory_mib=memory_mib,
@@ -477,7 +452,7 @@ class LaunchTemplate(
         auto_recovery: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#auto_recovery LaunchTemplate#auto_recovery}.
+        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#auto_recovery LaunchTemplate#auto_recovery}.
         '''
         value = LaunchTemplateMaintenanceOptions(auto_recovery=auto_recovery)
 
@@ -494,11 +469,11 @@ class LaunchTemplate(
         instance_metadata_tags: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_endpoint LaunchTemplate#http_endpoint}.
-        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_protocol_ipv6 LaunchTemplate#http_protocol_ipv6}.
-        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_put_response_hop_limit LaunchTemplate#http_put_response_hop_limit}.
-        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_tokens LaunchTemplate#http_tokens}.
-        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_metadata_tags LaunchTemplate#instance_metadata_tags}.
+        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_endpoint LaunchTemplate#http_endpoint}.
+        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_protocol_ipv6 LaunchTemplate#http_protocol_ipv6}.
+        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_put_response_hop_limit LaunchTemplate#http_put_response_hop_limit}.
+        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_tokens LaunchTemplate#http_tokens}.
+        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_metadata_tags LaunchTemplate#instance_metadata_tags}.
         '''
         value = LaunchTemplateMetadataOptions(
             http_endpoint=http_endpoint,
@@ -517,7 +492,7 @@ class LaunchTemplate(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
         '''
         value = LaunchTemplateMonitoring(enabled=enabled)
 
@@ -550,14 +525,14 @@ class LaunchTemplate(
         tenancy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param affinity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#affinity LaunchTemplate#affinity}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#availability_zone LaunchTemplate#availability_zone}.
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#group_name LaunchTemplate#group_name}.
-        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#host_id LaunchTemplate#host_id}.
-        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#host_resource_group_arn LaunchTemplate#host_resource_group_arn}.
-        :param partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#partition_number LaunchTemplate#partition_number}.
-        :param spread_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spread_domain LaunchTemplate#spread_domain}.
-        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tenancy LaunchTemplate#tenancy}.
+        :param affinity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#affinity LaunchTemplate#affinity}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#availability_zone LaunchTemplate#availability_zone}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#group_name LaunchTemplate#group_name}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#host_id LaunchTemplate#host_id}.
+        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#host_resource_group_arn LaunchTemplate#host_resource_group_arn}.
+        :param partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#partition_number LaunchTemplate#partition_number}.
+        :param spread_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spread_domain LaunchTemplate#spread_domain}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tenancy LaunchTemplate#tenancy}.
         '''
         value = LaunchTemplatePlacement(
             affinity=affinity,
@@ -581,9 +556,9 @@ class LaunchTemplate(
         hostname_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enable_resource_name_dns_aaaa_record LaunchTemplate#enable_resource_name_dns_aaaa_record}.
-        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enable_resource_name_dns_a_record LaunchTemplate#enable_resource_name_dns_a_record}.
-        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#hostname_type LaunchTemplate#hostname_type}.
+        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enable_resource_name_dns_aaaa_record LaunchTemplate#enable_resource_name_dns_aaaa_record}.
+        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enable_resource_name_dns_a_record LaunchTemplate#enable_resource_name_dns_a_record}.
+        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#hostname_type LaunchTemplate#hostname_type}.
         '''
         value = LaunchTemplatePrivateDnsNameOptions(
             enable_resource_name_dns_aaaa_record=enable_resource_name_dns_aaaa_record,
@@ -641,14 +616,6 @@ class LaunchTemplate(
     @jsii.member(jsii_name="resetEbsOptimized")
     def reset_ebs_optimized(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEbsOptimized", []))
-
-    @jsii.member(jsii_name="resetElasticGpuSpecifications")
-    def reset_elastic_gpu_specifications(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetElasticGpuSpecifications", []))
-
-    @jsii.member(jsii_name="resetElasticInferenceAccelerator")
-    def reset_elastic_inference_accelerator(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetElasticInferenceAccelerator", []))
 
     @jsii.member(jsii_name="resetEnclaveOptions")
     def reset_enclave_options(self) -> None:
@@ -734,6 +701,10 @@ class LaunchTemplate(
     def reset_ram_disk_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRamDiskId", []))
 
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
     @jsii.member(jsii_name="resetSecurityGroupNames")
     def reset_security_group_names(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSecurityGroupNames", []))
@@ -803,20 +774,6 @@ class LaunchTemplate(
         self,
     ) -> "LaunchTemplateCreditSpecificationOutputReference":
         return typing.cast("LaunchTemplateCreditSpecificationOutputReference", jsii.get(self, "creditSpecification"))
-
-    @builtins.property
-    @jsii.member(jsii_name="elasticGpuSpecifications")
-    def elastic_gpu_specifications(
-        self,
-    ) -> "LaunchTemplateElasticGpuSpecificationsList":
-        return typing.cast("LaunchTemplateElasticGpuSpecificationsList", jsii.get(self, "elasticGpuSpecifications"))
-
-    @builtins.property
-    @jsii.member(jsii_name="elasticInferenceAccelerator")
-    def elastic_inference_accelerator(
-        self,
-    ) -> "LaunchTemplateElasticInferenceAcceleratorOutputReference":
-        return typing.cast("LaunchTemplateElasticInferenceAcceleratorOutputReference", jsii.get(self, "elasticInferenceAccelerator"))
 
     @builtins.property
     @jsii.member(jsii_name="enclaveOptions")
@@ -950,20 +907,6 @@ class LaunchTemplate(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ebsOptimizedInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="elasticGpuSpecificationsInput")
-    def elastic_gpu_specifications_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateElasticGpuSpecifications"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateElasticGpuSpecifications"]]], jsii.get(self, "elasticGpuSpecificationsInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="elasticInferenceAcceleratorInput")
-    def elastic_inference_accelerator_input(
-        self,
-    ) -> typing.Optional["LaunchTemplateElasticInferenceAccelerator"]:
-        return typing.cast(typing.Optional["LaunchTemplateElasticInferenceAccelerator"], jsii.get(self, "elasticInferenceAcceleratorInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="enclaveOptionsInput")
     def enclave_options_input(self) -> typing.Optional["LaunchTemplateEnclaveOptions"]:
         return typing.cast(typing.Optional["LaunchTemplateEnclaveOptions"], jsii.get(self, "enclaveOptionsInput"))
@@ -1087,6 +1030,11 @@ class LaunchTemplate(
     @jsii.member(jsii_name="ramDiskIdInput")
     def ram_disk_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ramDiskIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupNamesInput")
@@ -1310,6 +1258,18 @@ class LaunchTemplate(
         jsii.set(self, "ramDiskId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4893516b3d2e2b393d0e13ab29eae018bf4c2b90922b1d47b5d75d90cb4e1e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="securityGroupNames")
     def security_group_names(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "securityGroupNames"))
@@ -1407,10 +1367,10 @@ class LaunchTemplateBlockDeviceMappings:
         virtual_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#device_name LaunchTemplate#device_name}.
-        :param ebs: ebs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ebs LaunchTemplate#ebs}
-        :param no_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#no_device LaunchTemplate#no_device}.
-        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#virtual_name LaunchTemplate#virtual_name}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#device_name LaunchTemplate#device_name}.
+        :param ebs: ebs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ebs LaunchTemplate#ebs}
+        :param no_device: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#no_device LaunchTemplate#no_device}.
+        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#virtual_name LaunchTemplate#virtual_name}.
         '''
         if isinstance(ebs, dict):
             ebs = LaunchTemplateBlockDeviceMappingsEbs(**ebs)
@@ -1432,7 +1392,7 @@ class LaunchTemplateBlockDeviceMappings:
 
     @builtins.property
     def device_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#device_name LaunchTemplate#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#device_name LaunchTemplate#device_name}.'''
         result = self._values.get("device_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1440,20 +1400,20 @@ class LaunchTemplateBlockDeviceMappings:
     def ebs(self) -> typing.Optional["LaunchTemplateBlockDeviceMappingsEbs"]:
         '''ebs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ebs LaunchTemplate#ebs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ebs LaunchTemplate#ebs}
         '''
         result = self._values.get("ebs")
         return typing.cast(typing.Optional["LaunchTemplateBlockDeviceMappingsEbs"], result)
 
     @builtins.property
     def no_device(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#no_device LaunchTemplate#no_device}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#no_device LaunchTemplate#no_device}.'''
         result = self._values.get("no_device")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def virtual_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#virtual_name LaunchTemplate#virtual_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#virtual_name LaunchTemplate#virtual_name}.'''
         result = self._values.get("virtual_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1499,15 +1459,15 @@ class LaunchTemplateBlockDeviceMappingsEbs:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#encrypted LaunchTemplate#encrypted}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#iops LaunchTemplate#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#kms_key_id LaunchTemplate#kms_key_id}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#snapshot_id LaunchTemplate#snapshot_id}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#throughput LaunchTemplate#throughput}.
-        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_initialization_rate LaunchTemplate#volume_initialization_rate}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_size LaunchTemplate#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_type LaunchTemplate#volume_type}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#encrypted LaunchTemplate#encrypted}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#iops LaunchTemplate#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#kms_key_id LaunchTemplate#kms_key_id}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#snapshot_id LaunchTemplate#snapshot_id}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#throughput LaunchTemplate#throughput}.
+        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_initialization_rate LaunchTemplate#volume_initialization_rate}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_size LaunchTemplate#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_type LaunchTemplate#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48a1fd623513467787571e353e7735cb39e705123ca21277c0e0b5241af0f9ed)
@@ -1542,55 +1502,55 @@ class LaunchTemplateBlockDeviceMappingsEbs:
 
     @builtins.property
     def delete_on_termination(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def encrypted(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#encrypted LaunchTemplate#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#encrypted LaunchTemplate#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#iops LaunchTemplate#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#iops LaunchTemplate#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#kms_key_id LaunchTemplate#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#kms_key_id LaunchTemplate#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def snapshot_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#snapshot_id LaunchTemplate#snapshot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#snapshot_id LaunchTemplate#snapshot_id}.'''
         result = self._values.get("snapshot_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#throughput LaunchTemplate#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#throughput LaunchTemplate#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_initialization_rate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_initialization_rate LaunchTemplate#volume_initialization_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_initialization_rate LaunchTemplate#volume_initialization_rate}.'''
         result = self._values.get("volume_initialization_rate")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_size LaunchTemplate#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_size LaunchTemplate#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_type LaunchTemplate#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_type LaunchTemplate#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1965,15 +1925,15 @@ class LaunchTemplateBlockDeviceMappingsOutputReference(
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#encrypted LaunchTemplate#encrypted}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#iops LaunchTemplate#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#kms_key_id LaunchTemplate#kms_key_id}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#snapshot_id LaunchTemplate#snapshot_id}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#throughput LaunchTemplate#throughput}.
-        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_initialization_rate LaunchTemplate#volume_initialization_rate}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_size LaunchTemplate#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#volume_type LaunchTemplate#volume_type}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#encrypted LaunchTemplate#encrypted}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#iops LaunchTemplate#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#kms_key_id LaunchTemplate#kms_key_id}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#snapshot_id LaunchTemplate#snapshot_id}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#throughput LaunchTemplate#throughput}.
+        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_initialization_rate LaunchTemplate#volume_initialization_rate}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_size LaunchTemplate#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#volume_type LaunchTemplate#volume_type}.
         '''
         value = LaunchTemplateBlockDeviceMappingsEbs(
             delete_on_termination=delete_on_termination,
@@ -2100,8 +2060,8 @@ class LaunchTemplateCapacityReservationSpecification:
         capacity_reservation_target: typing.Optional[typing.Union["LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_preference LaunchTemplate#capacity_reservation_preference}.
-        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_target LaunchTemplate#capacity_reservation_target}
+        :param capacity_reservation_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_preference LaunchTemplate#capacity_reservation_preference}.
+        :param capacity_reservation_target: capacity_reservation_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_target LaunchTemplate#capacity_reservation_target}
         '''
         if isinstance(capacity_reservation_target, dict):
             capacity_reservation_target = LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget(**capacity_reservation_target)
@@ -2117,7 +2077,7 @@ class LaunchTemplateCapacityReservationSpecification:
 
     @builtins.property
     def capacity_reservation_preference(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_preference LaunchTemplate#capacity_reservation_preference}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_preference LaunchTemplate#capacity_reservation_preference}.'''
         result = self._values.get("capacity_reservation_preference")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2127,7 +2087,7 @@ class LaunchTemplateCapacityReservationSpecification:
     ) -> typing.Optional["LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget"]:
         '''capacity_reservation_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_target LaunchTemplate#capacity_reservation_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_target LaunchTemplate#capacity_reservation_target}
         '''
         result = self._values.get("capacity_reservation_target")
         return typing.cast(typing.Optional["LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget"], result)
@@ -2160,8 +2120,8 @@ class LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget:
         capacity_reservation_resource_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_id LaunchTemplate#capacity_reservation_id}.
-        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_resource_group_arn LaunchTemplate#capacity_reservation_resource_group_arn}.
+        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_id LaunchTemplate#capacity_reservation_id}.
+        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_resource_group_arn LaunchTemplate#capacity_reservation_resource_group_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__867dffb91769eb648baef5f259016bef23bc5c6753218575950c1899c0831a27)
@@ -2175,13 +2135,13 @@ class LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget:
 
     @builtins.property
     def capacity_reservation_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_id LaunchTemplate#capacity_reservation_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_id LaunchTemplate#capacity_reservation_id}.'''
         result = self._values.get("capacity_reservation_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def capacity_reservation_resource_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_resource_group_arn LaunchTemplate#capacity_reservation_resource_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_resource_group_arn LaunchTemplate#capacity_reservation_resource_group_arn}.'''
         result = self._values.get("capacity_reservation_resource_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2307,8 +2267,8 @@ class LaunchTemplateCapacityReservationSpecificationOutputReference(
         capacity_reservation_resource_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_id LaunchTemplate#capacity_reservation_id}.
-        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_resource_group_arn LaunchTemplate#capacity_reservation_resource_group_arn}.
+        :param capacity_reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_id LaunchTemplate#capacity_reservation_id}.
+        :param capacity_reservation_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_resource_group_arn LaunchTemplate#capacity_reservation_resource_group_arn}.
         '''
         value = LaunchTemplateCapacityReservationSpecificationCapacityReservationTarget(
             capacity_reservation_id=capacity_reservation_id,
@@ -2394,8 +2354,6 @@ class LaunchTemplateCapacityReservationSpecificationOutputReference(
         "disable_api_stop": "disableApiStop",
         "disable_api_termination": "disableApiTermination",
         "ebs_optimized": "ebsOptimized",
-        "elastic_gpu_specifications": "elasticGpuSpecifications",
-        "elastic_inference_accelerator": "elasticInferenceAccelerator",
         "enclave_options": "enclaveOptions",
         "hibernation_options": "hibernationOptions",
         "iam_instance_profile": "iamInstanceProfile",
@@ -2417,6 +2375,7 @@ class LaunchTemplateCapacityReservationSpecificationOutputReference(
         "placement": "placement",
         "private_dns_name_options": "privateDnsNameOptions",
         "ram_disk_id": "ramDiskId",
+        "region": "region",
         "security_group_names": "securityGroupNames",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -2446,8 +2405,6 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         disable_api_stop: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         disable_api_termination: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         ebs_optimized: typing.Optional[builtins.str] = None,
-        elastic_gpu_specifications: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LaunchTemplateElasticGpuSpecifications", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        elastic_inference_accelerator: typing.Optional[typing.Union["LaunchTemplateElasticInferenceAccelerator", typing.Dict[builtins.str, typing.Any]]] = None,
         enclave_options: typing.Optional[typing.Union["LaunchTemplateEnclaveOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         hibernation_options: typing.Optional[typing.Union["LaunchTemplateHibernationOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         iam_instance_profile: typing.Optional[typing.Union["LaunchTemplateIamInstanceProfile", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2469,6 +2426,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         placement: typing.Optional[typing.Union["LaunchTemplatePlacement", typing.Dict[builtins.str, typing.Any]]] = None,
         private_dns_name_options: typing.Optional[typing.Union["LaunchTemplatePrivateDnsNameOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         ram_disk_id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2485,45 +2443,44 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param block_device_mappings: block_device_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#block_device_mappings LaunchTemplate#block_device_mappings}
-        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_specification LaunchTemplate#capacity_reservation_specification}
-        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_options LaunchTemplate#cpu_options}
-        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#credit_specification LaunchTemplate#credit_specification}
-        :param default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#default_version LaunchTemplate#default_version}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#description LaunchTemplate#description}.
-        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#disable_api_stop LaunchTemplate#disable_api_stop}.
-        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#disable_api_termination LaunchTemplate#disable_api_termination}.
-        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ebs_optimized LaunchTemplate#ebs_optimized}.
-        :param elastic_gpu_specifications: elastic_gpu_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#elastic_gpu_specifications LaunchTemplate#elastic_gpu_specifications}
-        :param elastic_inference_accelerator: elastic_inference_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#elastic_inference_accelerator LaunchTemplate#elastic_inference_accelerator}
-        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enclave_options LaunchTemplate#enclave_options}
-        :param hibernation_options: hibernation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#hibernation_options LaunchTemplate#hibernation_options}
-        :param iam_instance_profile: iam_instance_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#iam_instance_profile LaunchTemplate#iam_instance_profile}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#id LaunchTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#image_id LaunchTemplate#image_id}.
-        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_initiated_shutdown_behavior LaunchTemplate#instance_initiated_shutdown_behavior}.
-        :param instance_market_options: instance_market_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_market_options LaunchTemplate#instance_market_options}
-        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_requirements LaunchTemplate#instance_requirements}
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_type LaunchTemplate#instance_type}.
-        :param kernel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#kernel_id LaunchTemplate#kernel_id}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#key_name LaunchTemplate#key_name}.
-        :param license_specification: license_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#license_specification LaunchTemplate#license_specification}
-        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#maintenance_options LaunchTemplate#maintenance_options}
-        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#metadata_options LaunchTemplate#metadata_options}
-        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#monitoring LaunchTemplate#monitoring}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name LaunchTemplate#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name_prefix LaunchTemplate#name_prefix}.
-        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interfaces LaunchTemplate#network_interfaces}
-        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#placement LaunchTemplate#placement}
-        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#private_dns_name_options LaunchTemplate#private_dns_name_options}
-        :param ram_disk_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ram_disk_id LaunchTemplate#ram_disk_id}.
-        :param security_group_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#security_group_names LaunchTemplate#security_group_names}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags LaunchTemplate#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags_all LaunchTemplate#tags_all}.
-        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tag_specifications LaunchTemplate#tag_specifications}
-        :param update_default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#update_default_version LaunchTemplate#update_default_version}.
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#user_data LaunchTemplate#user_data}.
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#vpc_security_group_ids LaunchTemplate#vpc_security_group_ids}.
+        :param block_device_mappings: block_device_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#block_device_mappings LaunchTemplate#block_device_mappings}
+        :param capacity_reservation_specification: capacity_reservation_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_specification LaunchTemplate#capacity_reservation_specification}
+        :param cpu_options: cpu_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_options LaunchTemplate#cpu_options}
+        :param credit_specification: credit_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#credit_specification LaunchTemplate#credit_specification}
+        :param default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#default_version LaunchTemplate#default_version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#description LaunchTemplate#description}.
+        :param disable_api_stop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#disable_api_stop LaunchTemplate#disable_api_stop}.
+        :param disable_api_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#disable_api_termination LaunchTemplate#disable_api_termination}.
+        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ebs_optimized LaunchTemplate#ebs_optimized}.
+        :param enclave_options: enclave_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enclave_options LaunchTemplate#enclave_options}
+        :param hibernation_options: hibernation_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#hibernation_options LaunchTemplate#hibernation_options}
+        :param iam_instance_profile: iam_instance_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#iam_instance_profile LaunchTemplate#iam_instance_profile}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#id LaunchTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#image_id LaunchTemplate#image_id}.
+        :param instance_initiated_shutdown_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_initiated_shutdown_behavior LaunchTemplate#instance_initiated_shutdown_behavior}.
+        :param instance_market_options: instance_market_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_market_options LaunchTemplate#instance_market_options}
+        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_requirements LaunchTemplate#instance_requirements}
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_type LaunchTemplate#instance_type}.
+        :param kernel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#kernel_id LaunchTemplate#kernel_id}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#key_name LaunchTemplate#key_name}.
+        :param license_specification: license_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#license_specification LaunchTemplate#license_specification}
+        :param maintenance_options: maintenance_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#maintenance_options LaunchTemplate#maintenance_options}
+        :param metadata_options: metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#metadata_options LaunchTemplate#metadata_options}
+        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#monitoring LaunchTemplate#monitoring}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name LaunchTemplate#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name_prefix LaunchTemplate#name_prefix}.
+        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interfaces LaunchTemplate#network_interfaces}
+        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#placement LaunchTemplate#placement}
+        :param private_dns_name_options: private_dns_name_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#private_dns_name_options LaunchTemplate#private_dns_name_options}
+        :param ram_disk_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ram_disk_id LaunchTemplate#ram_disk_id}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#region LaunchTemplate#region}
+        :param security_group_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#security_group_names LaunchTemplate#security_group_names}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags LaunchTemplate#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags_all LaunchTemplate#tags_all}.
+        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tag_specifications LaunchTemplate#tag_specifications}
+        :param update_default_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#update_default_version LaunchTemplate#update_default_version}.
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#user_data LaunchTemplate#user_data}.
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#vpc_security_group_ids LaunchTemplate#vpc_security_group_ids}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2533,8 +2490,6 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             cpu_options = LaunchTemplateCpuOptions(**cpu_options)
         if isinstance(credit_specification, dict):
             credit_specification = LaunchTemplateCreditSpecification(**credit_specification)
-        if isinstance(elastic_inference_accelerator, dict):
-            elastic_inference_accelerator = LaunchTemplateElasticInferenceAccelerator(**elastic_inference_accelerator)
         if isinstance(enclave_options, dict):
             enclave_options = LaunchTemplateEnclaveOptions(**enclave_options)
         if isinstance(hibernation_options, dict):
@@ -2573,8 +2528,6 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument disable_api_stop", value=disable_api_stop, expected_type=type_hints["disable_api_stop"])
             check_type(argname="argument disable_api_termination", value=disable_api_termination, expected_type=type_hints["disable_api_termination"])
             check_type(argname="argument ebs_optimized", value=ebs_optimized, expected_type=type_hints["ebs_optimized"])
-            check_type(argname="argument elastic_gpu_specifications", value=elastic_gpu_specifications, expected_type=type_hints["elastic_gpu_specifications"])
-            check_type(argname="argument elastic_inference_accelerator", value=elastic_inference_accelerator, expected_type=type_hints["elastic_inference_accelerator"])
             check_type(argname="argument enclave_options", value=enclave_options, expected_type=type_hints["enclave_options"])
             check_type(argname="argument hibernation_options", value=hibernation_options, expected_type=type_hints["hibernation_options"])
             check_type(argname="argument iam_instance_profile", value=iam_instance_profile, expected_type=type_hints["iam_instance_profile"])
@@ -2596,6 +2549,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument placement", value=placement, expected_type=type_hints["placement"])
             check_type(argname="argument private_dns_name_options", value=private_dns_name_options, expected_type=type_hints["private_dns_name_options"])
             check_type(argname="argument ram_disk_id", value=ram_disk_id, expected_type=type_hints["ram_disk_id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument security_group_names", value=security_group_names, expected_type=type_hints["security_group_names"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -2636,10 +2590,6 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["disable_api_termination"] = disable_api_termination
         if ebs_optimized is not None:
             self._values["ebs_optimized"] = ebs_optimized
-        if elastic_gpu_specifications is not None:
-            self._values["elastic_gpu_specifications"] = elastic_gpu_specifications
-        if elastic_inference_accelerator is not None:
-            self._values["elastic_inference_accelerator"] = elastic_inference_accelerator
         if enclave_options is not None:
             self._values["enclave_options"] = enclave_options
         if hibernation_options is not None:
@@ -2682,6 +2632,8 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["private_dns_name_options"] = private_dns_name_options
         if ram_disk_id is not None:
             self._values["ram_disk_id"] = ram_disk_id
+        if region is not None:
+            self._values["region"] = region
         if security_group_names is not None:
             self._values["security_group_names"] = security_group_names
         if tags is not None:
@@ -2767,7 +2719,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LaunchTemplateBlockDeviceMappings]]]:
         '''block_device_mappings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#block_device_mappings LaunchTemplate#block_device_mappings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#block_device_mappings LaunchTemplate#block_device_mappings}
         '''
         result = self._values.get("block_device_mappings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LaunchTemplateBlockDeviceMappings]]], result)
@@ -2778,7 +2730,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[LaunchTemplateCapacityReservationSpecification]:
         '''capacity_reservation_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#capacity_reservation_specification LaunchTemplate#capacity_reservation_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#capacity_reservation_specification LaunchTemplate#capacity_reservation_specification}
         '''
         result = self._values.get("capacity_reservation_specification")
         return typing.cast(typing.Optional[LaunchTemplateCapacityReservationSpecification], result)
@@ -2787,7 +2739,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cpu_options(self) -> typing.Optional["LaunchTemplateCpuOptions"]:
         '''cpu_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_options LaunchTemplate#cpu_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_options LaunchTemplate#cpu_options}
         '''
         result = self._values.get("cpu_options")
         return typing.cast(typing.Optional["LaunchTemplateCpuOptions"], result)
@@ -2798,20 +2750,20 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LaunchTemplateCreditSpecification"]:
         '''credit_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#credit_specification LaunchTemplate#credit_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#credit_specification LaunchTemplate#credit_specification}
         '''
         result = self._values.get("credit_specification")
         return typing.cast(typing.Optional["LaunchTemplateCreditSpecification"], result)
 
     @builtins.property
     def default_version(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#default_version LaunchTemplate#default_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#default_version LaunchTemplate#default_version}.'''
         result = self._values.get("default_version")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#description LaunchTemplate#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#description LaunchTemplate#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2819,7 +2771,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_api_stop(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#disable_api_stop LaunchTemplate#disable_api_stop}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#disable_api_stop LaunchTemplate#disable_api_stop}.'''
         result = self._values.get("disable_api_stop")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2827,43 +2779,21 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_api_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#disable_api_termination LaunchTemplate#disable_api_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#disable_api_termination LaunchTemplate#disable_api_termination}.'''
         result = self._values.get("disable_api_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def ebs_optimized(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ebs_optimized LaunchTemplate#ebs_optimized}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ebs_optimized LaunchTemplate#ebs_optimized}.'''
         result = self._values.get("ebs_optimized")
         return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def elastic_gpu_specifications(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateElasticGpuSpecifications"]]]:
-        '''elastic_gpu_specifications block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#elastic_gpu_specifications LaunchTemplate#elastic_gpu_specifications}
-        '''
-        result = self._values.get("elastic_gpu_specifications")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateElasticGpuSpecifications"]]], result)
-
-    @builtins.property
-    def elastic_inference_accelerator(
-        self,
-    ) -> typing.Optional["LaunchTemplateElasticInferenceAccelerator"]:
-        '''elastic_inference_accelerator block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#elastic_inference_accelerator LaunchTemplate#elastic_inference_accelerator}
-        '''
-        result = self._values.get("elastic_inference_accelerator")
-        return typing.cast(typing.Optional["LaunchTemplateElasticInferenceAccelerator"], result)
 
     @builtins.property
     def enclave_options(self) -> typing.Optional["LaunchTemplateEnclaveOptions"]:
         '''enclave_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enclave_options LaunchTemplate#enclave_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enclave_options LaunchTemplate#enclave_options}
         '''
         result = self._values.get("enclave_options")
         return typing.cast(typing.Optional["LaunchTemplateEnclaveOptions"], result)
@@ -2874,7 +2804,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LaunchTemplateHibernationOptions"]:
         '''hibernation_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#hibernation_options LaunchTemplate#hibernation_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#hibernation_options LaunchTemplate#hibernation_options}
         '''
         result = self._values.get("hibernation_options")
         return typing.cast(typing.Optional["LaunchTemplateHibernationOptions"], result)
@@ -2885,14 +2815,14 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LaunchTemplateIamInstanceProfile"]:
         '''iam_instance_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#iam_instance_profile LaunchTemplate#iam_instance_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#iam_instance_profile LaunchTemplate#iam_instance_profile}
         '''
         result = self._values.get("iam_instance_profile")
         return typing.cast(typing.Optional["LaunchTemplateIamInstanceProfile"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#id LaunchTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#id LaunchTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2902,13 +2832,13 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def image_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#image_id LaunchTemplate#image_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#image_id LaunchTemplate#image_id}.'''
         result = self._values.get("image_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_initiated_shutdown_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_initiated_shutdown_behavior LaunchTemplate#instance_initiated_shutdown_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_initiated_shutdown_behavior LaunchTemplate#instance_initiated_shutdown_behavior}.'''
         result = self._values.get("instance_initiated_shutdown_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2918,7 +2848,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LaunchTemplateInstanceMarketOptions"]:
         '''instance_market_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_market_options LaunchTemplate#instance_market_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_market_options LaunchTemplate#instance_market_options}
         '''
         result = self._values.get("instance_market_options")
         return typing.cast(typing.Optional["LaunchTemplateInstanceMarketOptions"], result)
@@ -2929,26 +2859,26 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LaunchTemplateInstanceRequirements"]:
         '''instance_requirements block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_requirements LaunchTemplate#instance_requirements}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_requirements LaunchTemplate#instance_requirements}
         '''
         result = self._values.get("instance_requirements")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirements"], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_type LaunchTemplate#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_type LaunchTemplate#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kernel_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#kernel_id LaunchTemplate#kernel_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#kernel_id LaunchTemplate#kernel_id}.'''
         result = self._values.get("kernel_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#key_name LaunchTemplate#key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#key_name LaunchTemplate#key_name}.'''
         result = self._values.get("key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2958,7 +2888,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateLicenseSpecification"]]]:
         '''license_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#license_specification LaunchTemplate#license_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#license_specification LaunchTemplate#license_specification}
         '''
         result = self._values.get("license_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateLicenseSpecification"]]], result)
@@ -2969,7 +2899,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LaunchTemplateMaintenanceOptions"]:
         '''maintenance_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#maintenance_options LaunchTemplate#maintenance_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#maintenance_options LaunchTemplate#maintenance_options}
         '''
         result = self._values.get("maintenance_options")
         return typing.cast(typing.Optional["LaunchTemplateMaintenanceOptions"], result)
@@ -2978,7 +2908,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata_options(self) -> typing.Optional["LaunchTemplateMetadataOptions"]:
         '''metadata_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#metadata_options LaunchTemplate#metadata_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#metadata_options LaunchTemplate#metadata_options}
         '''
         result = self._values.get("metadata_options")
         return typing.cast(typing.Optional["LaunchTemplateMetadataOptions"], result)
@@ -2987,20 +2917,20 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitoring(self) -> typing.Optional["LaunchTemplateMonitoring"]:
         '''monitoring block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#monitoring LaunchTemplate#monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#monitoring LaunchTemplate#monitoring}
         '''
         result = self._values.get("monitoring")
         return typing.cast(typing.Optional["LaunchTemplateMonitoring"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name LaunchTemplate#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name LaunchTemplate#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name_prefix LaunchTemplate#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name_prefix LaunchTemplate#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3010,7 +2940,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateNetworkInterfaces"]]]:
         '''network_interfaces block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interfaces LaunchTemplate#network_interfaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interfaces LaunchTemplate#network_interfaces}
         '''
         result = self._values.get("network_interfaces")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateNetworkInterfaces"]]], result)
@@ -3019,7 +2949,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def placement(self) -> typing.Optional["LaunchTemplatePlacement"]:
         '''placement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#placement LaunchTemplate#placement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#placement LaunchTemplate#placement}
         '''
         result = self._values.get("placement")
         return typing.cast(typing.Optional["LaunchTemplatePlacement"], result)
@@ -3030,32 +2960,41 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LaunchTemplatePrivateDnsNameOptions"]:
         '''private_dns_name_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#private_dns_name_options LaunchTemplate#private_dns_name_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#private_dns_name_options LaunchTemplate#private_dns_name_options}
         '''
         result = self._values.get("private_dns_name_options")
         return typing.cast(typing.Optional["LaunchTemplatePrivateDnsNameOptions"], result)
 
     @builtins.property
     def ram_disk_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ram_disk_id LaunchTemplate#ram_disk_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ram_disk_id LaunchTemplate#ram_disk_id}.'''
         result = self._values.get("ram_disk_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#region LaunchTemplate#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def security_group_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#security_group_names LaunchTemplate#security_group_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#security_group_names LaunchTemplate#security_group_names}.'''
         result = self._values.get("security_group_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags LaunchTemplate#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags LaunchTemplate#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags_all LaunchTemplate#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags_all LaunchTemplate#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3065,7 +3004,7 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateTagSpecifications"]]]:
         '''tag_specifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tag_specifications LaunchTemplate#tag_specifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tag_specifications LaunchTemplate#tag_specifications}
         '''
         result = self._values.get("tag_specifications")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LaunchTemplateTagSpecifications"]]], result)
@@ -3074,19 +3013,19 @@ class LaunchTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def update_default_version(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#update_default_version LaunchTemplate#update_default_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#update_default_version LaunchTemplate#update_default_version}.'''
         result = self._values.get("update_default_version")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def user_data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#user_data LaunchTemplate#user_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#user_data LaunchTemplate#user_data}.'''
         result = self._values.get("user_data")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#vpc_security_group_ids LaunchTemplate#vpc_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#vpc_security_group_ids LaunchTemplate#vpc_security_group_ids}.'''
         result = self._values.get("vpc_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3120,9 +3059,9 @@ class LaunchTemplateCpuOptions:
         threads_per_core: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#amd_sev_snp LaunchTemplate#amd_sev_snp}.
-        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#core_count LaunchTemplate#core_count}.
-        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#threads_per_core LaunchTemplate#threads_per_core}.
+        :param amd_sev_snp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#amd_sev_snp LaunchTemplate#amd_sev_snp}.
+        :param core_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#core_count LaunchTemplate#core_count}.
+        :param threads_per_core: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#threads_per_core LaunchTemplate#threads_per_core}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aeb866c2e960c8c46215a7e675c611d95544849dd3215e54fc69fc3b67a583e2)
@@ -3139,19 +3078,19 @@ class LaunchTemplateCpuOptions:
 
     @builtins.property
     def amd_sev_snp(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#amd_sev_snp LaunchTemplate#amd_sev_snp}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#amd_sev_snp LaunchTemplate#amd_sev_snp}.'''
         result = self._values.get("amd_sev_snp")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def core_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#core_count LaunchTemplate#core_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#core_count LaunchTemplate#core_count}.'''
         result = self._values.get("core_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def threads_per_core(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#threads_per_core LaunchTemplate#threads_per_core}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#threads_per_core LaunchTemplate#threads_per_core}.'''
         result = self._values.get("threads_per_core")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3271,7 +3210,7 @@ class LaunchTemplateCpuOptionsOutputReference(
 class LaunchTemplateCreditSpecification:
     def __init__(self, *, cpu_credits: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_credits LaunchTemplate#cpu_credits}.
+        :param cpu_credits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_credits LaunchTemplate#cpu_credits}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0966332a30f96aea5d42424712016dc18a4f2985800018b8c786aca749ab2b4)
@@ -3282,7 +3221,7 @@ class LaunchTemplateCreditSpecification:
 
     @builtins.property
     def cpu_credits(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_credits LaunchTemplate#cpu_credits}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_credits LaunchTemplate#cpu_credits}.'''
         result = self._values.get("cpu_credits")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3356,287 +3295,6 @@ class LaunchTemplateCreditSpecificationOutputReference(
 
 
 @jsii.data_type(
-    jsii_type="@cdktf/provider-aws.launchTemplate.LaunchTemplateElasticGpuSpecifications",
-    jsii_struct_bases=[],
-    name_mapping={"type": "type"},
-)
-class LaunchTemplateElasticGpuSpecifications:
-    def __init__(self, *, type: builtins.str) -> None:
-        '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#type LaunchTemplate#type}.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dad941845babb999e06bd1f47551e95fd8dfa354f56665e408177b1194548216)
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "type": type,
-        }
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#type LaunchTemplate#type}.'''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LaunchTemplateElasticGpuSpecifications(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class LaunchTemplateElasticGpuSpecificationsList(
-    _cdktf_9a9027ec.ComplexList,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.launchTemplate.LaunchTemplateElasticGpuSpecificationsList",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-        wraps_set: builtins.bool,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__961a5f8a9125e24a4506611844b9b11be4472fe6b19519a1e2f1de2e8b558a57)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
-
-    @jsii.member(jsii_name="get")
-    def get(
-        self,
-        index: jsii.Number,
-    ) -> "LaunchTemplateElasticGpuSpecificationsOutputReference":
-        '''
-        :param index: the index of the item to return.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__241c6492c39c6cbdde2c226163716c2711abc44a52cbdb2e65a859cae0ee60e5)
-            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
-        return typing.cast("LaunchTemplateElasticGpuSpecificationsOutputReference", jsii.invoke(self, "get", [index]))
-
-    @builtins.property
-    @jsii.member(jsii_name="terraformAttribute")
-    def _terraform_attribute(self) -> builtins.str:
-        '''The attribute on the parent resource this class is referencing.'''
-        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
-
-    @_terraform_attribute.setter
-    def _terraform_attribute(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4fdda3b83e9565948167c4fd5936769c38a80c0e21912538f7db57d9d2b248c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="terraformResource")
-    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
-        '''The parent resource.'''
-        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
-
-    @_terraform_resource.setter
-    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab8201d9b761bea11214bc4d65e15813b0fdd81c2bddbc66c92c79697265c673)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="wrapsSet")
-    def _wraps_set(self) -> builtins.bool:
-        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
-        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
-
-    @_wraps_set.setter
-    def _wraps_set(self, value: builtins.bool) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49b4a7448fab459706a75fc8790a4466f30dbc49714c9490555fd10a12f54895)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LaunchTemplateElasticGpuSpecifications]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LaunchTemplateElasticGpuSpecifications]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LaunchTemplateElasticGpuSpecifications]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df954d96034288f964f73321309281d43f01e0ee936376b37cdeb5aa6240e372)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-class LaunchTemplateElasticGpuSpecificationsOutputReference(
-    _cdktf_9a9027ec.ComplexObject,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.launchTemplate.LaunchTemplateElasticGpuSpecificationsOutputReference",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-        complex_object_index: jsii.Number,
-        complex_object_is_from_set: builtins.bool,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        :param complex_object_index: the index of this item in the list.
-        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__433ac58a3c971eb878e98d06623618d92b76c043adffca0950d96acb051a231f)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
-            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
-
-    @builtins.property
-    @jsii.member(jsii_name="typeInput")
-    def type_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__852c63d25486917ca5934c6787f8d7e217b07fde31e7f6763b715c6148937430)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LaunchTemplateElasticGpuSpecifications]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LaunchTemplateElasticGpuSpecifications]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LaunchTemplateElasticGpuSpecifications]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93f2dbbb3468659af2e7e37c3cd960d5b707a2104231379c307410ce5718b414)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
-    jsii_type="@cdktf/provider-aws.launchTemplate.LaunchTemplateElasticInferenceAccelerator",
-    jsii_struct_bases=[],
-    name_mapping={"type": "type"},
-)
-class LaunchTemplateElasticInferenceAccelerator:
-    def __init__(self, *, type: builtins.str) -> None:
-        '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#type LaunchTemplate#type}.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b14fb67b473c7af7d00058d27e3c336d196df6af2ca54f203450a0677b9bf39)
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "type": type,
-        }
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#type LaunchTemplate#type}.'''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LaunchTemplateElasticInferenceAccelerator(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class LaunchTemplateElasticInferenceAcceleratorOutputReference(
-    _cdktf_9a9027ec.ComplexObject,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.launchTemplate.LaunchTemplateElasticInferenceAcceleratorOutputReference",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4974c16c43b8058079fca1945a5f66b51e82dcdde86ff58cc227b61a51ecb475)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
-
-    @builtins.property
-    @jsii.member(jsii_name="typeInput")
-    def type_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ea4a8ecece53a0862d7ebc551d4637b9e7df453cacfdff7001bfedafdcb6f25)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[LaunchTemplateElasticInferenceAccelerator]:
-        return typing.cast(typing.Optional[LaunchTemplateElasticInferenceAccelerator], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[LaunchTemplateElasticInferenceAccelerator],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98423a4f3c121ca98175572338d9105dbb8b4e65fa22a9d84fcf7930a0935f50)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
     jsii_type="@cdktf/provider-aws.launchTemplate.LaunchTemplateEnclaveOptions",
     jsii_struct_bases=[],
     name_mapping={"enabled": "enabled"},
@@ -3648,7 +3306,7 @@ class LaunchTemplateEnclaveOptions:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c34f8dcae178ef129d7dc4ebcdebc3905a90aa235c4c98ee825f88e3d72cf4e)
@@ -3661,7 +3319,7 @@ class LaunchTemplateEnclaveOptions:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3751,7 +3409,7 @@ class LaunchTemplateHibernationOptions:
         configured: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#configured LaunchTemplate#configured}.
+        :param configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#configured LaunchTemplate#configured}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5addfad5bf3f86e4a93fe5a86d8356fee90557157ba42cc601356bc99bdef270)
@@ -3762,7 +3420,7 @@ class LaunchTemplateHibernationOptions:
 
     @builtins.property
     def configured(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#configured LaunchTemplate#configured}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#configured LaunchTemplate#configured}.'''
         result = self._values.get("configured")
         assert result is not None, "Required property 'configured' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -3850,8 +3508,8 @@ class LaunchTemplateIamInstanceProfile:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#arn LaunchTemplate#arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name LaunchTemplate#name}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#arn LaunchTemplate#arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name LaunchTemplate#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7fa180437f67eb4ffe6185d70b6317893e342960846186b92f3a34c1def5da9)
@@ -3865,13 +3523,13 @@ class LaunchTemplateIamInstanceProfile:
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#arn LaunchTemplate#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#arn LaunchTemplate#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#name LaunchTemplate#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#name LaunchTemplate#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3978,8 +3636,8 @@ class LaunchTemplateInstanceMarketOptions:
         spot_options: typing.Optional[typing.Union["LaunchTemplateInstanceMarketOptionsSpotOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param market_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#market_type LaunchTemplate#market_type}.
-        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_options LaunchTemplate#spot_options}
+        :param market_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#market_type LaunchTemplate#market_type}.
+        :param spot_options: spot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_options LaunchTemplate#spot_options}
         '''
         if isinstance(spot_options, dict):
             spot_options = LaunchTemplateInstanceMarketOptionsSpotOptions(**spot_options)
@@ -3995,7 +3653,7 @@ class LaunchTemplateInstanceMarketOptions:
 
     @builtins.property
     def market_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#market_type LaunchTemplate#market_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#market_type LaunchTemplate#market_type}.'''
         result = self._values.get("market_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4005,7 +3663,7 @@ class LaunchTemplateInstanceMarketOptions:
     ) -> typing.Optional["LaunchTemplateInstanceMarketOptionsSpotOptions"]:
         '''spot_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_options LaunchTemplate#spot_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_options LaunchTemplate#spot_options}
         '''
         result = self._values.get("spot_options")
         return typing.cast(typing.Optional["LaunchTemplateInstanceMarketOptionsSpotOptions"], result)
@@ -4053,11 +3711,11 @@ class LaunchTemplateInstanceMarketOptionsOutputReference(
         valid_until: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#block_duration_minutes LaunchTemplate#block_duration_minutes}.
-        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_interruption_behavior LaunchTemplate#instance_interruption_behavior}.
-        :param max_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max_price LaunchTemplate#max_price}.
-        :param spot_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_instance_type LaunchTemplate#spot_instance_type}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#valid_until LaunchTemplate#valid_until}.
+        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#block_duration_minutes LaunchTemplate#block_duration_minutes}.
+        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_interruption_behavior LaunchTemplate#instance_interruption_behavior}.
+        :param max_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max_price LaunchTemplate#max_price}.
+        :param spot_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_instance_type LaunchTemplate#spot_instance_type}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#valid_until LaunchTemplate#valid_until}.
         '''
         value = LaunchTemplateInstanceMarketOptionsSpotOptions(
             block_duration_minutes=block_duration_minutes,
@@ -4146,11 +3804,11 @@ class LaunchTemplateInstanceMarketOptionsSpotOptions:
         valid_until: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#block_duration_minutes LaunchTemplate#block_duration_minutes}.
-        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_interruption_behavior LaunchTemplate#instance_interruption_behavior}.
-        :param max_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max_price LaunchTemplate#max_price}.
-        :param spot_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_instance_type LaunchTemplate#spot_instance_type}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#valid_until LaunchTemplate#valid_until}.
+        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#block_duration_minutes LaunchTemplate#block_duration_minutes}.
+        :param instance_interruption_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_interruption_behavior LaunchTemplate#instance_interruption_behavior}.
+        :param max_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max_price LaunchTemplate#max_price}.
+        :param spot_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_instance_type LaunchTemplate#spot_instance_type}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#valid_until LaunchTemplate#valid_until}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__933ff6190bdd6597f2cfd8371af217849b3637d999edfbd9939ec3282b9342f3)
@@ -4173,31 +3831,31 @@ class LaunchTemplateInstanceMarketOptionsSpotOptions:
 
     @builtins.property
     def block_duration_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#block_duration_minutes LaunchTemplate#block_duration_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#block_duration_minutes LaunchTemplate#block_duration_minutes}.'''
         result = self._values.get("block_duration_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def instance_interruption_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_interruption_behavior LaunchTemplate#instance_interruption_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_interruption_behavior LaunchTemplate#instance_interruption_behavior}.'''
         result = self._values.get("instance_interruption_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max_price LaunchTemplate#max_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max_price LaunchTemplate#max_price}.'''
         result = self._values.get("max_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def spot_instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_instance_type LaunchTemplate#spot_instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_instance_type LaunchTemplate#spot_instance_type}.'''
         result = self._values.get("spot_instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def valid_until(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#valid_until LaunchTemplate#valid_until}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#valid_until LaunchTemplate#valid_until}.'''
         result = self._values.get("valid_until")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4416,30 +4074,30 @@ class LaunchTemplateInstanceRequirements:
         total_local_storage_gb: typing.Optional[typing.Union["LaunchTemplateInstanceRequirementsTotalLocalStorageGb", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#memory_mib LaunchTemplate#memory_mib}
-        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#vcpu_count LaunchTemplate#vcpu_count}
-        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_count LaunchTemplate#accelerator_count}
-        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_manufacturers LaunchTemplate#accelerator_manufacturers}.
-        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_names LaunchTemplate#accelerator_names}.
-        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_total_memory_mib LaunchTemplate#accelerator_total_memory_mib}
-        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_types LaunchTemplate#accelerator_types}.
-        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#allowed_instance_types LaunchTemplate#allowed_instance_types}.
-        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#bare_metal LaunchTemplate#bare_metal}.
-        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#baseline_ebs_bandwidth_mbps LaunchTemplate#baseline_ebs_bandwidth_mbps}
-        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#burstable_performance LaunchTemplate#burstable_performance}.
-        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_manufacturers LaunchTemplate#cpu_manufacturers}.
-        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#excluded_instance_types LaunchTemplate#excluded_instance_types}.
-        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_generations LaunchTemplate#instance_generations}.
-        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#local_storage LaunchTemplate#local_storage}.
-        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#local_storage_types LaunchTemplate#local_storage_types}.
-        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max_spot_price_as_percentage_of_optimal_on_demand_price LaunchTemplate#max_spot_price_as_percentage_of_optimal_on_demand_price}.
-        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#memory_gib_per_vcpu LaunchTemplate#memory_gib_per_vcpu}
-        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_bandwidth_gbps LaunchTemplate#network_bandwidth_gbps}
-        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interface_count LaunchTemplate#network_interface_count}
-        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#on_demand_max_price_percentage_over_lowest_price LaunchTemplate#on_demand_max_price_percentage_over_lowest_price}.
-        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#require_hibernate_support LaunchTemplate#require_hibernate_support}.
-        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_max_price_percentage_over_lowest_price LaunchTemplate#spot_max_price_percentage_over_lowest_price}.
-        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#total_local_storage_gb LaunchTemplate#total_local_storage_gb}
+        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#memory_mib LaunchTemplate#memory_mib}
+        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#vcpu_count LaunchTemplate#vcpu_count}
+        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_count LaunchTemplate#accelerator_count}
+        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_manufacturers LaunchTemplate#accelerator_manufacturers}.
+        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_names LaunchTemplate#accelerator_names}.
+        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_total_memory_mib LaunchTemplate#accelerator_total_memory_mib}
+        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_types LaunchTemplate#accelerator_types}.
+        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#allowed_instance_types LaunchTemplate#allowed_instance_types}.
+        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#bare_metal LaunchTemplate#bare_metal}.
+        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#baseline_ebs_bandwidth_mbps LaunchTemplate#baseline_ebs_bandwidth_mbps}
+        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#burstable_performance LaunchTemplate#burstable_performance}.
+        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_manufacturers LaunchTemplate#cpu_manufacturers}.
+        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#excluded_instance_types LaunchTemplate#excluded_instance_types}.
+        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_generations LaunchTemplate#instance_generations}.
+        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#local_storage LaunchTemplate#local_storage}.
+        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#local_storage_types LaunchTemplate#local_storage_types}.
+        :param max_spot_price_as_percentage_of_optimal_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max_spot_price_as_percentage_of_optimal_on_demand_price LaunchTemplate#max_spot_price_as_percentage_of_optimal_on_demand_price}.
+        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#memory_gib_per_vcpu LaunchTemplate#memory_gib_per_vcpu}
+        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_bandwidth_gbps LaunchTemplate#network_bandwidth_gbps}
+        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interface_count LaunchTemplate#network_interface_count}
+        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#on_demand_max_price_percentage_over_lowest_price LaunchTemplate#on_demand_max_price_percentage_over_lowest_price}.
+        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#require_hibernate_support LaunchTemplate#require_hibernate_support}.
+        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_max_price_percentage_over_lowest_price LaunchTemplate#spot_max_price_percentage_over_lowest_price}.
+        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#total_local_storage_gb LaunchTemplate#total_local_storage_gb}
         '''
         if isinstance(memory_mib, dict):
             memory_mib = LaunchTemplateInstanceRequirementsMemoryMib(**memory_mib)
@@ -4538,7 +4196,7 @@ class LaunchTemplateInstanceRequirements:
     def memory_mib(self) -> "LaunchTemplateInstanceRequirementsMemoryMib":
         '''memory_mib block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#memory_mib LaunchTemplate#memory_mib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#memory_mib LaunchTemplate#memory_mib}
         '''
         result = self._values.get("memory_mib")
         assert result is not None, "Required property 'memory_mib' is missing"
@@ -4548,7 +4206,7 @@ class LaunchTemplateInstanceRequirements:
     def vcpu_count(self) -> "LaunchTemplateInstanceRequirementsVcpuCount":
         '''vcpu_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#vcpu_count LaunchTemplate#vcpu_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#vcpu_count LaunchTemplate#vcpu_count}
         '''
         result = self._values.get("vcpu_count")
         assert result is not None, "Required property 'vcpu_count' is missing"
@@ -4560,20 +4218,20 @@ class LaunchTemplateInstanceRequirements:
     ) -> typing.Optional["LaunchTemplateInstanceRequirementsAcceleratorCount"]:
         '''accelerator_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_count LaunchTemplate#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_count LaunchTemplate#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirementsAcceleratorCount"], result)
 
     @builtins.property
     def accelerator_manufacturers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_manufacturers LaunchTemplate#accelerator_manufacturers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_manufacturers LaunchTemplate#accelerator_manufacturers}.'''
         result = self._values.get("accelerator_manufacturers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def accelerator_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_names LaunchTemplate#accelerator_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_names LaunchTemplate#accelerator_names}.'''
         result = self._values.get("accelerator_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4583,26 +4241,26 @@ class LaunchTemplateInstanceRequirements:
     ) -> typing.Optional["LaunchTemplateInstanceRequirementsAcceleratorTotalMemoryMib"]:
         '''accelerator_total_memory_mib block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_total_memory_mib LaunchTemplate#accelerator_total_memory_mib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_total_memory_mib LaunchTemplate#accelerator_total_memory_mib}
         '''
         result = self._values.get("accelerator_total_memory_mib")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirementsAcceleratorTotalMemoryMib"], result)
 
     @builtins.property
     def accelerator_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#accelerator_types LaunchTemplate#accelerator_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#accelerator_types LaunchTemplate#accelerator_types}.'''
         result = self._values.get("accelerator_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allowed_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#allowed_instance_types LaunchTemplate#allowed_instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#allowed_instance_types LaunchTemplate#allowed_instance_types}.'''
         result = self._values.get("allowed_instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def bare_metal(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#bare_metal LaunchTemplate#bare_metal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#bare_metal LaunchTemplate#bare_metal}.'''
         result = self._values.get("bare_metal")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4612,44 +4270,44 @@ class LaunchTemplateInstanceRequirements:
     ) -> typing.Optional["LaunchTemplateInstanceRequirementsBaselineEbsBandwidthMbps"]:
         '''baseline_ebs_bandwidth_mbps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#baseline_ebs_bandwidth_mbps LaunchTemplate#baseline_ebs_bandwidth_mbps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#baseline_ebs_bandwidth_mbps LaunchTemplate#baseline_ebs_bandwidth_mbps}
         '''
         result = self._values.get("baseline_ebs_bandwidth_mbps")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirementsBaselineEbsBandwidthMbps"], result)
 
     @builtins.property
     def burstable_performance(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#burstable_performance LaunchTemplate#burstable_performance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#burstable_performance LaunchTemplate#burstable_performance}.'''
         result = self._values.get("burstable_performance")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cpu_manufacturers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#cpu_manufacturers LaunchTemplate#cpu_manufacturers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#cpu_manufacturers LaunchTemplate#cpu_manufacturers}.'''
         result = self._values.get("cpu_manufacturers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def excluded_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#excluded_instance_types LaunchTemplate#excluded_instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#excluded_instance_types LaunchTemplate#excluded_instance_types}.'''
         result = self._values.get("excluded_instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def instance_generations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_generations LaunchTemplate#instance_generations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_generations LaunchTemplate#instance_generations}.'''
         result = self._values.get("instance_generations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def local_storage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#local_storage LaunchTemplate#local_storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#local_storage LaunchTemplate#local_storage}.'''
         result = self._values.get("local_storage")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def local_storage_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#local_storage_types LaunchTemplate#local_storage_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#local_storage_types LaunchTemplate#local_storage_types}.'''
         result = self._values.get("local_storage_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4657,7 +4315,7 @@ class LaunchTemplateInstanceRequirements:
     def max_spot_price_as_percentage_of_optimal_on_demand_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max_spot_price_as_percentage_of_optimal_on_demand_price LaunchTemplate#max_spot_price_as_percentage_of_optimal_on_demand_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max_spot_price_as_percentage_of_optimal_on_demand_price LaunchTemplate#max_spot_price_as_percentage_of_optimal_on_demand_price}.'''
         result = self._values.get("max_spot_price_as_percentage_of_optimal_on_demand_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4667,7 +4325,7 @@ class LaunchTemplateInstanceRequirements:
     ) -> typing.Optional["LaunchTemplateInstanceRequirementsMemoryGibPerVcpu"]:
         '''memory_gib_per_vcpu block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#memory_gib_per_vcpu LaunchTemplate#memory_gib_per_vcpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#memory_gib_per_vcpu LaunchTemplate#memory_gib_per_vcpu}
         '''
         result = self._values.get("memory_gib_per_vcpu")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirementsMemoryGibPerVcpu"], result)
@@ -4678,7 +4336,7 @@ class LaunchTemplateInstanceRequirements:
     ) -> typing.Optional["LaunchTemplateInstanceRequirementsNetworkBandwidthGbps"]:
         '''network_bandwidth_gbps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_bandwidth_gbps LaunchTemplate#network_bandwidth_gbps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_bandwidth_gbps LaunchTemplate#network_bandwidth_gbps}
         '''
         result = self._values.get("network_bandwidth_gbps")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirementsNetworkBandwidthGbps"], result)
@@ -4689,7 +4347,7 @@ class LaunchTemplateInstanceRequirements:
     ) -> typing.Optional["LaunchTemplateInstanceRequirementsNetworkInterfaceCount"]:
         '''network_interface_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interface_count LaunchTemplate#network_interface_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interface_count LaunchTemplate#network_interface_count}
         '''
         result = self._values.get("network_interface_count")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirementsNetworkInterfaceCount"], result)
@@ -4698,7 +4356,7 @@ class LaunchTemplateInstanceRequirements:
     def on_demand_max_price_percentage_over_lowest_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#on_demand_max_price_percentage_over_lowest_price LaunchTemplate#on_demand_max_price_percentage_over_lowest_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#on_demand_max_price_percentage_over_lowest_price LaunchTemplate#on_demand_max_price_percentage_over_lowest_price}.'''
         result = self._values.get("on_demand_max_price_percentage_over_lowest_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4706,7 +4364,7 @@ class LaunchTemplateInstanceRequirements:
     def require_hibernate_support(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#require_hibernate_support LaunchTemplate#require_hibernate_support}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#require_hibernate_support LaunchTemplate#require_hibernate_support}.'''
         result = self._values.get("require_hibernate_support")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4714,7 +4372,7 @@ class LaunchTemplateInstanceRequirements:
     def spot_max_price_percentage_over_lowest_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spot_max_price_percentage_over_lowest_price LaunchTemplate#spot_max_price_percentage_over_lowest_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spot_max_price_percentage_over_lowest_price LaunchTemplate#spot_max_price_percentage_over_lowest_price}.'''
         result = self._values.get("spot_max_price_percentage_over_lowest_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4724,7 +4382,7 @@ class LaunchTemplateInstanceRequirements:
     ) -> typing.Optional["LaunchTemplateInstanceRequirementsTotalLocalStorageGb"]:
         '''total_local_storage_gb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#total_local_storage_gb LaunchTemplate#total_local_storage_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#total_local_storage_gb LaunchTemplate#total_local_storage_gb}
         '''
         result = self._values.get("total_local_storage_gb")
         return typing.cast(typing.Optional["LaunchTemplateInstanceRequirementsTotalLocalStorageGb"], result)
@@ -4754,8 +4412,8 @@ class LaunchTemplateInstanceRequirementsAcceleratorCount:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62c9cb334ddfc1688279c4c081bae09f15ed94a4bde11f653673b0a918e7ed62)
@@ -4769,13 +4427,13 @@ class LaunchTemplateInstanceRequirementsAcceleratorCount:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4884,8 +4542,8 @@ class LaunchTemplateInstanceRequirementsAcceleratorTotalMemoryMib:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6af11286c34372b1de2d9be815d3b710c7abdd8a5131a62dd4e3fdef65ad268)
@@ -4899,13 +4557,13 @@ class LaunchTemplateInstanceRequirementsAcceleratorTotalMemoryMib:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5014,8 +4672,8 @@ class LaunchTemplateInstanceRequirementsBaselineEbsBandwidthMbps:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76d0f6f4ae3cd076fa7e99638cfcde0ce0432a5e93ea1240b4a8bc7bb5274488)
@@ -5029,13 +4687,13 @@ class LaunchTemplateInstanceRequirementsBaselineEbsBandwidthMbps:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5144,8 +4802,8 @@ class LaunchTemplateInstanceRequirementsMemoryGibPerVcpu:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2752e1ba183e69756f8e79b2edbf0f7dba659e604acb9fea8ae17d5f6d8ce327)
@@ -5159,13 +4817,13 @@ class LaunchTemplateInstanceRequirementsMemoryGibPerVcpu:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5274,8 +4932,8 @@ class LaunchTemplateInstanceRequirementsMemoryMib:
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65610cb9e5d450af7b927c971f8ea171440da98b606081e4826773930ad7de09)
@@ -5289,14 +4947,14 @@ class LaunchTemplateInstanceRequirementsMemoryMib:
 
     @builtins.property
     def min(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         assert result is not None, "Required property 'min' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5401,8 +5059,8 @@ class LaunchTemplateInstanceRequirementsNetworkBandwidthGbps:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3fa857b87186a707daa44b3d03119409a966428a3fe980f39476decce4ef62f0)
@@ -5416,13 +5074,13 @@ class LaunchTemplateInstanceRequirementsNetworkBandwidthGbps:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5531,8 +5189,8 @@ class LaunchTemplateInstanceRequirementsNetworkInterfaceCount:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99e47de23165aca435984c1ce45120ae5247c3b04adc3ec50185a5db39b85983)
@@ -5546,13 +5204,13 @@ class LaunchTemplateInstanceRequirementsNetworkInterfaceCount:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5676,8 +5334,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         value = LaunchTemplateInstanceRequirementsAcceleratorCount(max=max, min=min)
 
@@ -5691,8 +5349,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         value = LaunchTemplateInstanceRequirementsAcceleratorTotalMemoryMib(
             max=max, min=min
@@ -5708,8 +5366,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         value = LaunchTemplateInstanceRequirementsBaselineEbsBandwidthMbps(
             max=max, min=min
@@ -5725,8 +5383,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         value = LaunchTemplateInstanceRequirementsMemoryGibPerVcpu(max=max, min=min)
 
@@ -5740,8 +5398,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
         '''
         value = LaunchTemplateInstanceRequirementsMemoryMib(min=min, max=max)
 
@@ -5755,8 +5413,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         value = LaunchTemplateInstanceRequirementsNetworkBandwidthGbps(
             max=max, min=min
@@ -5772,8 +5430,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         value = LaunchTemplateInstanceRequirementsNetworkInterfaceCount(
             max=max, min=min
@@ -5789,8 +5447,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         value = LaunchTemplateInstanceRequirementsTotalLocalStorageGb(max=max, min=min)
 
@@ -5804,8 +5462,8 @@ class LaunchTemplateInstanceRequirementsOutputReference(
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
         '''
         value = LaunchTemplateInstanceRequirementsVcpuCount(min=min, max=max)
 
@@ -6332,8 +5990,8 @@ class LaunchTemplateInstanceRequirementsTotalLocalStorageGb:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58db9aa8d3ee4532e4f94546be85dae120703c445c96dfe956fb222613983730)
@@ -6347,13 +6005,13 @@ class LaunchTemplateInstanceRequirementsTotalLocalStorageGb:
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6462,8 +6120,8 @@ class LaunchTemplateInstanceRequirementsVcpuCount:
         max: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ba1cfa83f3e277258c0cbed5d047f009def06ba281a7a462b5c3002ce936cf7)
@@ -6477,14 +6135,14 @@ class LaunchTemplateInstanceRequirementsVcpuCount:
 
     @builtins.property
     def min(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#min LaunchTemplate#min}.'''
         result = self._values.get("min")
         assert result is not None, "Required property 'min' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#max LaunchTemplate#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6584,7 +6242,7 @@ class LaunchTemplateInstanceRequirementsVcpuCountOutputReference(
 class LaunchTemplateLicenseSpecification:
     def __init__(self, *, license_configuration_arn: builtins.str) -> None:
         '''
-        :param license_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#license_configuration_arn LaunchTemplate#license_configuration_arn}.
+        :param license_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#license_configuration_arn LaunchTemplate#license_configuration_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3fcf9cc99980dca4c97746a2cd86d16691aadfcede2b1a352d2848acaf7694f)
@@ -6595,7 +6253,7 @@ class LaunchTemplateLicenseSpecification:
 
     @builtins.property
     def license_configuration_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#license_configuration_arn LaunchTemplate#license_configuration_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#license_configuration_arn LaunchTemplate#license_configuration_arn}.'''
         result = self._values.get("license_configuration_arn")
         assert result is not None, "Required property 'license_configuration_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -6774,7 +6432,7 @@ class LaunchTemplateLicenseSpecificationOutputReference(
 class LaunchTemplateMaintenanceOptions:
     def __init__(self, *, auto_recovery: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#auto_recovery LaunchTemplate#auto_recovery}.
+        :param auto_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#auto_recovery LaunchTemplate#auto_recovery}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1fd27acaee5d69edba6f128cb4985cfa243948441764d386fb437f9206c4923)
@@ -6785,7 +6443,7 @@ class LaunchTemplateMaintenanceOptions:
 
     @builtins.property
     def auto_recovery(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#auto_recovery LaunchTemplate#auto_recovery}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#auto_recovery LaunchTemplate#auto_recovery}.'''
         result = self._values.get("auto_recovery")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6880,11 +6538,11 @@ class LaunchTemplateMetadataOptions:
         instance_metadata_tags: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_endpoint LaunchTemplate#http_endpoint}.
-        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_protocol_ipv6 LaunchTemplate#http_protocol_ipv6}.
-        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_put_response_hop_limit LaunchTemplate#http_put_response_hop_limit}.
-        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_tokens LaunchTemplate#http_tokens}.
-        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_metadata_tags LaunchTemplate#instance_metadata_tags}.
+        :param http_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_endpoint LaunchTemplate#http_endpoint}.
+        :param http_protocol_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_protocol_ipv6 LaunchTemplate#http_protocol_ipv6}.
+        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_put_response_hop_limit LaunchTemplate#http_put_response_hop_limit}.
+        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_tokens LaunchTemplate#http_tokens}.
+        :param instance_metadata_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_metadata_tags LaunchTemplate#instance_metadata_tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2971512edd84b66316d91eae83279d4baede39e344eaffa1255c63fda96d6cbe)
@@ -6907,31 +6565,31 @@ class LaunchTemplateMetadataOptions:
 
     @builtins.property
     def http_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_endpoint LaunchTemplate#http_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_endpoint LaunchTemplate#http_endpoint}.'''
         result = self._values.get("http_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def http_protocol_ipv6(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_protocol_ipv6 LaunchTemplate#http_protocol_ipv6}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_protocol_ipv6 LaunchTemplate#http_protocol_ipv6}.'''
         result = self._values.get("http_protocol_ipv6")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def http_put_response_hop_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_put_response_hop_limit LaunchTemplate#http_put_response_hop_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_put_response_hop_limit LaunchTemplate#http_put_response_hop_limit}.'''
         result = self._values.get("http_put_response_hop_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def http_tokens(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#http_tokens LaunchTemplate#http_tokens}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#http_tokens LaunchTemplate#http_tokens}.'''
         result = self._values.get("http_tokens")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_metadata_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#instance_metadata_tags LaunchTemplate#instance_metadata_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#instance_metadata_tags LaunchTemplate#instance_metadata_tags}.'''
         result = self._values.get("instance_metadata_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7100,7 +6758,7 @@ class LaunchTemplateMonitoring:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__021d0c149d148435d114e5cea8ccef2e88b97a7343f7f25579d36ed45b10b0d8)
@@ -7113,7 +6771,7 @@ class LaunchTemplateMonitoring:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enabled LaunchTemplate#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7244,28 +6902,28 @@ class LaunchTemplateNetworkInterfaces:
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param associate_carrier_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#associate_carrier_ip_address LaunchTemplate#associate_carrier_ip_address}.
-        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#associate_public_ip_address LaunchTemplate#associate_public_ip_address}.
-        :param connection_tracking_specification: connection_tracking_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#connection_tracking_specification LaunchTemplate#connection_tracking_specification}
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#description LaunchTemplate#description}.
-        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#device_index LaunchTemplate#device_index}.
-        :param ena_srd_specification: ena_srd_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_specification LaunchTemplate#ena_srd_specification}
-        :param interface_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#interface_type LaunchTemplate#interface_type}.
-        :param ipv4_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_address_count LaunchTemplate#ipv4_address_count}.
-        :param ipv4_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_addresses LaunchTemplate#ipv4_addresses}.
-        :param ipv4_prefix_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_prefix_count LaunchTemplate#ipv4_prefix_count}.
-        :param ipv4_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_prefixes LaunchTemplate#ipv4_prefixes}.
-        :param ipv6_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_address_count LaunchTemplate#ipv6_address_count}.
-        :param ipv6_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_addresses LaunchTemplate#ipv6_addresses}.
-        :param ipv6_prefix_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_prefix_count LaunchTemplate#ipv6_prefix_count}.
-        :param ipv6_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_prefixes LaunchTemplate#ipv6_prefixes}.
-        :param network_card_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_card_index LaunchTemplate#network_card_index}.
-        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interface_id LaunchTemplate#network_interface_id}.
-        :param primary_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#primary_ipv6 LaunchTemplate#primary_ipv6}.
-        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#private_ip_address LaunchTemplate#private_ip_address}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#security_groups LaunchTemplate#security_groups}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#subnet_id LaunchTemplate#subnet_id}.
+        :param associate_carrier_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#associate_carrier_ip_address LaunchTemplate#associate_carrier_ip_address}.
+        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#associate_public_ip_address LaunchTemplate#associate_public_ip_address}.
+        :param connection_tracking_specification: connection_tracking_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#connection_tracking_specification LaunchTemplate#connection_tracking_specification}
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#description LaunchTemplate#description}.
+        :param device_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#device_index LaunchTemplate#device_index}.
+        :param ena_srd_specification: ena_srd_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_specification LaunchTemplate#ena_srd_specification}
+        :param interface_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#interface_type LaunchTemplate#interface_type}.
+        :param ipv4_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_address_count LaunchTemplate#ipv4_address_count}.
+        :param ipv4_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_addresses LaunchTemplate#ipv4_addresses}.
+        :param ipv4_prefix_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_prefix_count LaunchTemplate#ipv4_prefix_count}.
+        :param ipv4_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_prefixes LaunchTemplate#ipv4_prefixes}.
+        :param ipv6_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_address_count LaunchTemplate#ipv6_address_count}.
+        :param ipv6_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_addresses LaunchTemplate#ipv6_addresses}.
+        :param ipv6_prefix_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_prefix_count LaunchTemplate#ipv6_prefix_count}.
+        :param ipv6_prefixes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_prefixes LaunchTemplate#ipv6_prefixes}.
+        :param network_card_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_card_index LaunchTemplate#network_card_index}.
+        :param network_interface_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interface_id LaunchTemplate#network_interface_id}.
+        :param primary_ipv6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#primary_ipv6 LaunchTemplate#primary_ipv6}.
+        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#private_ip_address LaunchTemplate#private_ip_address}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#security_groups LaunchTemplate#security_groups}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#subnet_id LaunchTemplate#subnet_id}.
         '''
         if isinstance(connection_tracking_specification, dict):
             connection_tracking_specification = LaunchTemplateNetworkInterfacesConnectionTrackingSpecification(**connection_tracking_specification)
@@ -7343,13 +7001,13 @@ class LaunchTemplateNetworkInterfaces:
 
     @builtins.property
     def associate_carrier_ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#associate_carrier_ip_address LaunchTemplate#associate_carrier_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#associate_carrier_ip_address LaunchTemplate#associate_carrier_ip_address}.'''
         result = self._values.get("associate_carrier_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def associate_public_ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#associate_public_ip_address LaunchTemplate#associate_public_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#associate_public_ip_address LaunchTemplate#associate_public_ip_address}.'''
         result = self._values.get("associate_public_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7359,26 +7017,26 @@ class LaunchTemplateNetworkInterfaces:
     ) -> typing.Optional["LaunchTemplateNetworkInterfacesConnectionTrackingSpecification"]:
         '''connection_tracking_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#connection_tracking_specification LaunchTemplate#connection_tracking_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#connection_tracking_specification LaunchTemplate#connection_tracking_specification}
         '''
         result = self._values.get("connection_tracking_specification")
         return typing.cast(typing.Optional["LaunchTemplateNetworkInterfacesConnectionTrackingSpecification"], result)
 
     @builtins.property
     def delete_on_termination(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#delete_on_termination LaunchTemplate#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#description LaunchTemplate#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#description LaunchTemplate#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def device_index(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#device_index LaunchTemplate#device_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#device_index LaunchTemplate#device_index}.'''
         result = self._values.get("device_index")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7388,98 +7046,98 @@ class LaunchTemplateNetworkInterfaces:
     ) -> typing.Optional["LaunchTemplateNetworkInterfacesEnaSrdSpecification"]:
         '''ena_srd_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_specification LaunchTemplate#ena_srd_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_specification LaunchTemplate#ena_srd_specification}
         '''
         result = self._values.get("ena_srd_specification")
         return typing.cast(typing.Optional["LaunchTemplateNetworkInterfacesEnaSrdSpecification"], result)
 
     @builtins.property
     def interface_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#interface_type LaunchTemplate#interface_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#interface_type LaunchTemplate#interface_type}.'''
         result = self._values.get("interface_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ipv4_address_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_address_count LaunchTemplate#ipv4_address_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_address_count LaunchTemplate#ipv4_address_count}.'''
         result = self._values.get("ipv4_address_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ipv4_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_addresses LaunchTemplate#ipv4_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_addresses LaunchTemplate#ipv4_addresses}.'''
         result = self._values.get("ipv4_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ipv4_prefix_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_prefix_count LaunchTemplate#ipv4_prefix_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_prefix_count LaunchTemplate#ipv4_prefix_count}.'''
         result = self._values.get("ipv4_prefix_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ipv4_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv4_prefixes LaunchTemplate#ipv4_prefixes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv4_prefixes LaunchTemplate#ipv4_prefixes}.'''
         result = self._values.get("ipv4_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ipv6_address_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_address_count LaunchTemplate#ipv6_address_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_address_count LaunchTemplate#ipv6_address_count}.'''
         result = self._values.get("ipv6_address_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ipv6_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_addresses LaunchTemplate#ipv6_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_addresses LaunchTemplate#ipv6_addresses}.'''
         result = self._values.get("ipv6_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ipv6_prefix_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_prefix_count LaunchTemplate#ipv6_prefix_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_prefix_count LaunchTemplate#ipv6_prefix_count}.'''
         result = self._values.get("ipv6_prefix_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ipv6_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ipv6_prefixes LaunchTemplate#ipv6_prefixes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ipv6_prefixes LaunchTemplate#ipv6_prefixes}.'''
         result = self._values.get("ipv6_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def network_card_index(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_card_index LaunchTemplate#network_card_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_card_index LaunchTemplate#network_card_index}.'''
         result = self._values.get("network_card_index")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def network_interface_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#network_interface_id LaunchTemplate#network_interface_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#network_interface_id LaunchTemplate#network_interface_id}.'''
         result = self._values.get("network_interface_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def primary_ipv6(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#primary_ipv6 LaunchTemplate#primary_ipv6}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#primary_ipv6 LaunchTemplate#primary_ipv6}.'''
         result = self._values.get("primary_ipv6")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#private_ip_address LaunchTemplate#private_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#private_ip_address LaunchTemplate#private_ip_address}.'''
         result = self._values.get("private_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#security_groups LaunchTemplate#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#security_groups LaunchTemplate#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#subnet_id LaunchTemplate#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#subnet_id LaunchTemplate#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7513,9 +7171,9 @@ class LaunchTemplateNetworkInterfacesConnectionTrackingSpecification:
         udp_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param tcp_established_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tcp_established_timeout LaunchTemplate#tcp_established_timeout}.
-        :param udp_stream_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#udp_stream_timeout LaunchTemplate#udp_stream_timeout}.
-        :param udp_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#udp_timeout LaunchTemplate#udp_timeout}.
+        :param tcp_established_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tcp_established_timeout LaunchTemplate#tcp_established_timeout}.
+        :param udp_stream_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#udp_stream_timeout LaunchTemplate#udp_stream_timeout}.
+        :param udp_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#udp_timeout LaunchTemplate#udp_timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00285b0be31b9e741c3f1d4fa9fb34ef0323316aa806002c347fd7601ed11463)
@@ -7532,19 +7190,19 @@ class LaunchTemplateNetworkInterfacesConnectionTrackingSpecification:
 
     @builtins.property
     def tcp_established_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tcp_established_timeout LaunchTemplate#tcp_established_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tcp_established_timeout LaunchTemplate#tcp_established_timeout}.'''
         result = self._values.get("tcp_established_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def udp_stream_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#udp_stream_timeout LaunchTemplate#udp_stream_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#udp_stream_timeout LaunchTemplate#udp_stream_timeout}.'''
         result = self._values.get("udp_stream_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def udp_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#udp_timeout LaunchTemplate#udp_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#udp_timeout LaunchTemplate#udp_timeout}.'''
         result = self._values.get("udp_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7677,8 +7335,8 @@ class LaunchTemplateNetworkInterfacesEnaSrdSpecification:
         ena_srd_udp_specification: typing.Optional[typing.Union["LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ena_srd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_enabled LaunchTemplate#ena_srd_enabled}.
-        :param ena_srd_udp_specification: ena_srd_udp_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_udp_specification LaunchTemplate#ena_srd_udp_specification}
+        :param ena_srd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_enabled LaunchTemplate#ena_srd_enabled}.
+        :param ena_srd_udp_specification: ena_srd_udp_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_udp_specification LaunchTemplate#ena_srd_udp_specification}
         '''
         if isinstance(ena_srd_udp_specification, dict):
             ena_srd_udp_specification = LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification(**ena_srd_udp_specification)
@@ -7696,7 +7354,7 @@ class LaunchTemplateNetworkInterfacesEnaSrdSpecification:
     def ena_srd_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_enabled LaunchTemplate#ena_srd_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_enabled LaunchTemplate#ena_srd_enabled}.'''
         result = self._values.get("ena_srd_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7706,7 +7364,7 @@ class LaunchTemplateNetworkInterfacesEnaSrdSpecification:
     ) -> typing.Optional["LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification"]:
         '''ena_srd_udp_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_udp_specification LaunchTemplate#ena_srd_udp_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_udp_specification LaunchTemplate#ena_srd_udp_specification}
         '''
         result = self._values.get("ena_srd_udp_specification")
         return typing.cast(typing.Optional["LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification"], result)
@@ -7735,7 +7393,7 @@ class LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification:
         ena_srd_udp_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param ena_srd_udp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_udp_enabled LaunchTemplate#ena_srd_udp_enabled}.
+        :param ena_srd_udp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_udp_enabled LaunchTemplate#ena_srd_udp_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50ee6ec78f20126fac90cb8dabd9d466768ccb6c802e6f6337b80a3dc623dffa)
@@ -7748,7 +7406,7 @@ class LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification:
     def ena_srd_udp_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_udp_enabled LaunchTemplate#ena_srd_udp_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_udp_enabled LaunchTemplate#ena_srd_udp_enabled}.'''
         result = self._values.get("ena_srd_udp_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7857,7 +7515,7 @@ class LaunchTemplateNetworkInterfacesEnaSrdSpecificationOutputReference(
         ena_srd_udp_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param ena_srd_udp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_udp_enabled LaunchTemplate#ena_srd_udp_enabled}.
+        :param ena_srd_udp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_udp_enabled LaunchTemplate#ena_srd_udp_enabled}.
         '''
         value = LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification(
             ena_srd_udp_enabled=ena_srd_udp_enabled
@@ -8057,9 +7715,9 @@ class LaunchTemplateNetworkInterfacesOutputReference(
         udp_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param tcp_established_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tcp_established_timeout LaunchTemplate#tcp_established_timeout}.
-        :param udp_stream_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#udp_stream_timeout LaunchTemplate#udp_stream_timeout}.
-        :param udp_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#udp_timeout LaunchTemplate#udp_timeout}.
+        :param tcp_established_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tcp_established_timeout LaunchTemplate#tcp_established_timeout}.
+        :param udp_stream_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#udp_stream_timeout LaunchTemplate#udp_stream_timeout}.
+        :param udp_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#udp_timeout LaunchTemplate#udp_timeout}.
         '''
         value = LaunchTemplateNetworkInterfacesConnectionTrackingSpecification(
             tcp_established_timeout=tcp_established_timeout,
@@ -8077,8 +7735,8 @@ class LaunchTemplateNetworkInterfacesOutputReference(
         ena_srd_udp_specification: typing.Optional[typing.Union[LaunchTemplateNetworkInterfacesEnaSrdSpecificationEnaSrdUdpSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ena_srd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_enabled LaunchTemplate#ena_srd_enabled}.
-        :param ena_srd_udp_specification: ena_srd_udp_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#ena_srd_udp_specification LaunchTemplate#ena_srd_udp_specification}
+        :param ena_srd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_enabled LaunchTemplate#ena_srd_enabled}.
+        :param ena_srd_udp_specification: ena_srd_udp_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#ena_srd_udp_specification LaunchTemplate#ena_srd_udp_specification}
         '''
         value = LaunchTemplateNetworkInterfacesEnaSrdSpecification(
             ena_srd_enabled=ena_srd_enabled,
@@ -8589,14 +8247,14 @@ class LaunchTemplatePlacement:
         tenancy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param affinity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#affinity LaunchTemplate#affinity}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#availability_zone LaunchTemplate#availability_zone}.
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#group_name LaunchTemplate#group_name}.
-        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#host_id LaunchTemplate#host_id}.
-        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#host_resource_group_arn LaunchTemplate#host_resource_group_arn}.
-        :param partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#partition_number LaunchTemplate#partition_number}.
-        :param spread_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spread_domain LaunchTemplate#spread_domain}.
-        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tenancy LaunchTemplate#tenancy}.
+        :param affinity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#affinity LaunchTemplate#affinity}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#availability_zone LaunchTemplate#availability_zone}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#group_name LaunchTemplate#group_name}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#host_id LaunchTemplate#host_id}.
+        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#host_resource_group_arn LaunchTemplate#host_resource_group_arn}.
+        :param partition_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#partition_number LaunchTemplate#partition_number}.
+        :param spread_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spread_domain LaunchTemplate#spread_domain}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tenancy LaunchTemplate#tenancy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44cc9196e381430cdbffd414d874befc6680adcb79a25ec11ccc21ba86ad05e4)
@@ -8628,49 +8286,49 @@ class LaunchTemplatePlacement:
 
     @builtins.property
     def affinity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#affinity LaunchTemplate#affinity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#affinity LaunchTemplate#affinity}.'''
         result = self._values.get("affinity")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#availability_zone LaunchTemplate#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#availability_zone LaunchTemplate#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#group_name LaunchTemplate#group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#group_name LaunchTemplate#group_name}.'''
         result = self._values.get("group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#host_id LaunchTemplate#host_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#host_id LaunchTemplate#host_id}.'''
         result = self._values.get("host_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_resource_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#host_resource_group_arn LaunchTemplate#host_resource_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#host_resource_group_arn LaunchTemplate#host_resource_group_arn}.'''
         result = self._values.get("host_resource_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def partition_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#partition_number LaunchTemplate#partition_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#partition_number LaunchTemplate#partition_number}.'''
         result = self._values.get("partition_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def spread_domain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#spread_domain LaunchTemplate#spread_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#spread_domain LaunchTemplate#spread_domain}.'''
         result = self._values.get("spread_domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tenancy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tenancy LaunchTemplate#tenancy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tenancy LaunchTemplate#tenancy}.'''
         result = self._values.get("tenancy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8905,9 +8563,9 @@ class LaunchTemplatePrivateDnsNameOptions:
         hostname_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enable_resource_name_dns_aaaa_record LaunchTemplate#enable_resource_name_dns_aaaa_record}.
-        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enable_resource_name_dns_a_record LaunchTemplate#enable_resource_name_dns_a_record}.
-        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#hostname_type LaunchTemplate#hostname_type}.
+        :param enable_resource_name_dns_aaaa_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enable_resource_name_dns_aaaa_record LaunchTemplate#enable_resource_name_dns_aaaa_record}.
+        :param enable_resource_name_dns_a_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enable_resource_name_dns_a_record LaunchTemplate#enable_resource_name_dns_a_record}.
+        :param hostname_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#hostname_type LaunchTemplate#hostname_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48a837230f839575acf83ca2cc1ddad79f4325f1c761a2614e3e89c1ccd160aa)
@@ -8926,7 +8584,7 @@ class LaunchTemplatePrivateDnsNameOptions:
     def enable_resource_name_dns_aaaa_record(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enable_resource_name_dns_aaaa_record LaunchTemplate#enable_resource_name_dns_aaaa_record}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enable_resource_name_dns_aaaa_record LaunchTemplate#enable_resource_name_dns_aaaa_record}.'''
         result = self._values.get("enable_resource_name_dns_aaaa_record")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -8934,13 +8592,13 @@ class LaunchTemplatePrivateDnsNameOptions:
     def enable_resource_name_dns_a_record(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#enable_resource_name_dns_a_record LaunchTemplate#enable_resource_name_dns_a_record}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#enable_resource_name_dns_a_record LaunchTemplate#enable_resource_name_dns_a_record}.'''
         result = self._values.get("enable_resource_name_dns_a_record")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def hostname_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#hostname_type LaunchTemplate#hostname_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#hostname_type LaunchTemplate#hostname_type}.'''
         result = self._values.get("hostname_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9082,8 +8740,8 @@ class LaunchTemplateTagSpecifications:
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#resource_type LaunchTemplate#resource_type}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags LaunchTemplate#tags}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#resource_type LaunchTemplate#resource_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags LaunchTemplate#tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2fa9385065663f834a07316cb1258bb435a0a5a8c4469516e919a75640bcb76c)
@@ -9097,13 +8755,13 @@ class LaunchTemplateTagSpecifications:
 
     @builtins.property
     def resource_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#resource_type LaunchTemplate#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#resource_type LaunchTemplate#resource_type}.'''
         result = self._values.get("resource_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/launch_template#tags LaunchTemplate#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/launch_template#tags LaunchTemplate#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -9314,11 +8972,6 @@ __all__ = [
     "LaunchTemplateCpuOptionsOutputReference",
     "LaunchTemplateCreditSpecification",
     "LaunchTemplateCreditSpecificationOutputReference",
-    "LaunchTemplateElasticGpuSpecifications",
-    "LaunchTemplateElasticGpuSpecificationsList",
-    "LaunchTemplateElasticGpuSpecificationsOutputReference",
-    "LaunchTemplateElasticInferenceAccelerator",
-    "LaunchTemplateElasticInferenceAcceleratorOutputReference",
     "LaunchTemplateEnclaveOptions",
     "LaunchTemplateEnclaveOptionsOutputReference",
     "LaunchTemplateHibernationOptions",
@@ -9391,8 +9044,6 @@ def _typecheckingstub__c6a6cfaae48a66f3830f322c904edcbac18e40d1e0b895a0255cd6c68
     disable_api_stop: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     disable_api_termination: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ebs_optimized: typing.Optional[builtins.str] = None,
-    elastic_gpu_specifications: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LaunchTemplateElasticGpuSpecifications, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    elastic_inference_accelerator: typing.Optional[typing.Union[LaunchTemplateElasticInferenceAccelerator, typing.Dict[builtins.str, typing.Any]]] = None,
     enclave_options: typing.Optional[typing.Union[LaunchTemplateEnclaveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     hibernation_options: typing.Optional[typing.Union[LaunchTemplateHibernationOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     iam_instance_profile: typing.Optional[typing.Union[LaunchTemplateIamInstanceProfile, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9414,6 +9065,7 @@ def _typecheckingstub__c6a6cfaae48a66f3830f322c904edcbac18e40d1e0b895a0255cd6c68
     placement: typing.Optional[typing.Union[LaunchTemplatePlacement, typing.Dict[builtins.str, typing.Any]]] = None,
     private_dns_name_options: typing.Optional[typing.Union[LaunchTemplatePrivateDnsNameOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     ram_disk_id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -9443,12 +9095,6 @@ def _typecheckingstub__e69b074affd192ba51eecc52e0ab34ea36550809deeed4ce29a2f724e
 
 def _typecheckingstub__2857fa380f8fede578d1f130e759c50a10dd5fac78a222d8a27f3503f46af4e8(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LaunchTemplateBlockDeviceMappings, typing.Dict[builtins.str, typing.Any]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1cb44841779ca6af8410d3160ef4d82cd99c9737b152ed90554834fff62c717e(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LaunchTemplateElasticGpuSpecifications, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9550,6 +9196,12 @@ def _typecheckingstub__bf37f0f8d4c39290c85d51571da977a6731c5b5d9eee5b9c2dfd72601
     pass
 
 def _typecheckingstub__394c3ed1654be08a6ab8f7cb254167f4f408028e3153868d11bc7818c21a9a67(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4893516b3d2e2b393d0e13ab29eae018bf4c2b90922b1d47b5d75d90cb4e1e2(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -9832,8 +9484,6 @@ def _typecheckingstub__83ab1ec6c4c4d22dc3065c7a9114a59cb25617c39f642c1c50b1d0d37
     disable_api_stop: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     disable_api_termination: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ebs_optimized: typing.Optional[builtins.str] = None,
-    elastic_gpu_specifications: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LaunchTemplateElasticGpuSpecifications, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    elastic_inference_accelerator: typing.Optional[typing.Union[LaunchTemplateElasticInferenceAccelerator, typing.Dict[builtins.str, typing.Any]]] = None,
     enclave_options: typing.Optional[typing.Union[LaunchTemplateEnclaveOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     hibernation_options: typing.Optional[typing.Union[LaunchTemplateHibernationOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     iam_instance_profile: typing.Optional[typing.Union[LaunchTemplateIamInstanceProfile, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9855,6 +9505,7 @@ def _typecheckingstub__83ab1ec6c4c4d22dc3065c7a9114a59cb25617c39f642c1c50b1d0d37
     placement: typing.Optional[typing.Union[LaunchTemplatePlacement, typing.Dict[builtins.str, typing.Any]]] = None,
     private_dns_name_options: typing.Optional[typing.Union[LaunchTemplatePrivateDnsNameOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     ram_disk_id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     security_group_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -9928,98 +9579,6 @@ def _typecheckingstub__090d828768f304fce6619843fdc0eac6defbfda46b5c9d60d41d622de
 
 def _typecheckingstub__a7bf64edb6f8aa188c09a4bb78535c2c8b4c3329149fc86f4ba1bca350c36b27(
     value: typing.Optional[LaunchTemplateCreditSpecification],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dad941845babb999e06bd1f47551e95fd8dfa354f56665e408177b1194548216(
-    *,
-    type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__961a5f8a9125e24a4506611844b9b11be4472fe6b19519a1e2f1de2e8b558a57(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-    wraps_set: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__241c6492c39c6cbdde2c226163716c2711abc44a52cbdb2e65a859cae0ee60e5(
-    index: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a4fdda3b83e9565948167c4fd5936769c38a80c0e21912538f7db57d9d2b248c(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ab8201d9b761bea11214bc4d65e15813b0fdd81c2bddbc66c92c79697265c673(
-    value: _cdktf_9a9027ec.IInterpolatingParent,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__49b4a7448fab459706a75fc8790a4466f30dbc49714c9490555fd10a12f54895(
-    value: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__df954d96034288f964f73321309281d43f01e0ee936376b37cdeb5aa6240e372(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LaunchTemplateElasticGpuSpecifications]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__433ac58a3c971eb878e98d06623618d92b76c043adffca0950d96acb051a231f(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-    complex_object_index: jsii.Number,
-    complex_object_is_from_set: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__852c63d25486917ca5934c6787f8d7e217b07fde31e7f6763b715c6148937430(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__93f2dbbb3468659af2e7e37c3cd960d5b707a2104231379c307410ce5718b414(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LaunchTemplateElasticGpuSpecifications]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3b14fb67b473c7af7d00058d27e3c336d196df6af2ca54f203450a0677b9bf39(
-    *,
-    type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4974c16c43b8058079fca1945a5f66b51e82dcdde86ff58cc227b61a51ecb475(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ea4a8ecece53a0862d7ebc551d4637b9e7df453cacfdff7001bfedafdcb6f25(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98423a4f3c121ca98175572338d9105dbb8b4e65fa22a9d84fcf7930a0935f50(
-    value: typing.Optional[LaunchTemplateElasticInferenceAccelerator],
 ) -> None:
     """Type checking stubs"""
     pass

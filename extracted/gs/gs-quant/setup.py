@@ -55,6 +55,7 @@ setuptools.setup(
     install_requires=[
         "aenum",
         "backoff",
+        "backports.zoneinfo; python_version < '3.9'",
         "cachetools",
         "certifi",
         "dataclasses_json",
@@ -70,7 +71,6 @@ setuptools.setup(
         "pandas>=1.4",
         "pydash<7.0.0",
         "python-dateutil>=2.7.0",
-        "pytz==2024.1",
         "requests",
         "httpx>=0.23.3",
         "scipy>=1.2.0",
@@ -117,7 +117,6 @@ setuptools.setup(
     },
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

@@ -5532,6 +5532,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    MULTI_PARTY_APPROVAL_READ_ONLY_ACCESS = "MULTI_PARTY_APPROVAL_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    MULTI_PARTY_APPROVAL_FULL_ACCESS = "MULTI_PARTY_APPROVAL_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

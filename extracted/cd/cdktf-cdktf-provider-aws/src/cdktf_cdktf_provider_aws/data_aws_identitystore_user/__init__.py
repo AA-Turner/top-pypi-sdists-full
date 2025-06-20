@@ -1,7 +1,7 @@
 r'''
 # `data_aws_identitystore_user`
 
-Refer to the Terraform Registry for docs: [`data_aws_identitystore_user`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user).
+Refer to the Terraform Registry for docs: [`data_aws_identitystore_user`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsIdentitystoreUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsIdentitystoreUser.DataAwsIdentitystoreUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user aws_identitystore_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user aws_identitystore_user}.'''
 
     def __init__(
         self,
@@ -53,8 +53,8 @@ class DataAwsIdentitystoreUser(
         *,
         identity_store_id: builtins.str,
         alternate_identifier: typing.Optional[typing.Union["DataAwsIdentitystoreUserAlternateIdentifier", typing.Dict[builtins.str, typing.Any]]] = None,
-        filter: typing.Optional[typing.Union["DataAwsIdentitystoreUserFilter", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         user_id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -64,15 +64,15 @@ class DataAwsIdentitystoreUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user aws_identitystore_user} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user aws_identitystore_user} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#identity_store_id DataAwsIdentitystoreUser#identity_store_id}.
-        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#alternate_identifier DataAwsIdentitystoreUser#alternate_identifier}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#filter DataAwsIdentitystoreUser#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#user_id DataAwsIdentitystoreUser#user_id}.
+        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#identity_store_id DataAwsIdentitystoreUser#identity_store_id}.
+        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#alternate_identifier DataAwsIdentitystoreUser#alternate_identifier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#region DataAwsIdentitystoreUser#region}
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#user_id DataAwsIdentitystoreUser#user_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -88,8 +88,8 @@ class DataAwsIdentitystoreUser(
         config = DataAwsIdentitystoreUserConfig(
             identity_store_id=identity_store_id,
             alternate_identifier=alternate_identifier,
-            filter=filter,
             id=id,
+            region=region,
             user_id=user_id,
             connection=connection,
             count=count,
@@ -115,7 +115,7 @@ class DataAwsIdentitystoreUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsIdentitystoreUser to import.
-        :param import_from_id: The id of the existing DataAwsIdentitystoreUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsIdentitystoreUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsIdentitystoreUser to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class DataAwsIdentitystoreUser(
         unique_attribute: typing.Optional[typing.Union["DataAwsIdentitystoreUserAlternateIdentifierUniqueAttribute", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#external_id DataAwsIdentitystoreUser#external_id}
-        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#unique_attribute DataAwsIdentitystoreUser#unique_attribute}
+        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#external_id DataAwsIdentitystoreUser#external_id}
+        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#unique_attribute DataAwsIdentitystoreUser#unique_attribute}
         '''
         value = DataAwsIdentitystoreUserAlternateIdentifier(
             external_id=external_id, unique_attribute=unique_attribute
@@ -143,34 +143,17 @@ class DataAwsIdentitystoreUser(
 
         return typing.cast(None, jsii.invoke(self, "putAlternateIdentifier", [value]))
 
-    @jsii.member(jsii_name="putFilter")
-    def put_filter(
-        self,
-        *,
-        attribute_path: builtins.str,
-        attribute_value: builtins.str,
-    ) -> None:
-        '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.
-        '''
-        value = DataAwsIdentitystoreUserFilter(
-            attribute_path=attribute_path, attribute_value=attribute_value
-        )
-
-        return typing.cast(None, jsii.invoke(self, "putFilter", [value]))
-
     @jsii.member(jsii_name="resetAlternateIdentifier")
     def reset_alternate_identifier(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAlternateIdentifier", []))
 
-    @jsii.member(jsii_name="resetFilter")
-    def reset_filter(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetFilter", []))
-
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetUserId")
     def reset_user_id(self) -> None:
@@ -215,11 +198,6 @@ class DataAwsIdentitystoreUser(
     @jsii.member(jsii_name="externalIds")
     def external_ids(self) -> "DataAwsIdentitystoreUserExternalIdsList":
         return typing.cast("DataAwsIdentitystoreUserExternalIdsList", jsii.get(self, "externalIds"))
-
-    @builtins.property
-    @jsii.member(jsii_name="filter")
-    def filter(self) -> "DataAwsIdentitystoreUserFilterOutputReference":
-        return typing.cast("DataAwsIdentitystoreUserFilterOutputReference", jsii.get(self, "filter"))
 
     @builtins.property
     @jsii.member(jsii_name="locale")
@@ -279,11 +257,6 @@ class DataAwsIdentitystoreUser(
         return typing.cast(typing.Optional["DataAwsIdentitystoreUserAlternateIdentifier"], jsii.get(self, "alternateIdentifierInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="filterInput")
-    def filter_input(self) -> typing.Optional["DataAwsIdentitystoreUserFilter"]:
-        return typing.cast(typing.Optional["DataAwsIdentitystoreUserFilter"], jsii.get(self, "filterInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="identityStoreIdInput")
     def identity_store_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "identityStoreIdInput"))
@@ -292,6 +265,11 @@ class DataAwsIdentitystoreUser(
     @jsii.member(jsii_name="idInput")
     def id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="userIdInput")
@@ -321,6 +299,18 @@ class DataAwsIdentitystoreUser(
             type_hints = typing.get_type_hints(_typecheckingstub__9110528b2fc2c26fd62ef118db552810e6f552fac585ac2cb500dad2a0468ce1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityStoreId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9aea44f616b6e7998f0c2afc4a7d26c5d7ff3aaf68db5b8f8944b6b26e59455)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="userId")
@@ -527,8 +517,8 @@ class DataAwsIdentitystoreUserAlternateIdentifier:
         unique_attribute: typing.Optional[typing.Union["DataAwsIdentitystoreUserAlternateIdentifierUniqueAttribute", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#external_id DataAwsIdentitystoreUser#external_id}
-        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#unique_attribute DataAwsIdentitystoreUser#unique_attribute}
+        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#external_id DataAwsIdentitystoreUser#external_id}
+        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#unique_attribute DataAwsIdentitystoreUser#unique_attribute}
         '''
         if isinstance(external_id, dict):
             external_id = DataAwsIdentitystoreUserAlternateIdentifierExternalId(**external_id)
@@ -550,7 +540,7 @@ class DataAwsIdentitystoreUserAlternateIdentifier:
     ) -> typing.Optional["DataAwsIdentitystoreUserAlternateIdentifierExternalId"]:
         '''external_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#external_id DataAwsIdentitystoreUser#external_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#external_id DataAwsIdentitystoreUser#external_id}
         '''
         result = self._values.get("external_id")
         return typing.cast(typing.Optional["DataAwsIdentitystoreUserAlternateIdentifierExternalId"], result)
@@ -561,7 +551,7 @@ class DataAwsIdentitystoreUserAlternateIdentifier:
     ) -> typing.Optional["DataAwsIdentitystoreUserAlternateIdentifierUniqueAttribute"]:
         '''unique_attribute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#unique_attribute DataAwsIdentitystoreUser#unique_attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#unique_attribute DataAwsIdentitystoreUser#unique_attribute}
         '''
         result = self._values.get("unique_attribute")
         return typing.cast(typing.Optional["DataAwsIdentitystoreUserAlternateIdentifierUniqueAttribute"], result)
@@ -586,8 +576,8 @@ class DataAwsIdentitystoreUserAlternateIdentifier:
 class DataAwsIdentitystoreUserAlternateIdentifierExternalId:
     def __init__(self, *, id: builtins.str, issuer: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#issuer DataAwsIdentitystoreUser#issuer}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#issuer DataAwsIdentitystoreUser#issuer}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37d0ddd628c893eb11940fc93282ef2eb40d4d39097a0256aa133ceb017bbea4)
@@ -600,7 +590,7 @@ class DataAwsIdentitystoreUserAlternateIdentifierExternalId:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -611,7 +601,7 @@ class DataAwsIdentitystoreUserAlternateIdentifierExternalId:
 
     @builtins.property
     def issuer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#issuer DataAwsIdentitystoreUser#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#issuer DataAwsIdentitystoreUser#issuer}.'''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
         return typing.cast(builtins.str, result)
@@ -723,8 +713,8 @@ class DataAwsIdentitystoreUserAlternateIdentifierOutputReference(
     @jsii.member(jsii_name="putExternalId")
     def put_external_id(self, *, id: builtins.str, issuer: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#issuer DataAwsIdentitystoreUser#issuer}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#issuer DataAwsIdentitystoreUser#issuer}.
         '''
         value = DataAwsIdentitystoreUserAlternateIdentifierExternalId(
             id=id, issuer=issuer
@@ -740,8 +730,8 @@ class DataAwsIdentitystoreUserAlternateIdentifierOutputReference(
         attribute_value: builtins.str,
     ) -> None:
         '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.
+        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.
+        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.
         '''
         value = DataAwsIdentitystoreUserAlternateIdentifierUniqueAttribute(
             attribute_path=attribute_path, attribute_value=attribute_value
@@ -819,8 +809,8 @@ class DataAwsIdentitystoreUserAlternateIdentifierUniqueAttribute:
         attribute_value: builtins.str,
     ) -> None:
         '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.
+        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.
+        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e8a9576af1c53c5b83acce28384dc47714a11921dc3a6b5bcc6e34b09a52bb2)
@@ -833,14 +823,14 @@ class DataAwsIdentitystoreUserAlternateIdentifierUniqueAttribute:
 
     @builtins.property
     def attribute_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.'''
         result = self._values.get("attribute_path")
         assert result is not None, "Required property 'attribute_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attribute_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.'''
         result = self._values.get("attribute_value")
         assert result is not None, "Required property 'attribute_value' is missing"
         return typing.cast(builtins.str, result)
@@ -942,8 +932,8 @@ class DataAwsIdentitystoreUserAlternateIdentifierUniqueAttributeOutputReference(
         "provisioners": "provisioners",
         "identity_store_id": "identityStoreId",
         "alternate_identifier": "alternateIdentifier",
-        "filter": "filter",
         "id": "id",
+        "region": "region",
         "user_id": "userId",
     },
 )
@@ -960,8 +950,8 @@ class DataAwsIdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         identity_store_id: builtins.str,
         alternate_identifier: typing.Optional[typing.Union[DataAwsIdentitystoreUserAlternateIdentifier, typing.Dict[builtins.str, typing.Any]]] = None,
-        filter: typing.Optional[typing.Union["DataAwsIdentitystoreUserFilter", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         user_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -972,18 +962,16 @@ class DataAwsIdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#identity_store_id DataAwsIdentitystoreUser#identity_store_id}.
-        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#alternate_identifier DataAwsIdentitystoreUser#alternate_identifier}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#filter DataAwsIdentitystoreUser#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#user_id DataAwsIdentitystoreUser#user_id}.
+        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#identity_store_id DataAwsIdentitystoreUser#identity_store_id}.
+        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#alternate_identifier DataAwsIdentitystoreUser#alternate_identifier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#region DataAwsIdentitystoreUser#region}
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#user_id DataAwsIdentitystoreUser#user_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
         if isinstance(alternate_identifier, dict):
             alternate_identifier = DataAwsIdentitystoreUserAlternateIdentifier(**alternate_identifier)
-        if isinstance(filter, dict):
-            filter = DataAwsIdentitystoreUserFilter(**filter)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd55455b5051e384adbe265aa021b163059589b8716572870ec8bbd674d87569)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -995,8 +983,8 @@ class DataAwsIdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument identity_store_id", value=identity_store_id, expected_type=type_hints["identity_store_id"])
             check_type(argname="argument alternate_identifier", value=alternate_identifier, expected_type=type_hints["alternate_identifier"])
-            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument user_id", value=user_id, expected_type=type_hints["user_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "identity_store_id": identity_store_id,
@@ -1017,10 +1005,10 @@ class DataAwsIdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if alternate_identifier is not None:
             self._values["alternate_identifier"] = alternate_identifier
-        if filter is not None:
-            self._values["filter"] = filter
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
         if user_id is not None:
             self._values["user_id"] = user_id
 
@@ -1090,7 +1078,7 @@ class DataAwsIdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def identity_store_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#identity_store_id DataAwsIdentitystoreUser#identity_store_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#identity_store_id DataAwsIdentitystoreUser#identity_store_id}.'''
         result = self._values.get("identity_store_id")
         assert result is not None, "Required property 'identity_store_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1101,23 +1089,14 @@ class DataAwsIdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[DataAwsIdentitystoreUserAlternateIdentifier]:
         '''alternate_identifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#alternate_identifier DataAwsIdentitystoreUser#alternate_identifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#alternate_identifier DataAwsIdentitystoreUser#alternate_identifier}
         '''
         result = self._values.get("alternate_identifier")
         return typing.cast(typing.Optional[DataAwsIdentitystoreUserAlternateIdentifier], result)
 
     @builtins.property
-    def filter(self) -> typing.Optional["DataAwsIdentitystoreUserFilter"]:
-        '''filter block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#filter DataAwsIdentitystoreUser#filter}
-        '''
-        result = self._values.get("filter")
-        return typing.cast(typing.Optional["DataAwsIdentitystoreUserFilter"], result)
-
-    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#id DataAwsIdentitystoreUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1126,8 +1105,17 @@ class DataAwsIdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#region DataAwsIdentitystoreUser#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def user_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#user_id DataAwsIdentitystoreUser#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/identitystore_user#user_id DataAwsIdentitystoreUser#user_id}.'''
         result = self._values.get("user_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1442,130 +1430,6 @@ class DataAwsIdentitystoreUserExternalIdsOutputReference(
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bca53e8d41b7b2ed6f21400ea364268859fd8719a8e58d5c89849b9488ca6a9f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
-    jsii_type="@cdktf/provider-aws.dataAwsIdentitystoreUser.DataAwsIdentitystoreUserFilter",
-    jsii_struct_bases=[],
-    name_mapping={
-        "attribute_path": "attributePath",
-        "attribute_value": "attributeValue",
-    },
-)
-class DataAwsIdentitystoreUserFilter:
-    def __init__(
-        self,
-        *,
-        attribute_path: builtins.str,
-        attribute_value: builtins.str,
-    ) -> None:
-        '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dda6d8ee52a9f13c8b9aecf1059e13d8a3b5ea8b9e79a300151654e939daf899)
-            check_type(argname="argument attribute_path", value=attribute_path, expected_type=type_hints["attribute_path"])
-            check_type(argname="argument attribute_value", value=attribute_value, expected_type=type_hints["attribute_value"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "attribute_path": attribute_path,
-            "attribute_value": attribute_value,
-        }
-
-    @builtins.property
-    def attribute_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_path DataAwsIdentitystoreUser#attribute_path}.'''
-        result = self._values.get("attribute_path")
-        assert result is not None, "Required property 'attribute_path' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def attribute_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/identitystore_user#attribute_value DataAwsIdentitystoreUser#attribute_value}.'''
-        result = self._values.get("attribute_value")
-        assert result is not None, "Required property 'attribute_value' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DataAwsIdentitystoreUserFilter(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class DataAwsIdentitystoreUserFilterOutputReference(
-    _cdktf_9a9027ec.ComplexObject,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@cdktf/provider-aws.dataAwsIdentitystoreUser.DataAwsIdentitystoreUserFilterOutputReference",
-):
-    def __init__(
-        self,
-        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-        terraform_attribute: builtins.str,
-    ) -> None:
-        '''
-        :param terraform_resource: The parent resource.
-        :param terraform_attribute: The attribute on the parent resource this class is referencing.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4a208dcf1e23548a10313d749d90d1bbec7e25c0f698fc01fe747dc8587c5f7)
-            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
-            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
-
-    @builtins.property
-    @jsii.member(jsii_name="attributePathInput")
-    def attribute_path_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "attributePathInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeValueInput")
-    def attribute_value_input(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "attributeValueInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attributePath")
-    def attribute_path(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "attributePath"))
-
-    @attribute_path.setter
-    def attribute_path(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e36de5958e7a29abb05363720813f1121e89fd865acf99c0c78928f107473e5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributePath", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeValue")
-    def attribute_value(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "attributeValue"))
-
-    @attribute_value.setter
-    def attribute_value(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2dfad696d519270ef4afe53c0753c3594b049d485d487ce2c25ea5b547460b4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeValue", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(self) -> typing.Optional[DataAwsIdentitystoreUserFilter]:
-        return typing.cast(typing.Optional[DataAwsIdentitystoreUserFilter], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[DataAwsIdentitystoreUserFilter],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7c41cd0f27301caf9b4a78c9980d36c581335e32ada374bf3dcb868772bcf48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -1908,8 +1772,6 @@ __all__ = [
     "DataAwsIdentitystoreUserExternalIds",
     "DataAwsIdentitystoreUserExternalIdsList",
     "DataAwsIdentitystoreUserExternalIdsOutputReference",
-    "DataAwsIdentitystoreUserFilter",
-    "DataAwsIdentitystoreUserFilterOutputReference",
     "DataAwsIdentitystoreUserName",
     "DataAwsIdentitystoreUserNameList",
     "DataAwsIdentitystoreUserNameOutputReference",
@@ -1926,8 +1788,8 @@ def _typecheckingstub__e6626f6c51144bf45c8f0ff4bedd9167babf2e4cfba317a7903f0b11b
     *,
     identity_store_id: builtins.str,
     alternate_identifier: typing.Optional[typing.Union[DataAwsIdentitystoreUserAlternateIdentifier, typing.Dict[builtins.str, typing.Any]]] = None,
-    filter: typing.Optional[typing.Union[DataAwsIdentitystoreUserFilter, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     user_id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -1956,6 +1818,12 @@ def _typecheckingstub__823711ac7fd8220653013a06f3008dc24c258acb9cec37568cb0a908c
     pass
 
 def _typecheckingstub__9110528b2fc2c26fd62ef118db552810e6f552fac585ac2cb500dad2a0468ce1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9aea44f616b6e7998f0c2afc4a7d26c5d7ff3aaf68db5b8f8944b6b26e59455(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -2112,8 +1980,8 @@ def _typecheckingstub__bd55455b5051e384adbe265aa021b163059589b8716572870ec8bbd67
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     identity_store_id: builtins.str,
     alternate_identifier: typing.Optional[typing.Union[DataAwsIdentitystoreUserAlternateIdentifier, typing.Dict[builtins.str, typing.Any]]] = None,
-    filter: typing.Optional[typing.Union[DataAwsIdentitystoreUserFilter, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     user_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2209,39 +2077,6 @@ def _typecheckingstub__4fffa66db471b99644c73593ffce6b5103176fdca2fce8a154508f461
 
 def _typecheckingstub__bca53e8d41b7b2ed6f21400ea364268859fd8719a8e58d5c89849b9488ca6a9f(
     value: typing.Optional[DataAwsIdentitystoreUserExternalIds],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dda6d8ee52a9f13c8b9aecf1059e13d8a3b5ea8b9e79a300151654e939daf899(
-    *,
-    attribute_path: builtins.str,
-    attribute_value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f4a208dcf1e23548a10313d749d90d1bbec7e25c0f698fc01fe747dc8587c5f7(
-    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
-    terraform_attribute: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4e36de5958e7a29abb05363720813f1121e89fd865acf99c0c78928f107473e5(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f2dfad696d519270ef4afe53c0753c3594b049d485d487ce2c25ea5b547460b4(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d7c41cd0f27301caf9b4a78c9980d36c581335e32ada374bf3dcb868772bcf48(
-    value: typing.Optional[DataAwsIdentitystoreUserFilter],
 ) -> None:
     """Type checking stubs"""
     pass

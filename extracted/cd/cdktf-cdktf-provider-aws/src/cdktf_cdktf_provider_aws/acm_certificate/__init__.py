@@ -1,7 +1,7 @@
 r'''
 # `aws_acm_certificate`
 
-Refer to the Terraform Registry for docs: [`aws_acm_certificate`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate).
+Refer to the Terraform Registry for docs: [`aws_acm_certificate`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AcmCertificate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.acmCertificate.AcmCertificate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate aws_acm_certificate}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate aws_acm_certificate}.'''
 
     def __init__(
         self,
@@ -60,6 +60,7 @@ class AcmCertificate(
         key_algorithm: typing.Optional[builtins.str] = None,
         options: typing.Optional[typing.Union["AcmCertificateOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         private_key: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -73,24 +74,25 @@ class AcmCertificate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate aws_acm_certificate} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate aws_acm_certificate} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_authority_arn AcmCertificate#certificate_authority_arn}.
-        :param certificate_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_body AcmCertificate#certificate_body}.
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_chain AcmCertificate#certificate_chain}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.
-        :param early_renewal_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#early_renewal_duration AcmCertificate#early_renewal_duration}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#id AcmCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#key_algorithm AcmCertificate#key_algorithm}.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#options AcmCertificate#options}
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#private_key AcmCertificate#private_key}.
-        :param subject_alternative_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#subject_alternative_names AcmCertificate#subject_alternative_names}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#tags AcmCertificate#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#tags_all AcmCertificate#tags_all}.
-        :param validation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_method AcmCertificate#validation_method}.
-        :param validation_option: validation_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_option AcmCertificate#validation_option}
+        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_authority_arn AcmCertificate#certificate_authority_arn}.
+        :param certificate_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_body AcmCertificate#certificate_body}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_chain AcmCertificate#certificate_chain}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.
+        :param early_renewal_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#early_renewal_duration AcmCertificate#early_renewal_duration}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#id AcmCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#key_algorithm AcmCertificate#key_algorithm}.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#options AcmCertificate#options}
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#private_key AcmCertificate#private_key}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#region AcmCertificate#region}
+        :param subject_alternative_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#subject_alternative_names AcmCertificate#subject_alternative_names}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#tags AcmCertificate#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#tags_all AcmCertificate#tags_all}.
+        :param validation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_method AcmCertificate#validation_method}.
+        :param validation_option: validation_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_option AcmCertificate#validation_option}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -113,6 +115,7 @@ class AcmCertificate(
             key_algorithm=key_algorithm,
             options=options,
             private_key=private_key,
+            region=region,
             subject_alternative_names=subject_alternative_names,
             tags=tags,
             tags_all=tags_all,
@@ -142,7 +145,7 @@ class AcmCertificate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AcmCertificate to import.
-        :param import_from_id: The id of the existing AcmCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AcmCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AcmCertificate to import is found.
         '''
         if __debug__:
@@ -160,7 +163,7 @@ class AcmCertificate(
         certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param certificate_transparency_logging_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_transparency_logging_preference AcmCertificate#certificate_transparency_logging_preference}.
+        :param certificate_transparency_logging_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_transparency_logging_preference AcmCertificate#certificate_transparency_logging_preference}.
         '''
         value = AcmCertificateOptions(
             certificate_transparency_logging_preference=certificate_transparency_logging_preference,
@@ -216,6 +219,10 @@ class AcmCertificate(
     @jsii.member(jsii_name="resetPrivateKey")
     def reset_private_key(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPrivateKey", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSubjectAlternativeNames")
     def reset_subject_alternative_names(self) -> None:
@@ -356,6 +363,11 @@ class AcmCertificate(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKeyInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="subjectAlternativeNamesInput")
     def subject_alternative_names_input(
         self,
@@ -483,6 +495,18 @@ class AcmCertificate(
         jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cdbe82e14de55ad98381656071d3e7bbf437b9e52899a54d2550838d3a0cfd4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="subjectAlternativeNames")
     def subject_alternative_names(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "subjectAlternativeNames"))
@@ -551,6 +575,7 @@ class AcmCertificate(
         "key_algorithm": "keyAlgorithm",
         "options": "options",
         "private_key": "privateKey",
+        "region": "region",
         "subject_alternative_names": "subjectAlternativeNames",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -578,6 +603,7 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         key_algorithm: typing.Optional[builtins.str] = None,
         options: typing.Optional[typing.Union["AcmCertificateOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         private_key: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -592,20 +618,21 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_authority_arn AcmCertificate#certificate_authority_arn}.
-        :param certificate_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_body AcmCertificate#certificate_body}.
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_chain AcmCertificate#certificate_chain}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.
-        :param early_renewal_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#early_renewal_duration AcmCertificate#early_renewal_duration}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#id AcmCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#key_algorithm AcmCertificate#key_algorithm}.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#options AcmCertificate#options}
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#private_key AcmCertificate#private_key}.
-        :param subject_alternative_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#subject_alternative_names AcmCertificate#subject_alternative_names}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#tags AcmCertificate#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#tags_all AcmCertificate#tags_all}.
-        :param validation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_method AcmCertificate#validation_method}.
-        :param validation_option: validation_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_option AcmCertificate#validation_option}
+        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_authority_arn AcmCertificate#certificate_authority_arn}.
+        :param certificate_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_body AcmCertificate#certificate_body}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_chain AcmCertificate#certificate_chain}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.
+        :param early_renewal_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#early_renewal_duration AcmCertificate#early_renewal_duration}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#id AcmCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#key_algorithm AcmCertificate#key_algorithm}.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#options AcmCertificate#options}
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#private_key AcmCertificate#private_key}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#region AcmCertificate#region}
+        :param subject_alternative_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#subject_alternative_names AcmCertificate#subject_alternative_names}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#tags AcmCertificate#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#tags_all AcmCertificate#tags_all}.
+        :param validation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_method AcmCertificate#validation_method}.
+        :param validation_option: validation_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_option AcmCertificate#validation_option}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -629,6 +656,7 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument key_algorithm", value=key_algorithm, expected_type=type_hints["key_algorithm"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument private_key", value=private_key, expected_type=type_hints["private_key"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument subject_alternative_names", value=subject_alternative_names, expected_type=type_hints["subject_alternative_names"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -667,6 +695,8 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["options"] = options
         if private_key is not None:
             self._values["private_key"] = private_key
+        if region is not None:
+            self._values["region"] = region
         if subject_alternative_names is not None:
             self._values["subject_alternative_names"] = subject_alternative_names
         if tags is not None:
@@ -744,37 +774,37 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def certificate_authority_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_authority_arn AcmCertificate#certificate_authority_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_authority_arn AcmCertificate#certificate_authority_arn}.'''
         result = self._values.get("certificate_authority_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def certificate_body(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_body AcmCertificate#certificate_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_body AcmCertificate#certificate_body}.'''
         result = self._values.get("certificate_body")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def certificate_chain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_chain AcmCertificate#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_chain AcmCertificate#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.'''
         result = self._values.get("domain_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def early_renewal_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#early_renewal_duration AcmCertificate#early_renewal_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#early_renewal_duration AcmCertificate#early_renewal_duration}.'''
         result = self._values.get("early_renewal_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#id AcmCertificate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#id AcmCertificate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -784,7 +814,7 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def key_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#key_algorithm AcmCertificate#key_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#key_algorithm AcmCertificate#key_algorithm}.'''
         result = self._values.get("key_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -792,38 +822,47 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def options(self) -> typing.Optional["AcmCertificateOptions"]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#options AcmCertificate#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#options AcmCertificate#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional["AcmCertificateOptions"], result)
 
     @builtins.property
     def private_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#private_key AcmCertificate#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#private_key AcmCertificate#private_key}.'''
         result = self._values.get("private_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#region AcmCertificate#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def subject_alternative_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#subject_alternative_names AcmCertificate#subject_alternative_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#subject_alternative_names AcmCertificate#subject_alternative_names}.'''
         result = self._values.get("subject_alternative_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#tags AcmCertificate#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#tags AcmCertificate#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#tags_all AcmCertificate#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#tags_all AcmCertificate#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def validation_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_method AcmCertificate#validation_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_method AcmCertificate#validation_method}.'''
         result = self._values.get("validation_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -833,7 +872,7 @@ class AcmCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AcmCertificateValidationOption"]]]:
         '''validation_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_option AcmCertificate#validation_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_option AcmCertificate#validation_option}
         '''
         result = self._values.get("validation_option")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AcmCertificateValidationOption"]]], result)
@@ -1023,7 +1062,7 @@ class AcmCertificateOptions:
         certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param certificate_transparency_logging_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_transparency_logging_preference AcmCertificate#certificate_transparency_logging_preference}.
+        :param certificate_transparency_logging_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_transparency_logging_preference AcmCertificate#certificate_transparency_logging_preference}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4145bbc798eb4584364628c3489dc24f4fcbda076f789f66d33b56aaaeb05a4)
@@ -1036,7 +1075,7 @@ class AcmCertificateOptions:
     def certificate_transparency_logging_preference(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#certificate_transparency_logging_preference AcmCertificate#certificate_transparency_logging_preference}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#certificate_transparency_logging_preference AcmCertificate#certificate_transparency_logging_preference}.'''
         result = self._values.get("certificate_transparency_logging_preference")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1275,8 +1314,8 @@ class AcmCertificateValidationOption:
         validation_domain: builtins.str,
     ) -> None:
         '''
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.
-        :param validation_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_domain AcmCertificate#validation_domain}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.
+        :param validation_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_domain AcmCertificate#validation_domain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81290a040fa07eb6f49849bf14b3ac9870a6440a96995f42434d328b487e1c9d)
@@ -1289,14 +1328,14 @@ class AcmCertificateValidationOption:
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#domain_name AcmCertificate#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def validation_domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/acm_certificate#validation_domain AcmCertificate#validation_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/acm_certificate#validation_domain AcmCertificate#validation_domain}.'''
         result = self._values.get("validation_domain")
         assert result is not None, "Required property 'validation_domain' is missing"
         return typing.cast(builtins.str, result)
@@ -1515,6 +1554,7 @@ def _typecheckingstub__07428e26cbfad1a9ff78bba3e390c5249c6e111ebbfbafbba47a02b10
     key_algorithm: typing.Optional[builtins.str] = None,
     options: typing.Optional[typing.Union[AcmCertificateOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     private_key: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1594,6 +1634,12 @@ def _typecheckingstub__7fbe33e8bd1e89b44c67ccfb461aff5827f880f0bb619d6539f6fa66b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1cdbe82e14de55ad98381656071d3e7bbf437b9e52899a54d2550838d3a0cfd4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__88d6a31b68ffd29108e7b7024aaa340a6886db464ed2e4571a177e137e7bfc0b(
     value: typing.List[builtins.str],
 ) -> None:
@@ -1636,6 +1682,7 @@ def _typecheckingstub__459de96f85115e5a4f71c86329f2a8e24c1beef08945ba8fa674aee14
     key_algorithm: typing.Optional[builtins.str] = None,
     options: typing.Optional[typing.Union[AcmCertificateOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     private_key: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     subject_alternative_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

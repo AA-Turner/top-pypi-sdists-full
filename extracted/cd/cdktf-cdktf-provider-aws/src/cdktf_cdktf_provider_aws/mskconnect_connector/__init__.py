@@ -1,7 +1,7 @@
 r'''
 # `aws_mskconnect_connector`
 
-Refer to the Terraform Registry for docs: [`aws_mskconnect_connector`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector).
+Refer to the Terraform Registry for docs: [`aws_mskconnect_connector`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MskconnectConnector(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.mskconnectConnector.MskconnectConnector",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector aws_mskconnect_connector}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector aws_mskconnect_connector}.'''
 
     def __init__(
         self,
@@ -63,6 +63,7 @@ class MskconnectConnector(
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         log_delivery: typing.Optional[typing.Union["MskconnectConnectorLogDelivery", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["MskconnectConnectorTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -75,26 +76,27 @@ class MskconnectConnector(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector aws_mskconnect_connector} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector aws_mskconnect_connector} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#capacity MskconnectConnector#capacity}
-        :param connector_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#connector_configuration MskconnectConnector#connector_configuration}.
-        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster MskconnectConnector#kafka_cluster}
-        :param kafka_cluster_client_authentication: kafka_cluster_client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster_client_authentication MskconnectConnector#kafka_cluster_client_authentication}
-        :param kafka_cluster_encryption_in_transit: kafka_cluster_encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster_encryption_in_transit MskconnectConnector#kafka_cluster_encryption_in_transit}
-        :param kafkaconnect_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafkaconnect_version MskconnectConnector#kafkaconnect_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#name MskconnectConnector#name}.
-        :param plugin: plugin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#plugin MskconnectConnector#plugin}
-        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#service_execution_role_arn MskconnectConnector#service_execution_role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#description MskconnectConnector#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#id MskconnectConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_delivery: log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#log_delivery MskconnectConnector#log_delivery}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#tags MskconnectConnector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#tags_all MskconnectConnector#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#timeouts MskconnectConnector#timeouts}
-        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_configuration MskconnectConnector#worker_configuration}
+        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#capacity MskconnectConnector#capacity}
+        :param connector_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#connector_configuration MskconnectConnector#connector_configuration}.
+        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster MskconnectConnector#kafka_cluster}
+        :param kafka_cluster_client_authentication: kafka_cluster_client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster_client_authentication MskconnectConnector#kafka_cluster_client_authentication}
+        :param kafka_cluster_encryption_in_transit: kafka_cluster_encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster_encryption_in_transit MskconnectConnector#kafka_cluster_encryption_in_transit}
+        :param kafkaconnect_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafkaconnect_version MskconnectConnector#kafkaconnect_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#name MskconnectConnector#name}.
+        :param plugin: plugin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#plugin MskconnectConnector#plugin}
+        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#service_execution_role_arn MskconnectConnector#service_execution_role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#description MskconnectConnector#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#id MskconnectConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_delivery: log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#log_delivery MskconnectConnector#log_delivery}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#region MskconnectConnector#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#tags MskconnectConnector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#tags_all MskconnectConnector#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#timeouts MskconnectConnector#timeouts}
+        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_configuration MskconnectConnector#worker_configuration}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -120,6 +122,7 @@ class MskconnectConnector(
             description=description,
             id=id,
             log_delivery=log_delivery,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             timeouts=timeouts,
@@ -148,7 +151,7 @@ class MskconnectConnector(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MskconnectConnector to import.
-        :param import_from_id: The id of the existing MskconnectConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MskconnectConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MskconnectConnector to import is found.
         '''
         if __debug__:
@@ -167,8 +170,8 @@ class MskconnectConnector(
         provisioned_capacity: typing.Optional[typing.Union["MskconnectConnectorCapacityProvisionedCapacity", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#autoscaling MskconnectConnector#autoscaling}
-        :param provisioned_capacity: provisioned_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#provisioned_capacity MskconnectConnector#provisioned_capacity}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#autoscaling MskconnectConnector#autoscaling}
+        :param provisioned_capacity: provisioned_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#provisioned_capacity MskconnectConnector#provisioned_capacity}
         '''
         value = MskconnectConnectorCapacity(
             autoscaling=autoscaling, provisioned_capacity=provisioned_capacity
@@ -183,7 +186,7 @@ class MskconnectConnector(
         apache_kafka_cluster: typing.Union["MskconnectConnectorKafkaClusterApacheKafkaCluster", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param apache_kafka_cluster: apache_kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#apache_kafka_cluster MskconnectConnector#apache_kafka_cluster}
+        :param apache_kafka_cluster: apache_kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#apache_kafka_cluster MskconnectConnector#apache_kafka_cluster}
         '''
         value = MskconnectConnectorKafkaCluster(
             apache_kafka_cluster=apache_kafka_cluster
@@ -198,7 +201,7 @@ class MskconnectConnector(
         authentication_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#authentication_type MskconnectConnector#authentication_type}.
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#authentication_type MskconnectConnector#authentication_type}.
         '''
         value = MskconnectConnectorKafkaClusterClientAuthentication(
             authentication_type=authentication_type
@@ -213,7 +216,7 @@ class MskconnectConnector(
         encryption_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#encryption_type MskconnectConnector#encryption_type}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#encryption_type MskconnectConnector#encryption_type}.
         '''
         value = MskconnectConnectorKafkaClusterEncryptionInTransit(
             encryption_type=encryption_type
@@ -228,7 +231,7 @@ class MskconnectConnector(
         worker_log_delivery: typing.Union["MskconnectConnectorLogDeliveryWorkerLogDelivery", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param worker_log_delivery: worker_log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_log_delivery MskconnectConnector#worker_log_delivery}
+        :param worker_log_delivery: worker_log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_log_delivery MskconnectConnector#worker_log_delivery}
         '''
         value = MskconnectConnectorLogDelivery(worker_log_delivery=worker_log_delivery)
 
@@ -256,9 +259,9 @@ class MskconnectConnector(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#create MskconnectConnector#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#delete MskconnectConnector#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#update MskconnectConnector#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#create MskconnectConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#delete MskconnectConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#update MskconnectConnector#update}.
         '''
         value = MskconnectConnectorTimeouts(
             create=create, delete=delete, update=update
@@ -274,8 +277,8 @@ class MskconnectConnector(
         revision: jsii.Number,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
         '''
         value = MskconnectConnectorWorkerConfiguration(arn=arn, revision=revision)
 
@@ -292,6 +295,10 @@ class MskconnectConnector(
     @jsii.member(jsii_name="resetLogDelivery")
     def reset_log_delivery(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogDelivery", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -442,6 +449,11 @@ class MskconnectConnector(
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MskconnectConnectorPlugin"]]], jsii.get(self, "pluginInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="serviceExecutionRoleArnInput")
     def service_execution_role_arn_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serviceExecutionRoleArnInput"))
@@ -536,6 +548,18 @@ class MskconnectConnector(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22be2dfffac7b589065a319b13cdd4933468c91d342e04790ca69e980bd3ae0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="serviceExecutionRoleArn")
     def service_execution_role_arn(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "serviceExecutionRoleArn"))
@@ -588,8 +612,8 @@ class MskconnectConnectorCapacity:
         provisioned_capacity: typing.Optional[typing.Union["MskconnectConnectorCapacityProvisionedCapacity", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#autoscaling MskconnectConnector#autoscaling}
-        :param provisioned_capacity: provisioned_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#provisioned_capacity MskconnectConnector#provisioned_capacity}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#autoscaling MskconnectConnector#autoscaling}
+        :param provisioned_capacity: provisioned_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#provisioned_capacity MskconnectConnector#provisioned_capacity}
         '''
         if isinstance(autoscaling, dict):
             autoscaling = MskconnectConnectorCapacityAutoscaling(**autoscaling)
@@ -609,7 +633,7 @@ class MskconnectConnectorCapacity:
     def autoscaling(self) -> typing.Optional["MskconnectConnectorCapacityAutoscaling"]:
         '''autoscaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#autoscaling MskconnectConnector#autoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#autoscaling MskconnectConnector#autoscaling}
         '''
         result = self._values.get("autoscaling")
         return typing.cast(typing.Optional["MskconnectConnectorCapacityAutoscaling"], result)
@@ -620,7 +644,7 @@ class MskconnectConnectorCapacity:
     ) -> typing.Optional["MskconnectConnectorCapacityProvisionedCapacity"]:
         '''provisioned_capacity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#provisioned_capacity MskconnectConnector#provisioned_capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#provisioned_capacity MskconnectConnector#provisioned_capacity}
         '''
         result = self._values.get("provisioned_capacity")
         return typing.cast(typing.Optional["MskconnectConnectorCapacityProvisionedCapacity"], result)
@@ -659,11 +683,11 @@ class MskconnectConnectorCapacityAutoscaling:
         scale_out_policy: typing.Optional[typing.Union["MskconnectConnectorCapacityAutoscalingScaleOutPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param max_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#max_worker_count MskconnectConnector#max_worker_count}.
-        :param min_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#min_worker_count MskconnectConnector#min_worker_count}.
-        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
-        :param scale_in_policy: scale_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#scale_in_policy MskconnectConnector#scale_in_policy}
-        :param scale_out_policy: scale_out_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#scale_out_policy MskconnectConnector#scale_out_policy}
+        :param max_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#max_worker_count MskconnectConnector#max_worker_count}.
+        :param min_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#min_worker_count MskconnectConnector#min_worker_count}.
+        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
+        :param scale_in_policy: scale_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#scale_in_policy MskconnectConnector#scale_in_policy}
+        :param scale_out_policy: scale_out_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#scale_out_policy MskconnectConnector#scale_out_policy}
         '''
         if isinstance(scale_in_policy, dict):
             scale_in_policy = MskconnectConnectorCapacityAutoscalingScaleInPolicy(**scale_in_policy)
@@ -689,21 +713,21 @@ class MskconnectConnectorCapacityAutoscaling:
 
     @builtins.property
     def max_worker_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#max_worker_count MskconnectConnector#max_worker_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#max_worker_count MskconnectConnector#max_worker_count}.'''
         result = self._values.get("max_worker_count")
         assert result is not None, "Required property 'max_worker_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def min_worker_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#min_worker_count MskconnectConnector#min_worker_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#min_worker_count MskconnectConnector#min_worker_count}.'''
         result = self._values.get("min_worker_count")
         assert result is not None, "Required property 'min_worker_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def mcu_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.'''
         result = self._values.get("mcu_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -713,7 +737,7 @@ class MskconnectConnectorCapacityAutoscaling:
     ) -> typing.Optional["MskconnectConnectorCapacityAutoscalingScaleInPolicy"]:
         '''scale_in_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#scale_in_policy MskconnectConnector#scale_in_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#scale_in_policy MskconnectConnector#scale_in_policy}
         '''
         result = self._values.get("scale_in_policy")
         return typing.cast(typing.Optional["MskconnectConnectorCapacityAutoscalingScaleInPolicy"], result)
@@ -724,7 +748,7 @@ class MskconnectConnectorCapacityAutoscaling:
     ) -> typing.Optional["MskconnectConnectorCapacityAutoscalingScaleOutPolicy"]:
         '''scale_out_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#scale_out_policy MskconnectConnector#scale_out_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#scale_out_policy MskconnectConnector#scale_out_policy}
         '''
         result = self._values.get("scale_out_policy")
         return typing.cast(typing.Optional["MskconnectConnectorCapacityAutoscalingScaleOutPolicy"], result)
@@ -768,7 +792,7 @@ class MskconnectConnectorCapacityAutoscalingOutputReference(
         cpu_utilization_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
+        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
         '''
         value = MskconnectConnectorCapacityAutoscalingScaleInPolicy(
             cpu_utilization_percentage=cpu_utilization_percentage
@@ -783,7 +807,7 @@ class MskconnectConnectorCapacityAutoscalingOutputReference(
         cpu_utilization_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
+        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
         '''
         value = MskconnectConnectorCapacityAutoscalingScaleOutPolicy(
             cpu_utilization_percentage=cpu_utilization_percentage
@@ -910,7 +934,7 @@ class MskconnectConnectorCapacityAutoscalingScaleInPolicy:
         cpu_utilization_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
+        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bd60c9da68e37586a508eaac17ea7eaf71e1df91e137ab404b736cabefa8002)
@@ -921,7 +945,7 @@ class MskconnectConnectorCapacityAutoscalingScaleInPolicy:
 
     @builtins.property
     def cpu_utilization_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.'''
         result = self._values.get("cpu_utilization_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1008,7 +1032,7 @@ class MskconnectConnectorCapacityAutoscalingScaleOutPolicy:
         cpu_utilization_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
+        :param cpu_utilization_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e344eed870a7e52b14c3093c0f3827e0683caae281e0ca73957944c78c80f4cd)
@@ -1019,7 +1043,7 @@ class MskconnectConnectorCapacityAutoscalingScaleOutPolicy:
 
     @builtins.property
     def cpu_utilization_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cpu_utilization_percentage MskconnectConnector#cpu_utilization_percentage}.'''
         result = self._values.get("cpu_utilization_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1125,11 +1149,11 @@ class MskconnectConnectorCapacityOutputReference(
         scale_out_policy: typing.Optional[typing.Union[MskconnectConnectorCapacityAutoscalingScaleOutPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param max_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#max_worker_count MskconnectConnector#max_worker_count}.
-        :param min_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#min_worker_count MskconnectConnector#min_worker_count}.
-        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
-        :param scale_in_policy: scale_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#scale_in_policy MskconnectConnector#scale_in_policy}
-        :param scale_out_policy: scale_out_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#scale_out_policy MskconnectConnector#scale_out_policy}
+        :param max_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#max_worker_count MskconnectConnector#max_worker_count}.
+        :param min_worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#min_worker_count MskconnectConnector#min_worker_count}.
+        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
+        :param scale_in_policy: scale_in_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#scale_in_policy MskconnectConnector#scale_in_policy}
+        :param scale_out_policy: scale_out_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#scale_out_policy MskconnectConnector#scale_out_policy}
         '''
         value = MskconnectConnectorCapacityAutoscaling(
             max_worker_count=max_worker_count,
@@ -1149,8 +1173,8 @@ class MskconnectConnectorCapacityOutputReference(
         mcu_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_count MskconnectConnector#worker_count}.
-        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
+        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_count MskconnectConnector#worker_count}.
+        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
         '''
         value = MskconnectConnectorCapacityProvisionedCapacity(
             worker_count=worker_count, mcu_count=mcu_count
@@ -1221,8 +1245,8 @@ class MskconnectConnectorCapacityProvisionedCapacity:
         mcu_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_count MskconnectConnector#worker_count}.
-        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
+        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_count MskconnectConnector#worker_count}.
+        :param mcu_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9476c39211e2cc0a088087c268f1ed4481205f6733704588816ac6526494393b)
@@ -1236,14 +1260,14 @@ class MskconnectConnectorCapacityProvisionedCapacity:
 
     @builtins.property
     def worker_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_count MskconnectConnector#worker_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_count MskconnectConnector#worker_count}.'''
         result = self._values.get("worker_count")
         assert result is not None, "Required property 'worker_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def mcu_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#mcu_count MskconnectConnector#mcu_count}.'''
         result = self._values.get("mcu_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1358,6 +1382,7 @@ class MskconnectConnectorCapacityProvisionedCapacityOutputReference(
         "description": "description",
         "id": "id",
         "log_delivery": "logDelivery",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
         "timeouts": "timeouts",
@@ -1387,6 +1412,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         log_delivery: typing.Optional[typing.Union["MskconnectConnectorLogDelivery", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["MskconnectConnectorTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1400,22 +1426,23 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#capacity MskconnectConnector#capacity}
-        :param connector_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#connector_configuration MskconnectConnector#connector_configuration}.
-        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster MskconnectConnector#kafka_cluster}
-        :param kafka_cluster_client_authentication: kafka_cluster_client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster_client_authentication MskconnectConnector#kafka_cluster_client_authentication}
-        :param kafka_cluster_encryption_in_transit: kafka_cluster_encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster_encryption_in_transit MskconnectConnector#kafka_cluster_encryption_in_transit}
-        :param kafkaconnect_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafkaconnect_version MskconnectConnector#kafkaconnect_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#name MskconnectConnector#name}.
-        :param plugin: plugin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#plugin MskconnectConnector#plugin}
-        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#service_execution_role_arn MskconnectConnector#service_execution_role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#description MskconnectConnector#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#id MskconnectConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_delivery: log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#log_delivery MskconnectConnector#log_delivery}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#tags MskconnectConnector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#tags_all MskconnectConnector#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#timeouts MskconnectConnector#timeouts}
-        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_configuration MskconnectConnector#worker_configuration}
+        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#capacity MskconnectConnector#capacity}
+        :param connector_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#connector_configuration MskconnectConnector#connector_configuration}.
+        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster MskconnectConnector#kafka_cluster}
+        :param kafka_cluster_client_authentication: kafka_cluster_client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster_client_authentication MskconnectConnector#kafka_cluster_client_authentication}
+        :param kafka_cluster_encryption_in_transit: kafka_cluster_encryption_in_transit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster_encryption_in_transit MskconnectConnector#kafka_cluster_encryption_in_transit}
+        :param kafkaconnect_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafkaconnect_version MskconnectConnector#kafkaconnect_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#name MskconnectConnector#name}.
+        :param plugin: plugin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#plugin MskconnectConnector#plugin}
+        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#service_execution_role_arn MskconnectConnector#service_execution_role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#description MskconnectConnector#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#id MskconnectConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_delivery: log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#log_delivery MskconnectConnector#log_delivery}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#region MskconnectConnector#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#tags MskconnectConnector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#tags_all MskconnectConnector#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#timeouts MskconnectConnector#timeouts}
+        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_configuration MskconnectConnector#worker_configuration}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1454,6 +1481,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument log_delivery", value=log_delivery, expected_type=type_hints["log_delivery"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -1489,6 +1517,8 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if log_delivery is not None:
             self._values["log_delivery"] = log_delivery
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -1566,7 +1596,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity(self) -> MskconnectConnectorCapacity:
         '''capacity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#capacity MskconnectConnector#capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#capacity MskconnectConnector#capacity}
         '''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
@@ -1574,7 +1604,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def connector_configuration(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#connector_configuration MskconnectConnector#connector_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#connector_configuration MskconnectConnector#connector_configuration}.'''
         result = self._values.get("connector_configuration")
         assert result is not None, "Required property 'connector_configuration' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
@@ -1583,7 +1613,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kafka_cluster(self) -> "MskconnectConnectorKafkaCluster":
         '''kafka_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster MskconnectConnector#kafka_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster MskconnectConnector#kafka_cluster}
         '''
         result = self._values.get("kafka_cluster")
         assert result is not None, "Required property 'kafka_cluster' is missing"
@@ -1595,7 +1625,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> "MskconnectConnectorKafkaClusterClientAuthentication":
         '''kafka_cluster_client_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster_client_authentication MskconnectConnector#kafka_cluster_client_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster_client_authentication MskconnectConnector#kafka_cluster_client_authentication}
         '''
         result = self._values.get("kafka_cluster_client_authentication")
         assert result is not None, "Required property 'kafka_cluster_client_authentication' is missing"
@@ -1607,7 +1637,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> "MskconnectConnectorKafkaClusterEncryptionInTransit":
         '''kafka_cluster_encryption_in_transit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafka_cluster_encryption_in_transit MskconnectConnector#kafka_cluster_encryption_in_transit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafka_cluster_encryption_in_transit MskconnectConnector#kafka_cluster_encryption_in_transit}
         '''
         result = self._values.get("kafka_cluster_encryption_in_transit")
         assert result is not None, "Required property 'kafka_cluster_encryption_in_transit' is missing"
@@ -1615,14 +1645,14 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kafkaconnect_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#kafkaconnect_version MskconnectConnector#kafkaconnect_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#kafkaconnect_version MskconnectConnector#kafkaconnect_version}.'''
         result = self._values.get("kafkaconnect_version")
         assert result is not None, "Required property 'kafkaconnect_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#name MskconnectConnector#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#name MskconnectConnector#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1633,7 +1663,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MskconnectConnectorPlugin"]]:
         '''plugin block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#plugin MskconnectConnector#plugin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#plugin MskconnectConnector#plugin}
         '''
         result = self._values.get("plugin")
         assert result is not None, "Required property 'plugin' is missing"
@@ -1641,20 +1671,20 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def service_execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#service_execution_role_arn MskconnectConnector#service_execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#service_execution_role_arn MskconnectConnector#service_execution_role_arn}.'''
         result = self._values.get("service_execution_role_arn")
         assert result is not None, "Required property 'service_execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#description MskconnectConnector#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#description MskconnectConnector#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#id MskconnectConnector#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#id MskconnectConnector#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1666,20 +1696,29 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_delivery(self) -> typing.Optional["MskconnectConnectorLogDelivery"]:
         '''log_delivery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#log_delivery MskconnectConnector#log_delivery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#log_delivery MskconnectConnector#log_delivery}
         '''
         result = self._values.get("log_delivery")
         return typing.cast(typing.Optional["MskconnectConnectorLogDelivery"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#region MskconnectConnector#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#tags MskconnectConnector#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#tags MskconnectConnector#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#tags_all MskconnectConnector#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#tags_all MskconnectConnector#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1687,7 +1726,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MskconnectConnectorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#timeouts MskconnectConnector#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#timeouts MskconnectConnector#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MskconnectConnectorTimeouts"], result)
@@ -1698,7 +1737,7 @@ class MskconnectConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MskconnectConnectorWorkerConfiguration"]:
         '''worker_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_configuration MskconnectConnector#worker_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_configuration MskconnectConnector#worker_configuration}
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["MskconnectConnectorWorkerConfiguration"], result)
@@ -1727,7 +1766,7 @@ class MskconnectConnectorKafkaCluster:
         apache_kafka_cluster: typing.Union["MskconnectConnectorKafkaClusterApacheKafkaCluster", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param apache_kafka_cluster: apache_kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#apache_kafka_cluster MskconnectConnector#apache_kafka_cluster}
+        :param apache_kafka_cluster: apache_kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#apache_kafka_cluster MskconnectConnector#apache_kafka_cluster}
         '''
         if isinstance(apache_kafka_cluster, dict):
             apache_kafka_cluster = MskconnectConnectorKafkaClusterApacheKafkaCluster(**apache_kafka_cluster)
@@ -1744,7 +1783,7 @@ class MskconnectConnectorKafkaCluster:
     ) -> "MskconnectConnectorKafkaClusterApacheKafkaCluster":
         '''apache_kafka_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#apache_kafka_cluster MskconnectConnector#apache_kafka_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#apache_kafka_cluster MskconnectConnector#apache_kafka_cluster}
         '''
         result = self._values.get("apache_kafka_cluster")
         assert result is not None, "Required property 'apache_kafka_cluster' is missing"
@@ -1775,8 +1814,8 @@ class MskconnectConnectorKafkaClusterApacheKafkaCluster:
         vpc: typing.Union["MskconnectConnectorKafkaClusterApacheKafkaClusterVpc", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#bootstrap_servers MskconnectConnector#bootstrap_servers}.
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#vpc MskconnectConnector#vpc}
+        :param bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#bootstrap_servers MskconnectConnector#bootstrap_servers}.
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#vpc MskconnectConnector#vpc}
         '''
         if isinstance(vpc, dict):
             vpc = MskconnectConnectorKafkaClusterApacheKafkaClusterVpc(**vpc)
@@ -1791,7 +1830,7 @@ class MskconnectConnectorKafkaClusterApacheKafkaCluster:
 
     @builtins.property
     def bootstrap_servers(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#bootstrap_servers MskconnectConnector#bootstrap_servers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#bootstrap_servers MskconnectConnector#bootstrap_servers}.'''
         result = self._values.get("bootstrap_servers")
         assert result is not None, "Required property 'bootstrap_servers' is missing"
         return typing.cast(builtins.str, result)
@@ -1800,7 +1839,7 @@ class MskconnectConnectorKafkaClusterApacheKafkaCluster:
     def vpc(self) -> "MskconnectConnectorKafkaClusterApacheKafkaClusterVpc":
         '''vpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#vpc MskconnectConnector#vpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#vpc MskconnectConnector#vpc}
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
@@ -1846,8 +1885,8 @@ class MskconnectConnectorKafkaClusterApacheKafkaClusterOutputReference(
         subnets: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#security_groups MskconnectConnector#security_groups}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#subnets MskconnectConnector#subnets}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#security_groups MskconnectConnector#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#subnets MskconnectConnector#subnets}.
         '''
         value = MskconnectConnectorKafkaClusterApacheKafkaClusterVpc(
             security_groups=security_groups, subnets=subnets
@@ -1917,8 +1956,8 @@ class MskconnectConnectorKafkaClusterApacheKafkaClusterVpc:
         subnets: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#security_groups MskconnectConnector#security_groups}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#subnets MskconnectConnector#subnets}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#security_groups MskconnectConnector#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#subnets MskconnectConnector#subnets}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac6d1b5001f6d2bfa581aee202c5185478de3f3e9d3e3eb021142d16d2557693)
@@ -1931,14 +1970,14 @@ class MskconnectConnectorKafkaClusterApacheKafkaClusterVpc:
 
     @builtins.property
     def security_groups(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#security_groups MskconnectConnector#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#security_groups MskconnectConnector#security_groups}.'''
         result = self._values.get("security_groups")
         assert result is not None, "Required property 'security_groups' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#subnets MskconnectConnector#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#subnets MskconnectConnector#subnets}.'''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2039,7 +2078,7 @@ class MskconnectConnectorKafkaClusterClientAuthentication:
         authentication_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#authentication_type MskconnectConnector#authentication_type}.
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#authentication_type MskconnectConnector#authentication_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f65eb7c16f0386597ae11b345135dc80c5c676410bcba4832e02aeba370d37d)
@@ -2050,7 +2089,7 @@ class MskconnectConnectorKafkaClusterClientAuthentication:
 
     @builtins.property
     def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#authentication_type MskconnectConnector#authentication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#authentication_type MskconnectConnector#authentication_type}.'''
         result = self._values.get("authentication_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2137,7 +2176,7 @@ class MskconnectConnectorKafkaClusterEncryptionInTransit:
         encryption_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#encryption_type MskconnectConnector#encryption_type}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#encryption_type MskconnectConnector#encryption_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b6b2733923667db91040c79b15db6aedca3227527de960318b2f25129939e3d)
@@ -2148,7 +2187,7 @@ class MskconnectConnectorKafkaClusterEncryptionInTransit:
 
     @builtins.property
     def encryption_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#encryption_type MskconnectConnector#encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#encryption_type MskconnectConnector#encryption_type}.'''
         result = self._values.get("encryption_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2251,8 +2290,8 @@ class MskconnectConnectorKafkaClusterOutputReference(
         vpc: typing.Union[MskconnectConnectorKafkaClusterApacheKafkaClusterVpc, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#bootstrap_servers MskconnectConnector#bootstrap_servers}.
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#vpc MskconnectConnector#vpc}
+        :param bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#bootstrap_servers MskconnectConnector#bootstrap_servers}.
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#vpc MskconnectConnector#vpc}
         '''
         value = MskconnectConnectorKafkaClusterApacheKafkaCluster(
             bootstrap_servers=bootstrap_servers, vpc=vpc
@@ -2302,7 +2341,7 @@ class MskconnectConnectorLogDelivery:
         worker_log_delivery: typing.Union["MskconnectConnectorLogDeliveryWorkerLogDelivery", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param worker_log_delivery: worker_log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_log_delivery MskconnectConnector#worker_log_delivery}
+        :param worker_log_delivery: worker_log_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_log_delivery MskconnectConnector#worker_log_delivery}
         '''
         if isinstance(worker_log_delivery, dict):
             worker_log_delivery = MskconnectConnectorLogDeliveryWorkerLogDelivery(**worker_log_delivery)
@@ -2317,7 +2356,7 @@ class MskconnectConnectorLogDelivery:
     def worker_log_delivery(self) -> "MskconnectConnectorLogDeliveryWorkerLogDelivery":
         '''worker_log_delivery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#worker_log_delivery MskconnectConnector#worker_log_delivery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#worker_log_delivery MskconnectConnector#worker_log_delivery}
         '''
         result = self._values.get("worker_log_delivery")
         assert result is not None, "Required property 'worker_log_delivery' is missing"
@@ -2364,9 +2403,9 @@ class MskconnectConnectorLogDeliveryOutputReference(
         s3: typing.Optional[typing.Union["MskconnectConnectorLogDeliveryWorkerLogDeliveryS3", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cloudwatch_logs MskconnectConnector#cloudwatch_logs}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#firehose MskconnectConnector#firehose}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#s3 MskconnectConnector#s3}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cloudwatch_logs MskconnectConnector#cloudwatch_logs}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#firehose MskconnectConnector#firehose}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#s3 MskconnectConnector#s3}
         '''
         value = MskconnectConnectorLogDeliveryWorkerLogDelivery(
             cloudwatch_logs=cloudwatch_logs, firehose=firehose, s3=s3
@@ -2422,9 +2461,9 @@ class MskconnectConnectorLogDeliveryWorkerLogDelivery:
         s3: typing.Optional[typing.Union["MskconnectConnectorLogDeliveryWorkerLogDeliveryS3", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cloudwatch_logs MskconnectConnector#cloudwatch_logs}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#firehose MskconnectConnector#firehose}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#s3 MskconnectConnector#s3}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cloudwatch_logs MskconnectConnector#cloudwatch_logs}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#firehose MskconnectConnector#firehose}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#s3 MskconnectConnector#s3}
         '''
         if isinstance(cloudwatch_logs, dict):
             cloudwatch_logs = MskconnectConnectorLogDeliveryWorkerLogDeliveryCloudwatchLogs(**cloudwatch_logs)
@@ -2451,7 +2490,7 @@ class MskconnectConnectorLogDeliveryWorkerLogDelivery:
     ) -> typing.Optional["MskconnectConnectorLogDeliveryWorkerLogDeliveryCloudwatchLogs"]:
         '''cloudwatch_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#cloudwatch_logs MskconnectConnector#cloudwatch_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#cloudwatch_logs MskconnectConnector#cloudwatch_logs}
         '''
         result = self._values.get("cloudwatch_logs")
         return typing.cast(typing.Optional["MskconnectConnectorLogDeliveryWorkerLogDeliveryCloudwatchLogs"], result)
@@ -2462,7 +2501,7 @@ class MskconnectConnectorLogDeliveryWorkerLogDelivery:
     ) -> typing.Optional["MskconnectConnectorLogDeliveryWorkerLogDeliveryFirehose"]:
         '''firehose block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#firehose MskconnectConnector#firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#firehose MskconnectConnector#firehose}
         '''
         result = self._values.get("firehose")
         return typing.cast(typing.Optional["MskconnectConnectorLogDeliveryWorkerLogDeliveryFirehose"], result)
@@ -2473,7 +2512,7 @@ class MskconnectConnectorLogDeliveryWorkerLogDelivery:
     ) -> typing.Optional["MskconnectConnectorLogDeliveryWorkerLogDeliveryS3"]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#s3 MskconnectConnector#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#s3 MskconnectConnector#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional["MskconnectConnectorLogDeliveryWorkerLogDeliveryS3"], result)
@@ -2503,8 +2542,8 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryCloudwatchLogs:
         log_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#log_group MskconnectConnector#log_group}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#log_group MskconnectConnector#log_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b5b312e917d2ae711f05886025c5f2891989c3ed495898d32116bc172c1e58c)
@@ -2518,14 +2557,14 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryCloudwatchLogs:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def log_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#log_group MskconnectConnector#log_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#log_group MskconnectConnector#log_group}.'''
         result = self._values.get("log_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2635,8 +2674,8 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryFirehose:
         delivery_stream: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
-        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#delivery_stream MskconnectConnector#delivery_stream}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
+        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#delivery_stream MskconnectConnector#delivery_stream}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a77b44930c4c648d9b76fc172ae16a8e8243e7caf53a177e4559cb4d81837410)
@@ -2650,14 +2689,14 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryFirehose:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def delivery_stream(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#delivery_stream MskconnectConnector#delivery_stream}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#delivery_stream MskconnectConnector#delivery_stream}.'''
         result = self._values.get("delivery_stream")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2782,8 +2821,8 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryOutputReference(
         log_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#log_group MskconnectConnector#log_group}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#log_group MskconnectConnector#log_group}.
         '''
         value = MskconnectConnectorLogDeliveryWorkerLogDeliveryCloudwatchLogs(
             enabled=enabled, log_group=log_group
@@ -2799,8 +2838,8 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryOutputReference(
         delivery_stream: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
-        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#delivery_stream MskconnectConnector#delivery_stream}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
+        :param delivery_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#delivery_stream MskconnectConnector#delivery_stream}.
         '''
         value = MskconnectConnectorLogDeliveryWorkerLogDeliveryFirehose(
             enabled=enabled, delivery_stream=delivery_stream
@@ -2817,9 +2856,9 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryOutputReference(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#bucket MskconnectConnector#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#prefix MskconnectConnector#prefix}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#bucket MskconnectConnector#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#prefix MskconnectConnector#prefix}.
         '''
         value = MskconnectConnectorLogDeliveryWorkerLogDeliveryS3(
             enabled=enabled, bucket=bucket, prefix=prefix
@@ -2911,9 +2950,9 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryS3:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#bucket MskconnectConnector#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#prefix MskconnectConnector#prefix}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#bucket MskconnectConnector#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#prefix MskconnectConnector#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e58aa36ce8fdd0460229382dd6040d779104527570e90c6669c11db0c531ddb)
@@ -2930,20 +2969,20 @@ class MskconnectConnectorLogDeliveryWorkerLogDeliveryS3:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#enabled MskconnectConnector#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#bucket MskconnectConnector#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#bucket MskconnectConnector#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#prefix MskconnectConnector#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#prefix MskconnectConnector#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3073,7 +3112,7 @@ class MskconnectConnectorPlugin:
         custom_plugin: typing.Union["MskconnectConnectorPluginCustomPlugin", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param custom_plugin: custom_plugin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#custom_plugin MskconnectConnector#custom_plugin}
+        :param custom_plugin: custom_plugin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#custom_plugin MskconnectConnector#custom_plugin}
         '''
         if isinstance(custom_plugin, dict):
             custom_plugin = MskconnectConnectorPluginCustomPlugin(**custom_plugin)
@@ -3088,7 +3127,7 @@ class MskconnectConnectorPlugin:
     def custom_plugin(self) -> "MskconnectConnectorPluginCustomPlugin":
         '''custom_plugin block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#custom_plugin MskconnectConnector#custom_plugin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#custom_plugin MskconnectConnector#custom_plugin}
         '''
         result = self._values.get("custom_plugin")
         assert result is not None, "Required property 'custom_plugin' is missing"
@@ -3114,8 +3153,8 @@ class MskconnectConnectorPlugin:
 class MskconnectConnectorPluginCustomPlugin:
     def __init__(self, *, arn: builtins.str, revision: jsii.Number) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3514c437e5ddbc8337a0bd97f71e43dbb1e97f13cb171d5dd694b9139b78c1e4)
@@ -3128,14 +3167,14 @@ class MskconnectConnectorPluginCustomPlugin:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def revision(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.'''
         result = self._values.get("revision")
         assert result is not None, "Required property 'revision' is missing"
         return typing.cast(jsii.Number, result)
@@ -3341,8 +3380,8 @@ class MskconnectConnectorPluginOutputReference(
     @jsii.member(jsii_name="putCustomPlugin")
     def put_custom_plugin(self, *, arn: builtins.str, revision: jsii.Number) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
         '''
         value = MskconnectConnectorPluginCustomPlugin(arn=arn, revision=revision)
 
@@ -3392,9 +3431,9 @@ class MskconnectConnectorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#create MskconnectConnector#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#delete MskconnectConnector#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#update MskconnectConnector#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#create MskconnectConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#delete MskconnectConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#update MskconnectConnector#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01380b61e7644b4aa35dc47188ea1c256f4e1b9a6df1c4ed767994342eb3e1de)
@@ -3411,19 +3450,19 @@ class MskconnectConnectorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#create MskconnectConnector#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#create MskconnectConnector#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#delete MskconnectConnector#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#delete MskconnectConnector#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#update MskconnectConnector#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#update MskconnectConnector#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3548,8 +3587,8 @@ class MskconnectConnectorTimeoutsOutputReference(
 class MskconnectConnectorWorkerConfiguration:
     def __init__(self, *, arn: builtins.str, revision: jsii.Number) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60d081004722aa0f16a1009350273341f1f8409906524d4bc457afdec77efd4d)
@@ -3562,14 +3601,14 @@ class MskconnectConnectorWorkerConfiguration:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#arn MskconnectConnector#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def revision(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mskconnect_connector#revision MskconnectConnector#revision}.'''
         result = self._values.get("revision")
         assert result is not None, "Required property 'revision' is missing"
         return typing.cast(jsii.Number, result)
@@ -3718,6 +3757,7 @@ def _typecheckingstub__34fdc3bee93407958df94b0331c4df1fab92bbdd954b99032df780b21
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     log_delivery: typing.Optional[typing.Union[MskconnectConnectorLogDelivery, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[MskconnectConnectorTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3773,6 +3813,12 @@ def _typecheckingstub__4a4fab3e4ade0e1d98765fd237e65ae9b4ce88684b2d17b60bf7167ed
     pass
 
 def _typecheckingstub__7dcc354e92411669a3bfd2d115717855e6aaf63640fa4ecfd8f1c56540d5ab75(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22be2dfffac7b589065a319b13cdd4933468c91d342e04790ca69e980bd3ae0c(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -3965,6 +4011,7 @@ def _typecheckingstub__7eb79d3128272568a34f100aada474c8cf1adccd58aef3998468103e0
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     log_delivery: typing.Optional[typing.Union[MskconnectConnectorLogDelivery, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[MskconnectConnectorTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

@@ -1,7 +1,7 @@
 r'''
 # `aws_devopsguru_service_integration`
 
-Refer to the Terraform Registry for docs: [`aws_devopsguru_service_integration`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration).
+Refer to the Terraform Registry for docs: [`aws_devopsguru_service_integration`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DevopsguruServiceIntegration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.devopsguruServiceIntegration.DevopsguruServiceIntegration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration aws_devopsguru_service_integration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration aws_devopsguru_service_integration}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class DevopsguruServiceIntegration(
         kms_server_side_encryption: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevopsguruServiceIntegrationKmsServerSideEncryption", typing.Dict[builtins.str, typing.Any]]]]] = None,
         logs_anomaly_detection: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevopsguruServiceIntegrationLogsAnomalyDetection", typing.Dict[builtins.str, typing.Any]]]]] = None,
         ops_center: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevopsguruServiceIntegrationOpsCenter", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class DevopsguruServiceIntegration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration aws_devopsguru_service_integration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration aws_devopsguru_service_integration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param kms_server_side_encryption: kms_server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#kms_server_side_encryption DevopsguruServiceIntegration#kms_server_side_encryption}
-        :param logs_anomaly_detection: logs_anomaly_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#logs_anomaly_detection DevopsguruServiceIntegration#logs_anomaly_detection}
-        :param ops_center: ops_center block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#ops_center DevopsguruServiceIntegration#ops_center}
+        :param kms_server_side_encryption: kms_server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#kms_server_side_encryption DevopsguruServiceIntegration#kms_server_side_encryption}
+        :param logs_anomaly_detection: logs_anomaly_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#logs_anomaly_detection DevopsguruServiceIntegration#logs_anomaly_detection}
+        :param ops_center: ops_center block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#ops_center DevopsguruServiceIntegration#ops_center}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#region DevopsguruServiceIntegration#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class DevopsguruServiceIntegration(
             kms_server_side_encryption=kms_server_side_encryption,
             logs_anomaly_detection=logs_anomaly_detection,
             ops_center=ops_center,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class DevopsguruServiceIntegration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DevopsguruServiceIntegration to import.
-        :param import_from_id: The id of the existing DevopsguruServiceIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DevopsguruServiceIntegration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DevopsguruServiceIntegration to import is found.
         '''
         if __debug__:
@@ -171,6 +174,10 @@ class DevopsguruServiceIntegration(
     def reset_ops_center(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetOpsCenter", []))
 
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "synthesizeAttributes", []))
@@ -229,6 +236,23 @@ class DevopsguruServiceIntegration(
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationOpsCenter"]]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationOpsCenter"]]], jsii.get(self, "opsCenterInput"))
 
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f64d1442934958787a534affe7832b6df88f0ba230483ea45129eff618c7cf7d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.devopsguruServiceIntegration.DevopsguruServiceIntegrationConfig",
@@ -244,6 +268,7 @@ class DevopsguruServiceIntegration(
         "kms_server_side_encryption": "kmsServerSideEncryption",
         "logs_anomaly_detection": "logsAnomalyDetection",
         "ops_center": "opsCenter",
+        "region": "region",
     },
 )
 class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -260,6 +285,7 @@ class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         kms_server_side_encryption: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevopsguruServiceIntegrationKmsServerSideEncryption", typing.Dict[builtins.str, typing.Any]]]]] = None,
         logs_anomaly_detection: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevopsguruServiceIntegrationLogsAnomalyDetection", typing.Dict[builtins.str, typing.Any]]]]] = None,
         ops_center: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevopsguruServiceIntegrationOpsCenter", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -269,9 +295,10 @@ class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param kms_server_side_encryption: kms_server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#kms_server_side_encryption DevopsguruServiceIntegration#kms_server_side_encryption}
-        :param logs_anomaly_detection: logs_anomaly_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#logs_anomaly_detection DevopsguruServiceIntegration#logs_anomaly_detection}
-        :param ops_center: ops_center block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#ops_center DevopsguruServiceIntegration#ops_center}
+        :param kms_server_side_encryption: kms_server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#kms_server_side_encryption DevopsguruServiceIntegration#kms_server_side_encryption}
+        :param logs_anomaly_detection: logs_anomaly_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#logs_anomaly_detection DevopsguruServiceIntegration#logs_anomaly_detection}
+        :param ops_center: ops_center block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#ops_center DevopsguruServiceIntegration#ops_center}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#region DevopsguruServiceIntegration#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -287,6 +314,7 @@ class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
             check_type(argname="argument kms_server_side_encryption", value=kms_server_side_encryption, expected_type=type_hints["kms_server_side_encryption"])
             check_type(argname="argument logs_anomaly_detection", value=logs_anomaly_detection, expected_type=type_hints["logs_anomaly_detection"])
             check_type(argname="argument ops_center", value=ops_center, expected_type=type_hints["ops_center"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
@@ -308,6 +336,8 @@ class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
             self._values["logs_anomaly_detection"] = logs_anomaly_detection
         if ops_center is not None:
             self._values["ops_center"] = ops_center
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -379,7 +409,7 @@ class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationKmsServerSideEncryption"]]]:
         '''kms_server_side_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#kms_server_side_encryption DevopsguruServiceIntegration#kms_server_side_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#kms_server_side_encryption DevopsguruServiceIntegration#kms_server_side_encryption}
         '''
         result = self._values.get("kms_server_side_encryption")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationKmsServerSideEncryption"]]], result)
@@ -390,7 +420,7 @@ class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationLogsAnomalyDetection"]]]:
         '''logs_anomaly_detection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#logs_anomaly_detection DevopsguruServiceIntegration#logs_anomaly_detection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#logs_anomaly_detection DevopsguruServiceIntegration#logs_anomaly_detection}
         '''
         result = self._values.get("logs_anomaly_detection")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationLogsAnomalyDetection"]]], result)
@@ -401,10 +431,19 @@ class DevopsguruServiceIntegrationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationOpsCenter"]]]:
         '''ops_center block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#ops_center DevopsguruServiceIntegration#ops_center}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#ops_center DevopsguruServiceIntegration#ops_center}
         '''
         result = self._values.get("ops_center")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruServiceIntegrationOpsCenter"]]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#region DevopsguruServiceIntegration#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -436,9 +475,9 @@ class DevopsguruServiceIntegrationKmsServerSideEncryption:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#kms_key_id DevopsguruServiceIntegration#kms_key_id}.
-        :param opt_in_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#type DevopsguruServiceIntegration#type}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#kms_key_id DevopsguruServiceIntegration#kms_key_id}.
+        :param opt_in_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#type DevopsguruServiceIntegration#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b72de934c68590686685eae075090e70b1bccfdd410285d08c3838db868889c)
@@ -455,19 +494,19 @@ class DevopsguruServiceIntegrationKmsServerSideEncryption:
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#kms_key_id DevopsguruServiceIntegration#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#kms_key_id DevopsguruServiceIntegration#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def opt_in_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.'''
         result = self._values.get("opt_in_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#type DevopsguruServiceIntegration#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#type DevopsguruServiceIntegration#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -691,7 +730,7 @@ class DevopsguruServiceIntegrationKmsServerSideEncryptionOutputReference(
 class DevopsguruServiceIntegrationLogsAnomalyDetection:
     def __init__(self, *, opt_in_status: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param opt_in_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.
+        :param opt_in_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1e7ac8b7f1f279f4413df3b74929aacd7a14a69f0d4c907a9e0fb25d332c502)
@@ -702,7 +741,7 @@ class DevopsguruServiceIntegrationLogsAnomalyDetection:
 
     @builtins.property
     def opt_in_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.'''
         result = self._values.get("opt_in_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -884,7 +923,7 @@ class DevopsguruServiceIntegrationLogsAnomalyDetectionOutputReference(
 class DevopsguruServiceIntegrationOpsCenter:
     def __init__(self, *, opt_in_status: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param opt_in_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.
+        :param opt_in_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc546eab19af69f86c2e7f89b216672efdc1620eb89c94c2eb828de257cebe47)
@@ -895,7 +934,7 @@ class DevopsguruServiceIntegrationOpsCenter:
 
     @builtins.property
     def opt_in_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/devopsguru_service_integration#opt_in_status DevopsguruServiceIntegration#opt_in_status}.'''
         result = self._values.get("opt_in_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1092,6 +1131,7 @@ def _typecheckingstub__f77c72a7d96d4e12e56e1330d66131771c8c725f2fcb642849a63ece5
     kms_server_side_encryption: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DevopsguruServiceIntegrationKmsServerSideEncryption, typing.Dict[builtins.str, typing.Any]]]]] = None,
     logs_anomaly_detection: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DevopsguruServiceIntegrationLogsAnomalyDetection, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ops_center: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DevopsguruServiceIntegrationOpsCenter, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -1130,6 +1170,12 @@ def _typecheckingstub__b596efc139eef9fa1b0b2dc239545dc58f8a69613181200d25c611a9f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f64d1442934958787a534affe7832b6df88f0ba230483ea45129eff618c7cf7d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c5b49612e501bbc58b5bba030d2718b8f80b34cade95864df56910269cbd0aac(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1142,6 +1188,7 @@ def _typecheckingstub__c5b49612e501bbc58b5bba030d2718b8f80b34cade95864df56910269
     kms_server_side_encryption: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DevopsguruServiceIntegrationKmsServerSideEncryption, typing.Dict[builtins.str, typing.Any]]]]] = None,
     logs_anomaly_detection: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DevopsguruServiceIntegrationLogsAnomalyDetection, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ops_center: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DevopsguruServiceIntegrationOpsCenter, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

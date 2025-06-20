@@ -1,7 +1,8 @@
+import importlib.resources
 import pathlib
 import typing
-import pkg_resources
 import base64
+
 
 from .._guidance import guidance
 from .._utils import bytes_from
@@ -13,8 +14,8 @@ from ..trace._trace import VideoOutput
 def video(lm, src: typing.Union[str, pathlib.Path, bytes], allow_local: bool = True):
     # TODO(nopdive): Mock for testing. Remove all of this code later.
     bytes_data = bytes_from(src, allow_local=allow_local)
-    base64_string = base64.b64encode(bytes_data).decode('utf-8')
-    lm += VideoOutput(value=base64_string, is_input=True)
+    base64_bytes = base64.b64encode(bytes_data)
+    lm += VideoOutput(value=base64_bytes, is_input=True)
     # lm += VideoInput(value=base64_string)
     return lm
 
@@ -22,10 +23,8 @@ def video(lm, src: typing.Union[str, pathlib.Path, bytes], allow_local: bool = T
 @guidance
 def gen_video(lm):
     # TODO(nopdive): Mock for testing. Remove all of this code later.
-    with open(
-        pkg_resources.resource_filename("guidance", "resources/sample_video.mp4"), "rb"
-    ) as f:
+    with importlib.resources.files("guidance").joinpath("resources/sample_video.png").open("rb") as f:
         bytes_data = f.read()
-        base64_string = base64.b64encode(bytes_data).decode('utf-8')
-        lm += VideoOutput(value=base64_string, is_input=False)
+    base64_bytes = base64.b64encode(bytes_data)
+    lm += VideoOutput(value=base64_bytes, is_input=False)
     return lm

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit
-Version: 2.0.3
+Version: 2.1.0
 Summary: An open-source SDK for working with quantum computers at the level of extended quantum circuits, operators, and primitives.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License: Apache 2.0
@@ -31,12 +31,9 @@ License-File: LICENSE.txt
 Requires-Dist: rustworkx>=0.15.0
 Requires-Dist: numpy<3,>=1.17
 Requires-Dist: scipy>=1.5
-Requires-Dist: sympy>=1.3
 Requires-Dist: dill>=0.3
-Requires-Dist: python-dateutil>=2.8.0
 Requires-Dist: stevedore>=3.0.0
 Requires-Dist: typing-extensions
-Requires-Dist: symengine<0.14,>=0.11
 Provides-Extra: qasm3-import
 Requires-Dist: qiskit-qasm3-import>=0.1.0; extra == "qasm3-import"
 Provides-Extra: visualization
@@ -45,19 +42,23 @@ Requires-Dist: pydot; extra == "visualization"
 Requires-Dist: Pillow>=4.2.1; extra == "visualization"
 Requires-Dist: pylatexenc>=1.4; extra == "visualization"
 Requires-Dist: seaborn>=0.9.0; extra == "visualization"
+Requires-Dist: sympy>=1.3; extra == "visualization"
 Provides-Extra: crosstalk-pass
 Requires-Dist: z3-solver>=4.7; extra == "crosstalk-pass"
 Provides-Extra: csp-layout-pass
 Requires-Dist: python-constraint>=1.4; extra == "csp-layout-pass"
+Provides-Extra: qpy-compat
+Requires-Dist: symengine<0.14,>=0.11; extra == "qpy-compat"
+Requires-Dist: sympy>1.3; extra == "qpy-compat"
 Provides-Extra: all
-Requires-Dist: qiskit[crosstalk-pass,csp-layout-pass,qasm3-import,visualization]; extra == "all"
+Requires-Dist: qiskit[crosstalk-pass,csp-layout-pass,qasm3-import,qpy-compat,visualization]; extra == "all"
 Dynamic: license-file
 
 # Qiskit
 
 [![License](https://img.shields.io/github/license/Qiskit/qiskit.svg?)](https://opensource.org/licenses/Apache-2.0) <!--- long-description-skip-begin -->
 [![Current Release](https://img.shields.io/github/release/Qiskit/qiskit.svg?logo=Qiskit)](https://github.com/Qiskit/qiskit/releases)
-<!-- [![Extended Support Release](https://img.shields.io/github/v/release/Qiskit/qiskit?sort=semver&filter=0.*&logo=Qiskit&label=extended%20support)](https://github.com/Qiskit/qiskit/releases?q=tag%3A0) -->
+[![Extended Support Release](https://img.shields.io/github/v/release/Qiskit/qiskit?sort=semver&filter=1.*&logo=Qiskit&label=extended%20support)](https://github.com/Qiskit/qiskit/releases?q=tag%3A1)
 [![Downloads](https://img.shields.io/pypi/dm/qiskit.svg)](https://pypi.org/project/qiskit/)
 [![Coverage Status](https://coveralls.io/repos/github/Qiskit/qiskit/badge.svg?branch=main)](https://coveralls.io/github/Qiskit/qiskit?branch=main)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qiskit)

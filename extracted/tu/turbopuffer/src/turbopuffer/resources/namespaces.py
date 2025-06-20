@@ -30,6 +30,7 @@ from .._base_client import make_request_options
 from ..types.custom import Filter, RankBy, AggregateBy
 from ..types.id_param import IDParam
 from ..types.row_param import RowParam
+from ..types.query_param import QueryParam
 from ..types.columns_param import ColumnsParam
 from ..types.distance_metric import DistanceMetric
 from ..types.vector_encoding import VectorEncoding
@@ -141,7 +142,7 @@ class NamespacesResource(SyncAPIResource):
         self,
         *,
         namespace: str | None = None,
-        queries: Iterable[namespace_multi_query_params.Query],
+        queries: Iterable[QueryParam],
         consistency: namespace_multi_query_params.Consistency | NotGiven = NOT_GIVEN,
         vector_encoding: VectorEncoding | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -572,7 +573,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         self,
         *,
         namespace: str | None = None,
-        queries: Iterable[namespace_multi_query_params.Query],
+        queries: Iterable[QueryParam],
         consistency: namespace_multi_query_params.Consistency | NotGiven = NOT_GIVEN,
         vector_encoding: VectorEncoding | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -622,12 +623,12 @@ class AsyncNamespacesResource(AsyncAPIResource):
         self,
         *,
         namespace: str | None = None,
-        aggregate_by: Dict[str, object] | NotGiven = NOT_GIVEN,
+        aggregate_by: Dict[str, AggregateBy] | NotGiven = NOT_GIVEN,
         consistency: namespace_query_params.Consistency | NotGiven = NOT_GIVEN,
         distance_metric: DistanceMetric | NotGiven = NOT_GIVEN,
-        filters: object | NotGiven = NOT_GIVEN,
+        filters: Filter | NotGiven = NOT_GIVEN,
         include_attributes: IncludeAttributesParam | NotGiven = NOT_GIVEN,
-        rank_by: object | NotGiven = NOT_GIVEN,
+        rank_by: RankBy | NotGiven = NOT_GIVEN,
         top_k: int | NotGiven = NOT_GIVEN,
         vector_encoding: VectorEncoding | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.

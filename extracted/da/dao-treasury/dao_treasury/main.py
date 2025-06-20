@@ -28,6 +28,7 @@ from pathlib import Path
 
 import brownie
 import yaml
+from a_sync import create_task
 from dao_treasury._wallet import load_wallets_from_yaml
 from eth_portfolio_scripts.balances import export_balances
 from eth_typing import BlockNumber
@@ -108,6 +109,11 @@ parser.add_argument(
     default=3000,
 )
 parser.add_argument(
+    "--start-renderer",
+    action="store_true",
+    help="If set, the Grafana renderer container will be started for dashboard image export. By default, only the grafana container is started.",
+)
+parser.add_argument(
     "--renderer-port",
     type=int,
     help="Port for the Grafana rendering service. Default: 8091",
@@ -154,6 +160,7 @@ async def export(args) -> None:
             daemon: Ignored flag.
             grafana_port: Port for Grafana (sets DAO_TREASURY_GRAFANA_PORT).
             renderer_port: Port for renderer (sets DAO_TREASURY_RENDERER_PORT).
+            start_renderer: If True, start renderer; otherwise, only start grafana.
 
     Example:
         In code::
@@ -165,6 +172,8 @@ async def export(args) -> None:
         :func:`dao_treasury._docker.down`,
         :class:`dao_treasury.Treasury.populate_db`
     """
+    import eth_portfolio_scripts.docker
+
     from dao_treasury import _docker, constants, db, Treasury
 
     wallets = getattr(args, "wallet", None)
@@ -195,7 +204,12 @@ async def export(args) -> None:
                 db.Address.set_nickname(address, nickname)
 
     treasury = Treasury(wallets, args.sort_rules, asynchronous=True)
-    _docker.up()
+
+    # Start only the requested containers
+    if args.start_renderer is True:
+        _docker.up()
+    else:
+        _docker.up("grafana")
 
     # eth-portfolio needs this present
     # TODO: we need to update eth-portfolio to honor wallet join and exit times
@@ -209,11 +223,21 @@ async def export(args) -> None:
     # TODO: make this user configurable? would require some dynamic grafana dashboard files
     args.label = "Treasury"
 
-    try:
-        await asyncio.gather(
+    export_task = create_task(
+        asyncio.gather(
             export_balances(args),
             treasury.populate_db(BlockNumber(0), brownie.chain.height),
         )
+    )
+
+    await asyncio.sleep(1)
+
+    # we don't need these containers since dao-treasury uses its own.
+    eth_portfolio_scripts.docker.stop("grafana")
+    eth_portfolio_scripts.docker.stop("renderer")
+
+    try:
+        await export_task
     finally:
         _docker.down()
 

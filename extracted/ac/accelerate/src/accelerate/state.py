@@ -32,7 +32,6 @@ from .utils import (
     check_cuda_fp8_capability,
     check_cuda_p2p_ib_support,
     deepspeed_required,
-    get_ccl_version,
     get_cpu_distributed_information,
     get_int_from_env,
     is_ccl_available,
@@ -133,7 +132,7 @@ class PartialState:
             Whether or not to force the script to execute on CPU. Will ignore any accelerators available if set to
             `True` and force the execution on the CPU.
         kwargs (additional keyword arguments, *optional*):
-            Additional keyword arguments to pass to the relevent `init_process_group` function. Valid `kwargs` can be
+            Additional keyword arguments to pass to the relevant `init_process_group` function. Valid `kwargs` can be
             found in [`utils.InitProcessGroupKwargs`]. See the example section for detailed usage.
 
     **Available attributes:**
@@ -797,10 +796,7 @@ class PartialState:
                 and is_ccl_available()
                 and (get_int_from_env(["CCL_WORKER_COUNT"], 0) > 0 or distributed_type == DistributedType.MULTI_XPU)
             ):
-                if get_ccl_version() >= "1.12":
-                    import oneccl_bindings_for_pytorch  # noqa: F401
-                else:
-                    import torch_ccl  # noqa: F401
+                import oneccl_bindings_for_pytorch  # noqa: F401
 
                 backend = "ccl"
             elif backend in (None, "mpi") and torch.distributed.is_mpi_available():
@@ -958,8 +954,17 @@ class AcceleratorState:
                         os.environ["XLA_DOWNCAST_BF16"] = str(0)
                         self.downcast_bfloat = False
             elif os.environ.get("ACCELERATE_USE_DEEPSPEED", "false") == "true" and not cpu:
-                self.deepspeed_plugins = deepspeed_plugin
                 self.distributed_type = DistributedType.DEEPSPEED
+                if not isinstance(deepspeed_plugin, dict):
+                    deepspeed_plugin.set_mixed_precision(mixed_precision)
+                    deepspeed_plugin.select(_from_accelerator_state=True)
+                else:
+                    for plugin in deepspeed_plugin.values():
+                        plugin.set_mixed_precision(mixed_precision)
+                    # The first plugin passed in is always the active one
+                    first_plugin = next(iter(deepspeed_plugin.values()))
+                    first_plugin.select(_from_accelerator_state=True)
+                self.deepspeed_plugins = deepspeed_plugin
             elif self.distributed_type in [
                 DistributedType.MULTI_GPU,
                 DistributedType.MULTI_MLU,

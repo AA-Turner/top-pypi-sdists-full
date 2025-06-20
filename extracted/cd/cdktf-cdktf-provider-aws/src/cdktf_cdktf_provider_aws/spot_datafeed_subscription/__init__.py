@@ -1,7 +1,7 @@
 r'''
 # `aws_spot_datafeed_subscription`
 
-Refer to the Terraform Registry for docs: [`aws_spot_datafeed_subscription`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription).
+Refer to the Terraform Registry for docs: [`aws_spot_datafeed_subscription`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpotDatafeedSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.spotDatafeedSubscription.SpotDatafeedSubscription",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription aws_spot_datafeed_subscription}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription aws_spot_datafeed_subscription}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class SpotDatafeedSubscription(
         bucket: builtins.str,
         id: typing.Optional[builtins.str] = None,
         prefix: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class SpotDatafeedSubscription(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription aws_spot_datafeed_subscription} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription aws_spot_datafeed_subscription} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#bucket SpotDatafeedSubscription#bucket}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#id SpotDatafeedSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#prefix SpotDatafeedSubscription#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#bucket SpotDatafeedSubscription#bucket}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#id SpotDatafeedSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#prefix SpotDatafeedSubscription#prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#region SpotDatafeedSubscription#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class SpotDatafeedSubscription(
             bucket=bucket,
             id=id,
             prefix=prefix,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class SpotDatafeedSubscription(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpotDatafeedSubscription to import.
-        :param import_from_id: The id of the existing SpotDatafeedSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpotDatafeedSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpotDatafeedSubscription to import is found.
         '''
         if __debug__:
@@ -127,6 +130,10 @@ class SpotDatafeedSubscription(
     @jsii.member(jsii_name="resetPrefix")
     def reset_prefix(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPrefix", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -155,6 +162,11 @@ class SpotDatafeedSubscription(
     @jsii.member(jsii_name="prefixInput")
     def prefix_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "prefixInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
@@ -192,6 +204,18 @@ class SpotDatafeedSubscription(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "prefix", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c944e63de83c67476d2970d7bd4602a2aed8bf54015d3a5f17be8808703ac7fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.spotDatafeedSubscription.SpotDatafeedSubscriptionConfig",
@@ -207,6 +231,7 @@ class SpotDatafeedSubscription(
         "bucket": "bucket",
         "id": "id",
         "prefix": "prefix",
+        "region": "region",
     },
 )
 class SpotDatafeedSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -223,6 +248,7 @@ class SpotDatafeedSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         bucket: builtins.str,
         id: typing.Optional[builtins.str] = None,
         prefix: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -232,9 +258,10 @@ class SpotDatafeedSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#bucket SpotDatafeedSubscription#bucket}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#id SpotDatafeedSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#prefix SpotDatafeedSubscription#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#bucket SpotDatafeedSubscription#bucket}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#id SpotDatafeedSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#prefix SpotDatafeedSubscription#prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#region SpotDatafeedSubscription#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -250,6 +277,7 @@ class SpotDatafeedSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bucket": bucket,
         }
@@ -271,6 +299,8 @@ class SpotDatafeedSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if prefix is not None:
             self._values["prefix"] = prefix
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -338,14 +368,14 @@ class SpotDatafeedSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#bucket SpotDatafeedSubscription#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#bucket SpotDatafeedSubscription#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#id SpotDatafeedSubscription#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#id SpotDatafeedSubscription#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -355,8 +385,17 @@ class SpotDatafeedSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/spot_datafeed_subscription#prefix SpotDatafeedSubscription#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#prefix SpotDatafeedSubscription#prefix}.'''
         result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/spot_datafeed_subscription#region SpotDatafeedSubscription#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -385,6 +424,7 @@ def _typecheckingstub__1e0550c02bc0503b702a169e0cf1e1c4293043af87a7046e51c4066cc
     bucket: builtins.str,
     id: typing.Optional[builtins.str] = None,
     prefix: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -423,6 +463,12 @@ def _typecheckingstub__b0548635687addf389c3389815cd941397f8c2a50af93d00421912f0f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c944e63de83c67476d2970d7bd4602a2aed8bf54015d3a5f17be8808703ac7fb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d9da1c3f21dc8e7323dfb3c07034bf8d93786e3d73db32078329fa294aaa625a(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -435,6 +481,7 @@ def _typecheckingstub__d9da1c3f21dc8e7323dfb3c07034bf8d93786e3d73db32078329fa294
     bucket: builtins.str,
     id: typing.Optional[builtins.str] = None,
     prefix: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

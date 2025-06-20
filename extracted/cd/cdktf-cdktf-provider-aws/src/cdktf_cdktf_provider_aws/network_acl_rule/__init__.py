@@ -1,7 +1,7 @@
 r'''
 # `aws_network_acl_rule`
 
-Refer to the Terraform Registry for docs: [`aws_network_acl_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule).
+Refer to the Terraform Registry for docs: [`aws_network_acl_rule`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkAclRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.networkAclRule.NetworkAclRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule aws_network_acl_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule aws_network_acl_rule}.'''
 
     def __init__(
         self,
@@ -62,6 +62,7 @@ class NetworkAclRule(
         icmp_type: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         ipv6_cidr_block: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         to_port: typing.Optional[jsii.Number] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -71,22 +72,23 @@ class NetworkAclRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule aws_network_acl_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule aws_network_acl_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#network_acl_id NetworkAclRule#network_acl_id}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#protocol NetworkAclRule#protocol}.
-        :param rule_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#rule_action NetworkAclRule#rule_action}.
-        :param rule_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#rule_number NetworkAclRule#rule_number}.
-        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#cidr_block NetworkAclRule#cidr_block}.
-        :param egress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#egress NetworkAclRule#egress}.
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#from_port NetworkAclRule#from_port}.
-        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#icmp_code NetworkAclRule#icmp_code}.
-        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#icmp_type NetworkAclRule#icmp_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#id NetworkAclRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#ipv6_cidr_block NetworkAclRule#ipv6_cidr_block}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#to_port NetworkAclRule#to_port}.
+        :param network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#network_acl_id NetworkAclRule#network_acl_id}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#protocol NetworkAclRule#protocol}.
+        :param rule_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#rule_action NetworkAclRule#rule_action}.
+        :param rule_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#rule_number NetworkAclRule#rule_number}.
+        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#cidr_block NetworkAclRule#cidr_block}.
+        :param egress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#egress NetworkAclRule#egress}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#from_port NetworkAclRule#from_port}.
+        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#icmp_code NetworkAclRule#icmp_code}.
+        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#icmp_type NetworkAclRule#icmp_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#id NetworkAclRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#ipv6_cidr_block NetworkAclRule#ipv6_cidr_block}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#region NetworkAclRule#region}
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#to_port NetworkAclRule#to_port}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -111,6 +113,7 @@ class NetworkAclRule(
             icmp_type=icmp_type,
             id=id,
             ipv6_cidr_block=ipv6_cidr_block,
+            region=region,
             to_port=to_port,
             connection=connection,
             count=count,
@@ -136,7 +139,7 @@ class NetworkAclRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkAclRule to import.
-        :param import_from_id: The id of the existing NetworkAclRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkAclRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkAclRule to import is found.
         '''
         if __debug__:
@@ -174,6 +177,10 @@ class NetworkAclRule(
     @jsii.member(jsii_name="resetIpv6CidrBlock")
     def reset_ipv6_cidr_block(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIpv6CidrBlock", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetToPort")
     def reset_to_port(self) -> None:
@@ -238,6 +245,11 @@ class NetworkAclRule(
     @jsii.member(jsii_name="protocolInput")
     def protocol_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocolInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="ruleActionInput")
@@ -366,6 +378,18 @@ class NetworkAclRule(
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__828c1d176e265434a668441429f6d2896ad32cbec1b539a8019225286f4d5f02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="ruleAction")
     def rule_action(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "ruleAction"))
@@ -424,6 +448,7 @@ class NetworkAclRule(
         "icmp_type": "icmpType",
         "id": "id",
         "ipv6_cidr_block": "ipv6CidrBlock",
+        "region": "region",
         "to_port": "toPort",
     },
 )
@@ -449,6 +474,7 @@ class NetworkAclRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         icmp_type: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         ipv6_cidr_block: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -459,18 +485,19 @@ class NetworkAclRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#network_acl_id NetworkAclRule#network_acl_id}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#protocol NetworkAclRule#protocol}.
-        :param rule_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#rule_action NetworkAclRule#rule_action}.
-        :param rule_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#rule_number NetworkAclRule#rule_number}.
-        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#cidr_block NetworkAclRule#cidr_block}.
-        :param egress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#egress NetworkAclRule#egress}.
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#from_port NetworkAclRule#from_port}.
-        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#icmp_code NetworkAclRule#icmp_code}.
-        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#icmp_type NetworkAclRule#icmp_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#id NetworkAclRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#ipv6_cidr_block NetworkAclRule#ipv6_cidr_block}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#to_port NetworkAclRule#to_port}.
+        :param network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#network_acl_id NetworkAclRule#network_acl_id}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#protocol NetworkAclRule#protocol}.
+        :param rule_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#rule_action NetworkAclRule#rule_action}.
+        :param rule_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#rule_number NetworkAclRule#rule_number}.
+        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#cidr_block NetworkAclRule#cidr_block}.
+        :param egress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#egress NetworkAclRule#egress}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#from_port NetworkAclRule#from_port}.
+        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#icmp_code NetworkAclRule#icmp_code}.
+        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#icmp_type NetworkAclRule#icmp_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#id NetworkAclRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#ipv6_cidr_block NetworkAclRule#ipv6_cidr_block}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#region NetworkAclRule#region}
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#to_port NetworkAclRule#to_port}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -494,6 +521,7 @@ class NetworkAclRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument icmp_type", value=icmp_type, expected_type=type_hints["icmp_type"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument ipv6_cidr_block", value=ipv6_cidr_block, expected_type=type_hints["ipv6_cidr_block"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument to_port", value=to_port, expected_type=type_hints["to_port"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "network_acl_id": network_acl_id,
@@ -529,6 +557,8 @@ class NetworkAclRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if ipv6_cidr_block is not None:
             self._values["ipv6_cidr_block"] = ipv6_cidr_block
+        if region is not None:
+            self._values["region"] = region
         if to_port is not None:
             self._values["to_port"] = to_port
 
@@ -598,35 +628,35 @@ class NetworkAclRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def network_acl_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#network_acl_id NetworkAclRule#network_acl_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#network_acl_id NetworkAclRule#network_acl_id}.'''
         result = self._values.get("network_acl_id")
         assert result is not None, "Required property 'network_acl_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#protocol NetworkAclRule#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#protocol NetworkAclRule#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#rule_action NetworkAclRule#rule_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#rule_action NetworkAclRule#rule_action}.'''
         result = self._values.get("rule_action")
         assert result is not None, "Required property 'rule_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_number(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#rule_number NetworkAclRule#rule_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#rule_number NetworkAclRule#rule_number}.'''
         result = self._values.get("rule_number")
         assert result is not None, "Required property 'rule_number' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def cidr_block(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#cidr_block NetworkAclRule#cidr_block}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#cidr_block NetworkAclRule#cidr_block}.'''
         result = self._values.get("cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -634,31 +664,31 @@ class NetworkAclRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def egress(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#egress NetworkAclRule#egress}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#egress NetworkAclRule#egress}.'''
         result = self._values.get("egress")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def from_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#from_port NetworkAclRule#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#from_port NetworkAclRule#from_port}.'''
         result = self._values.get("from_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def icmp_code(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#icmp_code NetworkAclRule#icmp_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#icmp_code NetworkAclRule#icmp_code}.'''
         result = self._values.get("icmp_code")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def icmp_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#icmp_type NetworkAclRule#icmp_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#icmp_type NetworkAclRule#icmp_type}.'''
         result = self._values.get("icmp_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#id NetworkAclRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#id NetworkAclRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -668,13 +698,22 @@ class NetworkAclRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ipv6_cidr_block(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#ipv6_cidr_block NetworkAclRule#ipv6_cidr_block}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#ipv6_cidr_block NetworkAclRule#ipv6_cidr_block}.'''
         result = self._values.get("ipv6_cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#region NetworkAclRule#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def to_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/network_acl_rule#to_port NetworkAclRule#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/network_acl_rule#to_port NetworkAclRule#to_port}.'''
         result = self._values.get("to_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -712,6 +751,7 @@ def _typecheckingstub__b77cc33dda032caed225f874c13b166238ff8697af0a554129c4580ce
     icmp_type: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     ipv6_cidr_block: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     to_port: typing.Optional[jsii.Number] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -787,6 +827,12 @@ def _typecheckingstub__55270b8a83340f6b3251ca7aed82b659f0975fb4128a6230cfced6b25
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__828c1d176e265434a668441429f6d2896ad32cbec1b539a8019225286f4d5f02(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__649ac48a52d432c43be92456ad401a7ab77be6a5f9bc8e0391f93414d001fc98(
     value: builtins.str,
 ) -> None:
@@ -825,6 +871,7 @@ def _typecheckingstub__496c9f330c0d8083eae8892d1a37d71e768e611035da7618e3a2b82f7
     icmp_type: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     ipv6_cidr_block: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     to_port: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""

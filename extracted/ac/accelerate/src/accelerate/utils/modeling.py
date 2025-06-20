@@ -169,7 +169,7 @@ def dtype_byte_size(dtype: torch.dtype):
         return 1 / 2
     elif dtype == CustomDtype.FP8:
         return 1
-    elif is_torch_version(">=", "2.1.0") and dtype == torch.float8_e4m3fn:
+    elif is_torch_version(">=", "2.1.0") and dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
         return 1
     bit_search = re.search(r"[^\d](\d+)$", str(dtype))
     if bit_search is None:
@@ -305,8 +305,8 @@ def set_module_tensor_to_device(
         # # fix the case where the device is meta, we don't want to put it on cpu because there is no data =0
         if (
             param is not None
-            and param.device.type != "cuda"
-            and torch.device(device).type == "cuda"
+            and param.device.type not in ("cuda", "xpu")
+            and torch.device(device).type in ("cuda", "xpu")
             and param_cls.__name__ in ["Int8Params", "FP4Params", "Params4bit"]
         ):
             device_quantization = device
@@ -390,7 +390,7 @@ def set_module_tensor_to_device(
                 device_index = torch.device(device).index if torch.device(device).type == "cuda" else None
                 if not getattr(module.weight, "quant_state", None) and device_index is not None:
                     module.weight = module.weight.cuda(device_index)
-    # clean pre and post foward hook
+    # clean pre and post forward hook
     if device != "cpu":
         clear_device_cache()
 
@@ -549,7 +549,7 @@ def check_tied_parameters_on_same_device(tied_params, device_map):
         for param in tie_param:
             tie_param_devices[param] = _get_param_device(param, device_map)
         if len(set(tie_param_devices.values())) > 1:
-            logger.warn(
+            logger.warning(
                 f"Tied parameters are on different devices: {tie_param_devices}. "
                 "Please modify your custom device map or set `device_map='auto'`. "
             )
@@ -1111,7 +1111,7 @@ def _init_infer_auto_device_map(
     module_sizes = compute_module_sizes(model, dtype=dtype, special_dtypes=special_dtypes)
     tied_parameters = find_tied_parameters(model)
     if check_tied_parameters_in_config(model) and len(tied_parameters) == 0:
-        logger.warn(
+        logger.warning(
             "The model weights are not tied. Please use the `tie_weights` method before using the `infer_auto_device` function."
         )
 
@@ -1629,7 +1629,7 @@ def load_state_dict(checkpoint_file, device_map=None):
             weight_names = f.keys()
 
         if metadata is None:
-            logger.warn(
+            logger.warning(
                 f"The safetensors archive passed at {checkpoint_file} does not contain metadata. "
                 "Make sure to save your model with the `save_pretrained` method. Defaulting to 'pt' metadata."
             )
@@ -1847,7 +1847,7 @@ def load_checkpoint_in_model(
     tied_params = find_tied_parameters(model)
 
     if check_tied_parameters_in_config(model) and len(tied_params) == 0:
-        logger.warn(
+        logger.warning(
             "The model weights are not tied. Please use the `tie_weights` method before using the `infer_auto_device` function."
         )
     if device_map is not None:
@@ -2076,6 +2076,7 @@ def get_mixed_precision_context_manager(native_amp: bool = False, autocast_kwarg
             DistributedType.MULTI_HPU,
             DistributedType.FSDP,
             DistributedType.XLA,
+            DistributedType.TP,
         ]:
             return torch.autocast(device_type=device_type, dtype=torch.bfloat16, **autocast_kwargs)
         else:

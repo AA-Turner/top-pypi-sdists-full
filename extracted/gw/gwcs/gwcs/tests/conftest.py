@@ -156,3 +156,13 @@ def cart_to_spher():
 @pytest.fixture
 def gwcs_with_pipeline_celestial():
     return examples.gwcs_with_pipeline_celestial()
+
+
+@pytest.fixture
+def gwcs_romanisim():
+    return examples.gwcs_romanisim()
+
+
+@pytest.fixture
+def fits_wcs_imaging_simple():
+    return examples.fits_wcs_imaging_simple()

@@ -1,7 +1,7 @@
 r'''
 # `aws_config_configuration_recorder`
 
-Refer to the Terraform Registry for docs: [`aws_config_configuration_recorder`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder).
+Refer to the Terraform Registry for docs: [`aws_config_configuration_recorder`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConfigConfigurationRecorder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.configConfigurationRecorder.ConfigConfigurationRecorder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder aws_config_configuration_recorder}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder aws_config_configuration_recorder}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class ConfigConfigurationRecorder(
         name: typing.Optional[builtins.str] = None,
         recording_group: typing.Optional[typing.Union["ConfigConfigurationRecorderRecordingGroup", typing.Dict[builtins.str, typing.Any]]] = None,
         recording_mode: typing.Optional[typing.Union["ConfigConfigurationRecorderRecordingMode", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -64,15 +65,16 @@ class ConfigConfigurationRecorder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder aws_config_configuration_recorder} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder aws_config_configuration_recorder} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#role_arn ConfigConfigurationRecorder#role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#id ConfigConfigurationRecorder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#name ConfigConfigurationRecorder#name}.
-        :param recording_group: recording_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_group ConfigConfigurationRecorder#recording_group}
-        :param recording_mode: recording_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_mode ConfigConfigurationRecorder#recording_mode}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#role_arn ConfigConfigurationRecorder#role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#id ConfigConfigurationRecorder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#name ConfigConfigurationRecorder#name}.
+        :param recording_group: recording_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_group ConfigConfigurationRecorder#recording_group}
+        :param recording_mode: recording_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_mode ConfigConfigurationRecorder#recording_mode}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#region ConfigConfigurationRecorder#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -91,6 +93,7 @@ class ConfigConfigurationRecorder(
             name=name,
             recording_group=recording_group,
             recording_mode=recording_mode,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -115,7 +118,7 @@ class ConfigConfigurationRecorder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConfigConfigurationRecorder to import.
-        :param import_from_id: The id of the existing ConfigConfigurationRecorder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConfigConfigurationRecorder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConfigConfigurationRecorder to import is found.
         '''
         if __debug__:
@@ -137,11 +140,11 @@ class ConfigConfigurationRecorder(
         resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all_supported: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#all_supported ConfigConfigurationRecorder#all_supported}.
-        :param exclusion_by_resource_types: exclusion_by_resource_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#exclusion_by_resource_types ConfigConfigurationRecorder#exclusion_by_resource_types}
-        :param include_global_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#include_global_resource_types ConfigConfigurationRecorder#include_global_resource_types}.
-        :param recording_strategy: recording_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_strategy ConfigConfigurationRecorder#recording_strategy}
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
+        :param all_supported: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#all_supported ConfigConfigurationRecorder#all_supported}.
+        :param exclusion_by_resource_types: exclusion_by_resource_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#exclusion_by_resource_types ConfigConfigurationRecorder#exclusion_by_resource_types}
+        :param include_global_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#include_global_resource_types ConfigConfigurationRecorder#include_global_resource_types}.
+        :param recording_strategy: recording_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_strategy ConfigConfigurationRecorder#recording_strategy}
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
         '''
         value = ConfigConfigurationRecorderRecordingGroup(
             all_supported=all_supported,
@@ -161,8 +164,8 @@ class ConfigConfigurationRecorder(
         recording_mode_override: typing.Optional[typing.Union["ConfigConfigurationRecorderRecordingModeRecordingModeOverride", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
-        :param recording_mode_override: recording_mode_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_mode_override ConfigConfigurationRecorder#recording_mode_override}
+        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
+        :param recording_mode_override: recording_mode_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_mode_override ConfigConfigurationRecorder#recording_mode_override}
         '''
         value = ConfigConfigurationRecorderRecordingMode(
             recording_frequency=recording_frequency,
@@ -186,6 +189,10 @@ class ConfigConfigurationRecorder(
     @jsii.member(jsii_name="resetRecordingMode")
     def reset_recording_mode(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRecordingMode", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -239,6 +246,11 @@ class ConfigConfigurationRecorder(
         return typing.cast(typing.Optional["ConfigConfigurationRecorderRecordingMode"], jsii.get(self, "recordingModeInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="roleArnInput")
     def role_arn_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArnInput"))
@@ -266,6 +278,18 @@ class ConfigConfigurationRecorder(
             type_hints = typing.get_type_hints(_typecheckingstub__429385fdfe98e49321bf0a8730d312fe8e2a7b1c403ff1debb56252c2ab5e135)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29876ada88979a31c0b1b4eb839440947d6ba5443a3a51cc401e7682b961333c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -296,6 +320,7 @@ class ConfigConfigurationRecorder(
         "name": "name",
         "recording_group": "recordingGroup",
         "recording_mode": "recordingMode",
+        "region": "region",
     },
 )
 class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -314,6 +339,7 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         name: typing.Optional[builtins.str] = None,
         recording_group: typing.Optional[typing.Union["ConfigConfigurationRecorderRecordingGroup", typing.Dict[builtins.str, typing.Any]]] = None,
         recording_mode: typing.Optional[typing.Union["ConfigConfigurationRecorderRecordingMode", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -323,11 +349,12 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#role_arn ConfigConfigurationRecorder#role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#id ConfigConfigurationRecorder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#name ConfigConfigurationRecorder#name}.
-        :param recording_group: recording_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_group ConfigConfigurationRecorder#recording_group}
-        :param recording_mode: recording_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_mode ConfigConfigurationRecorder#recording_mode}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#role_arn ConfigConfigurationRecorder#role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#id ConfigConfigurationRecorder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#name ConfigConfigurationRecorder#name}.
+        :param recording_group: recording_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_group ConfigConfigurationRecorder#recording_group}
+        :param recording_mode: recording_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_mode ConfigConfigurationRecorder#recording_mode}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#region ConfigConfigurationRecorder#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -349,6 +376,7 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument recording_group", value=recording_group, expected_type=type_hints["recording_group"])
             check_type(argname="argument recording_mode", value=recording_mode, expected_type=type_hints["recording_mode"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role_arn": role_arn,
         }
@@ -374,6 +402,8 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["recording_group"] = recording_group
         if recording_mode is not None:
             self._values["recording_mode"] = recording_mode
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -441,14 +471,14 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#role_arn ConfigConfigurationRecorder#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#role_arn ConfigConfigurationRecorder#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#id ConfigConfigurationRecorder#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#id ConfigConfigurationRecorder#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -458,7 +488,7 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#name ConfigConfigurationRecorder#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#name ConfigConfigurationRecorder#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -468,7 +498,7 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ConfigConfigurationRecorderRecordingGroup"]:
         '''recording_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_group ConfigConfigurationRecorder#recording_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_group ConfigConfigurationRecorder#recording_group}
         '''
         result = self._values.get("recording_group")
         return typing.cast(typing.Optional["ConfigConfigurationRecorderRecordingGroup"], result)
@@ -479,10 +509,19 @@ class ConfigConfigurationRecorderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ConfigConfigurationRecorderRecordingMode"]:
         '''recording_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_mode ConfigConfigurationRecorder#recording_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_mode ConfigConfigurationRecorder#recording_mode}
         '''
         result = self._values.get("recording_mode")
         return typing.cast(typing.Optional["ConfigConfigurationRecorderRecordingMode"], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#region ConfigConfigurationRecorder#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -518,11 +557,11 @@ class ConfigConfigurationRecorderRecordingGroup:
         resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all_supported: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#all_supported ConfigConfigurationRecorder#all_supported}.
-        :param exclusion_by_resource_types: exclusion_by_resource_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#exclusion_by_resource_types ConfigConfigurationRecorder#exclusion_by_resource_types}
-        :param include_global_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#include_global_resource_types ConfigConfigurationRecorder#include_global_resource_types}.
-        :param recording_strategy: recording_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_strategy ConfigConfigurationRecorder#recording_strategy}
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
+        :param all_supported: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#all_supported ConfigConfigurationRecorder#all_supported}.
+        :param exclusion_by_resource_types: exclusion_by_resource_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#exclusion_by_resource_types ConfigConfigurationRecorder#exclusion_by_resource_types}
+        :param include_global_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#include_global_resource_types ConfigConfigurationRecorder#include_global_resource_types}.
+        :param recording_strategy: recording_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_strategy ConfigConfigurationRecorder#recording_strategy}
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f39aff10d1d33792f72ba5f13b532f6d7e711b0cf7c557a4218f0893b1282f8)
@@ -547,7 +586,7 @@ class ConfigConfigurationRecorderRecordingGroup:
     def all_supported(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#all_supported ConfigConfigurationRecorder#all_supported}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#all_supported ConfigConfigurationRecorder#all_supported}.'''
         result = self._values.get("all_supported")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -557,7 +596,7 @@ class ConfigConfigurationRecorderRecordingGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigurationRecorderRecordingGroupExclusionByResourceTypes"]]]:
         '''exclusion_by_resource_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#exclusion_by_resource_types ConfigConfigurationRecorder#exclusion_by_resource_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#exclusion_by_resource_types ConfigConfigurationRecorder#exclusion_by_resource_types}
         '''
         result = self._values.get("exclusion_by_resource_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigurationRecorderRecordingGroupExclusionByResourceTypes"]]], result)
@@ -566,7 +605,7 @@ class ConfigConfigurationRecorderRecordingGroup:
     def include_global_resource_types(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#include_global_resource_types ConfigConfigurationRecorder#include_global_resource_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#include_global_resource_types ConfigConfigurationRecorder#include_global_resource_types}.'''
         result = self._values.get("include_global_resource_types")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -576,14 +615,14 @@ class ConfigConfigurationRecorderRecordingGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigurationRecorderRecordingGroupRecordingStrategy"]]]:
         '''recording_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_strategy ConfigConfigurationRecorder#recording_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_strategy ConfigConfigurationRecorder#recording_strategy}
         '''
         result = self._values.get("recording_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigurationRecorderRecordingGroupRecordingStrategy"]]], result)
 
     @builtins.property
     def resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.'''
         result = self._values.get("resource_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -611,7 +650,7 @@ class ConfigConfigurationRecorderRecordingGroupExclusionByResourceTypes:
         resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f40f7f7c593b383255af714f30997e97c5c444e6205e4accfb80ad04924e948)
@@ -622,7 +661,7 @@ class ConfigConfigurationRecorderRecordingGroupExclusionByResourceTypes:
 
     @builtins.property
     def resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.'''
         result = self._values.get("resource_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -979,7 +1018,7 @@ class ConfigConfigurationRecorderRecordingGroupOutputReference(
 class ConfigConfigurationRecorderRecordingGroupRecordingStrategy:
     def __init__(self, *, use_only: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param use_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#use_only ConfigConfigurationRecorder#use_only}.
+        :param use_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#use_only ConfigConfigurationRecorder#use_only}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01e4e8cfa69912672e8fa67df67e266cdfbf11c791887eb8a2a61c64f89e0c0b)
@@ -990,7 +1029,7 @@ class ConfigConfigurationRecorderRecordingGroupRecordingStrategy:
 
     @builtins.property
     def use_only(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#use_only ConfigConfigurationRecorder#use_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#use_only ConfigConfigurationRecorder#use_only}.'''
         result = self._values.get("use_only")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1180,8 +1219,8 @@ class ConfigConfigurationRecorderRecordingMode:
         recording_mode_override: typing.Optional[typing.Union["ConfigConfigurationRecorderRecordingModeRecordingModeOverride", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
-        :param recording_mode_override: recording_mode_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_mode_override ConfigConfigurationRecorder#recording_mode_override}
+        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
+        :param recording_mode_override: recording_mode_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_mode_override ConfigConfigurationRecorder#recording_mode_override}
         '''
         if isinstance(recording_mode_override, dict):
             recording_mode_override = ConfigConfigurationRecorderRecordingModeRecordingModeOverride(**recording_mode_override)
@@ -1197,7 +1236,7 @@ class ConfigConfigurationRecorderRecordingMode:
 
     @builtins.property
     def recording_frequency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.'''
         result = self._values.get("recording_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1207,7 +1246,7 @@ class ConfigConfigurationRecorderRecordingMode:
     ) -> typing.Optional["ConfigConfigurationRecorderRecordingModeRecordingModeOverride"]:
         '''recording_mode_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_mode_override ConfigConfigurationRecorder#recording_mode_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_mode_override ConfigConfigurationRecorder#recording_mode_override}
         '''
         result = self._values.get("recording_mode_override")
         return typing.cast(typing.Optional["ConfigConfigurationRecorderRecordingModeRecordingModeOverride"], result)
@@ -1253,9 +1292,9 @@ class ConfigConfigurationRecorderRecordingModeOutputReference(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#description ConfigConfigurationRecorder#description}.
+        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#description ConfigConfigurationRecorder#description}.
         '''
         value = ConfigConfigurationRecorderRecordingModeRecordingModeOverride(
             recording_frequency=recording_frequency,
@@ -1340,9 +1379,9 @@ class ConfigConfigurationRecorderRecordingModeRecordingModeOverride:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#description ConfigConfigurationRecorder#description}.
+        :param recording_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#description ConfigConfigurationRecorder#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de5e3998ca0e2b15f809dd8c32395031bac1f279acc2db7e1d1cd5e38948f9be)
@@ -1358,21 +1397,21 @@ class ConfigConfigurationRecorderRecordingModeRecordingModeOverride:
 
     @builtins.property
     def recording_frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#recording_frequency ConfigConfigurationRecorder#recording_frequency}.'''
         result = self._values.get("recording_frequency")
         assert result is not None, "Required property 'recording_frequency' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#resource_types ConfigConfigurationRecorder#resource_types}.'''
         result = self._values.get("resource_types")
         assert result is not None, "Required property 'resource_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/config_configuration_recorder#description ConfigConfigurationRecorder#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/config_configuration_recorder#description ConfigConfigurationRecorder#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1509,6 +1548,7 @@ def _typecheckingstub__c2841188513eb315ed250afbfee2a4f5083c21b5faae6754a25cfc7d9
     name: typing.Optional[builtins.str] = None,
     recording_group: typing.Optional[typing.Union[ConfigConfigurationRecorderRecordingGroup, typing.Dict[builtins.str, typing.Any]]] = None,
     recording_mode: typing.Optional[typing.Union[ConfigConfigurationRecorderRecordingMode, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -1541,6 +1581,12 @@ def _typecheckingstub__429385fdfe98e49321bf0a8730d312fe8e2a7b1c403ff1debb56252c2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__29876ada88979a31c0b1b4eb839440947d6ba5443a3a51cc401e7682b961333c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__537cf897d3b8d3869cef524733467375011f74f83f9ffcad0ec1a83c7ec8a681(
     value: builtins.str,
 ) -> None:
@@ -1561,6 +1607,7 @@ def _typecheckingstub__81e04e5eee3181224f2992bb9a20f58e528256c64e21fa1945f849159
     name: typing.Optional[builtins.str] = None,
     recording_group: typing.Optional[typing.Union[ConfigConfigurationRecorderRecordingGroup, typing.Dict[builtins.str, typing.Any]]] = None,
     recording_mode: typing.Optional[typing.Union[ConfigConfigurationRecorderRecordingMode, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

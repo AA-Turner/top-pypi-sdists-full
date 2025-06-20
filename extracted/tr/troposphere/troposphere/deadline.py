@@ -118,6 +118,7 @@ class CustomerManagedFleetConfiguration(AWSProperty):
     props: PropsDictType = {
         "Mode": (str, True),
         "StorageProfileId": (str, False),
+        "TagPropagationMode": (str, False),
         "WorkerCapabilities": (CustomerManagedWorkerCapabilities, True),
     }
 
@@ -193,6 +194,7 @@ class ServiceManagedEc2FleetConfiguration(AWSProperty):
     props: PropsDictType = {
         "InstanceCapabilities": (ServiceManagedEc2InstanceCapabilities, True),
         "InstanceMarketOptions": (ServiceManagedEc2InstanceMarketOptions, True),
+        "StorageProfileId": (str, False),
     }
 
 
@@ -204,6 +206,17 @@ class FleetConfiguration(AWSProperty):
     props: PropsDictType = {
         "CustomerManaged": (CustomerManagedFleetConfiguration, False),
         "ServiceManagedEc2": (ServiceManagedEc2FleetConfiguration, False),
+    }
+
+
+class HostConfiguration(AWSProperty):
+    """
+    `HostConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-hostconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ScriptBody": (str, True),
+        "ScriptTimeoutSeconds": (integer, False),
     }
 
 
@@ -219,6 +232,7 @@ class Fleet(AWSObject):
         "Description": (str, False),
         "DisplayName": (str, True),
         "FarmId": (str, True),
+        "HostConfiguration": (HostConfiguration, False),
         "MaxWorkerCount": (integer, True),
         "MinWorkerCount": (integer, False),
         "RoleArn": (str, True),

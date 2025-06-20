@@ -1,7 +1,7 @@
 r'''
 # `aws_cognito_risk_configuration`
 
-Refer to the Terraform Registry for docs: [`aws_cognito_risk_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration).
+Refer to the Terraform Registry for docs: [`aws_cognito_risk_configuration`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CognitoRiskConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cognitoRiskConfiguration.CognitoRiskConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration aws_cognito_risk_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration aws_cognito_risk_configuration}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class CognitoRiskConfiguration(
         client_id: typing.Optional[builtins.str] = None,
         compromised_credentials_risk_configuration: typing.Optional[typing.Union["CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         risk_exception_configuration: typing.Optional[typing.Union["CognitoRiskConfigurationRiskExceptionConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -65,16 +66,17 @@ class CognitoRiskConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration aws_cognito_risk_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration aws_cognito_risk_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#user_pool_id CognitoRiskConfiguration#user_pool_id}.
-        :param account_takeover_risk_configuration: account_takeover_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#account_takeover_risk_configuration CognitoRiskConfiguration#account_takeover_risk_configuration}
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#client_id CognitoRiskConfiguration#client_id}.
-        :param compromised_credentials_risk_configuration: compromised_credentials_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#compromised_credentials_risk_configuration CognitoRiskConfiguration#compromised_credentials_risk_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#id CognitoRiskConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param risk_exception_configuration: risk_exception_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#risk_exception_configuration CognitoRiskConfiguration#risk_exception_configuration}
+        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#user_pool_id CognitoRiskConfiguration#user_pool_id}.
+        :param account_takeover_risk_configuration: account_takeover_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#account_takeover_risk_configuration CognitoRiskConfiguration#account_takeover_risk_configuration}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#client_id CognitoRiskConfiguration#client_id}.
+        :param compromised_credentials_risk_configuration: compromised_credentials_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#compromised_credentials_risk_configuration CognitoRiskConfiguration#compromised_credentials_risk_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#id CognitoRiskConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#region CognitoRiskConfiguration#region}
+        :param risk_exception_configuration: risk_exception_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#risk_exception_configuration CognitoRiskConfiguration#risk_exception_configuration}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -93,6 +95,7 @@ class CognitoRiskConfiguration(
             client_id=client_id,
             compromised_credentials_risk_configuration=compromised_credentials_risk_configuration,
             id=id,
+            region=region,
             risk_exception_configuration=risk_exception_configuration,
             connection=connection,
             count=count,
@@ -118,7 +121,7 @@ class CognitoRiskConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CognitoRiskConfiguration to import.
-        :param import_from_id: The id of the existing CognitoRiskConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CognitoRiskConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CognitoRiskConfiguration to import is found.
         '''
         if __debug__:
@@ -137,8 +140,8 @@ class CognitoRiskConfiguration(
         notify_configuration: typing.Union["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguration", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
-        :param notify_configuration: notify_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify_configuration CognitoRiskConfiguration#notify_configuration}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
+        :param notify_configuration: notify_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify_configuration CognitoRiskConfiguration#notify_configuration}
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfiguration(
             actions=actions, notify_configuration=notify_configuration
@@ -154,8 +157,8 @@ class CognitoRiskConfiguration(
         event_filter: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
-        :param event_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_filter CognitoRiskConfiguration#event_filter}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
+        :param event_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_filter CognitoRiskConfiguration#event_filter}.
         '''
         value = CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration(
             actions=actions, event_filter=event_filter
@@ -171,8 +174,8 @@ class CognitoRiskConfiguration(
         skipped_ip_range_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param blocked_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#blocked_ip_range_list CognitoRiskConfiguration#blocked_ip_range_list}.
-        :param skipped_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#skipped_ip_range_list CognitoRiskConfiguration#skipped_ip_range_list}.
+        :param blocked_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#blocked_ip_range_list CognitoRiskConfiguration#blocked_ip_range_list}.
+        :param skipped_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#skipped_ip_range_list CognitoRiskConfiguration#skipped_ip_range_list}.
         '''
         value = CognitoRiskConfigurationRiskExceptionConfiguration(
             blocked_ip_range_list=blocked_ip_range_list,
@@ -196,6 +199,10 @@ class CognitoRiskConfiguration(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRiskExceptionConfiguration")
     def reset_risk_exception_configuration(self) -> None:
@@ -260,6 +267,11 @@ class CognitoRiskConfiguration(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="riskExceptionConfigurationInput")
     def risk_exception_configuration_input(
         self,
@@ -296,6 +308,18 @@ class CognitoRiskConfiguration(
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2046c12183488c52c3b493991280bfa3535c3be550cdfe08bd85c76ed39d9f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="userPoolId")
     def user_pool_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "userPoolId"))
@@ -321,8 +345,8 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfiguration:
         notify_configuration: typing.Union["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguration", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
-        :param notify_configuration: notify_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify_configuration CognitoRiskConfiguration#notify_configuration}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
+        :param notify_configuration: notify_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify_configuration CognitoRiskConfiguration#notify_configuration}
         '''
         if isinstance(actions, dict):
             actions = CognitoRiskConfigurationAccountTakeoverRiskConfigurationActions(**actions)
@@ -343,7 +367,7 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfiguration:
     ) -> "CognitoRiskConfigurationAccountTakeoverRiskConfigurationActions":
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -355,7 +379,7 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfiguration:
     ) -> "CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguration":
         '''notify_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify_configuration CognitoRiskConfiguration#notify_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify_configuration CognitoRiskConfiguration#notify_configuration}
         '''
         result = self._values.get("notify_configuration")
         assert result is not None, "Required property 'notify_configuration' is missing"
@@ -391,9 +415,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActions:
         medium_action: typing.Optional[typing.Union["CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsMediumAction", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param high_action: high_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#high_action CognitoRiskConfiguration#high_action}
-        :param low_action: low_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#low_action CognitoRiskConfiguration#low_action}
-        :param medium_action: medium_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#medium_action CognitoRiskConfiguration#medium_action}
+        :param high_action: high_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#high_action CognitoRiskConfiguration#high_action}
+        :param low_action: low_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#low_action CognitoRiskConfiguration#low_action}
+        :param medium_action: medium_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#medium_action CognitoRiskConfiguration#medium_action}
         '''
         if isinstance(high_action, dict):
             high_action = CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsHighAction(**high_action)
@@ -420,7 +444,7 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActions:
     ) -> typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsHighAction"]:
         '''high_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#high_action CognitoRiskConfiguration#high_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#high_action CognitoRiskConfiguration#high_action}
         '''
         result = self._values.get("high_action")
         return typing.cast(typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsHighAction"], result)
@@ -431,7 +455,7 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActions:
     ) -> typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsLowAction"]:
         '''low_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#low_action CognitoRiskConfiguration#low_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#low_action CognitoRiskConfiguration#low_action}
         '''
         result = self._values.get("low_action")
         return typing.cast(typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsLowAction"], result)
@@ -442,7 +466,7 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActions:
     ) -> typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsMediumAction"]:
         '''medium_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#medium_action CognitoRiskConfiguration#medium_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#medium_action CognitoRiskConfiguration#medium_action}
         '''
         result = self._values.get("medium_action")
         return typing.cast(typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsMediumAction"], result)
@@ -472,8 +496,8 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsHighAction:
         notify: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
-        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68b96249ffb69c4af97b84817009550b8d2a94f30fb30bef0a64d198fbff2635)
@@ -486,14 +510,14 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsHighAction:
 
     @builtins.property
     def event_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
         result = self._values.get("event_action")
         assert result is not None, "Required property 'event_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def notify(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.'''
         result = self._values.get("notify")
         assert result is not None, "Required property 'notify' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -600,8 +624,8 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsLowAction:
         notify: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
-        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3060780a98e92533bc35623f9e28da0c3311eb650637cefddc7c462a2641e26)
@@ -614,14 +638,14 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsLowAction:
 
     @builtins.property
     def event_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
         result = self._values.get("event_action")
         assert result is not None, "Required property 'event_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def notify(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.'''
         result = self._values.get("notify")
         assert result is not None, "Required property 'notify' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -728,8 +752,8 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsMediumActio
         notify: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
-        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72f53ca822b914868f1f1ade682bf4ab5d3db982780f80985c7c990a8e7ead67)
@@ -742,14 +766,14 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsMediumActio
 
     @builtins.property
     def event_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
         result = self._values.get("event_action")
         assert result is not None, "Required property 'event_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def notify(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.'''
         result = self._values.get("notify")
         assert result is not None, "Required property 'notify' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -871,8 +895,8 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsOutputRefer
         notify: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
-        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsHighAction(
             event_action=event_action, notify=notify
@@ -888,8 +912,8 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsOutputRefer
         notify: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
-        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsLowAction(
             event_action=event_action, notify=notify
@@ -905,8 +929,8 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsOutputRefer
         notify: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
-        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param notify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#notify CognitoRiskConfiguration#notify}.
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsMediumAction(
             event_action=event_action, notify=notify
@@ -1010,12 +1034,12 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
         reply_to: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#source_arn CognitoRiskConfiguration#source_arn}.
-        :param block_email: block_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#block_email CognitoRiskConfiguration#block_email}
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#from CognitoRiskConfiguration#from}.
-        :param mfa_email: mfa_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#mfa_email CognitoRiskConfiguration#mfa_email}
-        :param no_action_email: no_action_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#no_action_email CognitoRiskConfiguration#no_action_email}
-        :param reply_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#reply_to CognitoRiskConfiguration#reply_to}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#source_arn CognitoRiskConfiguration#source_arn}.
+        :param block_email: block_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#block_email CognitoRiskConfiguration#block_email}
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#from CognitoRiskConfiguration#from}.
+        :param mfa_email: mfa_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#mfa_email CognitoRiskConfiguration#mfa_email}
+        :param no_action_email: no_action_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#no_action_email CognitoRiskConfiguration#no_action_email}
+        :param reply_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#reply_to CognitoRiskConfiguration#reply_to}.
         '''
         if isinstance(block_email, dict):
             block_email = CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationBlockEmail(**block_email)
@@ -1047,7 +1071,7 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
 
     @builtins.property
     def source_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#source_arn CognitoRiskConfiguration#source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#source_arn CognitoRiskConfiguration#source_arn}.'''
         result = self._values.get("source_arn")
         assert result is not None, "Required property 'source_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1058,14 +1082,14 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
     ) -> typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationBlockEmail"]:
         '''block_email block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#block_email CognitoRiskConfiguration#block_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#block_email CognitoRiskConfiguration#block_email}
         '''
         result = self._values.get("block_email")
         return typing.cast(typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationBlockEmail"], result)
 
     @builtins.property
     def from_(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#from CognitoRiskConfiguration#from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#from CognitoRiskConfiguration#from}.'''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1075,7 +1099,7 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
     ) -> typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationMfaEmail"]:
         '''mfa_email block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#mfa_email CognitoRiskConfiguration#mfa_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#mfa_email CognitoRiskConfiguration#mfa_email}
         '''
         result = self._values.get("mfa_email")
         return typing.cast(typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationMfaEmail"], result)
@@ -1086,14 +1110,14 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
     ) -> typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationNoActionEmail"]:
         '''no_action_email block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#no_action_email CognitoRiskConfiguration#no_action_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#no_action_email CognitoRiskConfiguration#no_action_email}
         '''
         result = self._values.get("no_action_email")
         return typing.cast(typing.Optional["CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationNoActionEmail"], result)
 
     @builtins.property
     def reply_to(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#reply_to CognitoRiskConfiguration#reply_to}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#reply_to CognitoRiskConfiguration#reply_to}.'''
         result = self._values.get("reply_to")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1127,9 +1151,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
         text_body: builtins.str,
     ) -> None:
         '''
-        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
-        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
+        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
+        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c258d70c2016eb73d284c0e1b85dd84ee314fb28d2825e768fa8fc44b97bb283)
@@ -1144,21 +1168,21 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
 
     @builtins.property
     def html_body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.'''
         result = self._values.get("html_body")
         assert result is not None, "Required property 'html_body' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subject(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.'''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def text_body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.'''
         result = self._values.get("text_body")
         assert result is not None, "Required property 'text_body' is missing"
         return typing.cast(builtins.str, result)
@@ -1282,9 +1306,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
         text_body: builtins.str,
     ) -> None:
         '''
-        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
-        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
+        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
+        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56658e61bacc6135d5731085b88856093a1a5cbcaa6826a9191b7b1619ae9e43)
@@ -1299,21 +1323,21 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
 
     @builtins.property
     def html_body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.'''
         result = self._values.get("html_body")
         assert result is not None, "Required property 'html_body' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subject(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.'''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def text_body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.'''
         result = self._values.get("text_body")
         assert result is not None, "Required property 'text_body' is missing"
         return typing.cast(builtins.str, result)
@@ -1437,9 +1461,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
         text_body: builtins.str,
     ) -> None:
         '''
-        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
-        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
+        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
+        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f5413fa4bf4157612bed4eb26667d6d42093fffef80a03d834d9c4b5c19c03d)
@@ -1454,21 +1478,21 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
 
     @builtins.property
     def html_body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.'''
         result = self._values.get("html_body")
         assert result is not None, "Required property 'html_body' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subject(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.'''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def text_body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.'''
         result = self._values.get("text_body")
         assert result is not None, "Required property 'text_body' is missing"
         return typing.cast(builtins.str, result)
@@ -1603,9 +1627,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
         text_body: builtins.str,
     ) -> None:
         '''
-        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
-        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
+        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
+        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationBlockEmail(
             html_body=html_body, subject=subject, text_body=text_body
@@ -1622,9 +1646,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
         text_body: builtins.str,
     ) -> None:
         '''
-        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
-        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
+        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
+        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationMfaEmail(
             html_body=html_body, subject=subject, text_body=text_body
@@ -1641,9 +1665,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguratio
         text_body: builtins.str,
     ) -> None:
         '''
-        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
-        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
+        :param html_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#html_body CognitoRiskConfiguration#html_body}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#subject CognitoRiskConfiguration#subject}.
+        :param text_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#text_body CognitoRiskConfiguration#text_body}.
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfigurationNoActionEmail(
             html_body=html_body, subject=subject, text_body=text_body
@@ -1811,9 +1835,9 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationOutputReference(
         medium_action: typing.Optional[typing.Union[CognitoRiskConfigurationAccountTakeoverRiskConfigurationActionsMediumAction, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param high_action: high_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#high_action CognitoRiskConfiguration#high_action}
-        :param low_action: low_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#low_action CognitoRiskConfiguration#low_action}
-        :param medium_action: medium_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#medium_action CognitoRiskConfiguration#medium_action}
+        :param high_action: high_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#high_action CognitoRiskConfiguration#high_action}
+        :param low_action: low_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#low_action CognitoRiskConfiguration#low_action}
+        :param medium_action: medium_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#medium_action CognitoRiskConfiguration#medium_action}
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationActions(
             high_action=high_action, low_action=low_action, medium_action=medium_action
@@ -1833,12 +1857,12 @@ class CognitoRiskConfigurationAccountTakeoverRiskConfigurationOutputReference(
         reply_to: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#source_arn CognitoRiskConfiguration#source_arn}.
-        :param block_email: block_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#block_email CognitoRiskConfiguration#block_email}
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#from CognitoRiskConfiguration#from}.
-        :param mfa_email: mfa_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#mfa_email CognitoRiskConfiguration#mfa_email}
-        :param no_action_email: no_action_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#no_action_email CognitoRiskConfiguration#no_action_email}
-        :param reply_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#reply_to CognitoRiskConfiguration#reply_to}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#source_arn CognitoRiskConfiguration#source_arn}.
+        :param block_email: block_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#block_email CognitoRiskConfiguration#block_email}
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#from CognitoRiskConfiguration#from}.
+        :param mfa_email: mfa_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#mfa_email CognitoRiskConfiguration#mfa_email}
+        :param no_action_email: no_action_email block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#no_action_email CognitoRiskConfiguration#no_action_email}
+        :param reply_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#reply_to CognitoRiskConfiguration#reply_to}.
         '''
         value = CognitoRiskConfigurationAccountTakeoverRiskConfigurationNotifyConfiguration(
             source_arn=source_arn,
@@ -1910,8 +1934,8 @@ class CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration:
         event_filter: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
-        :param event_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_filter CognitoRiskConfiguration#event_filter}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
+        :param event_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_filter CognitoRiskConfiguration#event_filter}.
         '''
         if isinstance(actions, dict):
             actions = CognitoRiskConfigurationCompromisedCredentialsRiskConfigurationActions(**actions)
@@ -1931,7 +1955,7 @@ class CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration:
     ) -> "CognitoRiskConfigurationCompromisedCredentialsRiskConfigurationActions":
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#actions CognitoRiskConfiguration#actions}
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -1939,7 +1963,7 @@ class CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration:
 
     @builtins.property
     def event_filter(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_filter CognitoRiskConfiguration#event_filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_filter CognitoRiskConfiguration#event_filter}.'''
         result = self._values.get("event_filter")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1963,7 +1987,7 @@ class CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration:
 class CognitoRiskConfigurationCompromisedCredentialsRiskConfigurationActions:
     def __init__(self, *, event_action: builtins.str) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19e77f654fb2822acf19c27decf53f9095fee2080f746743ba2063f0a3e390c4)
@@ -1974,7 +1998,7 @@ class CognitoRiskConfigurationCompromisedCredentialsRiskConfigurationActions:
 
     @builtins.property
     def event_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.'''
         result = self._values.get("event_action")
         assert result is not None, "Required property 'event_action' is missing"
         return typing.cast(builtins.str, result)
@@ -2069,7 +2093,7 @@ class CognitoRiskConfigurationCompromisedCredentialsRiskConfigurationOutputRefer
     @jsii.member(jsii_name="putActions")
     def put_actions(self, *, event_action: builtins.str) -> None:
         '''
-        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
+        :param event_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#event_action CognitoRiskConfiguration#event_action}.
         '''
         value = CognitoRiskConfigurationCompromisedCredentialsRiskConfigurationActions(
             event_action=event_action
@@ -2146,6 +2170,7 @@ class CognitoRiskConfigurationCompromisedCredentialsRiskConfigurationOutputRefer
         "client_id": "clientId",
         "compromised_credentials_risk_configuration": "compromisedCredentialsRiskConfiguration",
         "id": "id",
+        "region": "region",
         "risk_exception_configuration": "riskExceptionConfiguration",
     },
 )
@@ -2165,6 +2190,7 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         client_id: typing.Optional[builtins.str] = None,
         compromised_credentials_risk_configuration: typing.Optional[typing.Union[CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         risk_exception_configuration: typing.Optional[typing.Union["CognitoRiskConfigurationRiskExceptionConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -2175,12 +2201,13 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#user_pool_id CognitoRiskConfiguration#user_pool_id}.
-        :param account_takeover_risk_configuration: account_takeover_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#account_takeover_risk_configuration CognitoRiskConfiguration#account_takeover_risk_configuration}
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#client_id CognitoRiskConfiguration#client_id}.
-        :param compromised_credentials_risk_configuration: compromised_credentials_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#compromised_credentials_risk_configuration CognitoRiskConfiguration#compromised_credentials_risk_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#id CognitoRiskConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param risk_exception_configuration: risk_exception_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#risk_exception_configuration CognitoRiskConfiguration#risk_exception_configuration}
+        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#user_pool_id CognitoRiskConfiguration#user_pool_id}.
+        :param account_takeover_risk_configuration: account_takeover_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#account_takeover_risk_configuration CognitoRiskConfiguration#account_takeover_risk_configuration}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#client_id CognitoRiskConfiguration#client_id}.
+        :param compromised_credentials_risk_configuration: compromised_credentials_risk_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#compromised_credentials_risk_configuration CognitoRiskConfiguration#compromised_credentials_risk_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#id CognitoRiskConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#region CognitoRiskConfiguration#region}
+        :param risk_exception_configuration: risk_exception_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#risk_exception_configuration CognitoRiskConfiguration#risk_exception_configuration}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2204,6 +2231,7 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument compromised_credentials_risk_configuration", value=compromised_credentials_risk_configuration, expected_type=type_hints["compromised_credentials_risk_configuration"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument risk_exception_configuration", value=risk_exception_configuration, expected_type=type_hints["risk_exception_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "user_pool_id": user_pool_id,
@@ -2230,6 +2258,8 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["compromised_credentials_risk_configuration"] = compromised_credentials_risk_configuration
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
         if risk_exception_configuration is not None:
             self._values["risk_exception_configuration"] = risk_exception_configuration
 
@@ -2299,7 +2329,7 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def user_pool_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#user_pool_id CognitoRiskConfiguration#user_pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#user_pool_id CognitoRiskConfiguration#user_pool_id}.'''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2310,14 +2340,14 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CognitoRiskConfigurationAccountTakeoverRiskConfiguration]:
         '''account_takeover_risk_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#account_takeover_risk_configuration CognitoRiskConfiguration#account_takeover_risk_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#account_takeover_risk_configuration CognitoRiskConfiguration#account_takeover_risk_configuration}
         '''
         result = self._values.get("account_takeover_risk_configuration")
         return typing.cast(typing.Optional[CognitoRiskConfigurationAccountTakeoverRiskConfiguration], result)
 
     @builtins.property
     def client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#client_id CognitoRiskConfiguration#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#client_id CognitoRiskConfiguration#client_id}.'''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2327,14 +2357,14 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration]:
         '''compromised_credentials_risk_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#compromised_credentials_risk_configuration CognitoRiskConfiguration#compromised_credentials_risk_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#compromised_credentials_risk_configuration CognitoRiskConfiguration#compromised_credentials_risk_configuration}
         '''
         result = self._values.get("compromised_credentials_risk_configuration")
         return typing.cast(typing.Optional[CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#id CognitoRiskConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#id CognitoRiskConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2343,12 +2373,21 @@ class CognitoRiskConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#region CognitoRiskConfiguration#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def risk_exception_configuration(
         self,
     ) -> typing.Optional["CognitoRiskConfigurationRiskExceptionConfiguration"]:
         '''risk_exception_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#risk_exception_configuration CognitoRiskConfiguration#risk_exception_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#risk_exception_configuration CognitoRiskConfiguration#risk_exception_configuration}
         '''
         result = self._values.get("risk_exception_configuration")
         return typing.cast(typing.Optional["CognitoRiskConfigurationRiskExceptionConfiguration"], result)
@@ -2381,8 +2420,8 @@ class CognitoRiskConfigurationRiskExceptionConfiguration:
         skipped_ip_range_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param blocked_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#blocked_ip_range_list CognitoRiskConfiguration#blocked_ip_range_list}.
-        :param skipped_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#skipped_ip_range_list CognitoRiskConfiguration#skipped_ip_range_list}.
+        :param blocked_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#blocked_ip_range_list CognitoRiskConfiguration#blocked_ip_range_list}.
+        :param skipped_ip_range_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#skipped_ip_range_list CognitoRiskConfiguration#skipped_ip_range_list}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8c11f66fabde722913d14844ab57c05188ea76d443715a197c70f9293fc57e8)
@@ -2396,13 +2435,13 @@ class CognitoRiskConfigurationRiskExceptionConfiguration:
 
     @builtins.property
     def blocked_ip_range_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#blocked_ip_range_list CognitoRiskConfiguration#blocked_ip_range_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#blocked_ip_range_list CognitoRiskConfiguration#blocked_ip_range_list}.'''
         result = self._values.get("blocked_ip_range_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def skipped_ip_range_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cognito_risk_configuration#skipped_ip_range_list CognitoRiskConfiguration#skipped_ip_range_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cognito_risk_configuration#skipped_ip_range_list CognitoRiskConfiguration#skipped_ip_range_list}.'''
         result = self._values.get("skipped_ip_range_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2538,6 +2577,7 @@ def _typecheckingstub__ee5bd88f254a14a346bc366ba5e420a19bd04c9f76e02911ff52d9371
     client_id: typing.Optional[builtins.str] = None,
     compromised_credentials_risk_configuration: typing.Optional[typing.Union[CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     risk_exception_configuration: typing.Optional[typing.Union[CognitoRiskConfigurationRiskExceptionConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -2566,6 +2606,12 @@ def _typecheckingstub__afefc8dbc8d87b39c7578bf0dbf8ded92bad6a3e270164583bfe50e37
     pass
 
 def _typecheckingstub__8edfcdfc624e7fece40b71bff9552296632679337afeebd790e11163175f2b51(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2046c12183488c52c3b493991280bfa3535c3be550cdfe08bd85c76ed39d9f6(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -2949,6 +2995,7 @@ def _typecheckingstub__0b175e8b1fc2cf6c5c38c59d3f274d7546507374c351da80fb46d0d99
     client_id: typing.Optional[builtins.str] = None,
     compromised_credentials_risk_configuration: typing.Optional[typing.Union[CognitoRiskConfigurationCompromisedCredentialsRiskConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     risk_exception_configuration: typing.Optional[typing.Union[CognitoRiskConfigurationRiskExceptionConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""

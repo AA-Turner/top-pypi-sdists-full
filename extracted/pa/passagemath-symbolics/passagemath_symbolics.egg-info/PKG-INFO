@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-symbolics
-Version: 10.5.42
+Version: 10.5.43
 Summary: passagemath: Symbolic calculus
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -32,14 +32,14 @@ Requires-Dist: gmpy2~=2.1.b999
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: numpy>=1.19
 Requires-Dist: numpy>=1.22.4
-Requires-Dist: passagemath-categories~=10.5.42.0
-Requires-Dist: passagemath-ecl~=10.5.42.0
-Requires-Dist: passagemath-environment~=10.5.42.0
-Requires-Dist: passagemath-flint~=10.5.42.0
-Requires-Dist: passagemath-maxima~=10.5.42.0
-Requires-Dist: passagemath-modules~=10.5.42.0
-Requires-Dist: passagemath-ntl~=10.5.42.0
-Requires-Dist: passagemath-singular~=10.5.42.0
+Requires-Dist: passagemath-categories~=10.5.43.0
+Requires-Dist: passagemath-ecl~=10.5.43.0
+Requires-Dist: passagemath-environment~=10.5.43.0
+Requires-Dist: passagemath-flint~=10.5.43.0
+Requires-Dist: passagemath-maxima~=10.5.43.0
+Requires-Dist: passagemath-modules~=10.5.43.0
+Requires-Dist: passagemath-ntl~=10.5.43.0
+Requires-Dist: passagemath-singular~=10.5.43.0
 Requires-Dist: sympy<2.0,>=1.6
 Provides-Extra: conf
 Requires-Dist: passagemath-conf; extra == "conf"

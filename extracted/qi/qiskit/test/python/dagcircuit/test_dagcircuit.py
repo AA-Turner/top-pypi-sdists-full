@@ -1916,9 +1916,9 @@ class TestDagEquivalence(QiskitTestCase):
         self.assertEqual(right.num_input_vars, 0)
         self.assertEqual(right.num_captured_vars, 0)
         self.assertEqual(right.num_declared_vars, 0)
-        self.assertEqual(right._num_captured_stretches, 2)
-        self.assertEqual(right._num_declared_stretches, 0)
-        self.assertEqual(right._num_stretches, 2)
+        self.assertEqual(right.num_captured_stretches, 2)
+        self.assertEqual(right.num_declared_stretches, 0)
+        self.assertEqual(right.num_stretches, 2)
         self.assertNotEqual(left, right)
 
         right = DAGCircuit()
@@ -1936,9 +1936,9 @@ class TestDagEquivalence(QiskitTestCase):
         self.assertEqual(right.num_input_vars, 0)
         self.assertEqual(right.num_captured_vars, 0)
         self.assertEqual(right.num_declared_vars, 0)
-        self.assertEqual(right._num_captured_stretches, 0)
-        self.assertEqual(right._num_declared_stretches, 2)
-        self.assertEqual(right._num_stretches, 2)
+        self.assertEqual(right.num_captured_stretches, 0)
+        self.assertEqual(right.num_declared_stretches, 2)
+        self.assertEqual(right.num_stretches, 2)
         self.assertNotEqual(left, right)
 
         left = DAGCircuit()
@@ -2218,18 +2218,18 @@ class TestDagEquivalence(QiskitTestCase):
         dag.add_declared_stretch(a)
         dag.add_captured_stretch(b)
 
-        self.assertEqual(dag._num_stretches, 2)
-        self.assertEqual(dag._num_captured_stretches, 1)
-        self.assertEqual(dag._num_declared_stretches, 1)
+        self.assertEqual(dag.num_stretches, 2)
+        self.assertEqual(dag.num_captured_stretches, 1)
+        self.assertEqual(dag.num_declared_stretches, 1)
 
         with io.BytesIO() as buf:
             pickle.dump(dag, buf)
             buf.seek(0)
             output = pickle.load(buf)
 
-        self.assertEqual(output._num_stretches, 2)
-        self.assertEqual(output._num_captured_stretches, 1)
-        self.assertEqual(output._num_declared_stretches, 1)
+        self.assertEqual(output.num_stretches, 2)
+        self.assertEqual(output.num_captured_stretches, 1)
+        self.assertEqual(output.num_declared_stretches, 1)
         self.assertEqual(output, dag)
 
     def test_deepcopy_stretches(self):
@@ -2242,15 +2242,15 @@ class TestDagEquivalence(QiskitTestCase):
         dag.add_declared_stretch(a)
         dag.add_captured_stretch(b)
 
-        self.assertEqual(dag._num_stretches, 2)
-        self.assertEqual(dag._num_captured_stretches, 1)
-        self.assertEqual(dag._num_declared_stretches, 1)
+        self.assertEqual(dag.num_stretches, 2)
+        self.assertEqual(dag.num_captured_stretches, 1)
+        self.assertEqual(dag.num_declared_stretches, 1)
 
         output = copy.deepcopy(dag)
 
-        self.assertEqual(output._num_stretches, 2)
-        self.assertEqual(output._num_captured_stretches, 1)
-        self.assertEqual(output._num_declared_stretches, 1)
+        self.assertEqual(output.num_stretches, 2)
+        self.assertEqual(output.num_captured_stretches, 1)
+        self.assertEqual(output.num_declared_stretches, 1)
         self.assertEqual(output, dag)
 
 

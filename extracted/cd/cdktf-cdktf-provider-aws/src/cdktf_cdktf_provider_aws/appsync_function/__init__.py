@@ -1,7 +1,7 @@
 r'''
 # `aws_appsync_function`
 
-Refer to the Terraform Registry for docs: [`aws_appsync_function`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function).
+Refer to the Terraform Registry for docs: [`aws_appsync_function`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppsyncFunction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appsyncFunction.AppsyncFunction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function aws_appsync_function}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function aws_appsync_function}.'''
 
     def __init__(
         self,
@@ -59,6 +59,7 @@ class AppsyncFunction(
         function_version: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         request_mapping_template: typing.Optional[builtins.str] = None,
         response_mapping_template: typing.Optional[builtins.str] = None,
         runtime: typing.Optional[typing.Union["AppsyncFunctionRuntime", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -71,22 +72,23 @@ class AppsyncFunction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function aws_appsync_function} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function aws_appsync_function} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#api_id AppsyncFunction#api_id}.
-        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#data_source AppsyncFunction#data_source}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#name AppsyncFunction#name}.
-        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#code AppsyncFunction#code}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#description AppsyncFunction#description}.
-        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#function_version AppsyncFunction#function_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#id AppsyncFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#max_batch_size AppsyncFunction#max_batch_size}.
-        :param request_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#request_mapping_template AppsyncFunction#request_mapping_template}.
-        :param response_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#response_mapping_template AppsyncFunction#response_mapping_template}.
-        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#runtime AppsyncFunction#runtime}
-        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#sync_config AppsyncFunction#sync_config}
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#api_id AppsyncFunction#api_id}.
+        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#data_source AppsyncFunction#data_source}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#name AppsyncFunction#name}.
+        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#code AppsyncFunction#code}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#description AppsyncFunction#description}.
+        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#function_version AppsyncFunction#function_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#id AppsyncFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#max_batch_size AppsyncFunction#max_batch_size}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#region AppsyncFunction#region}
+        :param request_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#request_mapping_template AppsyncFunction#request_mapping_template}.
+        :param response_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#response_mapping_template AppsyncFunction#response_mapping_template}.
+        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#runtime AppsyncFunction#runtime}
+        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#sync_config AppsyncFunction#sync_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -108,6 +110,7 @@ class AppsyncFunction(
             function_version=function_version,
             id=id,
             max_batch_size=max_batch_size,
+            region=region,
             request_mapping_template=request_mapping_template,
             response_mapping_template=response_mapping_template,
             runtime=runtime,
@@ -136,7 +139,7 @@ class AppsyncFunction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppsyncFunction to import.
-        :param import_from_id: The id of the existing AppsyncFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppsyncFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppsyncFunction to import is found.
         '''
         if __debug__:
@@ -150,8 +153,8 @@ class AppsyncFunction(
     @jsii.member(jsii_name="putRuntime")
     def put_runtime(self, *, name: builtins.str, runtime_version: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#name AppsyncFunction#name}.
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#runtime_version AppsyncFunction#runtime_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#name AppsyncFunction#name}.
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#runtime_version AppsyncFunction#runtime_version}.
         '''
         value = AppsyncFunctionRuntime(name=name, runtime_version=runtime_version)
 
@@ -166,9 +169,9 @@ class AppsyncFunction(
         lambda_conflict_handler_config: typing.Optional[typing.Union["AppsyncFunctionSyncConfigLambdaConflictHandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#conflict_detection AppsyncFunction#conflict_detection}.
-        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#conflict_handler AppsyncFunction#conflict_handler}.
-        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#lambda_conflict_handler_config AppsyncFunction#lambda_conflict_handler_config}
+        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#conflict_detection AppsyncFunction#conflict_detection}.
+        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#conflict_handler AppsyncFunction#conflict_handler}.
+        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#lambda_conflict_handler_config AppsyncFunction#lambda_conflict_handler_config}
         '''
         value = AppsyncFunctionSyncConfig(
             conflict_detection=conflict_detection,
@@ -197,6 +200,10 @@ class AppsyncFunction(
     @jsii.member(jsii_name="resetMaxBatchSize")
     def reset_max_batch_size(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMaxBatchSize", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRequestMappingTemplate")
     def reset_request_mapping_template(self) -> None:
@@ -286,6 +293,11 @@ class AppsyncFunction(
     @jsii.member(jsii_name="nameInput")
     def name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="requestMappingTemplateInput")
@@ -404,6 +416,18 @@ class AppsyncFunction(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efb35c8da7b5aed9da9dab815404c36c73da256d54cf499c9928f0f7a9731355)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="requestMappingTemplate")
     def request_mapping_template(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "requestMappingTemplate"))
@@ -447,6 +471,7 @@ class AppsyncFunction(
         "function_version": "functionVersion",
         "id": "id",
         "max_batch_size": "maxBatchSize",
+        "region": "region",
         "request_mapping_template": "requestMappingTemplate",
         "response_mapping_template": "responseMappingTemplate",
         "runtime": "runtime",
@@ -472,6 +497,7 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         function_version: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         request_mapping_template: typing.Optional[builtins.str] = None,
         response_mapping_template: typing.Optional[builtins.str] = None,
         runtime: typing.Optional[typing.Union["AppsyncFunctionRuntime", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -485,18 +511,19 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#api_id AppsyncFunction#api_id}.
-        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#data_source AppsyncFunction#data_source}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#name AppsyncFunction#name}.
-        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#code AppsyncFunction#code}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#description AppsyncFunction#description}.
-        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#function_version AppsyncFunction#function_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#id AppsyncFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#max_batch_size AppsyncFunction#max_batch_size}.
-        :param request_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#request_mapping_template AppsyncFunction#request_mapping_template}.
-        :param response_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#response_mapping_template AppsyncFunction#response_mapping_template}.
-        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#runtime AppsyncFunction#runtime}
-        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#sync_config AppsyncFunction#sync_config}
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#api_id AppsyncFunction#api_id}.
+        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#data_source AppsyncFunction#data_source}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#name AppsyncFunction#name}.
+        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#code AppsyncFunction#code}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#description AppsyncFunction#description}.
+        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#function_version AppsyncFunction#function_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#id AppsyncFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#max_batch_size AppsyncFunction#max_batch_size}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#region AppsyncFunction#region}
+        :param request_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#request_mapping_template AppsyncFunction#request_mapping_template}.
+        :param response_mapping_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#response_mapping_template AppsyncFunction#response_mapping_template}.
+        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#runtime AppsyncFunction#runtime}
+        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#sync_config AppsyncFunction#sync_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -521,6 +548,7 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument function_version", value=function_version, expected_type=type_hints["function_version"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument request_mapping_template", value=request_mapping_template, expected_type=type_hints["request_mapping_template"])
             check_type(argname="argument response_mapping_template", value=response_mapping_template, expected_type=type_hints["response_mapping_template"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
@@ -554,6 +582,8 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if max_batch_size is not None:
             self._values["max_batch_size"] = max_batch_size
+        if region is not None:
+            self._values["region"] = region
         if request_mapping_template is not None:
             self._values["request_mapping_template"] = request_mapping_template
         if response_mapping_template is not None:
@@ -629,46 +659,46 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#api_id AppsyncFunction#api_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#api_id AppsyncFunction#api_id}.'''
         result = self._values.get("api_id")
         assert result is not None, "Required property 'api_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#data_source AppsyncFunction#data_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#data_source AppsyncFunction#data_source}.'''
         result = self._values.get("data_source")
         assert result is not None, "Required property 'data_source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#name AppsyncFunction#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#name AppsyncFunction#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#code AppsyncFunction#code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#code AppsyncFunction#code}.'''
         result = self._values.get("code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#description AppsyncFunction#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#description AppsyncFunction#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def function_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#function_version AppsyncFunction#function_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#function_version AppsyncFunction#function_version}.'''
         result = self._values.get("function_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#id AppsyncFunction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#id AppsyncFunction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -678,19 +708,28 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#max_batch_size AppsyncFunction#max_batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#max_batch_size AppsyncFunction#max_batch_size}.'''
         result = self._values.get("max_batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#region AppsyncFunction#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def request_mapping_template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#request_mapping_template AppsyncFunction#request_mapping_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#request_mapping_template AppsyncFunction#request_mapping_template}.'''
         result = self._values.get("request_mapping_template")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def response_mapping_template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#response_mapping_template AppsyncFunction#response_mapping_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#response_mapping_template AppsyncFunction#response_mapping_template}.'''
         result = self._values.get("response_mapping_template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -698,7 +737,7 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime(self) -> typing.Optional["AppsyncFunctionRuntime"]:
         '''runtime block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#runtime AppsyncFunction#runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#runtime AppsyncFunction#runtime}
         '''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional["AppsyncFunctionRuntime"], result)
@@ -707,7 +746,7 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sync_config(self) -> typing.Optional["AppsyncFunctionSyncConfig"]:
         '''sync_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#sync_config AppsyncFunction#sync_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#sync_config AppsyncFunction#sync_config}
         '''
         result = self._values.get("sync_config")
         return typing.cast(typing.Optional["AppsyncFunctionSyncConfig"], result)
@@ -732,8 +771,8 @@ class AppsyncFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class AppsyncFunctionRuntime:
     def __init__(self, *, name: builtins.str, runtime_version: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#name AppsyncFunction#name}.
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#runtime_version AppsyncFunction#runtime_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#name AppsyncFunction#name}.
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#runtime_version AppsyncFunction#runtime_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa04bc777b82625b8500ec8fd1eeb36150ece89a670287f7f25dd58ffc4009c6)
@@ -746,14 +785,14 @@ class AppsyncFunctionRuntime:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#name AppsyncFunction#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#name AppsyncFunction#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def runtime_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#runtime_version AppsyncFunction#runtime_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#runtime_version AppsyncFunction#runtime_version}.'''
         result = self._values.get("runtime_version")
         assert result is not None, "Required property 'runtime_version' is missing"
         return typing.cast(builtins.str, result)
@@ -855,9 +894,9 @@ class AppsyncFunctionSyncConfig:
         lambda_conflict_handler_config: typing.Optional[typing.Union["AppsyncFunctionSyncConfigLambdaConflictHandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#conflict_detection AppsyncFunction#conflict_detection}.
-        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#conflict_handler AppsyncFunction#conflict_handler}.
-        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#lambda_conflict_handler_config AppsyncFunction#lambda_conflict_handler_config}
+        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#conflict_detection AppsyncFunction#conflict_detection}.
+        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#conflict_handler AppsyncFunction#conflict_handler}.
+        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#lambda_conflict_handler_config AppsyncFunction#lambda_conflict_handler_config}
         '''
         if isinstance(lambda_conflict_handler_config, dict):
             lambda_conflict_handler_config = AppsyncFunctionSyncConfigLambdaConflictHandlerConfig(**lambda_conflict_handler_config)
@@ -876,13 +915,13 @@ class AppsyncFunctionSyncConfig:
 
     @builtins.property
     def conflict_detection(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#conflict_detection AppsyncFunction#conflict_detection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#conflict_detection AppsyncFunction#conflict_detection}.'''
         result = self._values.get("conflict_detection")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def conflict_handler(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#conflict_handler AppsyncFunction#conflict_handler}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#conflict_handler AppsyncFunction#conflict_handler}.'''
         result = self._values.get("conflict_handler")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -892,7 +931,7 @@ class AppsyncFunctionSyncConfig:
     ) -> typing.Optional["AppsyncFunctionSyncConfigLambdaConflictHandlerConfig"]:
         '''lambda_conflict_handler_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#lambda_conflict_handler_config AppsyncFunction#lambda_conflict_handler_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#lambda_conflict_handler_config AppsyncFunction#lambda_conflict_handler_config}
         '''
         result = self._values.get("lambda_conflict_handler_config")
         return typing.cast(typing.Optional["AppsyncFunctionSyncConfigLambdaConflictHandlerConfig"], result)
@@ -921,7 +960,7 @@ class AppsyncFunctionSyncConfigLambdaConflictHandlerConfig:
         lambda_conflict_handler_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#lambda_conflict_handler_arn AppsyncFunction#lambda_conflict_handler_arn}.
+        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#lambda_conflict_handler_arn AppsyncFunction#lambda_conflict_handler_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8753ae45330fb474324e7feabd4cc74ba7edc53f1d34cb11d1630e4a72b474b)
@@ -932,7 +971,7 @@ class AppsyncFunctionSyncConfigLambdaConflictHandlerConfig:
 
     @builtins.property
     def lambda_conflict_handler_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#lambda_conflict_handler_arn AppsyncFunction#lambda_conflict_handler_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#lambda_conflict_handler_arn AppsyncFunction#lambda_conflict_handler_arn}.'''
         result = self._values.get("lambda_conflict_handler_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1034,7 +1073,7 @@ class AppsyncFunctionSyncConfigOutputReference(
         lambda_conflict_handler_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_function#lambda_conflict_handler_arn AppsyncFunction#lambda_conflict_handler_arn}.
+        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_function#lambda_conflict_handler_arn AppsyncFunction#lambda_conflict_handler_arn}.
         '''
         value = AppsyncFunctionSyncConfigLambdaConflictHandlerConfig(
             lambda_conflict_handler_arn=lambda_conflict_handler_arn
@@ -1140,6 +1179,7 @@ def _typecheckingstub__04111647a0e3ca299e842be74e7dcd92117d3798f26663a6f900ffb0a
     function_version: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     request_mapping_template: typing.Optional[builtins.str] = None,
     response_mapping_template: typing.Optional[builtins.str] = None,
     runtime: typing.Optional[typing.Union[AppsyncFunctionRuntime, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1212,6 +1252,12 @@ def _typecheckingstub__0aa8568f884f3e029879d0f6ee3f9797dbf13d4d894c4ee72477b0324
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__efb35c8da7b5aed9da9dab815404c36c73da256d54cf499c9928f0f7a9731355(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f7215b5623af501f974b2f29392dea31432a927796de0da85d3d78483a9bce20(
     value: builtins.str,
 ) -> None:
@@ -1241,6 +1287,7 @@ def _typecheckingstub__6fee7cf4751bb6d61ad45aa77a38ee0dbb443ec95d9c1e9c0a3ac5a53
     function_version: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     request_mapping_template: typing.Optional[builtins.str] = None,
     response_mapping_template: typing.Optional[builtins.str] = None,
     runtime: typing.Optional[typing.Union[AppsyncFunctionRuntime, typing.Dict[builtins.str, typing.Any]]] = None,

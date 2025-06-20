@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ecr_image`
 
-Refer to the Terraform Registry for docs: [`data_aws_ecr_image`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image).
+Refer to the Terraform Registry for docs: [`data_aws_ecr_image`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsEcrImage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsEcrImage.DataAwsEcrImage",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image aws_ecr_image}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image aws_ecr_image}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class DataAwsEcrImage(
         image_digest: typing.Optional[builtins.str] = None,
         image_tag: typing.Optional[builtins.str] = None,
         most_recent: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         registry_id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -65,16 +66,17 @@ class DataAwsEcrImage(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image aws_ecr_image} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image aws_ecr_image} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
-        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
-        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
-        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
+        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
+        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
+        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#region DataAwsEcrImage#region}
+        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -93,6 +95,7 @@ class DataAwsEcrImage(
             image_digest=image_digest,
             image_tag=image_tag,
             most_recent=most_recent,
+            region=region,
             registry_id=registry_id,
             connection=connection,
             count=count,
@@ -118,7 +121,7 @@ class DataAwsEcrImage(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsEcrImage to import.
-        :param import_from_id: The id of the existing DataAwsEcrImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsEcrImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsEcrImage to import is found.
         '''
         if __debug__:
@@ -144,6 +147,10 @@ class DataAwsEcrImage(
     @jsii.member(jsii_name="resetMostRecent")
     def reset_most_recent(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMostRecent", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRegistryId")
     def reset_registry_id(self) -> None:
@@ -203,6 +210,11 @@ class DataAwsEcrImage(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "mostRecentInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="registryIdInput")
@@ -266,6 +278,18 @@ class DataAwsEcrImage(
         jsii.set(self, "mostRecent", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2df5c6b8490e751b398aaa69f883fd308cdc1e8d8e30822c85f9ceb5099cd78a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="registryId")
     def registry_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "registryId"))
@@ -306,6 +330,7 @@ class DataAwsEcrImage(
         "image_digest": "imageDigest",
         "image_tag": "imageTag",
         "most_recent": "mostRecent",
+        "region": "region",
         "registry_id": "registryId",
     },
 )
@@ -325,6 +350,7 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         image_digest: typing.Optional[builtins.str] = None,
         image_tag: typing.Optional[builtins.str] = None,
         most_recent: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         registry_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -335,12 +361,13 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
-        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
-        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
-        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
+        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
+        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
+        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#region DataAwsEcrImage#region}
+        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -358,6 +385,7 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument image_digest", value=image_digest, expected_type=type_hints["image_digest"])
             check_type(argname="argument image_tag", value=image_tag, expected_type=type_hints["image_tag"])
             check_type(argname="argument most_recent", value=most_recent, expected_type=type_hints["most_recent"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "repository_name": repository_name,
@@ -384,6 +412,8 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["image_tag"] = image_tag
         if most_recent is not None:
             self._values["most_recent"] = most_recent
+        if region is not None:
+            self._values["region"] = region
         if registry_id is not None:
             self._values["registry_id"] = registry_id
 
@@ -453,14 +483,14 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def repository_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.'''
         result = self._values.get("repository_name")
         assert result is not None, "Required property 'repository_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -470,13 +500,13 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def image_digest(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.'''
         result = self._values.get("image_digest")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image_tag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.'''
         result = self._values.get("image_tag")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -484,13 +514,22 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def most_recent(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.'''
         result = self._values.get("most_recent")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#region DataAwsEcrImage#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def registry_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.'''
         result = self._values.get("registry_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -522,6 +561,7 @@ def _typecheckingstub__ebee225fa7446bf80bbfb3c91a413878edaf9d1bf014f0bfd8489e965
     image_digest: typing.Optional[builtins.str] = None,
     image_tag: typing.Optional[builtins.str] = None,
     most_recent: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     registry_id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -567,6 +607,12 @@ def _typecheckingstub__0f009cd864af314444b1a0aba08cd67bd5ed8cb6da23b0f011e1f6633
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2df5c6b8490e751b398aaa69f883fd308cdc1e8d8e30822c85f9ceb5099cd78a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8555c7e805332a747f31491a5885fcbb683b8680825ac9ff1e684618cd8919b3(
     value: builtins.str,
 ) -> None:
@@ -593,6 +639,7 @@ def _typecheckingstub__a2a962c6801a5d46cdb3172153e8205cb3dab1c6ee3b0fdd612ab4c68
     image_digest: typing.Optional[builtins.str] = None,
     image_tag: typing.Optional[builtins.str] = None,
     most_recent: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     registry_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

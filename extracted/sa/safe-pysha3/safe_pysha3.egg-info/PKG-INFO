@@ -1,7 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: safe-pysha3
-Version: 1.0.4
-Summary: SHA-3 (Keccak) for Python 3.9 - 3.11
+Version: 1.0.5
+Summary: SHA-3 (Keccak) for Python 3.9 - 3.13
 Home-page: https://github.com/5afe/pysha3
 Author: Christian Heimes
 Author-email: christian@python.org
@@ -26,8 +26,22 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Security :: Cryptography
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: summary
 
 ======
 pysha3

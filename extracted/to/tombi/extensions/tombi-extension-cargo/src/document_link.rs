@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use crate::{
-    find_workspace_cargo_toml, get_path_crate_cargo_toml, get_workspace_path,
+    find_path_crate_cargo_toml, find_workspace_cargo_toml, get_workspace_path,
     goto_workspace_member_crates, load_cargo_toml,
 };
 use itertools::Itertools;
@@ -25,10 +25,10 @@ pub enum DocumentLinkToolTip {
     WorkspaceCargoToml,
 }
 
-impl Into<&'static str> for &DocumentLinkToolTip {
+impl From<&DocumentLinkToolTip> for &'static str {
     #[inline]
-    fn into(self) -> &'static str {
-        match self {
+    fn from(val: &DocumentLinkToolTip) -> Self {
+        match val {
             DocumentLinkToolTip::GitRepository => "Open Git Repository",
             DocumentLinkToolTip::Registory => "Open Registry",
             DocumentLinkToolTip::CrateIo => "Open crate.io",
@@ -39,17 +39,17 @@ impl Into<&'static str> for &DocumentLinkToolTip {
     }
 }
 
-impl Into<&'static str> for DocumentLinkToolTip {
+impl From<DocumentLinkToolTip> for &'static str {
     #[inline]
-    fn into(self) -> &'static str {
-        (&self).into()
+    fn from(val: DocumentLinkToolTip) -> Self {
+        (&val).into()
     }
 }
 
-impl Into<Cow<'static, str>> for DocumentLinkToolTip {
+impl From<DocumentLinkToolTip> for Cow<'static, str> {
     #[inline]
-    fn into(self) -> Cow<'static, str> {
-        Cow::Borrowed(self.into())
+    fn from(val: DocumentLinkToolTip) -> Self {
+        Cow::Borrowed(val.into())
     }
 }
 
@@ -81,6 +81,16 @@ pub async fn document_link(
             &cargo_toml_path,
             toml_version,
         )?);
+
+        // For Root Package
+        // See: https://doc.rust-lang.org/cargo/reference/workspaces.html#root-package
+        if document_tree.contains_key("package") {
+            document_links.extend(document_link_for_crate_cargo_toml(
+                document_tree,
+                &cargo_toml_path,
+                toml_version,
+            )?);
+        }
     } else {
         document_links.extend(document_link_for_crate_cargo_toml(
             document_tree,
@@ -216,7 +226,7 @@ fn document_link_for_crate_cargo_toml(
         // Support Workspace
         // See: https://doc.rust-lang.org/cargo/reference/manifest.html#the-workspace-field
         if let Some((_, tombi_document_tree::Value::String(workspace_path))) =
-            dig_keys(&crate_document_tree, &["package", "workspace"])
+            dig_keys(crate_document_tree, &["package", "workspace"])
         {
             if let Ok(target) = Url::from_file_path(&workspace_cargo_toml_path) {
                 total_document_links.push(tombi_extension::DocumentLink {
@@ -317,7 +327,7 @@ fn document_link_for_crate_cargo_toml(
             }
         }
     } else {
-        let registories = get_registories(&crate_cargo_toml_path, toml_version).unwrap_or_default();
+        let registories = get_registories(crate_cargo_toml_path, toml_version).unwrap_or_default();
 
         for (crate_key, crate_value) in total_dependencies {
             if let Ok(document_links) = document_link_for_dependency(
@@ -397,8 +407,7 @@ fn document_link_for_crate_dependency_has_workspace(
                     if is_workspace.value() {
                         if let Some(workspace_crate_value) = workspace_dependencies.get(&crate_key)
                         {
-                            if let Ok(mut target) = Url::from_file_path(&workspace_cargo_toml_path)
-                            {
+                            if let Ok(mut target) = Url::from_file_path(workspace_cargo_toml_path) {
                                 let mut document_links = document_link_for_workspace_dependency(
                                     crate_key,
                                     workspace_crate_value,
@@ -450,7 +459,7 @@ fn document_link_for_dependency(
 
         if let Some(tombi_document_tree::Value::String(crate_path)) = table.get("path") {
             if let Some((path_target_cargo_toml_path, path_target_document_tree)) =
-                get_path_crate_cargo_toml(
+                find_path_crate_cargo_toml(
                     crate_cargo_toml_path,
                     std::path::Path::new(crate_path.value()),
                     toml_version,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-embedded-qemu
-Version: 1.16.1
+Version: 1.16.2
 Summary: Make pytest-embedded plugin work with QEMU.
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Requires-Python: >=3.7
@@ -22,9 +22,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Testing
 License-File: LICENSE
-Requires-Dist: pytest-embedded~=1.16.1
+Requires-Dist: pytest-embedded~=1.16.2
 Requires-Dist: qemu.qmp==0.0.3
-Requires-Dist: pytest-embedded-idf~=1.16.1 ; extra == "idf"
+Requires-Dist: pytest-embedded-idf~=1.16.2 ; extra == "idf"
 Project-URL: changelog, https://github.com/espressif/pytest-embedded/blob/main/CHANGELOG.md
 Project-URL: documentation, https://docs.espressif.com/projects/pytest-embedded/en/latest/
 Project-URL: homepage, https://github.com/espressif/pytest-embedded

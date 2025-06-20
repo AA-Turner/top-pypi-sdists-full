@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_queue`
 
-Refer to the Terraform Registry for docs: [`aws_connect_queue`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue).
+Refer to the Terraform Registry for docs: [`aws_connect_queue`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectQueue(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectQueue.ConnectQueue",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue aws_connect_queue}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue aws_connect_queue}.'''
 
     def __init__(
         self,
@@ -59,6 +59,7 @@ class ConnectQueue(
         max_contacts: typing.Optional[jsii.Number] = None,
         outbound_caller_config: typing.Optional[typing.Union["ConnectQueueOutboundCallerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         quick_connect_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -70,21 +71,22 @@ class ConnectQueue(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue aws_connect_queue} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue aws_connect_queue} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param hours_of_operation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#hours_of_operation_id ConnectQueue#hours_of_operation_id}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#instance_id ConnectQueue#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#name ConnectQueue#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#description ConnectQueue#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#id ConnectQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#max_contacts ConnectQueue#max_contacts}.
-        :param outbound_caller_config: outbound_caller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_config ConnectQueue#outbound_caller_config}
-        :param quick_connect_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#quick_connect_ids ConnectQueue#quick_connect_ids}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#status ConnectQueue#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#tags ConnectQueue#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#tags_all ConnectQueue#tags_all}.
+        :param hours_of_operation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#hours_of_operation_id ConnectQueue#hours_of_operation_id}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#instance_id ConnectQueue#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#name ConnectQueue#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#description ConnectQueue#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#id ConnectQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#max_contacts ConnectQueue#max_contacts}.
+        :param outbound_caller_config: outbound_caller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_config ConnectQueue#outbound_caller_config}
+        :param quick_connect_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#quick_connect_ids ConnectQueue#quick_connect_ids}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#region ConnectQueue#region}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#status ConnectQueue#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#tags ConnectQueue#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#tags_all ConnectQueue#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,6 +108,7 @@ class ConnectQueue(
             max_contacts=max_contacts,
             outbound_caller_config=outbound_caller_config,
             quick_connect_ids=quick_connect_ids,
+            region=region,
             status=status,
             tags=tags,
             tags_all=tags_all,
@@ -133,7 +136,7 @@ class ConnectQueue(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectQueue to import.
-        :param import_from_id: The id of the existing ConnectQueue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectQueue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectQueue to import is found.
         '''
         if __debug__:
@@ -153,9 +156,9 @@ class ConnectQueue(
         outbound_flow_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param outbound_caller_id_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_id_name ConnectQueue#outbound_caller_id_name}.
-        :param outbound_caller_id_number_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_id_number_id ConnectQueue#outbound_caller_id_number_id}.
-        :param outbound_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_flow_id ConnectQueue#outbound_flow_id}.
+        :param outbound_caller_id_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_id_name ConnectQueue#outbound_caller_id_name}.
+        :param outbound_caller_id_number_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_id_number_id ConnectQueue#outbound_caller_id_number_id}.
+        :param outbound_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_flow_id ConnectQueue#outbound_flow_id}.
         '''
         value = ConnectQueueOutboundCallerConfig(
             outbound_caller_id_name=outbound_caller_id_name,
@@ -184,6 +187,10 @@ class ConnectQueue(
     @jsii.member(jsii_name="resetQuickConnectIds")
     def reset_quick_connect_ids(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetQuickConnectIds", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetStatus")
     def reset_status(self) -> None:
@@ -268,6 +275,11 @@ class ConnectQueue(
     @jsii.member(jsii_name="quickConnectIdsInput")
     def quick_connect_ids_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "quickConnectIdsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="statusInput")
@@ -371,6 +383,18 @@ class ConnectQueue(
         jsii.set(self, "quickConnectIds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27eb297bfdd458ffdc1c43ef5264dcbc98bb9a47a2291c4ab6442578056bb857)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="status")
     def status(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "status"))
@@ -426,6 +450,7 @@ class ConnectQueue(
         "max_contacts": "maxContacts",
         "outbound_caller_config": "outboundCallerConfig",
         "quick_connect_ids": "quickConnectIds",
+        "region": "region",
         "status": "status",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -450,6 +475,7 @@ class ConnectQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         max_contacts: typing.Optional[jsii.Number] = None,
         outbound_caller_config: typing.Optional[typing.Union["ConnectQueueOutboundCallerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         quick_connect_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -462,17 +488,18 @@ class ConnectQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param hours_of_operation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#hours_of_operation_id ConnectQueue#hours_of_operation_id}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#instance_id ConnectQueue#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#name ConnectQueue#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#description ConnectQueue#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#id ConnectQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#max_contacts ConnectQueue#max_contacts}.
-        :param outbound_caller_config: outbound_caller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_config ConnectQueue#outbound_caller_config}
-        :param quick_connect_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#quick_connect_ids ConnectQueue#quick_connect_ids}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#status ConnectQueue#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#tags ConnectQueue#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#tags_all ConnectQueue#tags_all}.
+        :param hours_of_operation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#hours_of_operation_id ConnectQueue#hours_of_operation_id}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#instance_id ConnectQueue#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#name ConnectQueue#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#description ConnectQueue#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#id ConnectQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#max_contacts ConnectQueue#max_contacts}.
+        :param outbound_caller_config: outbound_caller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_config ConnectQueue#outbound_caller_config}
+        :param quick_connect_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#quick_connect_ids ConnectQueue#quick_connect_ids}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#region ConnectQueue#region}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#status ConnectQueue#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#tags ConnectQueue#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#tags_all ConnectQueue#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -495,6 +522,7 @@ class ConnectQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument max_contacts", value=max_contacts, expected_type=type_hints["max_contacts"])
             check_type(argname="argument outbound_caller_config", value=outbound_caller_config, expected_type=type_hints["outbound_caller_config"])
             check_type(argname="argument quick_connect_ids", value=quick_connect_ids, expected_type=type_hints["quick_connect_ids"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -527,6 +555,8 @@ class ConnectQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["outbound_caller_config"] = outbound_caller_config
         if quick_connect_ids is not None:
             self._values["quick_connect_ids"] = quick_connect_ids
+        if region is not None:
+            self._values["region"] = region
         if status is not None:
             self._values["status"] = status
         if tags is not None:
@@ -600,34 +630,34 @@ class ConnectQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def hours_of_operation_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#hours_of_operation_id ConnectQueue#hours_of_operation_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#hours_of_operation_id ConnectQueue#hours_of_operation_id}.'''
         result = self._values.get("hours_of_operation_id")
         assert result is not None, "Required property 'hours_of_operation_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#instance_id ConnectQueue#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#instance_id ConnectQueue#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#name ConnectQueue#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#name ConnectQueue#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#description ConnectQueue#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#description ConnectQueue#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#id ConnectQueue#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#id ConnectQueue#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -637,7 +667,7 @@ class ConnectQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_contacts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#max_contacts ConnectQueue#max_contacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#max_contacts ConnectQueue#max_contacts}.'''
         result = self._values.get("max_contacts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -647,32 +677,41 @@ class ConnectQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ConnectQueueOutboundCallerConfig"]:
         '''outbound_caller_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_config ConnectQueue#outbound_caller_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_config ConnectQueue#outbound_caller_config}
         '''
         result = self._values.get("outbound_caller_config")
         return typing.cast(typing.Optional["ConnectQueueOutboundCallerConfig"], result)
 
     @builtins.property
     def quick_connect_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#quick_connect_ids ConnectQueue#quick_connect_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#quick_connect_ids ConnectQueue#quick_connect_ids}.'''
         result = self._values.get("quick_connect_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#region ConnectQueue#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#status ConnectQueue#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#status ConnectQueue#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#tags ConnectQueue#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#tags ConnectQueue#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#tags_all ConnectQueue#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#tags_all ConnectQueue#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -706,9 +745,9 @@ class ConnectQueueOutboundCallerConfig:
         outbound_flow_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param outbound_caller_id_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_id_name ConnectQueue#outbound_caller_id_name}.
-        :param outbound_caller_id_number_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_id_number_id ConnectQueue#outbound_caller_id_number_id}.
-        :param outbound_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_flow_id ConnectQueue#outbound_flow_id}.
+        :param outbound_caller_id_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_id_name ConnectQueue#outbound_caller_id_name}.
+        :param outbound_caller_id_number_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_id_number_id ConnectQueue#outbound_caller_id_number_id}.
+        :param outbound_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_flow_id ConnectQueue#outbound_flow_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e5fa18310d09cbedc433dc9653ebc37e9ac2bd836cb387cbca9a8a8d039af12)
@@ -725,19 +764,19 @@ class ConnectQueueOutboundCallerConfig:
 
     @builtins.property
     def outbound_caller_id_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_id_name ConnectQueue#outbound_caller_id_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_id_name ConnectQueue#outbound_caller_id_name}.'''
         result = self._values.get("outbound_caller_id_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def outbound_caller_id_number_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_caller_id_number_id ConnectQueue#outbound_caller_id_number_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_caller_id_number_id ConnectQueue#outbound_caller_id_number_id}.'''
         result = self._values.get("outbound_caller_id_number_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def outbound_flow_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_queue#outbound_flow_id ConnectQueue#outbound_flow_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_queue#outbound_flow_id ConnectQueue#outbound_flow_id}.'''
         result = self._values.get("outbound_flow_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -873,6 +912,7 @@ def _typecheckingstub__950588ac866f0783d93ad368e9aacd3f3ea5ab269111a388f6d9b2c7c
     max_contacts: typing.Optional[jsii.Number] = None,
     outbound_caller_config: typing.Optional[typing.Union[ConnectQueueOutboundCallerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     quick_connect_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -938,6 +978,12 @@ def _typecheckingstub__c34d9c798818548100ad1937325f39f30d9d29196e366bd1ac714130c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27eb297bfdd458ffdc1c43ef5264dcbc98bb9a47a2291c4ab6442578056bb857(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__55f5b21d40bbb46aafccd1a99b911964dcdcc8c7499856e86c285253ecd03cd4(
     value: builtins.str,
 ) -> None:
@@ -973,6 +1019,7 @@ def _typecheckingstub__640b7faf5f90803edc40f95bafbd14ab4d97df2bf8a1f0643fc2f5f7e
     max_contacts: typing.Optional[jsii.Number] = None,
     outbound_caller_config: typing.Optional[typing.Union[ConnectQueueOutboundCallerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     quick_connect_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

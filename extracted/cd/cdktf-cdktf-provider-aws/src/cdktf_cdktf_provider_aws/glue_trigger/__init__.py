@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_trigger`
 
-Refer to the Terraform Registry for docs: [`aws_glue_trigger`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger).
+Refer to the Terraform Registry for docs: [`aws_glue_trigger`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueTrigger(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueTrigger.GlueTrigger",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger aws_glue_trigger}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger aws_glue_trigger}.'''
 
     def __init__(
         self,
@@ -59,6 +59,7 @@ class GlueTrigger(
         event_batching_condition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GlueTriggerEventBatchingCondition", typing.Dict[builtins.str, typing.Any]]]]] = None,
         id: typing.Optional[builtins.str] = None,
         predicate: typing.Optional[typing.Union["GlueTriggerPredicate", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         schedule: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -73,24 +74,25 @@ class GlueTrigger(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger aws_glue_trigger} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger aws_glue_trigger} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#actions GlueTrigger#actions}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#name GlueTrigger#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#type GlueTrigger#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#description GlueTrigger#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#enabled GlueTrigger#enabled}.
-        :param event_batching_condition: event_batching_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#event_batching_condition GlueTrigger#event_batching_condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#id GlueTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#predicate GlueTrigger#predicate}
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#schedule GlueTrigger#schedule}.
-        :param start_on_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#start_on_creation GlueTrigger#start_on_creation}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#tags GlueTrigger#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#tags_all GlueTrigger#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#timeouts GlueTrigger#timeouts}
-        :param workflow_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#workflow_name GlueTrigger#workflow_name}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#actions GlueTrigger#actions}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#name GlueTrigger#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#type GlueTrigger#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#description GlueTrigger#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#enabled GlueTrigger#enabled}.
+        :param event_batching_condition: event_batching_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#event_batching_condition GlueTrigger#event_batching_condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#id GlueTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#predicate GlueTrigger#predicate}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#region GlueTrigger#region}
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#schedule GlueTrigger#schedule}.
+        :param start_on_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#start_on_creation GlueTrigger#start_on_creation}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#tags GlueTrigger#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#tags_all GlueTrigger#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#timeouts GlueTrigger#timeouts}
+        :param workflow_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#workflow_name GlueTrigger#workflow_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,6 +114,7 @@ class GlueTrigger(
             event_batching_condition=event_batching_condition,
             id=id,
             predicate=predicate,
+            region=region,
             schedule=schedule,
             start_on_creation=start_on_creation,
             tags=tags,
@@ -142,7 +145,7 @@ class GlueTrigger(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueTrigger to import.
-        :param import_from_id: The id of the existing GlueTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueTrigger to import is found.
         '''
         if __debug__:
@@ -187,8 +190,8 @@ class GlueTrigger(
         logical: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#conditions GlueTrigger#conditions}
-        :param logical: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#logical GlueTrigger#logical}.
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#conditions GlueTrigger#conditions}
+        :param logical: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#logical GlueTrigger#logical}.
         '''
         value = GlueTriggerPredicate(conditions=conditions, logical=logical)
 
@@ -203,9 +206,9 @@ class GlueTrigger(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#create GlueTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#delete GlueTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#update GlueTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#create GlueTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#delete GlueTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#update GlueTrigger#update}.
         '''
         value = GlueTriggerTimeouts(create=create, delete=delete, update=update)
 
@@ -230,6 +233,10 @@ class GlueTrigger(
     @jsii.member(jsii_name="resetPredicate")
     def reset_predicate(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPredicate", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSchedule")
     def reset_schedule(self) -> None:
@@ -340,6 +347,11 @@ class GlueTrigger(
         return typing.cast(typing.Optional["GlueTriggerPredicate"], jsii.get(self, "predicateInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="scheduleInput")
     def schedule_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scheduleInput"))
@@ -430,6 +442,18 @@ class GlueTrigger(
             type_hints = typing.get_type_hints(_typecheckingstub__6e8c3cf4c583554ce0a278cdabbc786c213160539716c3554f82dcdd777aa935)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49525573727647b1fd1e2158022e6cd9a94216d368560f22bf69bcf0a8ef6200)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="schedule")
@@ -533,12 +557,12 @@ class GlueTriggerActions:
         timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#arguments GlueTrigger#arguments}.
-        :param crawler_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.
-        :param notification_property: notification_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#notification_property GlueTrigger#notification_property}
-        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#security_configuration GlueTrigger#security_configuration}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#timeout GlueTrigger#timeout}.
+        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#arguments GlueTrigger#arguments}.
+        :param crawler_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.
+        :param notification_property: notification_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#notification_property GlueTrigger#notification_property}
+        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#security_configuration GlueTrigger#security_configuration}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#timeout GlueTrigger#timeout}.
         '''
         if isinstance(notification_property, dict):
             notification_property = GlueTriggerActionsNotificationProperty(**notification_property)
@@ -566,19 +590,19 @@ class GlueTriggerActions:
 
     @builtins.property
     def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#arguments GlueTrigger#arguments}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#arguments GlueTrigger#arguments}.'''
         result = self._values.get("arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def crawler_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.'''
         result = self._values.get("crawler_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.'''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -588,20 +612,20 @@ class GlueTriggerActions:
     ) -> typing.Optional["GlueTriggerActionsNotificationProperty"]:
         '''notification_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#notification_property GlueTrigger#notification_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#notification_property GlueTrigger#notification_property}
         '''
         result = self._values.get("notification_property")
         return typing.cast(typing.Optional["GlueTriggerActionsNotificationProperty"], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#security_configuration GlueTrigger#security_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#security_configuration GlueTrigger#security_configuration}.'''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#timeout GlueTrigger#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#timeout GlueTrigger#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -719,7 +743,7 @@ class GlueTriggerActionsNotificationProperty:
         notify_delay_after: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#notify_delay_after GlueTrigger#notify_delay_after}.
+        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#notify_delay_after GlueTrigger#notify_delay_after}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa50f2a76c763b368fcaf821677838c6cbe0db64ad7a62271bdb42cb7bd96d97)
@@ -730,7 +754,7 @@ class GlueTriggerActionsNotificationProperty:
 
     @builtins.property
     def notify_delay_after(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#notify_delay_after GlueTrigger#notify_delay_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#notify_delay_after GlueTrigger#notify_delay_after}.'''
         result = self._values.get("notify_delay_after")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -836,7 +860,7 @@ class GlueTriggerActionsOutputReference(
         notify_delay_after: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#notify_delay_after GlueTrigger#notify_delay_after}.
+        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#notify_delay_after GlueTrigger#notify_delay_after}.
         '''
         value = GlueTriggerActionsNotificationProperty(
             notify_delay_after=notify_delay_after
@@ -1006,6 +1030,7 @@ class GlueTriggerActionsOutputReference(
         "event_batching_condition": "eventBatchingCondition",
         "id": "id",
         "predicate": "predicate",
+        "region": "region",
         "schedule": "schedule",
         "start_on_creation": "startOnCreation",
         "tags": "tags",
@@ -1033,6 +1058,7 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         event_batching_condition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GlueTriggerEventBatchingCondition", typing.Dict[builtins.str, typing.Any]]]]] = None,
         id: typing.Optional[builtins.str] = None,
         predicate: typing.Optional[typing.Union["GlueTriggerPredicate", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         schedule: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1048,20 +1074,21 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#actions GlueTrigger#actions}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#name GlueTrigger#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#type GlueTrigger#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#description GlueTrigger#description}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#enabled GlueTrigger#enabled}.
-        :param event_batching_condition: event_batching_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#event_batching_condition GlueTrigger#event_batching_condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#id GlueTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#predicate GlueTrigger#predicate}
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#schedule GlueTrigger#schedule}.
-        :param start_on_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#start_on_creation GlueTrigger#start_on_creation}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#tags GlueTrigger#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#tags_all GlueTrigger#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#timeouts GlueTrigger#timeouts}
-        :param workflow_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#workflow_name GlueTrigger#workflow_name}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#actions GlueTrigger#actions}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#name GlueTrigger#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#type GlueTrigger#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#description GlueTrigger#description}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#enabled GlueTrigger#enabled}.
+        :param event_batching_condition: event_batching_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#event_batching_condition GlueTrigger#event_batching_condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#id GlueTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#predicate GlueTrigger#predicate}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#region GlueTrigger#region}
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#schedule GlueTrigger#schedule}.
+        :param start_on_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#start_on_creation GlueTrigger#start_on_creation}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#tags GlueTrigger#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#tags_all GlueTrigger#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#timeouts GlueTrigger#timeouts}
+        :param workflow_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#workflow_name GlueTrigger#workflow_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1086,6 +1113,7 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument event_batching_condition", value=event_batching_condition, expected_type=type_hints["event_batching_condition"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument predicate", value=predicate, expected_type=type_hints["predicate"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             check_type(argname="argument start_on_creation", value=start_on_creation, expected_type=type_hints["start_on_creation"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1121,6 +1149,8 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if predicate is not None:
             self._values["predicate"] = predicate
+        if region is not None:
+            self._values["region"] = region
         if schedule is not None:
             self._values["schedule"] = schedule
         if start_on_creation is not None:
@@ -1204,7 +1234,7 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GlueTriggerActions]]:
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#actions GlueTrigger#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#actions GlueTrigger#actions}
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -1212,21 +1242,21 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#name GlueTrigger#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#name GlueTrigger#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#type GlueTrigger#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#type GlueTrigger#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#description GlueTrigger#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#description GlueTrigger#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1234,7 +1264,7 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#enabled GlueTrigger#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#enabled GlueTrigger#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1244,14 +1274,14 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueTriggerEventBatchingCondition"]]]:
         '''event_batching_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#event_batching_condition GlueTrigger#event_batching_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#event_batching_condition GlueTrigger#event_batching_condition}
         '''
         result = self._values.get("event_batching_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueTriggerEventBatchingCondition"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#id GlueTrigger#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#id GlueTrigger#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1263,14 +1293,23 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def predicate(self) -> typing.Optional["GlueTriggerPredicate"]:
         '''predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#predicate GlueTrigger#predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#predicate GlueTrigger#predicate}
         '''
         result = self._values.get("predicate")
         return typing.cast(typing.Optional["GlueTriggerPredicate"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#region GlueTrigger#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def schedule(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#schedule GlueTrigger#schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#schedule GlueTrigger#schedule}.'''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1278,19 +1317,19 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_on_creation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#start_on_creation GlueTrigger#start_on_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#start_on_creation GlueTrigger#start_on_creation}.'''
         result = self._values.get("start_on_creation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#tags GlueTrigger#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#tags GlueTrigger#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#tags_all GlueTrigger#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#tags_all GlueTrigger#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1298,14 +1337,14 @@ class GlueTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GlueTriggerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#timeouts GlueTrigger#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#timeouts GlueTrigger#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GlueTriggerTimeouts"], result)
 
     @builtins.property
     def workflow_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#workflow_name GlueTrigger#workflow_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#workflow_name GlueTrigger#workflow_name}.'''
         result = self._values.get("workflow_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1334,8 +1373,8 @@ class GlueTriggerEventBatchingCondition:
         batch_window: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#batch_size GlueTrigger#batch_size}.
-        :param batch_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#batch_window GlueTrigger#batch_window}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#batch_size GlueTrigger#batch_size}.
+        :param batch_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#batch_window GlueTrigger#batch_window}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76079a73c90cfecc2ab1061ae62399e170e1379964991a96c450e231b39395b4)
@@ -1349,14 +1388,14 @@ class GlueTriggerEventBatchingCondition:
 
     @builtins.property
     def batch_size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#batch_size GlueTrigger#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#batch_size GlueTrigger#batch_size}.'''
         result = self._values.get("batch_size")
         assert result is not None, "Required property 'batch_size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def batch_window(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#batch_window GlueTrigger#batch_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#batch_window GlueTrigger#batch_window}.'''
         result = self._values.get("batch_window")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1560,8 +1599,8 @@ class GlueTriggerPredicate:
         logical: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#conditions GlueTrigger#conditions}
-        :param logical: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#logical GlueTrigger#logical}.
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#conditions GlueTrigger#conditions}
+        :param logical: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#logical GlueTrigger#logical}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6ec416d31b73e76f463993f3728ce46c85ccebfe8723f761ce498dc4f74f5d9)
@@ -1579,7 +1618,7 @@ class GlueTriggerPredicate:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueTriggerPredicateConditions"]]:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#conditions GlueTrigger#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#conditions GlueTrigger#conditions}
         '''
         result = self._values.get("conditions")
         assert result is not None, "Required property 'conditions' is missing"
@@ -1587,7 +1626,7 @@ class GlueTriggerPredicate:
 
     @builtins.property
     def logical(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#logical GlueTrigger#logical}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#logical GlueTrigger#logical}.'''
         result = self._values.get("logical")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1625,11 +1664,11 @@ class GlueTriggerPredicateConditions:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param crawler_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.
-        :param crawl_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#crawl_state GlueTrigger#crawl_state}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.
-        :param logical_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#logical_operator GlueTrigger#logical_operator}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#state GlueTrigger#state}.
+        :param crawler_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.
+        :param crawl_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#crawl_state GlueTrigger#crawl_state}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.
+        :param logical_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#logical_operator GlueTrigger#logical_operator}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#state GlueTrigger#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa99ba918e2e3c4fb6c37f7dc3e1e2ecb858211fcf44d92a69d04b02588f623c)
@@ -1652,31 +1691,31 @@ class GlueTriggerPredicateConditions:
 
     @builtins.property
     def crawler_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#crawler_name GlueTrigger#crawler_name}.'''
         result = self._values.get("crawler_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def crawl_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#crawl_state GlueTrigger#crawl_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#crawl_state GlueTrigger#crawl_state}.'''
         result = self._values.get("crawl_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#job_name GlueTrigger#job_name}.'''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def logical_operator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#logical_operator GlueTrigger#logical_operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#logical_operator GlueTrigger#logical_operator}.'''
         result = self._values.get("logical_operator")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#state GlueTrigger#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#state GlueTrigger#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2027,9 +2066,9 @@ class GlueTriggerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#create GlueTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#delete GlueTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#update GlueTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#create GlueTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#delete GlueTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#update GlueTrigger#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67dacc4cc0554be7e488ac870af1f2ac8b49bc90f9db93801c913c6f98b8939e)
@@ -2046,19 +2085,19 @@ class GlueTriggerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#create GlueTrigger#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#create GlueTrigger#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#delete GlueTrigger#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#delete GlueTrigger#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/glue_trigger#update GlueTrigger#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/glue_trigger#update GlueTrigger#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2209,6 +2248,7 @@ def _typecheckingstub__01bfc050bf709931d13082f3918c343af45a0ff3f34635f2e1975accb
     event_batching_condition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GlueTriggerEventBatchingCondition, typing.Dict[builtins.str, typing.Any]]]]] = None,
     id: typing.Optional[builtins.str] = None,
     predicate: typing.Optional[typing.Union[GlueTriggerPredicate, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     schedule: typing.Optional[builtins.str] = None,
     start_on_creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2266,6 +2306,12 @@ def _typecheckingstub__369b0bc11533b6a09d2ca78d623a79e2ef7e57e3528a87235fd56d067
     pass
 
 def _typecheckingstub__6e8c3cf4c583554ce0a278cdabbc786c213160539716c3554f82dcdd777aa935(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49525573727647b1fd1e2158022e6cd9a94216d368560f22bf69bcf0a8ef6200(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -2445,6 +2491,7 @@ def _typecheckingstub__bf3c0830ffbdadb3685f9b41e0a4f47cdb4095af7ba954febedf4c6e9
     event_batching_condition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GlueTriggerEventBatchingCondition, typing.Dict[builtins.str, typing.Any]]]]] = None,
     id: typing.Optional[builtins.str] = None,
     predicate: typing.Optional[typing.Union[GlueTriggerPredicate, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     schedule: typing.Optional[builtins.str] = None,
     start_on_creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk_emrserverless_with_delta_lake",
-    "version": "2.0.819",
+    "version": "2.0.820",
     "description": "A construct for the quick demo of EMR Serverless.",
     "license": "Apache-2.0",
     "url": "https://github.com/HsiehShuJeng/cdk-emrserverless-with-delta-lake.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_emrserverless_with_delta_lake._jsii": [
-            "cdk-emrserverless-with-delta-lake@2.0.819.jsii.tgz"
+            "cdk-emrserverless-with-delta-lake@2.0.820.jsii.tgz"
         ],
         "cdk_emrserverless_with_delta_lake": [
             "py.typed"

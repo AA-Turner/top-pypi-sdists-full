@@ -75,6 +75,8 @@ class MonitoringClient:
         elif config is None:
             config = MonitoringConfig(app_id, api_key)
 
+        config.set_default_hosts()
+
         self._config = config
         self._request_options = RequestOptions(config)
 
@@ -134,9 +136,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -148,7 +148,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -181,9 +181,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -195,7 +193,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -211,9 +209,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -225,7 +221,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -256,9 +252,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -270,7 +264,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -284,9 +278,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -302,7 +294,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -340,9 +332,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -358,7 +348,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -376,9 +366,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -394,7 +382,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -432,9 +420,7 @@ class MonitoringClient:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -450,7 +436,7 @@ class MonitoringClient:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -953,6 +939,8 @@ class MonitoringClientSync:
         elif config is None:
             config = MonitoringConfig(app_id, api_key)
 
+        config.set_default_hosts()
+
         self._config = config
         self._request_options = RequestOptions(config)
 
@@ -1011,9 +999,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1025,7 +1011,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -1058,9 +1044,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1072,7 +1056,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -1086,9 +1070,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1100,7 +1082,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -1131,9 +1113,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1145,7 +1125,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -1159,9 +1139,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1177,7 +1155,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -1215,9 +1193,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1233,7 +1209,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -1249,9 +1225,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1267,7 +1241,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]
@@ -1305,9 +1279,7 @@ class MonitoringClientSync:
         self,
         path: Annotated[
             StrictStr,
-            Field(
-                description='Path of the endpoint, anything after "/1" must be specified.'
-            ),
+            Field(description="Path of the endpoint, for example `1/newFeature`."),
         ],
         parameters: Annotated[
             Optional[Dict[str, Any]],
@@ -1323,7 +1295,7 @@ class MonitoringClientSync:
         This method lets you send requests to the Algolia REST API.
 
 
-        :param path: Path of the endpoint, anything after \"/1\" must be specified. (required)
+        :param path: Path of the endpoint, for example `1/newFeature`. (required)
         :type path: str
         :param parameters: Query parameters to apply to the current query.
         :type parameters: Dict[str, object]

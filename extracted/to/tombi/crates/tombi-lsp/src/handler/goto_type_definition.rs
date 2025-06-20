@@ -6,7 +6,7 @@ use tower_lsp::lsp_types::request::GotoTypeDefinitionParams;
 use crate::{
     backend::Backend,
     goto_type_definition::{get_type_definition, TypeDefinition},
-    handler::hover::get_hover_keys_and_range,
+    handler::hover::get_hover_keys_with_range,
 };
 
 #[tracing::instrument(level = "debug", skip_all)]
@@ -54,7 +54,7 @@ pub async fn handle_goto_type_definition(
 
     let (toml_version, _) = backend.source_toml_version(source_schema.as_ref()).await;
 
-    let Some((keys, range)) = get_hover_keys_and_range(&root, position, toml_version).await else {
+    let Some((keys, range)) = get_hover_keys_with_range(&root, position, toml_version).await else {
         return Ok(Default::default());
     };
 
@@ -82,7 +82,7 @@ pub async fn handle_goto_type_definition(
                 schema_url, range, ..
             }) => Some(vec![tombi_extension::DefinitionLocation {
                 uri: schema_url.into(),
-                range: range.into(),
+                range,
             }]),
             _ => Default::default(),
         },

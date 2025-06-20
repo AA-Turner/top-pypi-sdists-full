@@ -4,16 +4,16 @@
 requires = [
     'setuptools >= 77.0.0',
     'pkgconfig',
-    'passagemath-setup ~= 10.5.42.0',
-    'passagemath-environment ~= 10.5.42.0',
-    'passagemath-categories ~= 10.5.42.0',
-    'passagemath-ntl ~= 10.5.42.0',
-    'passagemath-flint ~= 10.5.42.0',
-    'passagemath-linbox ~= 10.5.42.0',
-    'passagemath-modules ~= 10.5.42.0',
+    'passagemath-setup ~= 10.5.43.0',
+    'passagemath-environment ~= 10.5.43.0',
+    'passagemath-categories ~= 10.5.43.0',
+    'passagemath-ntl ~= 10.5.43.0',
+    'passagemath-flint ~= 10.5.43.0',
+    'passagemath-linbox ~= 10.5.43.0',
+    'passagemath-modules ~= 10.5.43.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'cysignals >=1.11.2, != 1.12.0',
-    'passagemath-pari ~= 10.5.42.0',
+    'passagemath-pari ~= 10.5.43.0',
     'memory_allocator',
 ]
 build-backend = "setuptools.build_meta"
@@ -22,14 +22,15 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-singular"
 description = "passagemath: Computer algebra, algebraic geometry, singularity theory with Singular"
 dependencies = [
-    'passagemath-pari ~= 10.5.42.0',
+    'passagemath-pari ~= 10.5.43.0',
     'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator',
-    'passagemath-environment ~= 10.5.42.0',
-    'passagemath-categories ~= 10.5.42.0',
-    'passagemath-modules ~= 10.5.42.0',
-    'passagemath-flint ~= 10.5.42.0',
-    'passagemath-linbox ~= 10.5.42.0',
+    'pexpect >=4.8.0',
+    'passagemath-environment ~= 10.5.43.0',
+    'passagemath-categories ~= 10.5.43.0',
+    'passagemath-modules ~= 10.5.43.0',
+    'passagemath-flint ~= 10.5.43.0',
+    'passagemath-linbox ~= 10.5.43.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"

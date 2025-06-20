@@ -58,6 +58,8 @@ __all__ = (
     "GetJobRunRequestTypeDef",
     "GetJobRunResponseTypeDef",
     "HiveTypeDef",
+    "IdentityCenterConfigurationInputTypeDef",
+    "IdentityCenterConfigurationTypeDef",
     "ImageConfigurationInputTypeDef",
     "ImageConfigurationTypeDef",
     "InitialCapacityConfigTypeDef",
@@ -142,6 +144,10 @@ class ConfigurationOutputTypeDef(TypedDict):
     properties: NotRequired[Dict[str, str]]
     configurations: NotRequired[List[Dict[str, Any]]]
 
+class IdentityCenterConfigurationTypeDef(TypedDict):
+    identityCenterInstanceArn: NotRequired[str]
+    identityCenterApplicationArn: NotRequired[str]
+
 class ImageConfigurationTypeDef(TypedDict):
     imageUri: str
     resolvedImageDigest: NotRequired[str]
@@ -193,6 +199,9 @@ class ConfigurationTypeDef(TypedDict):
     classification: str
     properties: NotRequired[Mapping[str, str]]
     configurations: NotRequired[Sequence[Mapping[str, Any]]]
+
+class IdentityCenterConfigurationInputTypeDef(TypedDict):
+    identityCenterInstanceArn: NotRequired[str]
 
 class ImageConfigurationInputTypeDef(TypedDict):
     imageUri: NotRequired[str]
@@ -485,6 +494,7 @@ ApplicationTypeDef = TypedDict(
         "monitoringConfiguration": NotRequired[MonitoringConfigurationOutputTypeDef],
         "interactiveConfiguration": NotRequired[InteractiveConfigurationTypeDef],
         "schedulerConfiguration": NotRequired[SchedulerConfigurationTypeDef],
+        "identityCenterConfiguration": NotRequired[IdentityCenterConfigurationTypeDef],
     },
 )
 
@@ -561,6 +571,7 @@ CreateApplicationRequestTypeDef = TypedDict(
         "monitoringConfiguration": NotRequired[MonitoringConfigurationUnionTypeDef],
         "interactiveConfiguration": NotRequired[InteractiveConfigurationTypeDef],
         "schedulerConfiguration": NotRequired[SchedulerConfigurationTypeDef],
+        "identityCenterConfiguration": NotRequired[IdentityCenterConfigurationInputTypeDef],
     },
 )
 
@@ -580,6 +591,7 @@ class UpdateApplicationRequestTypeDef(TypedDict):
     runtimeConfiguration: NotRequired[Sequence[ConfigurationUnionTypeDef]]
     monitoringConfiguration: NotRequired[MonitoringConfigurationUnionTypeDef]
     schedulerConfiguration: NotRequired[SchedulerConfigurationTypeDef]
+    identityCenterConfiguration: NotRequired[IdentityCenterConfigurationInputTypeDef]
 
 class GetJobRunResponseTypeDef(TypedDict):
     jobRun: JobRunTypeDef

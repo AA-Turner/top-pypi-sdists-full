@@ -44,6 +44,11 @@ class SDKStub(object):
                 request_serializer=browserstack__sdk_dot_sdk__pb2.AutomationFrameworkStopRequest.SerializeToString,
                 response_deserializer=browserstack__sdk_dot_sdk__pb2.AutomationFrameworkStopResponse.FromString,
                 )
+        self.TestOrchestration = channel.unary_unary(
+                '/browserstack.sdk.v1.SDK/TestOrchestration',
+                request_serializer=browserstack__sdk_dot_sdk__pb2.TestOrchestrationRequest.SerializeToString,
+                response_deserializer=browserstack__sdk_dot_sdk__pb2.TestOrchestrationResponse.FromString,
+                )
         self.FindNearestHub = channel.unary_unary(
                 '/browserstack.sdk.v1.SDK/FindNearestHub',
                 request_serializer=browserstack__sdk_dot_sdk__pb2.FindNearestHubRequest.SerializeToString,
@@ -133,6 +138,11 @@ class SDKServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
     def AutomationFrameworkStop(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+    def TestOrchestration(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -228,6 +238,11 @@ def add_SDKServicer_to_server(servicer, server):
                     servicer.AutomationFrameworkStop,
                     request_deserializer=browserstack__sdk_dot_sdk__pb2.AutomationFrameworkStopRequest.FromString,
                     response_serializer=browserstack__sdk_dot_sdk__pb2.AutomationFrameworkStopResponse.SerializeToString,
+            ),
+            'TestOrchestration': grpc.unary_unary_rpc_method_handler(
+                    servicer.TestOrchestration,
+                    request_deserializer=browserstack__sdk_dot_sdk__pb2.TestOrchestrationRequest.FromString,
+                    response_serializer=browserstack__sdk_dot_sdk__pb2.TestOrchestrationResponse.SerializeToString,
             ),
             'FindNearestHub': grpc.unary_unary_rpc_method_handler(
                     servicer.FindNearestHub,
@@ -401,6 +416,22 @@ class SDK(object):
         return grpc.experimental.unary_unary(request, target, '/browserstack.sdk.v1.SDK/AutomationFrameworkStop',
             browserstack__sdk_dot_sdk__pb2.AutomationFrameworkStopRequest.SerializeToString,
             browserstack__sdk_dot_sdk__pb2.AutomationFrameworkStopResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+    @staticmethod
+    def TestOrchestration(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/browserstack.sdk.v1.SDK/TestOrchestration',
+            browserstack__sdk_dot_sdk__pb2.TestOrchestrationRequest.SerializeToString,
+            browserstack__sdk_dot_sdk__pb2.TestOrchestrationResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
     @staticmethod

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: supertokens_python
-Version: 0.29.2
+Version: 0.30.0
 Summary: SuperTokens SDK for Python
 Home-page: https://github.com/supertokens/supertokens-python
 Author: SuperTokens
@@ -34,6 +34,7 @@ Requires-Dist: aiosmtplib<4.0.0,>=1.1.6
 Requires-Dist: pkce<1.1.0
 Requires-Dist: pyotp<3
 Requires-Dist: python-dateutil<3
+Requires-Dist: pydantic<3.0.0,>=2.10.6
 Provides-Extra: fastapi
 Requires-Dist: fastapi; extra == "fastapi"
 Requires-Dist: uvicorn; extra == "fastapi"
@@ -64,6 +65,19 @@ Requires-Dist: gunicorn; extra == "drf"
 Requires-Dist: uvicorn; extra == "drf"
 Requires-Dist: python-dotenv==1.0.1; extra == "drf"
 Requires-Dist: tzdata; extra == "drf"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ![SuperTokens banner](https://raw.githubusercontent.com/supertokens/supertokens-logo/master/images/Artboard%20%E2%80%93%2027%402x.png)
 

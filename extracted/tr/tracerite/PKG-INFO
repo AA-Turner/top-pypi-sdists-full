@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tracerite
-Version: 1.1.2
+Version: 1.1.3
 Summary: Human-readable HTML tracebacks for Python exceptions
 Home-page: https://github.com/sanic-org/tracerite
 Author: Sanic Community

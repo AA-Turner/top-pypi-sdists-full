@@ -1,13 +1,12 @@
 Metadata-Version: 2.1
 Name: gs_quant
-Version: 1.4.2
+Version: 1.4.6
 Summary: Goldman Sachs Quant
 Home-page: https://marquee.gs.com
 Author: Goldman Sachs
 Author-email: developer@gs.com
 License: http://www.apache.org/licenses/LICENSE-2.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -37,7 +36,7 @@ Please refer to [Goldman Sachs Developer](https://developer.gs.com/docs/gsquant/
 
 ## Requirements
 
-* Python 3.8 or greater
+* Python 3.9 or greater
 * Access to PIP package manager
 
 ## Installation
@@ -50,9 +49,6 @@ pip install gs-quant
 
 You can find examples, guides and tutorials in the respective folders on [Goldman Sachs Developer](https://developer.gs.com/docs/gsquant/).
 
-## Contributions
-
-Contributions are encouraged! Please see [CONTRIBUTING](CONTRIBUTING.md) for more details.
 
 ## Help
 

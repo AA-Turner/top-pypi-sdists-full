@@ -9,7 +9,7 @@ use itertools::Itertools;
 use tombi_ast::AstNode;
 use tombi_config::TomlVersion;
 use tombi_document_tree::TryIntoDocumentTree;
-use tombi_schema_store::{dig_accessors, match_accessors};
+use tombi_schema_store::{dig_accessors, matches_accessors};
 use tower_lsp::lsp_types::Url;
 
 #[derive(Debug, Clone)]
@@ -86,10 +86,7 @@ fn find_member_pyproject_toml_paths<'a>(
 ) -> impl Iterator<Item = (&'a tombi_document_tree::String, std::path::PathBuf)> + 'a {
     let exclude_patterns = exclude_patterns
         .iter()
-        .filter_map(|pattern| match glob::Pattern::new(pattern.value()) {
-            Ok(exclude_glob) => Some(exclude_glob),
-            Err(_) => None,
-        })
+        .filter_map(|pattern| glob::Pattern::new(pattern.value()).ok())
         .collect_vec();
 
     member_patterns
@@ -148,8 +145,8 @@ fn goto_definition_for_member_pyproject_toml(
     toml_version: TomlVersion,
     jump_to_package: bool,
 ) -> Result<Vec<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
-    if match_accessors!(accessors, ["tool", "uv", "sources", _])
-        || match_accessors!(accessors, ["tool", "uv", "sources", _, "workspace"])
+    if matches_accessors!(accessors, ["tool", "uv", "sources", _])
+        || matches_accessors!(accessors, ["tool", "uv", "sources", _, "workspace"])
     {
         match goto_workspace_member(
             document_tree,
@@ -172,8 +169,8 @@ fn goto_definition_for_workspace_pyproject_toml(
     workspace_pyproject_toml_path: &std::path::Path,
     toml_version: TomlVersion,
 ) -> Result<Vec<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
-    if match_accessors!(accessors, ["tool", "uv", "workspace", "members"])
-        || match_accessors!(accessors, ["tool", "uv", "workspace", "members", _])
+    if matches_accessors!(accessors, ["tool", "uv", "workspace", "members"])
+        || matches_accessors!(accessors, ["tool", "uv", "workspace", "members", _])
     {
         goto_member_pyprojects(
             workspace_document_tree,
@@ -206,8 +203,8 @@ fn goto_workspace_member(
     jump_to_package: bool,
 ) -> Result<Option<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
     assert!(
-        match_accessors!(accessors, ["tool", "uv", "sources", _])
-            || match_accessors!(accessors, ["tool", "uv", "sources", _, "workspace"])
+        matches_accessors!(accessors, ["tool", "uv", "sources", _])
+            || matches_accessors!(accessors, ["tool", "uv", "sources", _, "workspace"])
     );
 
     let Some((workspace_pyproject_toml_path, workspace_pyproject_toml_document_tree)) =
@@ -274,29 +271,29 @@ fn goto_member_pyprojects(
     workspace_pyproject_toml_path: &std::path::Path,
     toml_version: TomlVersion,
 ) -> Result<Vec<PackageLocation>, tower_lsp::jsonrpc::Error> {
-    let member_patterns = if match_accessors!(accessors, ["tool", "uv", "workspace", "members", _])
-    {
-        let Some((_, tombi_document_tree::Value::String(member))) =
-            dig_accessors(workspace_document_tree, accessors)
-        else {
-            return Ok(Vec::with_capacity(0));
+    let member_patterns =
+        if matches_accessors!(accessors, ["tool", "uv", "workspace", "members", _]) {
+            let Some((_, tombi_document_tree::Value::String(member))) =
+                dig_accessors(workspace_document_tree, accessors)
+            else {
+                return Ok(Vec::with_capacity(0));
+            };
+            vec![member]
+        } else {
+            match tombi_document_tree::dig_keys(
+                workspace_document_tree,
+                &["tool", "uv", "workspace", "members"],
+            ) {
+                Some((_, tombi_document_tree::Value::Array(members))) => members
+                    .iter()
+                    .filter_map(|member| match member {
+                        tombi_document_tree::Value::String(member_pattern) => Some(member_pattern),
+                        _ => None,
+                    })
+                    .collect_vec(),
+                _ => vec![],
+            }
         };
-        vec![member]
-    } else {
-        match tombi_document_tree::dig_keys(
-            workspace_document_tree,
-            &["tool", "uv", "workspace", "members"],
-        ) {
-            Some((_, tombi_document_tree::Value::Array(members))) => members
-                .iter()
-                .filter_map(|member| match member {
-                    tombi_document_tree::Value::String(member_pattern) => Some(member_pattern),
-                    _ => None,
-                })
-                .collect_vec(),
-            _ => vec![],
-        }
-    };
 
     let Some(workspace_dir_path) = workspace_pyproject_toml_path.parent() else {
         return Ok(Vec::with_capacity(0));
@@ -405,10 +402,7 @@ fn find_member_project_toml_paths<'a>(
 ) -> impl Iterator<Item = (&'a tombi_document_tree::String, std::path::PathBuf)> + 'a {
     let exclude_patterns = exclude_patterns
         .iter()
-        .filter_map(|pattern| match glob::Pattern::new(pattern.value()) {
-            Ok(exclude_glob) => Some(exclude_glob),
-            Err(_) => None,
-        })
+        .filter_map(|pattern| glob::Pattern::new(pattern.value()).ok())
         .collect_vec();
 
     member_patterns

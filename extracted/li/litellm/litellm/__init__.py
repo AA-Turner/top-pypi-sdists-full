@@ -2,7 +2,7 @@
 import warnings
 
 warnings.filterwarnings("ignore", message=".*conflict with protected namespace.*")
-### INIT VARIABLES ###########
+### INIT VARIABLES ############
 import threading
 import os
 from typing import Callable, List, Optional, Dict, Union, Any, Literal, get_args
@@ -220,6 +220,7 @@ ssl_certificate: Optional[str] = None
 disable_streaming_logging: bool = False
 disable_token_counter: bool = False
 disable_add_transform_inline_image_block: bool = False
+disable_add_user_agent_to_request_tags: bool = False
 in_memory_llm_clients_cache: LLMClientCache = LLMClientCache()
 safe_memory_mode: bool = False
 enable_azure_ad_token_refresh: Optional[bool] = False
@@ -407,6 +408,7 @@ BEDROCK_CONVERSE_MODELS = [
     "meta.llama3-70b-instruct-v1:0",
     "mistral.mistral-large-2407-v1:0",
     "mistral.mistral-large-2402-v1:0",
+    "mistral.mistral-small-2402-v1:0",
     "meta.llama3-2-1b-instruct-v1:0",
     "meta.llama3-2-3b-instruct-v1:0",
     "meta.llama3-2-11b-instruct-v1:0",

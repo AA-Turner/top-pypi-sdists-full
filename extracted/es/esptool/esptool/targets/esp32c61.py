@@ -5,15 +5,13 @@
 import struct
 from typing import Dict
 
+from .esp32c3 import ESP32C3ROM
 from .esp32c6 import ESP32C6ROM
 
 
 class ESP32C61ROM(ESP32C6ROM):
     CHIP_NAME = "ESP32-C61"
     IMAGE_CHIP_ID = 20
-
-    # Magic value for ESP32C61
-    CHIP_DETECT_MAGIC_VALUE = [0x33F0206F, 0x2421606F]
 
     UART_DATE_REG_ADDR = 0x60000000 + 0x7C
 
@@ -53,12 +51,12 @@ class ESP32C61ROM(ESP32C6ROM):
 
     MEMORY_MAP = [
         [0x00000000, 0x00010000, "PADDING"],
-        [0x41800000, 0x42000000, "DROM"],
+        [0x42000000, 0x44000000, "DROM"],
         [0x40800000, 0x40860000, "DRAM"],
         [0x40800000, 0x40860000, "BYTE_ACCESSIBLE"],
         [0x4004AC00, 0x40050000, "DROM_MASK"],
         [0x40000000, 0x4004AC00, "IROM_MASK"],
-        [0x41000000, 0x41800000, "IROM"],
+        [0x42000000, 0x44000000, "IROM"],
         [0x40800000, 0x40860000, "IRAM"],
         [0x50000000, 0x50004000, "RTC_IRAM"],
         [0x50000000, 0x50004000, "RTC_DRAM"],
@@ -120,6 +118,10 @@ class ESP32C61ROM(ESP32C6ROM):
             "BASE_MAC": tuple(base_mac),
         }
         return macs.get(mac_type, None)
+
+    def watchdog_reset(self):
+        # Watchdog reset disabled in parent (ESP32-C6) ROM, re-enable it
+        ESP32C3ROM.watchdog_reset(self)
 
 
 class ESP32C61StubLoader(ESP32C61ROM):

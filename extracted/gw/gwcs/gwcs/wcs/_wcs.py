@@ -3,10 +3,10 @@ import functools
 import itertools
 import sys
 import warnings
+from copy import copy
 
 import astropy.units as u
 import numpy as np
-from astropy import utils as astutil
 from astropy.io import fits
 from astropy.modeling import fix_inputs, projections
 from astropy.modeling.bounding_box import ModelBoundingBox as Bbox
@@ -31,7 +31,7 @@ from gwcs.coordinate_frames import (
     CoordinateFrame,
     get_ctype_from_ucd,
 )
-from gwcs.utils import _toindex, is_high_level
+from gwcs.utils import _compute_lon_pole, _toindex, is_high_level
 
 from ._exception import NoConvergence
 from ._pipeline import ForwardTransform, Pipeline
@@ -117,13 +117,10 @@ class WCS(GWCSAPIMixin, Pipeline):
         self._pixel_shape = None
 
     def _add_units_input(
-        self, arrays: list[np.ndarray], frame: CoordinateFrame | None
+        self, arrays: np.ndarray | float, frame: CoordinateFrame | None
     ) -> tuple[u.Quantity, ...]:
         if frame is not None:
-            return tuple(
-                u.Quantity(array, unit)
-                for array, unit in zip(arrays, frame.unit, strict=False)
-            )
+            return frame.add_units(arrays)
 
         return arrays
 
@@ -131,10 +128,7 @@ class WCS(GWCSAPIMixin, Pipeline):
         self, arrays: list[u.Quantity], frame: CoordinateFrame | None
     ) -> tuple[np.ndarray, ...]:
         if frame is not None:
-            return tuple(
-                array.to_value(unit) if isinstance(array, u.Quantity) else array
-                for array, unit in zip(arrays, frame.unit, strict=False)
-            )
+            return frame.remove_units(arrays)
 
         return arrays
 
@@ -166,10 +160,7 @@ class WCS(GWCSAPIMixin, Pipeline):
         results = self._call_forward(
             *args, with_bounding_box=with_bounding_box, fill_value=fill_value, **kwargs
         )
-
         if with_units:
-            if not astutil.isiterable(results):
-                results = (results,)
             # values are always expected to be arrays or scalars not quantities
             results = self._remove_units_input(results, self.output_frame)
             high_level = values_to_high_level_objects(*results, low_level_wcs=self)
@@ -177,6 +168,85 @@ class WCS(GWCSAPIMixin, Pipeline):
                 high_level = high_level[0]
             return high_level
         return results
+
+    def _evaluate_transform(
+        self,
+        transform,
+        from_frame,
+        to_frame,
+        *args,
+        with_bounding_box: bool = True,
+        fill_value: float | np.number = np.nan,
+        **kwargs,
+    ):
+        """
+        Introduces or removes units from the arguments as need so that the transform
+        can be successfully evaluated.
+
+        Notes
+        -----
+        Much of the logic in this method is due to the unfortunate fact that the
+        `uses_quantity` property for models is not reliable for determining if one
+        must pass quantities or not. It instead tells you:
+            1. If it has any parameter that is a quantity
+            2. It defaults to true for parameterless models.
+
+        This is problematic because its entirely possible to construct a model with
+        a parameter that is a quantity but the model itself either doesn't require
+        them or in fact cannot use them. This is a very rare case but it could happen.
+        Currently, this case is not handled, but it is worth noting in case it comes up
+
+        The more problematic case is for parameterless models. `uses_quantity` assumes
+        that if there are no parameters, then the model is agnostic to quantity inputs.
+        This is an incorrect assumption, even with in `astropy.modeling`'s built in
+        models.  The `Tabular1D` model for example has no "parameters" but it can
+        require quantities if its "points" construction input is a quantity. This
+        is the main case for the try/except block in this method.
+
+        Properly dealing with this will require upstream work in `astropy.modeling`
+        which is outside the scope of what GWCS can control.
+
+        to_frame is included as we really ought to be stripping the result of units
+        but we currently are not. API refactor should include addressing this.
+        """
+
+        # Validate that the input type matches what the transform expects
+        input_is_quantity = any(isinstance(a, u.Quantity) for a in args)
+
+        def _transform(*args):
+            """Wrap the transform evaluation"""
+
+            return transform(
+                *args,
+                with_bounding_box=with_bounding_box,
+                fill_value=fill_value,
+                **kwargs,
+            )
+
+        # Models with no parameters claim they use quantities but this may incorrectly
+        # introduce units so we don't at first
+        if (
+            not input_is_quantity
+            and transform.uses_quantity
+            and transform.parameters.size
+        ):
+            args = self._add_units_input(args, from_frame)
+        if not transform.uses_quantity and input_is_quantity:
+            args = self._remove_units_input(args, from_frame)
+
+        try:
+            return _transform(*args)
+        except u.UnitsError:
+            # In this case we are handling parameterless models that require units
+            # to function correctly.
+            if (
+                not input_is_quantity
+                and transform.uses_quantity
+                and not transform.parameters.size
+            ):
+                return _transform(*self._add_units_input(args, from_frame))
+
+            raise
 
     def _call_forward(
         self,
@@ -203,15 +273,14 @@ class WCS(GWCSAPIMixin, Pipeline):
             msg = "WCS.forward_transform is not implemented."
             raise NotImplementedError(msg)
 
-        # Validate that the input type matches what the transform expects
-        input_is_quantity = any(isinstance(a, u.Quantity) for a in args)
-        if not input_is_quantity and transform.uses_quantity:
-            args = self._add_units_input(args, from_frame)
-        if not transform.uses_quantity and input_is_quantity:
-            args = self._remove_units_input(args, from_frame)
-
-        return transform(
-            *args, with_bounding_box=with_bounding_box, fill_value=fill_value, **kwargs
+        return self._evaluate_transform(
+            transform,
+            from_frame,
+            to_frame,
+            *args,
+            with_bounding_box=with_bounding_box,
+            fill_value=fill_value,
+            **kwargs,
         )
 
     def in_image(self, *args, **kwargs):
@@ -334,16 +403,12 @@ class WCS(GWCSAPIMixin, Pipeline):
             args = self.outside_footprint(args)
 
         if transform is not None:
-            # Validate that the input type matches what the transform expects
-            input_is_quantity = any(isinstance(a, u.Quantity) for a in args)
-            if not input_is_quantity and transform.uses_quantity:
-                args = self._add_units_input(args, self.output_frame)
-            if not transform.uses_quantity and input_is_quantity:
-                args = self._remove_units_input(args, self.output_frame)
-
             # remove iterative inverse-specific keyword arguments:
             akwargs = {k: v for k, v in kwargs.items() if k not in _ITER_INV_KWARGS}
-            result = transform(
+            result = self._evaluate_transform(
+                transform,
+                self.output_frame,
+                self.input_frame,
                 *args,
                 with_bounding_box=with_bounding_box,
                 fill_value=fill_value,
@@ -352,7 +417,7 @@ class WCS(GWCSAPIMixin, Pipeline):
         else:
             # Always strip units for numerical inverse
             args = self._remove_units_input(args, self.output_frame)
-            result = self.numerical_inverse(
+            result = self._numerical_inverse(
                 *args,
                 with_bounding_box=with_bounding_box,
                 fill_value=fill_value,
@@ -366,7 +431,7 @@ class WCS(GWCSAPIMixin, Pipeline):
         return result
 
     def outside_footprint(self, world_arrays):
-        world_arrays = list(world_arrays)
+        world_arrays = [copy(array) for array in world_arrays]
 
         axes_types = set(self.output_frame.axes_type)
         axes_phys_types = self.world_axis_physical_types
@@ -403,7 +468,9 @@ class WCS(GWCSAPIMixin, Pipeline):
                     max_ax = axis_range[~m].min()
                     outside = (coord > min_ax) & (coord < max_ax)
                 else:
-                    coord_ = self._remove_units_input([coord], self.output_frame)[0]
+                    coord_ = self._remove_quantity_output(
+                        world_arrays, self.output_frame
+                    )[idim]
                     outside = (coord_ < min_ax) | (coord_ > max_ax)
                 if np.any(outside):
                     if np.isscalar(coord):
@@ -678,6 +745,30 @@ class WCS(GWCSAPIMixin, Pipeline):
          [2.76552923e-05 1.14789013e-05]]
 
         """  # noqa: E501
+        return self._numerical_inverse(
+            *self._remove_units_input(args, self.output_frame),
+            tolerance=tolerance,
+            maxiter=maxiter,
+            adaptive=adaptive,
+            detect_divergence=detect_divergence,
+            quiet=quiet,
+            with_bounding_box=with_bounding_box,
+            fill_value=fill_value,
+            **kwargs,
+        )
+
+    def _numerical_inverse(
+        self,
+        *args,
+        tolerance=1e-5,
+        maxiter=30,
+        adaptive=True,
+        detect_divergence=True,
+        quiet=True,
+        with_bounding_box=True,
+        fill_value=np.nan,
+        **kwargs,
+    ):
         if kwargs.pop("with_units", False):
             msg = (
                 "Support for with_units in numerical_inverse has been removed, "
@@ -1178,7 +1269,6 @@ class WCS(GWCSAPIMixin, Pipeline):
         """
 
         def _order_clockwise(v):
-            v = [self._remove_units_input(vv, self.input_frame) for vv in v]
             return np.asarray(
                 [
                     [v[0][0], v[1][0]],
@@ -1202,7 +1292,9 @@ class WCS(GWCSAPIMixin, Pipeline):
                 bb = np.asarray([b.value for b in bb]) * bb[0].unit
             vertices = (bb,)
         elif all_spatial:
-            vertices = _order_clockwise(bb)
+            vertices = _order_clockwise(
+                [self._remove_units_input(b, self.input_frame) for b in bb]
+            )
         else:
             vertices = np.array(list(itertools.product(*bb))).T
 
@@ -1598,7 +1690,7 @@ class WCS(GWCSAPIMixin, Pipeline):
             raise ValueError(msg)
 
         lon, lat = transform(crpix1, crpix2)
-        pole = 180
+        pole = _compute_lon_pole((lon, lat), sky2pix_proj)
         if isinstance(lon, u.Quantity):
             pole = u.Quantity(pole, lon.unit)
 
@@ -2635,11 +2727,20 @@ class WCS(GWCSAPIMixin, Pipeline):
         # transformation to the middle of the bounding box ("image") in order
         # to minimize projection effects across the entire image,
         # thus the initial shift.
+        sky2pix_proj = Sky2Pix_TAN()
+
+        for transform in self.forward_transform:
+            if isinstance(transform, projections.Projection):
+                sky2pix_proj = transform
+                break
+        if sky2pix_proj.__name__.startswith("Pix2Sky"):
+            sky2pix_proj = sky2pix_proj.inverse
+        lon_pole = _compute_lon_pole((crval1, crval2), sky2pix_proj)
         ntransform = (
             (Shift(crpix[0]) & Shift(crpix[1]))
             | self.forward_transform
-            | RotateCelestial2Native(crval1, crval2, 180)
-            | Sky2Pix_TAN()
+            | RotateCelestial2Native(crval1, crval2, lon_pole)
+            | sky2pix_proj()
         )
 
         # standard sampling:
@@ -2666,8 +2767,8 @@ class WCS(GWCSAPIMixin, Pipeline):
         )
 
         self._approx_inverse = (
-            RotateCelestial2Native(crval1, crval2, 180)
-            | Sky2Pix_TAN()
+            RotateCelestial2Native(crval1, crval2, lon_pole)
+            | sky2pix_proj
             | Mapping((0, 1, 0, 1))
             | (fit_inv_poly_u & fit_inv_poly_v)
             | (Shift(crpix[0]) & Shift(crpix[1]))

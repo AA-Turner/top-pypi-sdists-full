@@ -90,6 +90,7 @@ class DockerEnvironmentException(MetaflowException):
 class DockerEnvironment(MetaflowEnvironment):
     TYPE = "fast-bakery"
     _filecache = None
+    _force_rebuild = False
 
     def __init__(self, flow):
         self.skipped_steps = set()
@@ -178,12 +179,20 @@ class DockerEnvironment(MetaflowEnvironment):
 
         if self.skipped_steps:
             self.delegate = CondaEnvironment(self.flow)
+            self.delegate._force_rebuild = self._force_rebuild
             self.delegate.set_local_root(self.local_root)
             self.delegate.validate_environment(echo, self.datastore_type)
             self.delegate.init_environment(echo, self.skipped_steps)
 
     def _bake(self, steps) -> Dict[str, FastBakeryApiResponse]:
         metafile_path = get_fastbakery_metafile_path(self.local_root, self.flow.name)
+        if self._force_rebuild:
+            # clear the metafile if force rebuilding, effectively skipping the cache.
+            try:
+                os.remove(metafile_path)
+            except Exception:
+                pass
+
         logger_lock = threading.Lock()
 
         @cache_request(metafile_path)
@@ -201,7 +210,8 @@ class DockerEnvironment(MetaflowEnvironment):
                 bakery.pypi_packages(pypi_packages)
                 bakery.conda_packages(conda_packages)
                 bakery.base_image(base_image)
-                # bakery.ignore_cache()
+                if self._force_rebuild:
+                    bakery.ignore_cache()
 
                 with logger_lock:
                     self.logger(f"🍳 Baking [{ref}] ...")

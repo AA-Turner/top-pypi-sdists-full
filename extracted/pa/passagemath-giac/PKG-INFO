@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-giac
-Version: 10.5.42
+Version: 10.5.43
 Summary: passagemath: Symbolic computation with GIAC
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,7 +28,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-categories~=10.5.42.0
+Requires-Dist: passagemath-categories~=10.5.43.0
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
 Requires-Dist: passagemath-symbolics; extra == "test"

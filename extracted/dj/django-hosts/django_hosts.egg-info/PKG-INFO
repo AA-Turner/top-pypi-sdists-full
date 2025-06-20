@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-hosts
-Version: 6.0
+Version: 7.0.0
 Summary: Dynamic and static host resolving for Django. Maps hostnames to URLconfs.
 Home-page: https://django-hosts.readthedocs.io/
 Author: Jannis Leidel
@@ -10,29 +10,39 @@ Project-URL: Source, https://github.com/jazzband/django-hosts
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 License-File: LICENSE
 License-File: AUTHORS
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 django-hosts
 ============
 
 .. image:: https://img.shields.io/pypi/v/django-hosts.svg
-   :target: https://pypi.python.org/pypi/django-hosts
+   :target: https://pypi.org/project/django-hosts/
 
 .. image:: https://img.shields.io/pypi/pyversions/django-hosts.svg
    :target: https://pypi.org/project/django-hosts/
@@ -44,7 +54,7 @@ django-hosts
    :target: https://github.com/jazzband/django-hosts/actions
 
 .. image:: https://codecov.io/gh/jazzband/django-hosts/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/jazzband/django-hosts
+   :target: https://app.codecov.io/gh/jazzband/django-hosts
 
 .. image:: https://readthedocs.org/projects/django-hosts/badge/?version=latest&style=flat
    :target: https://django-hosts.readthedocs.io/en/latest/

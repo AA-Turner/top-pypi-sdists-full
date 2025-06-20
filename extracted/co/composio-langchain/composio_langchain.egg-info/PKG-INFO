@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio_langchain
-Version: 0.7.18
+Version: 0.7.19
 Summary: Use Composio to get an array of tools with your LangChain agent.
 Home-page: https://github.com/ComposioHQ/composio
 Author: Karan

@@ -1,7 +1,7 @@
 r'''
 # `aws_ecr_replication_configuration`
 
-Refer to the Terraform Registry for docs: [`aws_ecr_replication_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration).
+Refer to the Terraform Registry for docs: [`aws_ecr_replication_configuration`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EcrReplicationConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ecrReplicationConfiguration.EcrReplicationConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration aws_ecr_replication_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration aws_ecr_replication_configuration}.'''
 
     def __init__(
         self,
@@ -52,6 +52,7 @@ class EcrReplicationConfiguration(
         id_: builtins.str,
         *,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         replication_configuration: typing.Optional[typing.Union["EcrReplicationConfigurationReplicationConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -61,12 +62,13 @@ class EcrReplicationConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration aws_ecr_replication_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration aws_ecr_replication_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#id EcrReplicationConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#replication_configuration EcrReplicationConfiguration#replication_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#id EcrReplicationConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#region EcrReplicationConfiguration#region}
+        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#replication_configuration EcrReplicationConfiguration#replication_configuration}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -81,6 +83,7 @@ class EcrReplicationConfiguration(
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = EcrReplicationConfigurationConfig(
             id=id,
+            region=region,
             replication_configuration=replication_configuration,
             connection=connection,
             count=count,
@@ -106,7 +109,7 @@ class EcrReplicationConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EcrReplicationConfiguration to import.
-        :param import_from_id: The id of the existing EcrReplicationConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EcrReplicationConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EcrReplicationConfiguration to import is found.
         '''
         if __debug__:
@@ -124,7 +127,7 @@ class EcrReplicationConfiguration(
         rule: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrReplicationConfigurationReplicationConfigurationRule", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#rule EcrReplicationConfiguration#rule}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#rule EcrReplicationConfiguration#rule}
         '''
         value = EcrReplicationConfigurationReplicationConfiguration(rule=rule)
 
@@ -133,6 +136,10 @@ class EcrReplicationConfiguration(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetReplicationConfiguration")
     def reset_replication_configuration(self) -> None:
@@ -169,6 +176,11 @@ class EcrReplicationConfiguration(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="replicationConfigurationInput")
     def replication_configuration_input(
         self,
@@ -187,6 +199,18 @@ class EcrReplicationConfiguration(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1888bbf91abda27af589c8a7f0db1e92881588c4e346fe47de5557a913d69275)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.ecrReplicationConfiguration.EcrReplicationConfigurationConfig",
@@ -200,6 +224,7 @@ class EcrReplicationConfiguration(
         "provider": "provider",
         "provisioners": "provisioners",
         "id": "id",
+        "region": "region",
         "replication_configuration": "replicationConfiguration",
     },
 )
@@ -215,6 +240,7 @@ class EcrReplicationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         replication_configuration: typing.Optional[typing.Union["EcrReplicationConfigurationReplicationConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -225,8 +251,9 @@ class EcrReplicationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#id EcrReplicationConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#replication_configuration EcrReplicationConfiguration#replication_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#id EcrReplicationConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#region EcrReplicationConfiguration#region}
+        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#replication_configuration EcrReplicationConfiguration#replication_configuration}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -242,6 +269,7 @@ class EcrReplicationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
@@ -260,6 +288,8 @@ class EcrReplicationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
         if replication_configuration is not None:
             self._values["replication_configuration"] = replication_configuration
 
@@ -329,7 +359,7 @@ class EcrReplicationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#id EcrReplicationConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#id EcrReplicationConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -338,12 +368,21 @@ class EcrReplicationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#region EcrReplicationConfiguration#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def replication_configuration(
         self,
     ) -> typing.Optional["EcrReplicationConfigurationReplicationConfiguration"]:
         '''replication_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#replication_configuration EcrReplicationConfiguration#replication_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#replication_configuration EcrReplicationConfiguration#replication_configuration}
         '''
         result = self._values.get("replication_configuration")
         return typing.cast(typing.Optional["EcrReplicationConfigurationReplicationConfiguration"], result)
@@ -372,7 +411,7 @@ class EcrReplicationConfigurationReplicationConfiguration:
         rule: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrReplicationConfigurationReplicationConfigurationRule", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#rule EcrReplicationConfiguration#rule}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#rule EcrReplicationConfiguration#rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__208d0b867a58c0e527240a3cbe8a304af8010878d1c5b2396b4201e2c3a4121d)
@@ -387,7 +426,7 @@ class EcrReplicationConfigurationReplicationConfiguration:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrReplicationConfigurationReplicationConfigurationRule"]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#rule EcrReplicationConfiguration#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#rule EcrReplicationConfiguration#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -484,8 +523,8 @@ class EcrReplicationConfigurationReplicationConfigurationRule:
         repository_filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcrReplicationConfigurationReplicationConfigurationRuleRepositoryFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#destination EcrReplicationConfiguration#destination}
-        :param repository_filter: repository_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#repository_filter EcrReplicationConfiguration#repository_filter}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#destination EcrReplicationConfiguration#destination}
+        :param repository_filter: repository_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#repository_filter EcrReplicationConfiguration#repository_filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__424d87ca750bc0bec7c95d48c7960f7ae73893c12b24b4584d450e5eb0d9e48b)
@@ -503,7 +542,7 @@ class EcrReplicationConfigurationReplicationConfigurationRule:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrReplicationConfigurationReplicationConfigurationRuleDestination"]]:
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#destination EcrReplicationConfiguration#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#destination EcrReplicationConfiguration#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -515,7 +554,7 @@ class EcrReplicationConfigurationReplicationConfigurationRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrReplicationConfigurationReplicationConfigurationRuleRepositoryFilter"]]]:
         '''repository_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#repository_filter EcrReplicationConfiguration#repository_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#repository_filter EcrReplicationConfiguration#repository_filter}
         '''
         result = self._values.get("repository_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrReplicationConfigurationReplicationConfigurationRuleRepositoryFilter"]]], result)
@@ -540,8 +579,8 @@ class EcrReplicationConfigurationReplicationConfigurationRule:
 class EcrReplicationConfigurationReplicationConfigurationRuleDestination:
     def __init__(self, *, region: builtins.str, registry_id: builtins.str) -> None:
         '''
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#region EcrReplicationConfiguration#region}.
-        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#registry_id EcrReplicationConfiguration#registry_id}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#region EcrReplicationConfiguration#region}.
+        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#registry_id EcrReplicationConfiguration#registry_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dcf599cd77e615e4a170a5d6cd4a25502e4690188a36def7b39b009c10cd314)
@@ -554,14 +593,14 @@ class EcrReplicationConfigurationReplicationConfigurationRuleDestination:
 
     @builtins.property
     def region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#region EcrReplicationConfiguration#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#region EcrReplicationConfiguration#region}.'''
         result = self._values.get("region")
         assert result is not None, "Required property 'region' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def registry_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#registry_id EcrReplicationConfiguration#registry_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#registry_id EcrReplicationConfiguration#registry_id}.'''
         result = self._values.get("registry_id")
         assert result is not None, "Required property 'registry_id' is missing"
         return typing.cast(builtins.str, result)
@@ -952,8 +991,8 @@ class EcrReplicationConfigurationReplicationConfigurationRuleOutputReference(
 class EcrReplicationConfigurationReplicationConfigurationRuleRepositoryFilter:
     def __init__(self, *, filter: builtins.str, filter_type: builtins.str) -> None:
         '''
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#filter EcrReplicationConfiguration#filter}.
-        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#filter_type EcrReplicationConfiguration#filter_type}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#filter EcrReplicationConfiguration#filter}.
+        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#filter_type EcrReplicationConfiguration#filter_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12ca67def73fa493b17178fef78caeb00d9820efa54188aceba640994a069a4d)
@@ -966,14 +1005,14 @@ class EcrReplicationConfigurationReplicationConfigurationRuleRepositoryFilter:
 
     @builtins.property
     def filter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#filter EcrReplicationConfiguration#filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#filter EcrReplicationConfiguration#filter}.'''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def filter_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/ecr_replication_configuration#filter_type EcrReplicationConfiguration#filter_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ecr_replication_configuration#filter_type EcrReplicationConfiguration#filter_type}.'''
         result = self._values.get("filter_type")
         assert result is not None, "Required property 'filter_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1184,6 +1223,7 @@ def _typecheckingstub__66776d328076cc242ee3f7c1e0afa4865852d7f39cb52c61f34c02aee
     id_: builtins.str,
     *,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     replication_configuration: typing.Optional[typing.Union[EcrReplicationConfigurationReplicationConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -1211,6 +1251,12 @@ def _typecheckingstub__d3a9842c06f6906bffb0fd87f8650203eb75a567d8a874924ced245c4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1888bbf91abda27af589c8a7f0db1e92881588c4e346fe47de5557a913d69275(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a9d0bcc57e6c5759df1c0d3f858b712f335f2d7cdcf9a88a8b06c71ec01bbfdf(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1221,6 +1267,7 @@ def _typecheckingstub__a9d0bcc57e6c5759df1c0d3f858b712f335f2d7cdcf9a88a8b06c71ec
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     replication_configuration: typing.Optional[typing.Union[EcrReplicationConfigurationReplicationConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,7 +1,7 @@
 r'''
 # `data_aws_emr_supported_instance_types`
 
-Refer to the Terraform Registry for docs: [`data_aws_emr_supported_instance_types`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types).
+Refer to the Terraform Registry for docs: [`data_aws_emr_supported_instance_types`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsEmrSupportedInstanceTypes(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsEmrSupportedInstanceTypes.DataAwsEmrSupportedInstanceTypes",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types aws_emr_supported_instance_types}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types aws_emr_supported_instance_types}.'''
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class DataAwsEmrSupportedInstanceTypes(
         id: builtins.str,
         *,
         release_label: builtins.str,
-        supported_instance_types: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -61,12 +61,12 @@ class DataAwsEmrSupportedInstanceTypes(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types aws_emr_supported_instance_types} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types aws_emr_supported_instance_types} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types#release_label DataAwsEmrSupportedInstanceTypes#release_label}.
-        :param supported_instance_types: supported_instance_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types#supported_instance_types DataAwsEmrSupportedInstanceTypes#supported_instance_types}
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types#release_label DataAwsEmrSupportedInstanceTypes#release_label}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types#region DataAwsEmrSupportedInstanceTypes#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -81,7 +81,7 @@ class DataAwsEmrSupportedInstanceTypes(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsEmrSupportedInstanceTypesConfig(
             release_label=release_label,
-            supported_instance_types=supported_instance_types,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -106,7 +106,7 @@ class DataAwsEmrSupportedInstanceTypes(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsEmrSupportedInstanceTypes to import.
-        :param import_from_id: The id of the existing DataAwsEmrSupportedInstanceTypes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsEmrSupportedInstanceTypes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsEmrSupportedInstanceTypes to import is found.
         '''
         if __debug__:
@@ -117,22 +117,9 @@ class DataAwsEmrSupportedInstanceTypes(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putSupportedInstanceTypes")
-    def put_supported_instance_types(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29f94c1d7519f3db8db668056baf869827a1ccb04fdd6ad879f5403a04b6c4a8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putSupportedInstanceTypes", [value]))
-
-    @jsii.member(jsii_name="resetSupportedInstanceTypes")
-    def reset_supported_instance_types(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetSupportedInstanceTypes", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -160,16 +147,26 @@ class DataAwsEmrSupportedInstanceTypes(
         return typing.cast("DataAwsEmrSupportedInstanceTypesSupportedInstanceTypesList", jsii.get(self, "supportedInstanceTypes"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="releaseLabelInput")
     def release_label_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "releaseLabelInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="supportedInstanceTypesInput")
-    def supported_instance_types_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes"]]], jsii.get(self, "supportedInstanceTypesInput"))
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca143ff8993a8fcdcf27f2f7c93cb34c9d3ddebfb550eac2045c08b7b8fac19d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="releaseLabel")
@@ -196,7 +193,7 @@ class DataAwsEmrSupportedInstanceTypes(
         "provider": "provider",
         "provisioners": "provisioners",
         "release_label": "releaseLabel",
-        "supported_instance_types": "supportedInstanceTypes",
+        "region": "region",
     },
 )
 class DataAwsEmrSupportedInstanceTypesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -211,7 +208,7 @@ class DataAwsEmrSupportedInstanceTypesConfig(_cdktf_9a9027ec.TerraformMetaArgume
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         release_label: builtins.str,
-        supported_instance_types: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -221,8 +218,8 @@ class DataAwsEmrSupportedInstanceTypesConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types#release_label DataAwsEmrSupportedInstanceTypes#release_label}.
-        :param supported_instance_types: supported_instance_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types#supported_instance_types DataAwsEmrSupportedInstanceTypes#supported_instance_types}
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types#release_label DataAwsEmrSupportedInstanceTypes#release_label}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types#region DataAwsEmrSupportedInstanceTypes#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -236,7 +233,7 @@ class DataAwsEmrSupportedInstanceTypesConfig(_cdktf_9a9027ec.TerraformMetaArgume
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument release_label", value=release_label, expected_type=type_hints["release_label"])
-            check_type(argname="argument supported_instance_types", value=supported_instance_types, expected_type=type_hints["supported_instance_types"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "release_label": release_label,
         }
@@ -254,8 +251,8 @@ class DataAwsEmrSupportedInstanceTypesConfig(_cdktf_9a9027ec.TerraformMetaArgume
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if supported_instance_types is not None:
-            self._values["supported_instance_types"] = supported_instance_types
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -323,21 +320,19 @@ class DataAwsEmrSupportedInstanceTypesConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def release_label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types#release_label DataAwsEmrSupportedInstanceTypes#release_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types#release_label DataAwsEmrSupportedInstanceTypes#release_label}.'''
         result = self._values.get("release_label")
         assert result is not None, "Required property 'release_label' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def supported_instance_types(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes"]]]:
-        '''supported_instance_types block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/emr_supported_instance_types#supported_instance_types DataAwsEmrSupportedInstanceTypes#supported_instance_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/emr_supported_instance_types#region DataAwsEmrSupportedInstanceTypes#region}
         '''
-        result = self._values.get("supported_instance_types")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes"]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -447,23 +442,6 @@ class DataAwsEmrSupportedInstanceTypesSupportedInstanceTypesList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db3922b8774d42778d15ae322b9eadd7c8bbe2f051a3dc4ef2944add9ea01c4c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsEmrSupportedInstanceTypesSupportedInstanceTypesOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -550,13 +528,13 @@ class DataAwsEmrSupportedInstanceTypesSupportedInstanceTypesOutputReference(
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]:
+        return typing.cast(typing.Optional[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]],
+        value: typing.Optional[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b537c9d163361869bc610de1a8bc6710d1be35fcdb142d4af6636044f1beea46)
@@ -579,7 +557,7 @@ def _typecheckingstub__a1dc12d855f7ad043b0e3a876389d9a93d49cfd84472da2132b8caffd
     id: builtins.str,
     *,
     release_label: builtins.str,
-    supported_instance_types: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -600,8 +578,8 @@ def _typecheckingstub__9770f9126bce869657a5f6d0dc686435c37bf319ec76ba2918e9de894
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__29f94c1d7519f3db8db668056baf869827a1ccb04fdd6ad879f5403a04b6c4a8(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__ca143ff8993a8fcdcf27f2f7c93cb34c9d3ddebfb550eac2045c08b7b8fac19d(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -622,7 +600,7 @@ def _typecheckingstub__114cbc27a5da328f6da1bef498564851cb9a0bbcc8e624304b26e2f15
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     release_label: builtins.str,
-    supported_instance_types: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -659,12 +637,6 @@ def _typecheckingstub__5091e7d837c66996dddc57f684df96b046a8cf36dc615ae4629124e53
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__db3922b8774d42778d15ae322b9eadd7c8bbe2f051a3dc4ef2944add9ea01c4c(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__bec99a41d12b8bed60ff8c1a4f612322708d62ffc94cef8e110540e5ac2e3444(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -675,7 +647,7 @@ def _typecheckingstub__bec99a41d12b8bed60ff8c1a4f612322708d62ffc94cef8e110540e5a
     pass
 
 def _typecheckingstub__b537c9d163361869bc610de1a8bc6710d1be35fcdb142d4af6636044f1beea46(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes]],
+    value: typing.Optional[DataAwsEmrSupportedInstanceTypesSupportedInstanceTypes],
 ) -> None:
     """Type checking stubs"""
     pass

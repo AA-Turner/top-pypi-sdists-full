@@ -61,7 +61,7 @@ pub async fn handle_diagnostic(
             Some(Either::Left(&text_document.uri)),
             &backend.schema_store,
         )
-        .lint(&document.source)
+        .lint(&document.text)
         .await
         .map_or_else(
             |diagnostics| diagnostics.into_iter().unique().map(Into::into).collect(),

@@ -346,6 +346,26 @@ class CustomOutputConfiguration(AWSProperty):
     }
 
 
+class ModalityProcessingConfiguration(AWSProperty):
+    """
+    `ModalityProcessingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityprocessingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, False),
+    }
+
+
+class AudioOverrideConfiguration(AWSProperty):
+    """
+    `AudioOverrideConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-audiooverrideconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ModalityProcessing": (ModalityProcessingConfiguration, False),
+    }
+
+
 class SplitterConfiguration(AWSProperty):
     """
     `SplitterConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-splitterconfiguration.html>`__
@@ -362,7 +382,41 @@ class DocumentOverrideConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "ModalityProcessing": (ModalityProcessingConfiguration, False),
         "Splitter": (SplitterConfiguration, False),
+    }
+
+
+class ImageOverrideConfiguration(AWSProperty):
+    """
+    `ImageOverrideConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-imageoverrideconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ModalityProcessing": (ModalityProcessingConfiguration, False),
+    }
+
+
+class ModalityRoutingConfiguration(AWSProperty):
+    """
+    `ModalityRoutingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityroutingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "jpeg": (str, False),
+        "mov": (str, False),
+        "mp4": (str, False),
+        "png": (str, False),
+    }
+
+
+class VideoOverrideConfiguration(AWSProperty):
+    """
+    `VideoOverrideConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-videooverrideconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ModalityProcessing": (ModalityProcessingConfiguration, False),
     }
 
 
@@ -372,7 +426,11 @@ class OverrideConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "Audio": (AudioOverrideConfiguration, False),
         "Document": (DocumentOverrideConfiguration, False),
+        "Image": (ImageOverrideConfiguration, False),
+        "ModalityRouting": (ModalityRoutingConfiguration, False),
+        "Video": (VideoOverrideConfiguration, False),
     }
 
 
@@ -975,9 +1033,9 @@ class ContextEnrichmentConfiguration(AWSProperty):
     }
 
 
-class S3Location(AWSProperty):
+class DataSourceS3Location(AWSProperty):
     """
-    `S3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-s3location.html>`__
+    `DataSourceS3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-s3location.html>`__
     """
 
     props: PropsDictType = {
@@ -991,7 +1049,7 @@ class IntermediateStorage(AWSProperty):
     """
 
     props: PropsDictType = {
-        "S3Location": (S3Location, True),
+        "S3Location": (DataSourceS3Location, True),
     }
 
 
@@ -1195,6 +1253,145 @@ class ConditionFlowNodeConfiguration(AWSProperty):
     }
 
 
+class InlineCodeFlowNodeConfiguration(AWSProperty):
+    """
+    `InlineCodeFlowNodeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-inlinecodeflownodeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Code": (str, True),
+        "Language": (str, True),
+    }
+
+
+class KnowledgeBasePromptTemplate(AWSProperty):
+    """
+    `KnowledgeBasePromptTemplate <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseprompttemplate.html>`__
+    """
+
+    props: PropsDictType = {
+        "TextPromptTemplate": (str, True),
+    }
+
+
+class PerformanceConfiguration(AWSProperty):
+    """
+    `PerformanceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-performanceconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Latency": (str, False),
+    }
+
+
+class PromptModelInferenceConfiguration(AWSProperty):
+    """
+    `PromptModelInferenceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-promptmodelinferenceconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxTokens": (double, False),
+        "StopSequences": ([str], False),
+        "Temperature": (double, False),
+        "TopP": (double, False),
+    }
+
+
+class PromptInferenceConfiguration(AWSProperty):
+    """
+    `PromptInferenceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-promptinferenceconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Text": (PromptModelInferenceConfiguration, True),
+    }
+
+
+class KnowledgeBaseOrchestrationConfiguration(AWSProperty):
+    """
+    `KnowledgeBaseOrchestrationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseorchestrationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdditionalModelRequestFields": (dict, False),
+        "InferenceConfig": (PromptInferenceConfiguration, False),
+        "PerformanceConfig": (PerformanceConfiguration, False),
+        "PromptTemplate": (KnowledgeBasePromptTemplate, False),
+    }
+
+
+class FieldForReranking(AWSProperty):
+    """
+    `FieldForReranking <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-fieldforreranking.html>`__
+    """
+
+    props: PropsDictType = {
+        "FieldName": (str, True),
+    }
+
+
+class RerankingMetadataSelectiveModeConfiguration(AWSProperty):
+    """
+    `RerankingMetadataSelectiveModeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FieldsToExclude": ([FieldForReranking], False),
+        "FieldsToInclude": ([FieldForReranking], False),
+    }
+
+
+class MetadataConfigurationForReranking(AWSProperty):
+    """
+    `MetadataConfigurationForReranking <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-metadataconfigurationforreranking.html>`__
+    """
+
+    props: PropsDictType = {
+        "SelectionMode": (str, True),
+        "SelectiveModeConfiguration": (
+            RerankingMetadataSelectiveModeConfiguration,
+            False,
+        ),
+    }
+
+
+class VectorSearchBedrockRerankingModelConfiguration(AWSProperty):
+    """
+    `VectorSearchBedrockRerankingModelConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdditionalModelRequestFields": (dict, False),
+        "ModelArn": (str, True),
+    }
+
+
+class VectorSearchBedrockRerankingConfiguration(AWSProperty):
+    """
+    `VectorSearchBedrockRerankingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MetadataConfiguration": (MetadataConfigurationForReranking, False),
+        "ModelConfiguration": (VectorSearchBedrockRerankingModelConfiguration, True),
+        "NumberOfRerankedResults": (double, False),
+    }
+
+
+class VectorSearchRerankingConfiguration(AWSProperty):
+    """
+    `VectorSearchRerankingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchrerankingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BedrockRerankingConfiguration": (
+            VectorSearchBedrockRerankingConfiguration,
+            False,
+        ),
+        "Type": (str, True),
+    }
+
+
 class KnowledgeBaseFlowNodeConfiguration(AWSProperty):
     """
     `KnowledgeBaseFlowNodeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseflownodeconfiguration.html>`__
@@ -1202,8 +1399,13 @@ class KnowledgeBaseFlowNodeConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "GuardrailConfiguration": (GuardrailConfiguration, False),
+        "InferenceConfiguration": (PromptInferenceConfiguration, False),
         "KnowledgeBaseId": (str, True),
         "ModelId": (str, False),
+        "NumberOfResults": (double, False),
+        "OrchestrationConfiguration": (KnowledgeBaseOrchestrationConfiguration, False),
+        "PromptTemplate": (KnowledgeBasePromptTemplate, False),
+        "RerankingConfiguration": (VectorSearchRerankingConfiguration, False),
     }
 
 
@@ -1228,26 +1430,24 @@ class LexFlowNodeConfiguration(AWSProperty):
     }
 
 
-class PromptModelInferenceConfiguration(AWSProperty):
+class LoopControllerFlowNodeConfiguration(AWSProperty):
     """
-    `PromptModelInferenceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-promptmodelinferenceconfiguration.html>`__
+    `LoopControllerFlowNodeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-loopcontrollerflownodeconfiguration.html>`__
     """
 
     props: PropsDictType = {
-        "MaxTokens": (double, False),
-        "StopSequences": ([str], False),
-        "Temperature": (double, False),
-        "TopP": (double, False),
+        "ContinueCondition": (FlowCondition, True),
+        "MaxIterations": (double, False),
     }
 
 
-class PromptInferenceConfiguration(AWSProperty):
+class LoopFlowNodeConfiguration(AWSProperty):
     """
-    `PromptInferenceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-promptinferenceconfiguration.html>`__
+    `LoopFlowNodeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-loopflownodeconfiguration.html>`__
     """
 
     props: PropsDictType = {
-        "Text": (PromptModelInferenceConfiguration, True),
+        "Definition": (object, True),
     }
 
 
@@ -1383,15 +1583,28 @@ class ChatPromptTemplateConfiguration(AWSProperty):
     }
 
 
+class TextS3Location(AWSProperty):
+    """
+    `TextS3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-prompt-texts3location.html>`__
+    """
+
+    props: PropsDictType = {
+        "Bucket": (str, True),
+        "Key": (str, True),
+        "Version": (str, False),
+    }
+
+
 class TextPromptTemplateConfiguration(AWSProperty):
     """
-    `TextPromptTemplateConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-textprompttemplateconfiguration.html>`__
+    `TextPromptTemplateConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-prompt-textprompttemplateconfiguration.html>`__
     """
 
     props: PropsDictType = {
         "CachePoint": (CachePointBlock, False),
         "InputVariables": ([PromptInputVariable], False),
-        "Text": (str, True),
+        "Text": (str, False),
+        "TextS3Location": (TextS3Location, False),
     }
 
 
@@ -1520,11 +1733,15 @@ class FlowNodeConfiguration(AWSProperty):
         "Agent": (AgentFlowNodeConfiguration, False),
         "Collector": (dict, False),
         "Condition": (ConditionFlowNodeConfiguration, False),
+        "InlineCode": (InlineCodeFlowNodeConfiguration, False),
         "Input": (dict, False),
         "Iterator": (dict, False),
         "KnowledgeBase": (KnowledgeBaseFlowNodeConfiguration, False),
         "LambdaFunction": (LambdaFunctionFlowNodeConfiguration, False),
         "Lex": (LexFlowNodeConfiguration, False),
+        "Loop": (LoopFlowNodeConfiguration, False),
+        "LoopController": (LoopControllerFlowNodeConfiguration, False),
+        "LoopInput": (dict, False),
         "Output": (dict, False),
         "Prompt": (PromptFlowNodeConfiguration, False),
         "Retrieval": (RetrievalFlowNodeConfiguration, False),
@@ -1534,10 +1751,11 @@ class FlowNodeConfiguration(AWSProperty):
 
 class FlowNodeInput(AWSProperty):
     """
-    `FlowNodeInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-flownodeinput.html>`__
+    `FlowNodeInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flownodeinput.html>`__
     """
 
     props: PropsDictType = {
+        "Category": (str, False),
         "Expression": (str, True),
         "Name": (str, True),
         "Type": (str, True),
@@ -1580,6 +1798,18 @@ class FlowDefinition(AWSProperty):
     }
 
 
+class S3Location(AWSProperty):
+    """
+    `S3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-s3location.html>`__
+    """
+
+    props: PropsDictType = {
+        "Bucket": (str, True),
+        "Key": (str, True),
+        "Version": (str, False),
+    }
+
+
 class Flow(AWSObject):
     """
     `Flow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html>`__
@@ -1601,6 +1831,17 @@ class Flow(AWSObject):
     }
 
 
+class FlowAliasConcurrencyConfiguration(AWSProperty):
+    """
+    `FlowAliasConcurrencyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowalias-flowaliasconcurrencyconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxConcurrency": (double, False),
+        "Type": (str, True),
+    }
+
+
 class FlowAliasRoutingConfigurationListItem(AWSProperty):
     """
     `FlowAliasRoutingConfigurationListItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowalias-flowaliasroutingconfigurationlistitem.html>`__
@@ -1619,6 +1860,7 @@ class FlowAlias(AWSObject):
     resource_type = "AWS::Bedrock::FlowAlias"
 
     props: PropsDictType = {
+        "ConcurrencyConfiguration": (FlowAliasConcurrencyConfiguration, False),
         "Description": (str, False),
         "FlowArn": (str, True),
         "Name": (str, True),
@@ -1646,8 +1888,12 @@ class ContentFilterConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "InputAction": (str, False),
+        "InputEnabled": (boolean, False),
         "InputModalities": ([str], False),
         "InputStrength": (str, True),
+        "OutputAction": (str, False),
+        "OutputEnabled": (boolean, False),
         "OutputModalities": ([str], False),
         "OutputStrength": (str, True),
         "Type": (str, True),
@@ -1670,6 +1916,8 @@ class ContextualGroundingFilterConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "Action": (str, False),
+        "Enabled": (boolean, False),
         "Threshold": (double, True),
         "Type": (str, True),
     }
@@ -1692,6 +1940,10 @@ class PiiEntityConfig(AWSProperty):
 
     props: PropsDictType = {
         "Action": (str, True),
+        "InputAction": (str, False),
+        "InputEnabled": (boolean, False),
+        "OutputAction": (str, False),
+        "OutputEnabled": (boolean, False),
         "Type": (str, True),
     }
 
@@ -1704,7 +1956,11 @@ class RegexConfig(AWSProperty):
     props: PropsDictType = {
         "Action": (str, True),
         "Description": (str, False),
+        "InputAction": (str, False),
+        "InputEnabled": (boolean, False),
         "Name": (str, True),
+        "OutputAction": (str, False),
+        "OutputEnabled": (boolean, False),
         "Pattern": (str, True),
     }
 
@@ -1728,7 +1984,11 @@ class TopicConfig(AWSProperty):
     props: PropsDictType = {
         "Definition": (str, True),
         "Examples": ([str], False),
+        "InputAction": (str, False),
+        "InputEnabled": (boolean, False),
         "Name": (str, True),
+        "OutputAction": (str, False),
+        "OutputEnabled": (boolean, False),
         "Type": (str, True),
     }
 
@@ -1749,6 +2009,10 @@ class ManagedWordsConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "InputAction": (str, False),
+        "InputEnabled": (boolean, False),
+        "OutputAction": (str, False),
+        "OutputEnabled": (boolean, False),
         "Type": (str, True),
     }
 
@@ -1759,6 +2023,10 @@ class WordConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "InputAction": (str, False),
+        "InputEnabled": (boolean, False),
+        "OutputAction": (str, False),
+        "OutputEnabled": (boolean, False),
         "Text": (str, True),
     }
 
@@ -1806,6 +2074,43 @@ class GuardrailVersion(AWSObject):
     props: PropsDictType = {
         "Description": (str, False),
         "GuardrailIdentifier": (str, True),
+    }
+
+
+class PromptRouterTargetModel(AWSProperty):
+    """
+    `PromptRouterTargetModel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-intelligentpromptrouter-promptroutertargetmodel.html>`__
+    """
+
+    props: PropsDictType = {
+        "ModelArn": (str, True),
+    }
+
+
+class RoutingCriteria(AWSProperty):
+    """
+    `RoutingCriteria <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-intelligentpromptrouter-routingcriteria.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResponseQualityDifference": (double, True),
+    }
+
+
+class IntelligentPromptRouter(AWSObject):
+    """
+    `IntelligentPromptRouter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::IntelligentPromptRouter"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "FallbackModel": (PromptRouterTargetModel, True),
+        "Models": ([PromptRouterTargetModel], True),
+        "PromptRouterName": (str, True),
+        "RoutingCriteria": (RoutingCriteria, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -2019,13 +2324,23 @@ class EmbeddingModelConfiguration(AWSProperty):
     }
 
 
+class KnowledgeBaseS3Location(AWSProperty):
+    """
+    `KnowledgeBaseS3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-s3location.html>`__
+    """
+
+    props: PropsDictType = {
+        "URI": (str, True),
+    }
+
+
 class SupplementalDataStorageLocation(AWSProperty):
     """
     `SupplementalDataStorageLocation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-supplementaldatastoragelocation.html>`__
     """
 
     props: PropsDictType = {
-        "S3Location": (S3Location, False),
+        "S3Location": (KnowledgeBaseS3Location, False),
         "SupplementalDataStorageLocationType": (str, True),
     }
 
@@ -2092,6 +2407,7 @@ class MongoDbAtlasConfiguration(AWSProperty):
         "Endpoint": (str, True),
         "EndpointServiceName": (str, False),
         "FieldMapping": (MongoDbAtlasFieldMapping, True),
+        "TextIndexName": (str, False),
         "VectorIndexName": (str, True),
     }
 
@@ -2197,6 +2513,7 @@ class RdsFieldMapping(AWSProperty):
     """
 
     props: PropsDictType = {
+        "CustomMetadataField": (str, False),
         "MetadataField": (str, True),
         "PrimaryKeyField": (str, True),
         "TextField": (str, True),
@@ -2362,16 +2679,4 @@ class InferenceProfileModel(AWSProperty):
 
     props: PropsDictType = {
         "ModelArn": (str, False),
-    }
-
-
-class TextS3Location(AWSProperty):
-    """
-    `TextS3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-prompt-texts3location.html>`__
-    """
-
-    props: PropsDictType = {
-        "Bucket": (str, True),
-        "Key": (str, True),
-        "Version": (str, False),
     }

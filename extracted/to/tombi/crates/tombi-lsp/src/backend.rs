@@ -13,13 +13,14 @@ use tower_lsp::{
             GotoDeclarationParams, GotoDeclarationResponse, GotoTypeDefinitionParams,
             GotoTypeDefinitionResponse,
         },
-        CompletionParams, CompletionResponse, DidChangeConfigurationParams,
-        DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
-        DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentDiagnosticParams,
-        DocumentDiagnosticReportResult, DocumentLink, DocumentLinkParams, DocumentSymbolParams,
-        DocumentSymbolResponse, FoldingRange, FoldingRangeParams, GotoDefinitionParams,
-        GotoDefinitionResponse, Hover, HoverParams, InitializeParams, InitializeResult,
-        InitializedParams, SemanticTokensParams, SemanticTokensResult, TextDocumentIdentifier, Url,
+        CodeActionParams, CodeActionResponse, CompletionParams, CompletionResponse,
+        DidChangeConfigurationParams, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
+        DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams,
+        DocumentDiagnosticParams, DocumentDiagnosticReportResult, DocumentLink, DocumentLinkParams,
+        DocumentSymbolParams, DocumentSymbolResponse, FoldingRange, FoldingRangeParams,
+        GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, InitializeParams,
+        InitializeResult, InitializedParams, SemanticTokensParams, SemanticTokensResult,
+        TextDocumentIdentifier, Url,
     },
     LanguageServer,
 };
@@ -28,13 +29,13 @@ use crate::{
     document::DocumentSource,
     goto_definition::into_definition_locations,
     handler::{
-        handle_associate_schema, handle_completion, handle_diagnostic, handle_did_change,
-        handle_did_change_configuration, handle_did_change_watched_files, handle_did_close,
-        handle_did_open, handle_did_save, handle_document_link, handle_document_symbol,
-        handle_folding_range, handle_formatting, handle_get_toml_version, handle_goto_declaration,
-        handle_goto_definition, handle_goto_type_definition, handle_hover, handle_initialize,
-        handle_initialized, handle_semantic_tokens_full, handle_shutdown, handle_update_config,
-        handle_update_schema, AssociateSchemaParams, GetTomlVersionResponse,
+        handle_associate_schema, handle_code_action, handle_completion, handle_diagnostic,
+        handle_did_change, handle_did_change_configuration, handle_did_change_watched_files,
+        handle_did_close, handle_did_open, handle_did_save, handle_document_link,
+        handle_document_symbol, handle_folding_range, handle_formatting, handle_get_toml_version,
+        handle_goto_declaration, handle_goto_definition, handle_goto_type_definition, handle_hover,
+        handle_initialize, handle_initialized, handle_semantic_tokens_full, handle_shutdown,
+        handle_update_config, handle_update_schema, AssociateSchemaParams, GetTomlVersionResponse,
     },
 };
 
@@ -84,8 +85,8 @@ impl Backend {
         text_document_uri: &Url,
     ) -> Option<tombi_parser::Parsed<SyntaxNode>> {
         let document_source = self.document_sources.read().await;
-        let document_info = match document_source.get(text_document_uri) {
-            Some(document_info) => document_info,
+        let document_source = match document_source.get(text_document_uri) {
+            Some(document_source) => document_source,
             None => {
                 tracing::warn!("document not found: {}", text_document_uri);
                 return None;
@@ -93,7 +94,7 @@ impl Backend {
         };
 
         let source_schema = if let Some(parsed) =
-            tombi_parser::parse_document_header_comments(&document_info.source)
+            tombi_parser::parse_document_header_comments(&document_source.text)
                 .cast::<tombi_ast::Root>()
         {
             match self
@@ -122,7 +123,7 @@ impl Backend {
             })
             .unwrap_or(self.config.read().await.toml_version.unwrap_or_default());
 
-        Some(tombi_parser::parse(&document_info.source, toml_version))
+        Some(tombi_parser::parse(&document_source.text, toml_version))
     }
 
     #[inline]
@@ -178,7 +179,7 @@ impl Backend {
     }
 
     #[inline]
-    pub async fn update_workspace_config(&self, workspace_config_url: Url, config: Config) {
+    pub async fn update_workspace_config(&self, workspace_config_url: &Url, config: Config) {
         tracing::info!("Updated workspace config: {workspace_config_url}");
 
         *self.config.write().await = config;
@@ -324,6 +325,13 @@ impl LanguageServer for Backend {
         params: GotoDeclarationParams,
     ) -> Result<Option<GotoDeclarationResponse>, tower_lsp::jsonrpc::Error> {
         into_definition_locations(self, handle_goto_declaration(self, params).await?).await
+    }
+
+    async fn code_action(
+        &self,
+        params: CodeActionParams,
+    ) -> Result<Option<CodeActionResponse>, tower_lsp::jsonrpc::Error> {
+        handle_code_action(self, params).await
     }
 }
 

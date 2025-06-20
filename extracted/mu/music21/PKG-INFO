@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: music21
-Version: 9.7.0
+Version: 9.7.1
 Summary: A Toolkit for Computer-Aided Musical Analysis and Computational Musicology.
 Project-URL: Download, https://github.com/cuthbertLab/music21/releases/
 Project-URL: Homepage, https://github.com/cuthbertLab/music21
@@ -39,7 +39,7 @@ Requires-Dist: joblib
 Requires-Dist: jsonpickle
 Requires-Dist: matplotlib
 Requires-Dist: more-itertools
-Requires-Dist: numpy<2.0.0
+Requires-Dist: numpy>=1.26.4
 Requires-Dist: requests
 Requires-Dist: webcolors>=1.5
 Description-Content-Type: text/markdown

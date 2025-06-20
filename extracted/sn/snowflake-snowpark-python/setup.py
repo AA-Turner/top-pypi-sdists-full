@@ -14,7 +14,7 @@ from setuptools.command.build_py import build_py as _build_py
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 SRC_DIR = os.path.join(THIS_DIR, "src")
 SNOWPARK_SRC_DIR = os.path.join(SRC_DIR, "snowflake", "snowpark")
-MODIN_DEPENDENCY_VERSION = "==0.32.0"  # Snowpark pandas requires modin 0.32.0, which is compatible with pandas 2.2.x
+MODIN_DEPENDENCY_VERSION = ">=0.32.0, <0.34.0"  # Snowpark pandas requires modin 0.32.0 or 0.33.x, which are compatible with pandas 2.2.x
 CONNECTOR_DEPENDENCY_VERSION = ">=3.14.0, <4.0.0"
 CONNECTOR_DEPENDENCY = f"snowflake-connector-python{CONNECTOR_DEPENDENCY_VERSION}"
 INSTALL_REQ_LIST = [
@@ -61,6 +61,7 @@ DEVELOPMENT_REQUIREMENTS = [
     "tox",  # used for setting up testing environments
     "snowflake.core>=1.0.0, <2",  # Catalog
     "psutil",  # testing for telemetry
+    "lxml",  # used in XML reader unit tests
 ]
 
 # read the version
@@ -209,6 +210,7 @@ setup(
             # TODO(SNOW-1938831): Test snowflake-ml-python on python 3.12 once
             # snowflake-ml-python is available on python 3.12.
             "snowflake-ml-python>=1.8.0; python_version<'3.12'",
+            "s3fs",  # Used in tests that read CSV files from s3
         ],
         "localtest": [
             "pandas",

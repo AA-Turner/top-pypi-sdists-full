@@ -4,10 +4,10 @@
 requires = [
     'setuptools >= 77.0.0',
     'pkgconfig',
-    'passagemath-setup ~= 10.5.42.0',
-    'passagemath-categories ~= 10.5.42.0',
-    'passagemath-environment ~= 10.5.42.0',
-    'passagemath-objects ~= 10.5.42.0',
+    'passagemath-setup ~= 10.5.43.0',
+    'passagemath-categories ~= 10.5.43.0',
+    'passagemath-environment ~= 10.5.43.0',
+    'passagemath-objects ~= 10.5.43.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'cysignals >=1.11.2, != 1.12.0',
 ]
@@ -18,8 +18,8 @@ name = "passagemath-latte-4ti2"
 description = "passagemath: Lattice points in polyhedra with LattE integrale and 4ti2"
 dependencies = [
     'cysignals >=1.11.2, != 1.12.0',
-    'passagemath-categories ~= 10.5.42.0',
-    'passagemath-cddlib ~= 10.5.42.0',
+    'passagemath-categories ~= 10.5.43.0',
+    'passagemath-cddlib ~= 10.5.43.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"

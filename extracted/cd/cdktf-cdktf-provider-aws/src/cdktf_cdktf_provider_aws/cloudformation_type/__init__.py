@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudformation_type`
 
-Refer to the Terraform Registry for docs: [`aws_cloudformation_type`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type).
+Refer to the Terraform Registry for docs: [`aws_cloudformation_type`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudformationType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudformationType.CloudformationType",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type aws_cloudformation_type}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type aws_cloudformation_type}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class CloudformationType(
         execution_role_arn: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         logging_config: typing.Optional[typing.Union["CloudformationTypeLoggingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         type: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -65,16 +66,17 @@ class CloudformationType(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type aws_cloudformation_type} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type aws_cloudformation_type} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param schema_handler_package: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#schema_handler_package CloudformationType#schema_handler_package}.
-        :param type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#type_name CloudformationType#type_name}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#execution_role_arn CloudformationType#execution_role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#id CloudformationType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#logging_config CloudformationType#logging_config}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#type CloudformationType#type}.
+        :param schema_handler_package: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#schema_handler_package CloudformationType#schema_handler_package}.
+        :param type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#type_name CloudformationType#type_name}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#execution_role_arn CloudformationType#execution_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#id CloudformationType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#logging_config CloudformationType#logging_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#region CloudformationType#region}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#type CloudformationType#type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -93,6 +95,7 @@ class CloudformationType(
             execution_role_arn=execution_role_arn,
             id=id,
             logging_config=logging_config,
+            region=region,
             type=type,
             connection=connection,
             count=count,
@@ -118,7 +121,7 @@ class CloudformationType(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudformationType to import.
-        :param import_from_id: The id of the existing CloudformationType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudformationType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudformationType to import is found.
         '''
         if __debug__:
@@ -137,8 +140,8 @@ class CloudformationType(
         log_role_arn: builtins.str,
     ) -> None:
         '''
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#log_group_name CloudformationType#log_group_name}.
-        :param log_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#log_role_arn CloudformationType#log_role_arn}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#log_group_name CloudformationType#log_group_name}.
+        :param log_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#log_role_arn CloudformationType#log_role_arn}.
         '''
         value = CloudformationTypeLoggingConfig(
             log_group_name=log_group_name, log_role_arn=log_role_arn
@@ -157,6 +160,10 @@ class CloudformationType(
     @jsii.member(jsii_name="resetLoggingConfig")
     def reset_logging_config(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLoggingConfig", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetType")
     def reset_type(self) -> None:
@@ -258,6 +265,11 @@ class CloudformationType(
         return typing.cast(typing.Optional["CloudformationTypeLoggingConfig"], jsii.get(self, "loggingConfigInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="schemaHandlerPackageInput")
     def schema_handler_package_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "schemaHandlerPackageInput"))
@@ -295,6 +307,18 @@ class CloudformationType(
             type_hints = typing.get_type_hints(_typecheckingstub__89c474814f58b246796076b189372ba66f828fdfc36a5ba5538cfaf235b973c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1621fba2c08a3958d0a9ad417f66da1c99a6eff235fe3d163137e85d2a3749ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="schemaHandlerPackage")
@@ -349,6 +373,7 @@ class CloudformationType(
         "execution_role_arn": "executionRoleArn",
         "id": "id",
         "logging_config": "loggingConfig",
+        "region": "region",
         "type": "type",
     },
 )
@@ -368,6 +393,7 @@ class CloudformationTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         execution_role_arn: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         logging_config: typing.Optional[typing.Union["CloudformationTypeLoggingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -378,12 +404,13 @@ class CloudformationTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param schema_handler_package: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#schema_handler_package CloudformationType#schema_handler_package}.
-        :param type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#type_name CloudformationType#type_name}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#execution_role_arn CloudformationType#execution_role_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#id CloudformationType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#logging_config CloudformationType#logging_config}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#type CloudformationType#type}.
+        :param schema_handler_package: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#schema_handler_package CloudformationType#schema_handler_package}.
+        :param type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#type_name CloudformationType#type_name}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#execution_role_arn CloudformationType#execution_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#id CloudformationType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#logging_config CloudformationType#logging_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#region CloudformationType#region}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#type CloudformationType#type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -403,6 +430,7 @@ class CloudformationTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "schema_handler_package": schema_handler_package,
@@ -428,6 +456,8 @@ class CloudformationTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if logging_config is not None:
             self._values["logging_config"] = logging_config
+        if region is not None:
+            self._values["region"] = region
         if type is not None:
             self._values["type"] = type
 
@@ -497,27 +527,27 @@ class CloudformationTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def schema_handler_package(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#schema_handler_package CloudformationType#schema_handler_package}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#schema_handler_package CloudformationType#schema_handler_package}.'''
         result = self._values.get("schema_handler_package")
         assert result is not None, "Required property 'schema_handler_package' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#type_name CloudformationType#type_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#type_name CloudformationType#type_name}.'''
         result = self._values.get("type_name")
         assert result is not None, "Required property 'type_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#execution_role_arn CloudformationType#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#execution_role_arn CloudformationType#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#id CloudformationType#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#id CloudformationType#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -529,14 +559,23 @@ class CloudformationTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging_config(self) -> typing.Optional["CloudformationTypeLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#logging_config CloudformationType#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#logging_config CloudformationType#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["CloudformationTypeLoggingConfig"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#region CloudformationType#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#type CloudformationType#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#type CloudformationType#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -565,8 +604,8 @@ class CloudformationTypeLoggingConfig:
         log_role_arn: builtins.str,
     ) -> None:
         '''
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#log_group_name CloudformationType#log_group_name}.
-        :param log_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#log_role_arn CloudformationType#log_role_arn}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#log_group_name CloudformationType#log_group_name}.
+        :param log_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#log_role_arn CloudformationType#log_role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8766020197c7707b0ae2d9178d98c6064f771695a66a12dc6d59d996b9b173d)
@@ -579,14 +618,14 @@ class CloudformationTypeLoggingConfig:
 
     @builtins.property
     def log_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#log_group_name CloudformationType#log_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#log_group_name CloudformationType#log_group_name}.'''
         result = self._values.get("log_group_name")
         assert result is not None, "Required property 'log_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/cloudformation_type#log_role_arn CloudformationType#log_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/cloudformation_type#log_role_arn CloudformationType#log_role_arn}.'''
         result = self._values.get("log_role_arn")
         assert result is not None, "Required property 'log_role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -691,6 +730,7 @@ def _typecheckingstub__f8c408b8ba19a1da4d44a28626b331d907308bfd65250eb3025c9aae6
     execution_role_arn: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     logging_config: typing.Optional[typing.Union[CloudformationTypeLoggingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -719,6 +759,12 @@ def _typecheckingstub__992861476962cb6702c918c1138c81231ab004bc1053e05923f40eefc
     pass
 
 def _typecheckingstub__89c474814f58b246796076b189372ba66f828fdfc36a5ba5538cfaf235b973c2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1621fba2c08a3958d0a9ad417f66da1c99a6eff235fe3d163137e85d2a3749ed(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -756,6 +802,7 @@ def _typecheckingstub__b200bdb04cb3ca20544bc56494504565c49e72c698285ff0356f6db0b
     execution_role_arn: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     logging_config: typing.Optional[typing.Union[CloudformationTypeLoggingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

@@ -460,6 +460,17 @@ def test_wcs_from_points():
     assert_allclose(newra, ra)
     assert_allclose(newdec, dec)
 
+    w = wcs_from_points(xy=(x, y), world_coords=world_coords, proj_point="center")
+    newra, newdec = w(x, y)
+    assert_allclose(newra, ra)
+    assert_allclose(newdec, dec)
+
+    fiducial = fiducial.transform_to("galactic")
+    w = wcs_from_points(xy=(x, y), world_coords=world_coords, proj_point=fiducial)
+    newra, newdec = w(x, y)
+    assert_allclose(newra, ra)
+    assert_allclose(newdec, dec)
+
     n = rng.standard_normal(ra.size)
     n.shape = ra.shape
     nra = n * 10**-2
@@ -588,6 +599,21 @@ def test_footprint():
     )
 
     assert_equal(w.footprint(axis_type="spectral"), np.array([2, 12]))
+
+
+def test_outside_footprint_inputs(gwcs_2d_spatial_shift):
+    """
+    Regression test for #594
+        -> When inverting the WCS, the footprint will modify the input coordinate
+           variables, which is not expected.
+    """
+    x = np.linspace(-20, 20, 100)
+    y = np.linspace(-20, 20, 100)
+    gwcs_2d_spatial_shift.bounding_box = ((0, 10), (0, 10))
+
+    _ = gwcs_2d_spatial_shift.world_to_pixel_values(x, y)
+    assert (x == np.linspace(-20, 20, 100)).all()
+    assert (y == np.linspace(-20, 20, 100)).all()
 
 
 def test_high_level_api():
@@ -1804,3 +1830,82 @@ def test_bounding_box_with_units():
 
     w_gwcs.invert(4 * u.deg, 5 * u.deg)
     w_gwcs.to_fits(bounding_box=([0, 100] * u.pix, [0, 100] * u.pix))
+
+
+def test_direct_numerical_inverse(gwcs_romanisim):
+    xy = (128, 256)
+    coord = gwcs_romanisim(*xy)
+    ra_dec = (np.radians(c) * u.rad for c in coord)
+    out = gwcs_romanisim.numerical_inverse(*ra_dec)
+
+    assert_allclose(xy, out)
+
+
+def test_array_high_level_output():
+    """
+    Test that we don't loose array values when requesting a high-level output
+    from a WCS object.
+    """
+    input_frame = cf.CoordinateFrame(
+        naxes=1,
+        axes_type=("SPATIAL",),
+        axes_order=(0,),
+        name="pixels",
+        unit=(u.pix,),
+        axes_names=("x",),
+    )
+    output_frame = cf.SpectralFrame(unit=(u.nm,), axes_names=("lambda",))
+    wave_model = models.Scale(0.1) | models.Shift(500)
+    gwcs = wcs.WCS([(input_frame, wave_model), (output_frame, None)])
+    assert (
+        gwcs(np.array([0, 1, 2]), with_units=True)
+        == coord.SpectralCoord([500, 500.1, 500.2] * u.nm)
+    ).all()
+
+
+def test_parameterless_transform():
+    """
+    Test that a transform with no parameters correctly handles units.
+    -> The wcs does not introduce units when evaluating the forward or backward
+      transform for models with no parameters
+    Regression test for #558
+    """
+
+    in_frame = cf.Frame2D(name="in_frame")
+    out_frame = cf.Frame2D(name="out_frame")
+
+    gwcs = wcs.WCS(
+        [
+            (in_frame, models.Identity(2)),
+            (out_frame, None),
+        ]
+    )
+
+    # The expectation for this wcs is that:
+    # - gwcs(1, 1) has no units
+    # (__call__ apparently is supposed to pass units through?)
+    # - gwcs(1*u.pix, 1*u.pix) has units
+    # - gwcs.invert(1, 1) has no units
+    # - gwcs.invert(1*u.pix, 1*u.pix) has no units
+
+    # No units introduced by the forward transform
+    assert gwcs(1, 1) == (1, 1)
+    assert gwcs(1 * u.pix, 1 * u.pix) == (1 * u.pix, 1 * u.pix)
+
+    assert gwcs.invert(1, 1) == (1, 1)
+    assert gwcs.invert(1 * u.pix, 1 * u.pix) == (1, 1)
+
+
+def test_fitswcs_imaging(fits_wcs_imaging_simple):
+    """Test simple FITS type imaging WCS."""
+    forward_transform = fits_wcs_imaging_simple.forward_transform
+    ra, dec = fits_wcs_imaging_simple(*forward_transform.crpix)
+    assert_allclose((ra, dec), forward_transform.crval)
+    assert_allclose(fits_wcs_imaging_simple.invert(ra, dec), forward_transform.crpix)
+
+    sky = fits_wcs_imaging_simple.pixel_to_world(*forward_transform.crpix)
+    ra, dec = sky.data.lon.value, sky.data.lat.value
+    assert_allclose((ra, dec), forward_transform.crval)
+    assert_allclose(
+        fits_wcs_imaging_simple.world_to_pixel(sky), forward_transform.crpix
+    )

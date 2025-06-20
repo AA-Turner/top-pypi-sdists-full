@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: eox-tenant
-Version: 13.1.0
+Version: 14.0.0
 Summary: Edunext Open edx extensions tenant.
 Author: eduNEXT
 Author-email: contact@edunext.co
@@ -19,6 +19,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: license
+Dynamic: license-file
 Dynamic: summary
 
 ==========
@@ -92,10 +93,10 @@ Compatibility Notes
 +------------------+------------------+
 | Sumac            | >= v12.1.0       |
 +------------------+------------------+
+| Teak             | >= v14.0.0       |
++------------------+------------------+
 
-⚠️ Since the 6.2 version, eox-tenant does not support Django 2.2
-
-The plugin is configured for the latest release (Redwood). The following changes in the plugin settings should be applied to be used for previous releases.
+The plugin is configured for the latest release (Teak). The following changes in the plugin settings should be applied to be used for previous releases.
 
 **Maple**
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_oam_link`
 
-Refer to the Terraform Registry for docs: [`aws_oam_link`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link).
+Refer to the Terraform Registry for docs: [`aws_oam_link`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OamLink(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.oamLink.OamLink",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link aws_oam_link}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link aws_oam_link}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class OamLink(
         sink_identifier: builtins.str,
         id: typing.Optional[builtins.str] = None,
         link_configuration: typing.Optional[typing.Union["OamLinkLinkConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["OamLinkTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -67,18 +68,19 @@ class OamLink(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link aws_oam_link} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link aws_oam_link} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param label_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#label_template OamLink#label_template}.
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#resource_types OamLink#resource_types}.
-        :param sink_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#sink_identifier OamLink#sink_identifier}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#id OamLink#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param link_configuration: link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#link_configuration OamLink#link_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#tags OamLink#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#tags_all OamLink#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#timeouts OamLink#timeouts}
+        :param label_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#label_template OamLink#label_template}.
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#resource_types OamLink#resource_types}.
+        :param sink_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#sink_identifier OamLink#sink_identifier}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#id OamLink#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param link_configuration: link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#link_configuration OamLink#link_configuration}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#region OamLink#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#tags OamLink#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#tags_all OamLink#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#timeouts OamLink#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -97,6 +99,7 @@ class OamLink(
             sink_identifier=sink_identifier,
             id=id,
             link_configuration=link_configuration,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             timeouts=timeouts,
@@ -124,7 +127,7 @@ class OamLink(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OamLink to import.
-        :param import_from_id: The id of the existing OamLink that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OamLink that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OamLink to import is found.
         '''
         if __debug__:
@@ -143,8 +146,8 @@ class OamLink(
         metric_configuration: typing.Optional[typing.Union["OamLinkLinkConfigurationMetricConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param log_group_configuration: log_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#log_group_configuration OamLink#log_group_configuration}
-        :param metric_configuration: metric_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#metric_configuration OamLink#metric_configuration}
+        :param log_group_configuration: log_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#log_group_configuration OamLink#log_group_configuration}
+        :param metric_configuration: metric_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#metric_configuration OamLink#metric_configuration}
         '''
         value = OamLinkLinkConfiguration(
             log_group_configuration=log_group_configuration,
@@ -162,9 +165,9 @@ class OamLink(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#create OamLink#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#delete OamLink#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#update OamLink#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#create OamLink#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#delete OamLink#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#update OamLink#update}.
         '''
         value = OamLinkTimeouts(create=create, delete=delete, update=update)
 
@@ -177,6 +180,10 @@ class OamLink(
     @jsii.member(jsii_name="resetLinkConfiguration")
     def reset_link_configuration(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLinkConfiguration", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -249,6 +256,11 @@ class OamLink(
         return typing.cast(typing.Optional["OamLinkLinkConfiguration"], jsii.get(self, "linkConfigurationInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="resourceTypesInput")
     def resource_types_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourceTypesInput"))
@@ -300,6 +312,18 @@ class OamLink(
             type_hints = typing.get_type_hints(_typecheckingstub__e9e6bc77e50f98c046e67731b2b255fdeec63c288bc2ddf9f3d1fb5a45a1b4e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "labelTemplate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c80c9c8789ad08f60de0f02148152872b4e74f1512161d557f7b0c0da1fa6f27)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="resourceTypes")
@@ -366,6 +390,7 @@ class OamLink(
         "sink_identifier": "sinkIdentifier",
         "id": "id",
         "link_configuration": "linkConfiguration",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
         "timeouts": "timeouts",
@@ -387,6 +412,7 @@ class OamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         sink_identifier: builtins.str,
         id: typing.Optional[builtins.str] = None,
         link_configuration: typing.Optional[typing.Union["OamLinkLinkConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["OamLinkTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -399,14 +425,15 @@ class OamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param label_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#label_template OamLink#label_template}.
-        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#resource_types OamLink#resource_types}.
-        :param sink_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#sink_identifier OamLink#sink_identifier}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#id OamLink#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param link_configuration: link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#link_configuration OamLink#link_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#tags OamLink#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#tags_all OamLink#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#timeouts OamLink#timeouts}
+        :param label_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#label_template OamLink#label_template}.
+        :param resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#resource_types OamLink#resource_types}.
+        :param sink_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#sink_identifier OamLink#sink_identifier}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#id OamLink#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param link_configuration: link_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#link_configuration OamLink#link_configuration}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#region OamLink#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#tags OamLink#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#tags_all OamLink#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#timeouts OamLink#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -428,6 +455,7 @@ class OamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument sink_identifier", value=sink_identifier, expected_type=type_hints["sink_identifier"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument link_configuration", value=link_configuration, expected_type=type_hints["link_configuration"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -454,6 +482,8 @@ class OamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if link_configuration is not None:
             self._values["link_configuration"] = link_configuration
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -527,28 +557,28 @@ class OamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def label_template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#label_template OamLink#label_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#label_template OamLink#label_template}.'''
         result = self._values.get("label_template")
         assert result is not None, "Required property 'label_template' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#resource_types OamLink#resource_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#resource_types OamLink#resource_types}.'''
         result = self._values.get("resource_types")
         assert result is not None, "Required property 'resource_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def sink_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#sink_identifier OamLink#sink_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#sink_identifier OamLink#sink_identifier}.'''
         result = self._values.get("sink_identifier")
         assert result is not None, "Required property 'sink_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#id OamLink#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#id OamLink#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -560,20 +590,29 @@ class OamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def link_configuration(self) -> typing.Optional["OamLinkLinkConfiguration"]:
         '''link_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#link_configuration OamLink#link_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#link_configuration OamLink#link_configuration}
         '''
         result = self._values.get("link_configuration")
         return typing.cast(typing.Optional["OamLinkLinkConfiguration"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#region OamLink#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#tags OamLink#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#tags OamLink#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#tags_all OamLink#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#tags_all OamLink#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -581,7 +620,7 @@ class OamLinkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OamLinkTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#timeouts OamLink#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#timeouts OamLink#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OamLinkTimeouts"], result)
@@ -614,8 +653,8 @@ class OamLinkLinkConfiguration:
         metric_configuration: typing.Optional[typing.Union["OamLinkLinkConfigurationMetricConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param log_group_configuration: log_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#log_group_configuration OamLink#log_group_configuration}
-        :param metric_configuration: metric_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#metric_configuration OamLink#metric_configuration}
+        :param log_group_configuration: log_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#log_group_configuration OamLink#log_group_configuration}
+        :param metric_configuration: metric_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#metric_configuration OamLink#metric_configuration}
         '''
         if isinstance(log_group_configuration, dict):
             log_group_configuration = OamLinkLinkConfigurationLogGroupConfiguration(**log_group_configuration)
@@ -637,7 +676,7 @@ class OamLinkLinkConfiguration:
     ) -> typing.Optional["OamLinkLinkConfigurationLogGroupConfiguration"]:
         '''log_group_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#log_group_configuration OamLink#log_group_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#log_group_configuration OamLink#log_group_configuration}
         '''
         result = self._values.get("log_group_configuration")
         return typing.cast(typing.Optional["OamLinkLinkConfigurationLogGroupConfiguration"], result)
@@ -648,7 +687,7 @@ class OamLinkLinkConfiguration:
     ) -> typing.Optional["OamLinkLinkConfigurationMetricConfiguration"]:
         '''metric_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#metric_configuration OamLink#metric_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#metric_configuration OamLink#metric_configuration}
         '''
         result = self._values.get("metric_configuration")
         return typing.cast(typing.Optional["OamLinkLinkConfigurationMetricConfiguration"], result)
@@ -673,7 +712,7 @@ class OamLinkLinkConfiguration:
 class OamLinkLinkConfigurationLogGroupConfiguration:
     def __init__(self, *, filter: builtins.str) -> None:
         '''
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#filter OamLink#filter}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#filter OamLink#filter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d02067244bb0b4c3241cd3877f6ff4b5d8af552226d75a272af1d9796e72058e)
@@ -684,7 +723,7 @@ class OamLinkLinkConfigurationLogGroupConfiguration:
 
     @builtins.property
     def filter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#filter OamLink#filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#filter OamLink#filter}.'''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
         return typing.cast(builtins.str, result)
@@ -764,7 +803,7 @@ class OamLinkLinkConfigurationLogGroupConfigurationOutputReference(
 class OamLinkLinkConfigurationMetricConfiguration:
     def __init__(self, *, filter: builtins.str) -> None:
         '''
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#filter OamLink#filter}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#filter OamLink#filter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__111f629c7f94fc341b802a00fcd091f65a8b6a4b918377f96c27502a758441e9)
@@ -775,7 +814,7 @@ class OamLinkLinkConfigurationMetricConfiguration:
 
     @builtins.property
     def filter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#filter OamLink#filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#filter OamLink#filter}.'''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
         return typing.cast(builtins.str, result)
@@ -870,7 +909,7 @@ class OamLinkLinkConfigurationOutputReference(
     @jsii.member(jsii_name="putLogGroupConfiguration")
     def put_log_group_configuration(self, *, filter: builtins.str) -> None:
         '''
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#filter OamLink#filter}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#filter OamLink#filter}.
         '''
         value = OamLinkLinkConfigurationLogGroupConfiguration(filter=filter)
 
@@ -879,7 +918,7 @@ class OamLinkLinkConfigurationOutputReference(
     @jsii.member(jsii_name="putMetricConfiguration")
     def put_metric_configuration(self, *, filter: builtins.str) -> None:
         '''
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#filter OamLink#filter}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#filter OamLink#filter}.
         '''
         value = OamLinkLinkConfigurationMetricConfiguration(filter=filter)
 
@@ -948,9 +987,9 @@ class OamLinkTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#create OamLink#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#delete OamLink#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#update OamLink#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#create OamLink#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#delete OamLink#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#update OamLink#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53a25a9afcb01feed5ec3946975ac1e377dcb450517b649afb9075accef5f36a)
@@ -967,19 +1006,19 @@ class OamLinkTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#create OamLink#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#create OamLink#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#delete OamLink#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#delete OamLink#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/oam_link#update OamLink#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/oam_link#update OamLink#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1120,6 +1159,7 @@ def _typecheckingstub__311cc68198e3fd9b2d86f55e16040c082d06d9df49cb74280b51c36ab
     sink_identifier: builtins.str,
     id: typing.Optional[builtins.str] = None,
     link_configuration: typing.Optional[typing.Union[OamLinkLinkConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[OamLinkTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1150,6 +1190,12 @@ def _typecheckingstub__04952e1c6dad8de89345bb041fd9919df5ac3b0f30643216d8fe71aac
     pass
 
 def _typecheckingstub__e9e6bc77e50f98c046e67731b2b255fdeec63c288bc2ddf9f3d1fb5a45a1b4e9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c80c9c8789ad08f60de0f02148152872b4e74f1512161d557f7b0c0da1fa6f27(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1193,6 +1239,7 @@ def _typecheckingstub__af105336cc285ed03e6ac3befbd230999fdf5f814c802c9b633be9850
     sink_identifier: builtins.str,
     id: typing.Optional[builtins.str] = None,
     link_configuration: typing.Optional[typing.Union[OamLinkLinkConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[OamLinkTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

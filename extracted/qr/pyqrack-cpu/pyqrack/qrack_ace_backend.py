@@ -207,8 +207,8 @@ class QrackAceBackend:
     def __init__(
         self,
         qubit_count=1,
-        long_range_columns=5,
-        long_range_rows=2,
+        long_range_columns=4,
+        long_range_rows=4,
         is_transpose=False,
         isTensorNetwork=False,
         isSchmidtDecomposeMulti=False,
@@ -443,12 +443,17 @@ class QrackAceBackend:
 
         return qb, lhv
 
-    def get_lhv_bloch_angles(self, q):
-        z = (1 - q.bloch[2]) / 2
+    def _get_lhv_bloch_angles(self, sim):
+        # Z axis
+        z = 1 - 2 * sim.prob(Pauli.PauliZ)
         prob = z**2
-        x = (1 - q.bloch[0]) / 2
+
+        # X axis
+        x = 1 - 2 * sim.prob(Pauli.PauliX)
         prob += x**2
-        y = (1 - q.bloch[1]) / 2
+
+        # Y axis
+        y = 1 - 2 * sim.prob(Pauli.PauliY)
         prob += y**2
 
         prob = math.sqrt(prob)
@@ -457,7 +462,7 @@ class QrackAceBackend:
 
         return prob, azimuth, inclination
 
-    def get_bloch_angles(self, hq):
+    def _get_bloch_angles(self, hq):
         sim = self.sim[hq[0]]
         q = hq[1]
 
@@ -485,32 +490,11 @@ class QrackAceBackend:
 
         return prob, azimuth, inclination
 
-    def rotate_lhv_to_bloch(
-        self, q, azimuth_curr, inclination_curr, azimuth_target, inclination_target
-    ):
-        delta_azimuth = azimuth_target - azimuth_curr
-        delta_inclination = inclination_target - inclination_curr
-
-        cosA = math.cos(delta_azimuth)
-        sinA = math.sin(delta_azimuth)
-        cosI = math.cos(delta_inclination / 2)
-        sinI = math.sin(delta_inclination / 2)
-
-        m00 = complex(cosI, 0)
-        m01 = complex(-cosA, sinA) * sinI
-        m10 = complex(cosA, sinA) * sinI
-        m11 = complex(cosI, 0)
-
-        q.mtrx([m00, m01, m10, m11])
-
-    def rotate_to_bloch(
-        self, hq, azimuth_curr, inclination_curr, azimuth_target, inclination_target
+    def _rotate_to_bloch(
+        self, hq, delta_azimuth, delta_inclination
     ):
         sim = self.sim[hq[0]]
         q = hq[1]
-
-        delta_azimuth = azimuth_target - azimuth_curr
-        delta_inclination = inclination_target - inclination_curr
 
         # Apply rotation as "Azimuth, Inclination" (AI)
         cosA = math.cos(delta_azimuth)
@@ -526,7 +510,24 @@ class QrackAceBackend:
         sim.mtrx([m00, m01, m10, m11], q)
 
 
-    def _correct(self, lq, phase=False):
+    def _rotate_lhv_to_bloch(
+        self, sim, delta_azimuth, delta_inclination
+    ):
+        # Apply rotation as "Azimuth, Inclination" (AI)
+        cosA = math.cos(delta_azimuth)
+        sinA = math.sin(delta_azimuth)
+        cosI = math.cos(delta_inclination / 2)
+        sinI = math.sin(delta_inclination / 2)
+
+        m00 = complex(cosI, 0)
+        m01 = complex(-cosA, sinA) * sinI
+        m10 = complex(cosA, sinA) * sinI
+        m11 = complex(cosI, 0)
+
+        sim.mtrx([m00, m01, m10, m11])
+
+
+    def _correct(self, lq, phase=False, skip_rotation=False):
         hq = self._unpack(lq)
 
         if len(hq) == 1:
@@ -577,34 +578,33 @@ class QrackAceBackend:
                     else:
                         self.sim[hq[q][0]].x(hq[q][1])
 
-            p, a, i = [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]
-            p[0], a[0], i[0] = self.get_bloch_angles(hq[0])
-            p[1], a[1], i[1] = self.get_bloch_angles(hq[1])
-            p[2], a[2], i[2] = self.get_lhv_bloch_angles(hq[2])
-            p[3], a[3], i[3] = self.get_bloch_angles(hq[3])
-            p[4], a[4], i[4] = self.get_bloch_angles(hq[4])
+            if not skip_rotation:
+                p, a, i = [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]
+                p[0], a[0], i[0] = self._get_bloch_angles(hq[0])
+                p[1], a[1], i[1] = self._get_bloch_angles(hq[1])
+                p[3], a[3], i[3] = self._get_bloch_angles(hq[3])
+                p[4], a[4], i[4] = self._get_bloch_angles(hq[4])
 
-            indices = []
-            a_target = 0
-            i_target = 0
-            weight = 0
-            for x in range(5):
-                if p[x] < 0.5:
-                    continue
-                indices.append(x)
-                w = (1.5 - p[x])
-                a_target += w * a[x]
-                i_target += w * i[x]
-                weight += w
+                indices = []
+                a_target = 0
+                i_target = 0
+                weight = 0
+                for x in range(5):
+                    if p[x] < 0.5:
+                        continue
+                    indices.append(x)
+                    w = (1.5 - p[x])
+                    w *= w
+                    a_target += w * a[x]
+                    i_target += w * i[x]
+                    weight += w
 
-            if len(indices) > 1:
-                a_target /= weight
-                i_target /= weight
-                for x in indices:
-                    if x == 2:
-                        self.rotate_lhv_to_bloch(hq[x], a[x], i[x], a_target, i_target)
-                    else:
-                        self.rotate_to_bloch(hq[x], a[x], i[x], a_target, i_target)
+                if len(indices) > 1:
+                    a_target /= weight
+                    i_target /= weight
+                    for x in indices:
+                        self._rotate_to_bloch(hq[x], a_target - a[x], i_target - i[x])
+
         else:
             # RMS
             p = [
@@ -624,32 +624,30 @@ class QrackAceBackend:
                     else:
                         self.sim[hq[q][0]].x(hq[q][1])
 
-            p, a, i = [0, 0, 0], [0, 0, 0], [0, 0, 0]
-            p[0], a[0], i[0] = self.get_bloch_angles(hq[0])
-            p[1], a[1], i[1] = self.get_bloch_angles(hq[1])
-            p[2], a[2], i[2] = self.get_lhv_bloch_angles(hq[2])
+            if not skip_rotation:
+                p, a, i = [0, 0, 0], [0, 0, 0], [0, 0, 0]
+                p[0], a[0], i[0] = self._get_bloch_angles(hq[0])
+                p[1], a[1], i[1] = self._get_bloch_angles(hq[1])
 
-            indices = []
-            a_target = 0
-            i_target = 0
-            weight = 0
-            for x in range(2):
-                if p[x] < 0.5:
-                    continue
-                indices.append(x)
-                w = (1.5 - p[x])
-                a_target += w * a[x]
-                i_target += w * i[x]
-                weight += w
+                indices = []
+                a_target = 0
+                i_target = 0
+                weight = 0
+                for x in range(3):
+                    if p[x] < 0.5:
+                        continue
+                    indices.append(x)
+                    w = (1.5 - p[x])
+                    w *= w
+                    a_target += w * a[x]
+                    i_target += w * i[x]
+                    weight += w
 
-            if len(indices) > 1:
-                a_target /= weight
-                i_target /= weight
-                for x in indices:
-                    if x == 2:
-                        self.rotate_lhv_to_bloch(hq[x], a[x], i[x], a_target, i_target)
-                    else:
-                        self.rotate_to_bloch(hq[x], a[x], i[x], a_target, i_target)
+                if len(indices) > 1:
+                    a_target /= weight
+                    i_target /= weight
+                    for x in indices:
+                        self._rotate_to_bloch(hq[x], a_target - a[x], i_target - i[x])
 
         if phase:
             for q in qb:
@@ -674,8 +672,8 @@ class QrackAceBackend:
         b = hq[lhv]
         b.u(th, ph, lm)
 
-        self._correct(lq, False)
-        self._correct(lq, True)
+        self._correct(lq, False, True)
+        self._correct(lq, True, False)
 
     def r(self, p, th, lq):
         hq = self._unpack(lq)
@@ -699,7 +697,7 @@ class QrackAceBackend:
             b.rz(th)
 
         if p != Pauli.PauliZ:
-            self._correct(lq, False)
+            self._correct(lq, False, p != Pauli.PauliX)
         if p != Pauli.PauliX:
             self._correct(lq, True)
 
@@ -923,7 +921,7 @@ class QrackAceBackend:
 
         self._correct(lq1, True)
         if pauli != Pauli.PauliZ:
-            self._correct(lq2, False)
+            self._correct(lq2, False, pauli != Pauli.PauliX)
         if pauli != Pauli.PauliX:
             self._correct(lq2, True)
 

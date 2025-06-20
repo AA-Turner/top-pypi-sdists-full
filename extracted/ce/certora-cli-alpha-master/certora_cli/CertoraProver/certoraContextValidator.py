@@ -19,7 +19,9 @@ import re
 import sys
 import itertools
 import tempfile
+import fnmatch
 from pathlib import Path
+from wcmatch import glob
 from typing import Dict, List, Tuple, Set, Any, Union, OrderedDict
 
 import CertoraProver.certoraContext as Ctx
@@ -666,6 +668,20 @@ def check_mode_of_operation(context: CertoraContext) -> None:
                 special_file_type]) and not context.build_only:
         raise Util.CertoraUserInputError("You must use 'verify' when running the Certora Prover")
 
+def find_matching_contracts(context: CertoraContext, pattern: str) -> List[str]:
+    result = []
+    for contract in context.contract_to_file:
+        if fnmatch.fnmatch(contract, pattern):
+            result.append(context.contract_to_file[contract])
+    return result
+
+def find_matching_files(context: CertoraContext, pattern: str) -> List[str]:
+    result = []
+
+    for path in context.file_paths:
+        if glob.globmatch(path, pattern, flags=glob.GLOBSTAR):
+            result.append(path)
+    return result
 
 def check_map_attributes(context: CertoraContext) -> None:
 
@@ -686,33 +702,21 @@ def check_map_attributes(context: CertoraContext) -> None:
         if not isinstance(map_attr, OrderedDict):
             raise RuntimeError(f"`map_attr` is not an ordered dictionary, got {map_attr}")
 
-        # handle contracts
-        # creating a copy since we cannot modify the OrderedDict while iterating over it
-        new_map_attr = map_attr.copy()
+        # will check that all the contract files are matched
+        file_list: Dict[str, bool] = {path: False for path in context.file_paths}
 
         for key, value in map_attr.items():
-            key_parts = key.split(':')
-            if Path(key_parts[0]).suffix == "" and key_parts[0] in context.contract_to_file:
-                # key is a contract in a known file
-                contract_key = key_parts[0]
-                contract_file = context.contract_to_file[contract_key]
-                if contract_file in map_attr:
-                    if map_attr[contract_file] != value:
-                        # contract binding conflicts with an existing binding
-                        raise Util.CertoraUserInputError(f"mapping of `{key}` to `{value}` in `{map_attr_name}` conflicts"
-                                                         f" with an existing binding of `{contract_file}` to"
-                                                         f" `{map_attr[contract_file]}`")
-                else:
-                    # no binding for the contract file, so we add it to the attribute
-                    new_map_attr[contract_file] = value
-                    # move to head
-                    new_map_attr.move_to_end(contract_file, last=False)
-        setattr(context, map_attr_name, new_map_attr)
+            pattern = key.split(':')[0]  # ignore the contract part
+            if Path(pattern).suffix == "":
+                for path in find_matching_contracts(context, pattern):
+                    file_list[path] = True
+            else:
+                for path in find_matching_files(context, pattern):
+                    file_list[path] = True
 
-        for path in context.file_paths:
-            match = Util.match_path_to_mapping_key(Path(path), new_map_attr)
-            if match is None:
-                raise RuntimeError(f'cannot match compiler to {path} from {map_attr_name}')
+        none_keys = [k for k, v in file_list.items() if v is False]
+        if none_keys:
+            raise Util.CertoraUserInputError(f"The following files are not matched in {map_attr_name}: {none_keys}")
 
 
 def check_parametric_contracts(context: CertoraContext) -> None:

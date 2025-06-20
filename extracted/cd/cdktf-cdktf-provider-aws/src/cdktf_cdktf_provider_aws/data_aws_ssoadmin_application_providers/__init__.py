@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ssoadmin_application_providers`
 
-Refer to the Terraform Registry for docs: [`data_aws_ssoadmin_application_providers`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers).
+Refer to the Terraform Registry for docs: [`data_aws_ssoadmin_application_providers`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_providers).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,14 +44,14 @@ class DataAwsSsoadminApplicationProviders(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsSsoadminApplicationProviders.DataAwsSsoadminApplicationProviders",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers aws_ssoadmin_application_providers}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_providers aws_ssoadmin_application_providers}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        application_providers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationProvidersApplicationProviders", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -60,11 +60,11 @@ class DataAwsSsoadminApplicationProviders(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers aws_ssoadmin_application_providers} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_providers aws_ssoadmin_application_providers} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_providers: application_providers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers#application_providers DataAwsSsoadminApplicationProviders#application_providers}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_providers#region DataAwsSsoadminApplicationProviders#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -78,7 +78,7 @@ class DataAwsSsoadminApplicationProviders(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsSsoadminApplicationProvidersConfig(
-            application_providers=application_providers,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -103,7 +103,7 @@ class DataAwsSsoadminApplicationProviders(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsSsoadminApplicationProviders to import.
-        :param import_from_id: The id of the existing DataAwsSsoadminApplicationProviders that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsSsoadminApplicationProviders that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_providers#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsSsoadminApplicationProviders to import is found.
         '''
         if __debug__:
@@ -114,22 +114,9 @@ class DataAwsSsoadminApplicationProviders(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putApplicationProviders")
-    def put_application_providers(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationProvidersApplicationProviders", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcfc9f258ee8bc526324cc8e8452d71325121e576df1dbd32e79e994140bca11)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putApplicationProviders", [value]))
-
-    @jsii.member(jsii_name="resetApplicationProviders")
-    def reset_application_providers(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetApplicationProviders", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -157,44 +144,31 @@ class DataAwsSsoadminApplicationProviders(
         return typing.cast(builtins.str, jsii.get(self, "id"))
 
     @builtins.property
-    @jsii.member(jsii_name="applicationProvidersInput")
-    def application_providers_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationProvidersApplicationProviders"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationProvidersApplicationProviders"]]], jsii.get(self, "applicationProvidersInput"))
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22a9c7c815a8cc8e22149e3aca2c30f1658f707a480e2c6175f4077d1e364f86)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.dataAwsSsoadminApplicationProviders.DataAwsSsoadminApplicationProvidersApplicationProviders",
     jsii_struct_bases=[],
-    name_mapping={"display_data": "displayData"},
+    name_mapping={},
 )
 class DataAwsSsoadminApplicationProvidersApplicationProviders:
-    def __init__(
-        self,
-        *,
-        display_data: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData", typing.Dict[builtins.str, typing.Any]]]]] = None,
-    ) -> None:
-        '''
-        :param display_data: display_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers#display_data DataAwsSsoadminApplicationProviders#display_data}
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c49d3bc48e74d4f7d56b3f1c5e885154b837510a6a3b721fd8493eea96fb4e6)
-            check_type(argname="argument display_data", value=display_data, expected_type=type_hints["display_data"])
+    def __init__(self) -> None:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if display_data is not None:
-            self._values["display_data"] = display_data
-
-    @builtins.property
-    def display_data(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData"]]]:
-        '''display_data block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers#display_data DataAwsSsoadminApplicationProviders#display_data}
-        '''
-        result = self._values.get("display_data")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -304,23 +278,6 @@ class DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayDataList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec96304e32b4774ad56ccde7de295ecfc17fefb92285cf9840523511206cda1e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayDataOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -367,13 +324,13 @@ class DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayDataOutputRe
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]:
+        return typing.cast(typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]],
+        value: typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3a8abcf048288093254a79d6842cf43aea761571fc633604f114b6e336472ec)
@@ -456,23 +413,6 @@ class DataAwsSsoadminApplicationProvidersApplicationProvidersList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProviders]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProviders]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProviders]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c5e9d1c8e094707cae63d090ced9ea92bd0ffb8389179bfc861c6f43a7210d8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsSsoadminApplicationProvidersApplicationProvidersOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -500,23 +440,6 @@ class DataAwsSsoadminApplicationProvidersApplicationProvidersOutputReference(
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
-    @jsii.member(jsii_name="putDisplayData")
-    def put_display_data(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData, typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75cd559d70b603c0c6270da05eb4b680d54501f8a897887551730bc80acf3dd6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putDisplayData", [value]))
-
-    @jsii.member(jsii_name="resetDisplayData")
-    def reset_display_data(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetDisplayData", []))
-
     @builtins.property
     @jsii.member(jsii_name="applicationProviderArn")
     def application_provider_arn(self) -> builtins.str:
@@ -535,23 +458,16 @@ class DataAwsSsoadminApplicationProvidersApplicationProvidersOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "federationProtocol"))
 
     @builtins.property
-    @jsii.member(jsii_name="displayDataInput")
-    def display_data_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]]], jsii.get(self, "displayDataInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProviders]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProviders]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProviders]:
+        return typing.cast(typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProviders], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProviders]],
+        value: typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProviders],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9dd39740872c0b13c31b8ef21f8603878dce422a34331b548a628ba2bba32f59)
@@ -570,7 +486,7 @@ class DataAwsSsoadminApplicationProvidersApplicationProvidersOutputReference(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "application_providers": "applicationProviders",
+        "region": "region",
     },
 )
 class DataAwsSsoadminApplicationProvidersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -584,7 +500,7 @@ class DataAwsSsoadminApplicationProvidersConfig(_cdktf_9a9027ec.TerraformMetaArg
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        application_providers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationProvidersApplicationProviders, typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -594,7 +510,7 @@ class DataAwsSsoadminApplicationProvidersConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_providers: application_providers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers#application_providers DataAwsSsoadminApplicationProviders#application_providers}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_providers#region DataAwsSsoadminApplicationProviders#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -607,7 +523,7 @@ class DataAwsSsoadminApplicationProvidersConfig(_cdktf_9a9027ec.TerraformMetaArg
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument application_providers", value=application_providers, expected_type=type_hints["application_providers"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
@@ -623,8 +539,8 @@ class DataAwsSsoadminApplicationProvidersConfig(_cdktf_9a9027ec.TerraformMetaArg
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if application_providers is not None:
-            self._values["application_providers"] = application_providers
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -691,15 +607,13 @@ class DataAwsSsoadminApplicationProvidersConfig(_cdktf_9a9027ec.TerraformMetaArg
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def application_providers(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProviders]]]:
-        '''application_providers block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application_providers#application_providers DataAwsSsoadminApplicationProviders#application_providers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application_providers#region DataAwsSsoadminApplicationProviders#region}
         '''
-        result = self._values.get("application_providers")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProviders]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -730,7 +644,7 @@ def _typecheckingstub__0dde8c481361639dcf4a522265740432870be4a761c4f94c803c8fbca
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application_providers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationProvidersApplicationProviders, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -751,15 +665,8 @@ def _typecheckingstub__21a9ec2e21184eb5b21ff174edc35cae029899a8acace68140ec199d5
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__dcfc9f258ee8bc526324cc8e8452d71325121e576df1dbd32e79e994140bca11(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationProvidersApplicationProviders, typing.Dict[builtins.str, typing.Any]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3c49d3bc48e74d4f7d56b3f1c5e885154b837510a6a3b721fd8493eea96fb4e6(
-    *,
-    display_data: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData, typing.Dict[builtins.str, typing.Any]]]]] = None,
+def _typecheckingstub__22a9c7c815a8cc8e22149e3aca2c30f1658f707a480e2c6175f4077d1e364f86(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -796,12 +703,6 @@ def _typecheckingstub__5343032b26b38d6d9a94f48afcc6e2c22c79f55c9ffdbafd046847647
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ec96304e32b4774ad56ccde7de295ecfc17fefb92285cf9840523511206cda1e(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__fa81e390522425fd7cf698c3bb5a375af62c955ece0d0ba80d68de237bc3f3ac(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -812,7 +713,7 @@ def _typecheckingstub__fa81e390522425fd7cf698c3bb5a375af62c955ece0d0ba80d68de237
     pass
 
 def _typecheckingstub__f3a8abcf048288093254a79d6842cf43aea761571fc633604f114b6e336472ec(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData]],
+    value: typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -849,12 +750,6 @@ def _typecheckingstub__a839e44ae4224579baf3b08351314735a2ce03c3a7966b226ed1ab08e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2c5e9d1c8e094707cae63d090ced9ea92bd0ffb8389179bfc861c6f43a7210d8(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationProvidersApplicationProviders]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ff56b44d5f436d5ae28e68d78705fd32f9451b4b4708c01c6952a84081b7cb90(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -864,14 +759,8 @@ def _typecheckingstub__ff56b44d5f436d5ae28e68d78705fd32f9451b4b4708c01c6952a8408
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__75cd559d70b603c0c6270da05eb4b680d54501f8a897887551730bc80acf3dd6(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationProvidersApplicationProvidersDisplayData, typing.Dict[builtins.str, typing.Any]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9dd39740872c0b13c31b8ef21f8603878dce422a34331b548a628ba2bba32f59(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationProvidersApplicationProviders]],
+    value: typing.Optional[DataAwsSsoadminApplicationProvidersApplicationProviders],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -885,7 +774,7 @@ def _typecheckingstub__a67e66bc5319c43a83a3212ccf511a500a2cb5b77e37d8db3de3bb1df
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    application_providers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationProvidersApplicationProviders, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

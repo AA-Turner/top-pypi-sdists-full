@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: transformer-lens
-Version: 2.16.0
+Version: 2.16.1
 Summary: An implementation of transformers tailored for mechanistic interpretability.
 License: MIT
 Author: Neel Nanda
@@ -25,7 +25,6 @@ Requires-Dist: numpy (>=1.20,<1.25) ; python_version == "3.8"
 Requires-Dist: numpy (>=1.24,<2) ; python_version >= "3.9" and python_version < "3.12"
 Requires-Dist: numpy (>=1.26,<2) ; python_version == "3.12"
 Requires-Dist: pandas (>=1.1.5)
-Requires-Dist: protobuf (==3.20.1)
 Requires-Dist: rich (>=12.6.0)
 Requires-Dist: sentencepiece
 Requires-Dist: torch (<2.6) ; python_version == "3.8"

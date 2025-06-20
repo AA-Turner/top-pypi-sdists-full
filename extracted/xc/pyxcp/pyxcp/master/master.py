@@ -694,7 +694,7 @@ class Master:
             callback_remaining = total_length
             for _ in chunks:
                 block = data[offset : offset + max_payload]
-                dl_func(block, max_payload, last=True)
+                dl_func(block, max_payload, last=False)
                 offset += max_payload
                 callback_remaining -= chunk_size
                 if callback and callback_remaining <= total_length - (total_length / 100) * percent_complete:
@@ -1328,7 +1328,7 @@ class Master:
         if wait_for_optional_response:
             return self.transport.request_optional_response(types.Command.PROGRAM_RESET)
         else:
-            return self.transport.block_request(types.Command.PROGRAM_RESET)
+            return self.transport.request(types.Command.PROGRAM_RESET)
 
     @wrapped
     def getPgmProcessorInfo(self):

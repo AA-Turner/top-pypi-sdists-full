@@ -1,7 +1,7 @@
 r'''
 # `aws_lightsail_container_service`
 
-Refer to the Terraform Registry for docs: [`aws_lightsail_container_service`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service).
+Refer to the Terraform Registry for docs: [`aws_lightsail_container_service`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LightsailContainerService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lightsailContainerService.LightsailContainerService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service aws_lightsail_container_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service aws_lightsail_container_service}.'''
 
     def __init__(
         self,
@@ -58,6 +58,7 @@ class LightsailContainerService(
         is_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         private_registry_access: typing.Optional[typing.Union["LightsailContainerServicePrivateRegistryAccess", typing.Dict[builtins.str, typing.Any]]] = None,
         public_domain_names: typing.Optional[typing.Union["LightsailContainerServicePublicDomainNames", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["LightsailContainerServiceTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -69,20 +70,21 @@ class LightsailContainerService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service aws_lightsail_container_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service aws_lightsail_container_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#name LightsailContainerService#name}.
-        :param power: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#power LightsailContainerService#power}.
-        :param scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#scale LightsailContainerService#scale}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#id LightsailContainerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#is_disabled LightsailContainerService#is_disabled}.
-        :param private_registry_access: private_registry_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#private_registry_access LightsailContainerService#private_registry_access}
-        :param public_domain_names: public_domain_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#public_domain_names LightsailContainerService#public_domain_names}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#tags LightsailContainerService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#tags_all LightsailContainerService#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#timeouts LightsailContainerService#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#name LightsailContainerService#name}.
+        :param power: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#power LightsailContainerService#power}.
+        :param scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#scale LightsailContainerService#scale}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#id LightsailContainerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#is_disabled LightsailContainerService#is_disabled}.
+        :param private_registry_access: private_registry_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#private_registry_access LightsailContainerService#private_registry_access}
+        :param public_domain_names: public_domain_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#public_domain_names LightsailContainerService#public_domain_names}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#region LightsailContainerService#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#tags LightsailContainerService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#tags_all LightsailContainerService#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#timeouts LightsailContainerService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,6 +105,7 @@ class LightsailContainerService(
             is_disabled=is_disabled,
             private_registry_access=private_registry_access,
             public_domain_names=public_domain_names,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             timeouts=timeouts,
@@ -130,7 +133,7 @@ class LightsailContainerService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LightsailContainerService to import.
-        :param import_from_id: The id of the existing LightsailContainerService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LightsailContainerService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LightsailContainerService to import is found.
         '''
         if __debug__:
@@ -148,7 +151,7 @@ class LightsailContainerService(
         ecr_image_puller_role: typing.Optional[typing.Union["LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ecr_image_puller_role: ecr_image_puller_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#ecr_image_puller_role LightsailContainerService#ecr_image_puller_role}
+        :param ecr_image_puller_role: ecr_image_puller_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#ecr_image_puller_role LightsailContainerService#ecr_image_puller_role}
         '''
         value = LightsailContainerServicePrivateRegistryAccess(
             ecr_image_puller_role=ecr_image_puller_role
@@ -163,7 +166,7 @@ class LightsailContainerService(
         certificate: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LightsailContainerServicePublicDomainNamesCertificate", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#certificate LightsailContainerService#certificate}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#certificate LightsailContainerService#certificate}
         '''
         value = LightsailContainerServicePublicDomainNames(certificate=certificate)
 
@@ -178,9 +181,9 @@ class LightsailContainerService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#create LightsailContainerService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#delete LightsailContainerService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#update LightsailContainerService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#create LightsailContainerService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#delete LightsailContainerService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#update LightsailContainerService#update}.
         '''
         value = LightsailContainerServiceTimeouts(
             create=create, delete=delete, update=update
@@ -203,6 +206,10 @@ class LightsailContainerService(
     @jsii.member(jsii_name="resetPublicDomainNames")
     def reset_public_domain_names(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPublicDomainNames", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -330,6 +337,11 @@ class LightsailContainerService(
         return typing.cast(typing.Optional["LightsailContainerServicePublicDomainNames"], jsii.get(self, "publicDomainNamesInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="scaleInput")
     def scale_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "scaleInput"))
@@ -405,6 +417,18 @@ class LightsailContainerService(
         jsii.set(self, "power", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bce5c930086b5da0890dd24e472e5c4d4f4ecf0c57f634d5783244d79229970c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="scale")
     def scale(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "scale"))
@@ -459,6 +483,7 @@ class LightsailContainerService(
         "is_disabled": "isDisabled",
         "private_registry_access": "privateRegistryAccess",
         "public_domain_names": "publicDomainNames",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
         "timeouts": "timeouts",
@@ -482,6 +507,7 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         is_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         private_registry_access: typing.Optional[typing.Union["LightsailContainerServicePrivateRegistryAccess", typing.Dict[builtins.str, typing.Any]]] = None,
         public_domain_names: typing.Optional[typing.Union["LightsailContainerServicePublicDomainNames", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["LightsailContainerServiceTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -494,16 +520,17 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#name LightsailContainerService#name}.
-        :param power: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#power LightsailContainerService#power}.
-        :param scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#scale LightsailContainerService#scale}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#id LightsailContainerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#is_disabled LightsailContainerService#is_disabled}.
-        :param private_registry_access: private_registry_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#private_registry_access LightsailContainerService#private_registry_access}
-        :param public_domain_names: public_domain_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#public_domain_names LightsailContainerService#public_domain_names}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#tags LightsailContainerService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#tags_all LightsailContainerService#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#timeouts LightsailContainerService#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#name LightsailContainerService#name}.
+        :param power: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#power LightsailContainerService#power}.
+        :param scale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#scale LightsailContainerService#scale}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#id LightsailContainerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#is_disabled LightsailContainerService#is_disabled}.
+        :param private_registry_access: private_registry_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#private_registry_access LightsailContainerService#private_registry_access}
+        :param public_domain_names: public_domain_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#public_domain_names LightsailContainerService#public_domain_names}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#region LightsailContainerService#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#tags LightsailContainerService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#tags_all LightsailContainerService#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#timeouts LightsailContainerService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -529,6 +556,7 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument is_disabled", value=is_disabled, expected_type=type_hints["is_disabled"])
             check_type(argname="argument private_registry_access", value=private_registry_access, expected_type=type_hints["private_registry_access"])
             check_type(argname="argument public_domain_names", value=public_domain_names, expected_type=type_hints["public_domain_names"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -559,6 +587,8 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["private_registry_access"] = private_registry_access
         if public_domain_names is not None:
             self._values["public_domain_names"] = public_domain_names
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -632,28 +662,28 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#name LightsailContainerService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#name LightsailContainerService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def power(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#power LightsailContainerService#power}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#power LightsailContainerService#power}.'''
         result = self._values.get("power")
         assert result is not None, "Required property 'power' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scale(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#scale LightsailContainerService#scale}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#scale LightsailContainerService#scale}.'''
         result = self._values.get("scale")
         assert result is not None, "Required property 'scale' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#id LightsailContainerService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#id LightsailContainerService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -665,7 +695,7 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#is_disabled LightsailContainerService#is_disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#is_disabled LightsailContainerService#is_disabled}.'''
         result = self._values.get("is_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -675,7 +705,7 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LightsailContainerServicePrivateRegistryAccess"]:
         '''private_registry_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#private_registry_access LightsailContainerService#private_registry_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#private_registry_access LightsailContainerService#private_registry_access}
         '''
         result = self._values.get("private_registry_access")
         return typing.cast(typing.Optional["LightsailContainerServicePrivateRegistryAccess"], result)
@@ -686,20 +716,29 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LightsailContainerServicePublicDomainNames"]:
         '''public_domain_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#public_domain_names LightsailContainerService#public_domain_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#public_domain_names LightsailContainerService#public_domain_names}
         '''
         result = self._values.get("public_domain_names")
         return typing.cast(typing.Optional["LightsailContainerServicePublicDomainNames"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#region LightsailContainerService#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#tags LightsailContainerService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#tags LightsailContainerService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#tags_all LightsailContainerService#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#tags_all LightsailContainerService#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -707,7 +746,7 @@ class LightsailContainerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LightsailContainerServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#timeouts LightsailContainerService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#timeouts LightsailContainerService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LightsailContainerServiceTimeouts"], result)
@@ -736,7 +775,7 @@ class LightsailContainerServicePrivateRegistryAccess:
         ecr_image_puller_role: typing.Optional[typing.Union["LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ecr_image_puller_role: ecr_image_puller_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#ecr_image_puller_role LightsailContainerService#ecr_image_puller_role}
+        :param ecr_image_puller_role: ecr_image_puller_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#ecr_image_puller_role LightsailContainerService#ecr_image_puller_role}
         '''
         if isinstance(ecr_image_puller_role, dict):
             ecr_image_puller_role = LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole(**ecr_image_puller_role)
@@ -753,7 +792,7 @@ class LightsailContainerServicePrivateRegistryAccess:
     ) -> typing.Optional["LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole"]:
         '''ecr_image_puller_role block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#ecr_image_puller_role LightsailContainerService#ecr_image_puller_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#ecr_image_puller_role LightsailContainerService#ecr_image_puller_role}
         '''
         result = self._values.get("ecr_image_puller_role")
         return typing.cast(typing.Optional["LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole"], result)
@@ -782,7 +821,7 @@ class LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole:
         is_active: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param is_active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#is_active LightsailContainerService#is_active}.
+        :param is_active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#is_active LightsailContainerService#is_active}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa99fd1d98001f623b2f44d0e3f988178f1b3f77b249d88b5745459154c3b6ad)
@@ -795,7 +834,7 @@ class LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole:
     def is_active(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#is_active LightsailContainerService#is_active}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#is_active LightsailContainerService#is_active}.'''
         result = self._values.get("is_active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -907,7 +946,7 @@ class LightsailContainerServicePrivateRegistryAccessOutputReference(
         is_active: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param is_active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#is_active LightsailContainerService#is_active}.
+        :param is_active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#is_active LightsailContainerService#is_active}.
         '''
         value = LightsailContainerServicePrivateRegistryAccessEcrImagePullerRole(
             is_active=is_active
@@ -963,7 +1002,7 @@ class LightsailContainerServicePublicDomainNames:
         certificate: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LightsailContainerServicePublicDomainNamesCertificate", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#certificate LightsailContainerService#certificate}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#certificate LightsailContainerService#certificate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__576c8d29466cc493d2410f9e9b585260c50f78ddf8fd33c4216315fb8f7e3cb2)
@@ -978,7 +1017,7 @@ class LightsailContainerServicePublicDomainNames:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LightsailContainerServicePublicDomainNamesCertificate"]]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#certificate LightsailContainerService#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#certificate LightsailContainerService#certificate}
         '''
         result = self._values.get("certificate")
         assert result is not None, "Required property 'certificate' is missing"
@@ -1012,8 +1051,8 @@ class LightsailContainerServicePublicDomainNamesCertificate:
         domain_names: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#certificate_name LightsailContainerService#certificate_name}.
-        :param domain_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#domain_names LightsailContainerService#domain_names}.
+        :param certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#certificate_name LightsailContainerService#certificate_name}.
+        :param domain_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#domain_names LightsailContainerService#domain_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d99d2b5ba38f03154faf6693347eaee787f646227bbcc95a254bf8b9286de711)
@@ -1026,14 +1065,14 @@ class LightsailContainerServicePublicDomainNamesCertificate:
 
     @builtins.property
     def certificate_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#certificate_name LightsailContainerService#certificate_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#certificate_name LightsailContainerService#certificate_name}.'''
         result = self._values.get("certificate_name")
         assert result is not None, "Required property 'certificate_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#domain_names LightsailContainerService#domain_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#domain_names LightsailContainerService#domain_names}.'''
         result = self._values.get("domain_names")
         assert result is not None, "Required property 'domain_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1298,9 +1337,9 @@ class LightsailContainerServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#create LightsailContainerService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#delete LightsailContainerService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#update LightsailContainerService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#create LightsailContainerService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#delete LightsailContainerService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#update LightsailContainerService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62fe4455eb5f9c2c02de7c4f4a523dc621f425e14ad48d26010a0df70ccd99ce)
@@ -1317,19 +1356,19 @@ class LightsailContainerServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#create LightsailContainerService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#create LightsailContainerService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#delete LightsailContainerService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#delete LightsailContainerService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lightsail_container_service#update LightsailContainerService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lightsail_container_service#update LightsailContainerService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1475,6 +1514,7 @@ def _typecheckingstub__f461a4f13dcee9dff6e1f763464fe464565cc55fbfb71b74c8fa27ec4
     is_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     private_registry_access: typing.Optional[typing.Union[LightsailContainerServicePrivateRegistryAccess, typing.Dict[builtins.str, typing.Any]]] = None,
     public_domain_names: typing.Optional[typing.Union[LightsailContainerServicePublicDomainNames, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[LightsailContainerServiceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1522,6 +1562,12 @@ def _typecheckingstub__5fbcbdf90f167c32cd92c208d4f9a01048a29b68ce155b1b829543cf2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bce5c930086b5da0890dd24e472e5c4d4f4ecf0c57f634d5783244d79229970c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f1cad5a508dd6638c23bd5c17cb89b2e30a9ef8ce09986d6b00e7db0dabb46c0(
     value: jsii.Number,
 ) -> None:
@@ -1556,6 +1602,7 @@ def _typecheckingstub__b1cd423ae34fb5d2468a0d81dd914ed7574047c891aec57d646758c02
     is_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     private_registry_access: typing.Optional[typing.Union[LightsailContainerServicePrivateRegistryAccess, typing.Dict[builtins.str, typing.Any]]] = None,
     public_domain_names: typing.Optional[typing.Union[LightsailContainerServicePublicDomainNames, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[LightsailContainerServiceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,

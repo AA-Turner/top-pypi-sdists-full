@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.17.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-18T08:04:08.975703                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
+# Generated on 2025-06-19T23:04:39.678061                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow
     import metaflow.runner.deployer
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
     import metaflow.plugins.aws.step_functions.step_functions_deployer
-    import metaflow.plugins.argo.argo_workflows_deployer
+    import metaflow
     import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow.plugins.argo.argo_workflows_deployer
 
 from ..exception import MetaflowNotFound as MetaflowNotFound
 

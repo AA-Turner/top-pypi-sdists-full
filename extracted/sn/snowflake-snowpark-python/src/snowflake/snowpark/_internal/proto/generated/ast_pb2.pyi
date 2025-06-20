@@ -779,7 +779,7 @@ global___FlattenMode = FlattenMode
 
 @typing.final
 class JoinType(google.protobuf.message.Message):
-    """dataframe.ir:232"""
+    """dataframe.ir:233"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1139,7 +1139,7 @@ global___TimestampTimeZone = TimestampTimeZone
 
 @typing.final
 class UdtfSchema(google.protobuf.message.Message):
-    """fn.ir:89"""
+    """fn.ir:87"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1163,7 +1163,7 @@ global___UdtfSchema = UdtfSchema
 
 @typing.final
 class UdtfSchema_Type(google.protobuf.message.Message):
-    """fn.ir:90"""
+    """fn.ir:88"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1182,7 +1182,7 @@ global___UdtfSchema_Type = UdtfSchema_Type
 
 @typing.final
 class UdtfSchema_Names(google.protobuf.message.Message):
-    """fn.ir:91"""
+    """fn.ir:89"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1696,7 +1696,7 @@ global___BuiltinFn = BuiltinFn
 
 @typing.final
 class CallTableFunctionExpr(google.protobuf.message.Message):
-    """fn.ir:153"""
+    """fn.ir:149"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -2824,7 +2824,7 @@ global___DataframeAnalyticsTimeSeriesAgg = DataframeAnalyticsTimeSeriesAgg
 
 @typing.final
 class DataframeCacheResult(google.protobuf.message.Message):
-    """dataframe.ir:348"""
+    """dataframe.ir:349"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -2945,7 +2945,7 @@ class DataframeCopyIntoTable(google.protobuf.message.Message):
     @property
     def format_type_options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
     @property
-    def iceberg_config(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_String]: ...
+    def iceberg_config(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
     @property
     def pattern(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
@@ -2967,7 +2967,7 @@ class DataframeCopyIntoTable(google.protobuf.message.Message):
         df: global___Expr | None = ...,
         files: collections.abc.Iterable[builtins.str] | None = ...,
         format_type_options: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
-        iceberg_config: collections.abc.Iterable[global___Tuple_String_String] | None = ...,
+        iceberg_config: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
         pattern: google.protobuf.wrappers_pb2.StringValue | None = ...,
         src: global___SrcPosition | None = ...,
         statement_params: collections.abc.Iterable[global___Tuple_String_String] | None = ...,
@@ -3188,6 +3188,8 @@ class DataframeDescribe(google.protobuf.message.Message):
     COLS_FIELD_NUMBER: builtins.int
     DF_FIELD_NUMBER: builtins.int
     SRC_FIELD_NUMBER: builtins.int
+    STRINGS_INCLUDE_MATH_STATS_FIELD_NUMBER: builtins.int
+    strings_include_math_stats: builtins.bool
     @property
     def cols(self) -> global___ExprArgList: ...
     @property
@@ -3200,15 +3202,16 @@ class DataframeDescribe(google.protobuf.message.Message):
         cols: global___ExprArgList | None = ...,
         df: global___Expr | None = ...,
         src: global___SrcPosition | None = ...,
+        strings_include_math_stats: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["cols", b"cols", "df", b"df", "src", b"src"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["cols", b"cols", "df", b"df", "src", b"src"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["cols", b"cols", "df", b"df", "src", b"src", "strings_include_math_stats", b"strings_include_math_stats"]) -> None: ...
 
 global___DataframeDescribe = DataframeDescribe
 
 @typing.final
 class DataframeDistinct(google.protobuf.message.Message):
-    """dataframe.ir:187"""
+    """dataframe.ir:188"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3231,7 +3234,7 @@ global___DataframeDistinct = DataframeDistinct
 
 @typing.final
 class DataframeDrop(google.protobuf.message.Message):
-    """dataframe.ir:191"""
+    """dataframe.ir:192"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3258,7 +3261,7 @@ global___DataframeDrop = DataframeDrop
 
 @typing.final
 class DataframeDropDuplicates(google.protobuf.message.Message):
-    """dataframe.ir:196"""
+    """dataframe.ir:197"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3285,7 +3288,7 @@ global___DataframeDropDuplicates = DataframeDropDuplicates
 
 @typing.final
 class DataframeExcept(google.protobuf.message.Message):
-    """dataframe.ir:201"""
+    """dataframe.ir:202"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3312,7 +3315,7 @@ global___DataframeExcept = DataframeExcept
 
 @typing.final
 class DataframeFilter(google.protobuf.message.Message):
-    """dataframe.ir:206"""
+    """dataframe.ir:207"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3339,7 +3342,7 @@ global___DataframeFilter = DataframeFilter
 
 @typing.final
 class DataframeFirst(google.protobuf.message.Message):
-    """dataframe.ir:220"""
+    """dataframe.ir:221"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3372,7 +3375,7 @@ global___DataframeFirst = DataframeFirst
 
 @typing.final
 class DataframeFlatten(google.protobuf.message.Message):
-    """dataframe.ir:211"""
+    """dataframe.ir:212"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3467,7 +3470,7 @@ global___DataframeGroupByGroupingSets = DataframeGroupByGroupingSets
 
 @typing.final
 class DataframeIntersect(google.protobuf.message.Message):
-    """dataframe.ir:227"""
+    """dataframe.ir:228"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3494,7 +3497,7 @@ global___DataframeIntersect = DataframeIntersect
 
 @typing.final
 class DataframeJoin(google.protobuf.message.Message):
-    """dataframe.ir:243"""
+    """dataframe.ir:244"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3541,7 +3544,7 @@ global___DataframeJoin = DataframeJoin
 
 @typing.final
 class DataframeJoinTableFunction(google.protobuf.message.Message):
-    """dataframe.ir:253"""
+    """dataframe.ir:254"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3568,7 +3571,7 @@ global___DataframeJoinTableFunction = DataframeJoinTableFunction
 
 @typing.final
 class DataframeLimit(google.protobuf.message.Message):
-    """dataframe.ir:258"""
+    """dataframe.ir:259"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3749,7 +3752,7 @@ global___DataframeNaReplace = DataframeNaReplace
 
 @typing.final
 class DataframeNaturalJoin(google.protobuf.message.Message):
-    """dataframe.ir:264"""
+    """dataframe.ir:265"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3815,7 +3818,7 @@ global___DataframePivot = DataframePivot
 
 @typing.final
 class DataframeRandomSplit(google.protobuf.message.Message):
-    """dataframe.ir:278"""
+    """dataframe.ir:279"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3907,7 +3910,7 @@ global___DataframeRef = DataframeRef
 
 @typing.final
 class DataframeRename(google.protobuf.message.Message):
-    """dataframe.ir:285"""
+    """dataframe.ir:286"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3965,7 +3968,7 @@ global___DataframeRollup = DataframeRollup
 
 @typing.final
 class DataframeSample(google.protobuf.message.Message):
-    """dataframe.ir:291"""
+    """dataframe.ir:292"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -4000,7 +4003,7 @@ global___DataframeSample = DataframeSample
 
 @typing.final
 class DataframeSelect(google.protobuf.message.Message):
-    """dataframe.ir:298"""
+    """dataframe.ir:299"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -4056,7 +4059,7 @@ global___DataframeShow = DataframeShow
 
 @typing.final
 class DataframeSort(google.protobuf.message.Message):
-    """dataframe.ir:305"""
+    """dataframe.ir:306"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -4378,7 +4381,7 @@ global___DataframeToPandasBatches = DataframeToPandasBatches
 
 @typing.final
 class DataframeUnion(google.protobuf.message.Message):
-    """dataframe.ir:311"""
+    """dataframe.ir:312"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -4414,7 +4417,7 @@ global___DataframeUnion = DataframeUnion
 
 @typing.final
 class DataframeUnpivot(google.protobuf.message.Message):
-    """dataframe.ir:270"""
+    """dataframe.ir:271"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -4450,7 +4453,7 @@ global___DataframeUnpivot = DataframeUnpivot
 
 @typing.final
 class DataframeWithColumn(google.protobuf.message.Message):
-    """dataframe.ir:319"""
+    """dataframe.ir:320"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -4480,7 +4483,7 @@ global___DataframeWithColumn = DataframeWithColumn
 
 @typing.final
 class DataframeWithColumnRenamed(google.protobuf.message.Message):
-    """dataframe.ir:325"""
+    """dataframe.ir:326"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -4510,7 +4513,7 @@ global___DataframeWithColumnRenamed = DataframeWithColumnRenamed
 
 @typing.final
 class DataframeWithColumns(google.protobuf.message.Message):
-    """dataframe.ir:331"""
+    """dataframe.ir:332"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -5840,7 +5843,7 @@ global___Geq = Geq
 
 @typing.final
 class GroupingSets(google.protobuf.message.Message):
-    """dataframe.ir:337"""
+    """dataframe.ir:338"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -6655,7 +6658,7 @@ global___HasSrcPosition = HasSrcPosition
 
 @typing.final
 class IndirectTableFnIdRef(google.protobuf.message.Message):
-    """fn.ir:149"""
+    """fn.ir:145"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -6677,7 +6680,7 @@ global___IndirectTableFnIdRef = IndirectTableFnIdRef
 
 @typing.final
 class IndirectTableFnNameRef(google.protobuf.message.Message):
-    """fn.ir:145"""
+    """fn.ir:141"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -7988,7 +7991,6 @@ class StoredProcedure(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ARTIFACT_REPOSITORY_FIELD_NUMBER: builtins.int
-    ARTIFACT_REPOSITORY_PACKAGES_FIELD_NUMBER: builtins.int
     COMMENT_FIELD_NUMBER: builtins.int
     EXECUTE_AS_FIELD_NUMBER: builtins.int
     EXTERNAL_ACCESS_INTEGRATIONS_FIELD_NUMBER: builtins.int
@@ -8022,8 +8024,6 @@ class StoredProcedure(google.protobuf.message.Message):
     @property
     def artifact_repository(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
-    def artifact_repository_packages(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
-    @property
     def comment(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
     def external_access_integrations(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
@@ -8055,7 +8055,6 @@ class StoredProcedure(google.protobuf.message.Message):
         self,
         *,
         artifact_repository: google.protobuf.wrappers_pb2.StringValue | None = ...,
-        artifact_repository_packages: collections.abc.Iterable[builtins.str] | None = ...,
         comment: google.protobuf.wrappers_pb2.StringValue | None = ...,
         execute_as: builtins.str = ...,
         external_access_integrations: collections.abc.Iterable[builtins.str] | None = ...,
@@ -8080,7 +8079,7 @@ class StoredProcedure(google.protobuf.message.Message):
         strict: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "func", b"func", "log_on_exception", b"log_on_exception", "name", b"name", "return_type", b"return_type", "src", b"src"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "artifact_repository_packages", b"artifact_repository_packages", "comment", b"comment", "execute_as", b"execute_as", "external_access_integrations", b"external_access_integrations", "func", b"func", "if_not_exists", b"if_not_exists", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "log_on_exception", b"log_on_exception", "name", b"name", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "return_type", b"return_type", "secrets", b"secrets", "source_code_display", b"source_code_display", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params", "strict", b"strict"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "execute_as", b"execute_as", "external_access_integrations", b"external_access_integrations", "func", b"func", "if_not_exists", b"if_not_exists", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "log_on_exception", b"log_on_exception", "name", b"name", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "return_type", b"return_type", "secrets", b"secrets", "source_code_display", b"source_code_display", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params", "strict", b"strict"]) -> None: ...
 
 global___StoredProcedure = StoredProcedure
 
@@ -8226,7 +8225,7 @@ global___TableDropTable = TableDropTable
 
 @typing.final
 class TableFnCallAlias(google.protobuf.message.Message):
-    """fn.ir:169"""
+    """fn.ir:165"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -8253,7 +8252,7 @@ global___TableFnCallAlias = TableFnCallAlias
 
 @typing.final
 class TableFnCallOver(google.protobuf.message.Message):
-    """fn.ir:163"""
+    """fn.ir:159"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -8407,7 +8406,7 @@ global___TableUpdate = TableUpdate
 
 @typing.final
 class ToSnowparkPandas(google.protobuf.message.Message):
-    """dataframe.ir:341"""
+    """dataframe.ir:342"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -8502,12 +8501,11 @@ global___TupleVal = TupleVal
 
 @typing.final
 class Udaf(google.protobuf.message.Message):
-    """fn.ir:121"""
+    """fn.ir:118"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ARTIFACT_REPOSITORY_FIELD_NUMBER: builtins.int
-    ARTIFACT_REPOSITORY_PACKAGES_FIELD_NUMBER: builtins.int
     COMMENT_FIELD_NUMBER: builtins.int
     EXTERNAL_ACCESS_INTEGRATIONS_FIELD_NUMBER: builtins.int
     HANDLER_FIELD_NUMBER: builtins.int
@@ -8534,8 +8532,6 @@ class Udaf(google.protobuf.message.Message):
     replace: builtins.bool
     @property
     def artifact_repository(self) -> google.protobuf.wrappers_pb2.StringValue: ...
-    @property
-    def artifact_repository_packages(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
     def comment(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
@@ -8568,7 +8564,6 @@ class Udaf(google.protobuf.message.Message):
         self,
         *,
         artifact_repository: google.protobuf.wrappers_pb2.StringValue | None = ...,
-        artifact_repository_packages: collections.abc.Iterable[builtins.str] | None = ...,
         comment: google.protobuf.wrappers_pb2.StringValue | None = ...,
         external_access_integrations: collections.abc.Iterable[builtins.str] | None = ...,
         handler: global___Callable | None = ...,
@@ -8590,18 +8585,17 @@ class Udaf(google.protobuf.message.Message):
         statement_params: collections.abc.Iterable[global___Tuple_String_String] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "handler", b"handler", "name", b"name", "return_type", b"return_type", "src", b"src", "stage_location", b"stage_location"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "artifact_repository_packages", b"artifact_repository_packages", "comment", b"comment", "external_access_integrations", b"external_access_integrations", "handler", b"handler", "if_not_exists", b"if_not_exists", "immutable", b"immutable", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "name", b"name", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "return_type", b"return_type", "secrets", b"secrets", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "external_access_integrations", b"external_access_integrations", "handler", b"handler", "if_not_exists", b"if_not_exists", "immutable", b"immutable", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "name", b"name", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "return_type", b"return_type", "secrets", b"secrets", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params"]) -> None: ...
 
 global___Udaf = Udaf
 
 @typing.final
 class Udf(google.protobuf.message.Message):
-    """fn.ir:63"""
+    """fn.ir:62"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ARTIFACT_REPOSITORY_FIELD_NUMBER: builtins.int
-    ARTIFACT_REPOSITORY_PACKAGES_FIELD_NUMBER: builtins.int
     COMMENT_FIELD_NUMBER: builtins.int
     EXTERNAL_ACCESS_INTEGRATIONS_FIELD_NUMBER: builtins.int
     FUNC_FIELD_NUMBER: builtins.int
@@ -8637,8 +8631,6 @@ class Udf(google.protobuf.message.Message):
     @property
     def artifact_repository(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
-    def artifact_repository_packages(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
-    @property
     def comment(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
     def external_access_integrations(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
@@ -8670,7 +8662,6 @@ class Udf(google.protobuf.message.Message):
         self,
         *,
         artifact_repository: google.protobuf.wrappers_pb2.StringValue | None = ...,
-        artifact_repository_packages: collections.abc.Iterable[builtins.str] | None = ...,
         comment: google.protobuf.wrappers_pb2.StringValue | None = ...,
         external_access_integrations: collections.abc.Iterable[builtins.str] | None = ...,
         func: global___Callable | None = ...,
@@ -8696,18 +8687,17 @@ class Udf(google.protobuf.message.Message):
         strict: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "func", b"func", "max_batch_size", b"max_batch_size", "name", b"name", "return_type", b"return_type", "src", b"src"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "artifact_repository_packages", b"artifact_repository_packages", "comment", b"comment", "external_access_integrations", b"external_access_integrations", "func", b"func", "if_not_exists", b"if_not_exists", "immutable", b"immutable", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "max_batch_size", b"max_batch_size", "name", b"name", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "return_type", b"return_type", "secrets", b"secrets", "secure", b"secure", "source_code_display", b"source_code_display", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params", "strict", b"strict"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "external_access_integrations", b"external_access_integrations", "func", b"func", "if_not_exists", b"if_not_exists", "immutable", b"immutable", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "max_batch_size", b"max_batch_size", "name", b"name", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "return_type", b"return_type", "secrets", b"secrets", "secure", b"secure", "source_code_display", b"source_code_display", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params", "strict", b"strict"]) -> None: ...
 
 global___Udf = Udf
 
 @typing.final
 class Udtf(google.protobuf.message.Message):
-    """fn.ir:95"""
+    """fn.ir:93"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ARTIFACT_REPOSITORY_FIELD_NUMBER: builtins.int
-    ARTIFACT_REPOSITORY_PACKAGES_FIELD_NUMBER: builtins.int
     COMMENT_FIELD_NUMBER: builtins.int
     EXTERNAL_ACCESS_INTEGRATIONS_FIELD_NUMBER: builtins.int
     HANDLER_FIELD_NUMBER: builtins.int
@@ -8740,8 +8730,6 @@ class Udtf(google.protobuf.message.Message):
     @property
     def artifact_repository(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
-    def artifact_repository_packages(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
-    @property
     def comment(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
     def external_access_integrations(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
@@ -8771,7 +8759,6 @@ class Udtf(google.protobuf.message.Message):
         self,
         *,
         artifact_repository: google.protobuf.wrappers_pb2.StringValue | None = ...,
-        artifact_repository_packages: collections.abc.Iterable[builtins.str] | None = ...,
         comment: google.protobuf.wrappers_pb2.StringValue | None = ...,
         external_access_integrations: collections.abc.Iterable[builtins.str] | None = ...,
         handler: global___Callable | None = ...,
@@ -8795,7 +8782,7 @@ class Udtf(google.protobuf.message.Message):
         strict: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "handler", b"handler", "name", b"name", "output_schema", b"output_schema", "src", b"src"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "artifact_repository_packages", b"artifact_repository_packages", "comment", b"comment", "external_access_integrations", b"external_access_integrations", "handler", b"handler", "if_not_exists", b"if_not_exists", "immutable", b"immutable", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "name", b"name", "output_schema", b"output_schema", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "secrets", b"secrets", "secure", b"secure", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params", "strict", b"strict"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["artifact_repository", b"artifact_repository", "comment", b"comment", "external_access_integrations", b"external_access_integrations", "handler", b"handler", "if_not_exists", b"if_not_exists", "immutable", b"immutable", "imports", b"imports", "input_types", b"input_types", "is_permanent", b"is_permanent", "kwargs", b"kwargs", "name", b"name", "output_schema", b"output_schema", "packages", b"packages", "parallel", b"parallel", "replace", b"replace", "resource_constraint", b"resource_constraint", "secrets", b"secrets", "secure", b"secure", "src", b"src", "stage_location", b"stage_location", "statement_params", b"statement_params", "strict", b"strict"]) -> None: ...
 
 global___Udtf = Udtf
 
@@ -9401,7 +9388,7 @@ class WriteTable(google.protobuf.message.Message):
     @property
     def enable_schema_evolution(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
     @property
-    def iceberg_config(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_String]: ...
+    def iceberg_config(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
     @property
     def max_data_extension_time(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
     @property
@@ -9426,7 +9413,7 @@ class WriteTable(google.protobuf.message.Message):
         create_temp_table: builtins.bool = ...,
         data_retention_time: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         enable_schema_evolution: google.protobuf.wrappers_pb2.BoolValue | None = ...,
-        iceberg_config: collections.abc.Iterable[global___Tuple_String_String] | None = ...,
+        iceberg_config: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
         max_data_extension_time: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         mode: global___SaveMode | None = ...,
         src: global___SrcPosition | None = ...,

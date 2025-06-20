@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maxim-py
-Version: 3.9.2
+Version: 3.9.3
 Summary: A package that allows you to use the Maxim Python Library to interact with the Maxim Platform.
 Author-email: Maxim Engineering <eng@getmaxim.ai>
 Keywords: python,prompts,logs,workflow,testing
@@ -78,9 +78,13 @@ You can find detailed documentation and available integrations [here](https://ww
 
 ## Version changelog
 
+### 3.9.3
+
+- improvement: Adds try except for all LiveKit callbacks call and gracefully moves forward with tracing.
+
 ### 3.9.2
 
--improvement: Improves the network connection error handling for connection pool.
+- improvement: Improves the network connection error handling for connection pool.
 
 ### 3.9.1
 

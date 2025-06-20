@@ -1,6 +1,6 @@
 use crate::goto_definition_for_crate_cargo_toml;
 use tombi_config::TomlVersion;
-use tombi_schema_store::match_accessors;
+use tombi_schema_store::matches_accessors;
 use tower_lsp::lsp_types::TextDocumentIdentifier;
 
 pub async fn goto_declaration(
@@ -17,7 +17,7 @@ pub async fn goto_declaration(
         return Ok(Default::default());
     };
 
-    let locations = if match_accessors!(accessors[..accessors.len().min(1)], ["workspace"]) {
+    let locations = if matches_accessors!(accessors[..accessors.len().min(1)], ["workspace"]) {
         vec![]
     } else {
         goto_definition_for_crate_cargo_toml(

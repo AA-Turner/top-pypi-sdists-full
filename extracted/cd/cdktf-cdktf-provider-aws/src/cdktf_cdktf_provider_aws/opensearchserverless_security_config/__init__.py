@@ -1,7 +1,7 @@
 r'''
 # `aws_opensearchserverless_security_config`
 
-Refer to the Terraform Registry for docs: [`aws_opensearchserverless_security_config`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config).
+Refer to the Terraform Registry for docs: [`aws_opensearchserverless_security_config`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OpensearchserverlessSecurityConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.opensearchserverlessSecurityConfig.OpensearchserverlessSecurityConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config aws_opensearchserverless_security_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config aws_opensearchserverless_security_config}.'''
 
     def __init__(
         self,
@@ -54,7 +54,8 @@ class OpensearchserverlessSecurityConfig(
         name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        saml_options: typing.Optional[typing.Union["OpensearchserverlessSecurityConfigSamlOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
+        saml_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OpensearchserverlessSecurityConfigSamlOptions", typing.Dict[builtins.str, typing.Any]]]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -63,14 +64,15 @@ class OpensearchserverlessSecurityConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config aws_opensearchserverless_security_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config aws_opensearchserverless_security_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#name OpensearchserverlessSecurityConfig#name}
-        :param type: Type of configuration. Must be ``saml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#type OpensearchserverlessSecurityConfig#type}
-        :param description: Description of the security configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#description OpensearchserverlessSecurityConfig#description}
-        :param saml_options: saml_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#saml_options OpensearchserverlessSecurityConfig#saml_options}
+        :param name: Name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#name OpensearchserverlessSecurityConfig#name}
+        :param type: Type of configuration. Must be ``saml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#type OpensearchserverlessSecurityConfig#type}
+        :param description: Description of the security configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#description OpensearchserverlessSecurityConfig#description}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#region OpensearchserverlessSecurityConfig#region}
+        :param saml_options: saml_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#saml_options OpensearchserverlessSecurityConfig#saml_options}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -87,6 +89,7 @@ class OpensearchserverlessSecurityConfig(
             name=name,
             type=type,
             description=description,
+            region=region,
             saml_options=saml_options,
             connection=connection,
             count=count,
@@ -112,7 +115,7 @@ class OpensearchserverlessSecurityConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OpensearchserverlessSecurityConfig to import.
-        :param import_from_id: The id of the existing OpensearchserverlessSecurityConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OpensearchserverlessSecurityConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OpensearchserverlessSecurityConfig to import is found.
         '''
         if __debug__:
@@ -126,30 +129,23 @@ class OpensearchserverlessSecurityConfig(
     @jsii.member(jsii_name="putSamlOptions")
     def put_saml_options(
         self,
-        *,
-        metadata: builtins.str,
-        group_attribute: typing.Optional[builtins.str] = None,
-        session_timeout: typing.Optional[jsii.Number] = None,
-        user_attribute: typing.Optional[builtins.str] = None,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OpensearchserverlessSecurityConfigSamlOptions", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metadata: The XML IdP metadata file generated from your identity provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#metadata OpensearchserverlessSecurityConfig#metadata}
-        :param group_attribute: Group attribute for this SAML integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#group_attribute OpensearchserverlessSecurityConfig#group_attribute}
-        :param session_timeout: Session timeout, in minutes. Minimum is 5 minutes and maximum is 720 minutes (12 hours). Default is 60 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#session_timeout OpensearchserverlessSecurityConfig#session_timeout}
-        :param user_attribute: User attribute for this SAML integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#user_attribute OpensearchserverlessSecurityConfig#user_attribute}
+        :param value: -
         '''
-        value = OpensearchserverlessSecurityConfigSamlOptions(
-            metadata=metadata,
-            group_attribute=group_attribute,
-            session_timeout=session_timeout,
-            user_attribute=user_attribute,
-        )
-
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25ed8e1da116a1c7e22b009aa848078bd110f1708a93e36d8e781c14dcee574a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putSamlOptions", [value]))
 
     @jsii.member(jsii_name="resetDescription")
     def reset_description(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDescription", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSamlOptions")
     def reset_saml_options(self) -> None:
@@ -180,10 +176,8 @@ class OpensearchserverlessSecurityConfig(
 
     @builtins.property
     @jsii.member(jsii_name="samlOptions")
-    def saml_options(
-        self,
-    ) -> "OpensearchserverlessSecurityConfigSamlOptionsOutputReference":
-        return typing.cast("OpensearchserverlessSecurityConfigSamlOptionsOutputReference", jsii.get(self, "samlOptions"))
+    def saml_options(self) -> "OpensearchserverlessSecurityConfigSamlOptionsList":
+        return typing.cast("OpensearchserverlessSecurityConfigSamlOptionsList", jsii.get(self, "samlOptions"))
 
     @builtins.property
     @jsii.member(jsii_name="descriptionInput")
@@ -196,11 +190,16 @@ class OpensearchserverlessSecurityConfig(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="samlOptionsInput")
     def saml_options_input(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "OpensearchserverlessSecurityConfigSamlOptions"]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "OpensearchserverlessSecurityConfigSamlOptions"]], jsii.get(self, "samlOptionsInput"))
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchserverlessSecurityConfigSamlOptions"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchserverlessSecurityConfigSamlOptions"]]], jsii.get(self, "samlOptionsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="typeInput")
@@ -232,6 +231,18 @@ class OpensearchserverlessSecurityConfig(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad3ab374505479c7776708f29283d0febebb747aa27aff3a8954c24868667324)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "type"))
@@ -258,6 +269,7 @@ class OpensearchserverlessSecurityConfig(
         "name": "name",
         "type": "type",
         "description": "description",
+        "region": "region",
         "saml_options": "samlOptions",
     },
 )
@@ -275,7 +287,8 @@ class OpensearchserverlessSecurityConfigConfig(_cdktf_9a9027ec.TerraformMetaArgu
         name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        saml_options: typing.Optional[typing.Union["OpensearchserverlessSecurityConfigSamlOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
+        saml_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OpensearchserverlessSecurityConfigSamlOptions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
         :param connection: 
@@ -285,15 +298,14 @@ class OpensearchserverlessSecurityConfigConfig(_cdktf_9a9027ec.TerraformMetaArgu
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#name OpensearchserverlessSecurityConfig#name}
-        :param type: Type of configuration. Must be ``saml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#type OpensearchserverlessSecurityConfig#type}
-        :param description: Description of the security configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#description OpensearchserverlessSecurityConfig#description}
-        :param saml_options: saml_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#saml_options OpensearchserverlessSecurityConfig#saml_options}
+        :param name: Name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#name OpensearchserverlessSecurityConfig#name}
+        :param type: Type of configuration. Must be ``saml``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#type OpensearchserverlessSecurityConfig#type}
+        :param description: Description of the security configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#description OpensearchserverlessSecurityConfig#description}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#region OpensearchserverlessSecurityConfig#region}
+        :param saml_options: saml_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#saml_options OpensearchserverlessSecurityConfig#saml_options}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
-        if isinstance(saml_options, dict):
-            saml_options = OpensearchserverlessSecurityConfigSamlOptions(**saml_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c8ce32908eaf0164f1848852d776c679d2dbf34dcb07e78eedef54190589fa6)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -306,6 +318,7 @@ class OpensearchserverlessSecurityConfigConfig(_cdktf_9a9027ec.TerraformMetaArgu
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument saml_options", value=saml_options, expected_type=type_hints["saml_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -327,6 +340,8 @@ class OpensearchserverlessSecurityConfigConfig(_cdktf_9a9027ec.TerraformMetaArgu
             self._values["provisioners"] = provisioners
         if description is not None:
             self._values["description"] = description
+        if region is not None:
+            self._values["region"] = region
         if saml_options is not None:
             self._values["saml_options"] = saml_options
 
@@ -398,7 +413,7 @@ class OpensearchserverlessSecurityConfigConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def name(self) -> builtins.str:
         '''Name of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#name OpensearchserverlessSecurityConfig#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#name OpensearchserverlessSecurityConfig#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -408,7 +423,7 @@ class OpensearchserverlessSecurityConfigConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def type(self) -> builtins.str:
         '''Type of configuration. Must be ``saml``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#type OpensearchserverlessSecurityConfig#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#type OpensearchserverlessSecurityConfig#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -418,21 +433,30 @@ class OpensearchserverlessSecurityConfigConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the security configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#description OpensearchserverlessSecurityConfig#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#description OpensearchserverlessSecurityConfig#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#region OpensearchserverlessSecurityConfig#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def saml_options(
         self,
-    ) -> typing.Optional["OpensearchserverlessSecurityConfigSamlOptions"]:
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchserverlessSecurityConfigSamlOptions"]]]:
         '''saml_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#saml_options OpensearchserverlessSecurityConfig#saml_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#saml_options OpensearchserverlessSecurityConfig#saml_options}
         '''
         result = self._values.get("saml_options")
-        return typing.cast(typing.Optional["OpensearchserverlessSecurityConfigSamlOptions"], result)
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchserverlessSecurityConfigSamlOptions"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -466,10 +490,10 @@ class OpensearchserverlessSecurityConfigSamlOptions:
         user_attribute: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metadata: The XML IdP metadata file generated from your identity provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#metadata OpensearchserverlessSecurityConfig#metadata}
-        :param group_attribute: Group attribute for this SAML integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#group_attribute OpensearchserverlessSecurityConfig#group_attribute}
-        :param session_timeout: Session timeout, in minutes. Minimum is 5 minutes and maximum is 720 minutes (12 hours). Default is 60 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#session_timeout OpensearchserverlessSecurityConfig#session_timeout}
-        :param user_attribute: User attribute for this SAML integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#user_attribute OpensearchserverlessSecurityConfig#user_attribute}
+        :param metadata: The XML IdP metadata file generated from your identity provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#metadata OpensearchserverlessSecurityConfig#metadata}
+        :param group_attribute: Group attribute for this SAML integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#group_attribute OpensearchserverlessSecurityConfig#group_attribute}
+        :param session_timeout: Session timeout, in minutes. Minimum is 5 minutes and maximum is 720 minutes (12 hours). Default is 60 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#session_timeout OpensearchserverlessSecurityConfig#session_timeout}
+        :param user_attribute: User attribute for this SAML integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#user_attribute OpensearchserverlessSecurityConfig#user_attribute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35c38e9853e218d5204ef7c34c23bbe72419ad88cbd5617fcde3607c26eb09d7)
@@ -491,7 +515,7 @@ class OpensearchserverlessSecurityConfigSamlOptions:
     def metadata(self) -> builtins.str:
         '''The XML IdP metadata file generated from your identity provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#metadata OpensearchserverlessSecurityConfig#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#metadata OpensearchserverlessSecurityConfig#metadata}
         '''
         result = self._values.get("metadata")
         assert result is not None, "Required property 'metadata' is missing"
@@ -501,7 +525,7 @@ class OpensearchserverlessSecurityConfigSamlOptions:
     def group_attribute(self) -> typing.Optional[builtins.str]:
         '''Group attribute for this SAML integration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#group_attribute OpensearchserverlessSecurityConfig#group_attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#group_attribute OpensearchserverlessSecurityConfig#group_attribute}
         '''
         result = self._values.get("group_attribute")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -510,7 +534,7 @@ class OpensearchserverlessSecurityConfigSamlOptions:
     def session_timeout(self) -> typing.Optional[jsii.Number]:
         '''Session timeout, in minutes. Minimum is 5 minutes and maximum is 720 minutes (12 hours). Default is 60 minutes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#session_timeout OpensearchserverlessSecurityConfig#session_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#session_timeout OpensearchserverlessSecurityConfig#session_timeout}
         '''
         result = self._values.get("session_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -519,7 +543,7 @@ class OpensearchserverlessSecurityConfigSamlOptions:
     def user_attribute(self) -> typing.Optional[builtins.str]:
         '''User attribute for this SAML integration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/opensearchserverless_security_config#user_attribute OpensearchserverlessSecurityConfig#user_attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/opensearchserverless_security_config#user_attribute OpensearchserverlessSecurityConfig#user_attribute}
         '''
         result = self._values.get("user_attribute")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -536,6 +560,99 @@ class OpensearchserverlessSecurityConfigSamlOptions:
         )
 
 
+class OpensearchserverlessSecurityConfigSamlOptionsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.opensearchserverlessSecurityConfig.OpensearchserverlessSecurityConfigSamlOptionsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2908ab3139bf994dc1ccbc56a2151bd8692935cbaaa24f82fd7d3995c52d657c)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "OpensearchserverlessSecurityConfigSamlOptionsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92c1bb2199f45457146757edcd9c68806d05b396e6e1ae3582fd241afc1f2561)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("OpensearchserverlessSecurityConfigSamlOptionsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ced0a368aa641ec8365e4ec73ca3a4e6538a4b2dc576e29b71324961f54e96b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f10466545be483fd72d5c89d3c43f3f698513f9a1fd071ae670fb57e3672cf9b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e90b77af712415f0acd97f39ae6215fdbc992dcf559a40ccf2cf273f328c541)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OpensearchserverlessSecurityConfigSamlOptions]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OpensearchserverlessSecurityConfigSamlOptions]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OpensearchserverlessSecurityConfigSamlOptions]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0790d8f4a8512db98f6d4e5c464ee456ccb0a94e13fb1b0de7cb889d727edbe4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class OpensearchserverlessSecurityConfigSamlOptionsOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -545,16 +662,22 @@ class OpensearchserverlessSecurityConfigSamlOptionsOutputReference(
         self,
         terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
         terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
     ) -> None:
         '''
         :param terraform_resource: The parent resource.
         :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3029a309a27c5794a346c075b0a0f6628a4186ec5cd278902f63c67f4a925fba)
             check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
     @jsii.member(jsii_name="resetGroupAttribute")
     def reset_group_attribute(self) -> None:
@@ -658,6 +781,7 @@ __all__ = [
     "OpensearchserverlessSecurityConfig",
     "OpensearchserverlessSecurityConfigConfig",
     "OpensearchserverlessSecurityConfigSamlOptions",
+    "OpensearchserverlessSecurityConfigSamlOptionsList",
     "OpensearchserverlessSecurityConfigSamlOptionsOutputReference",
 ]
 
@@ -670,7 +794,8 @@ def _typecheckingstub__beaa0fbc6c83280fd465043e6124c45a3c15e77aa232b2e7e18894e12
     name: builtins.str,
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    saml_options: typing.Optional[typing.Union[OpensearchserverlessSecurityConfigSamlOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
+    saml_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OpensearchserverlessSecurityConfigSamlOptions, typing.Dict[builtins.str, typing.Any]]]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -691,6 +816,12 @@ def _typecheckingstub__bc27e687f919ed5ff2b132033528f58eb1fd35331bc5b336524e80d91
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__25ed8e1da116a1c7e22b009aa848078bd110f1708a93e36d8e781c14dcee574a(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OpensearchserverlessSecurityConfigSamlOptions, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__50805f0349625723b2f8f33faa0898ef88052f73a56594189eb2918c5d675b8f(
     value: builtins.str,
 ) -> None:
@@ -698,6 +829,12 @@ def _typecheckingstub__50805f0349625723b2f8f33faa0898ef88052f73a56594189eb2918c5
     pass
 
 def _typecheckingstub__84c0181ebd87a32a65a16459a641d259015c28b4d7b37766bb343855689e8cd0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad3ab374505479c7776708f29283d0febebb747aa27aff3a8954c24868667324(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -721,7 +858,8 @@ def _typecheckingstub__3c8ce32908eaf0164f1848852d776c679d2dbf34dcb07e78eedef5419
     name: builtins.str,
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    saml_options: typing.Optional[typing.Union[OpensearchserverlessSecurityConfigSamlOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
+    saml_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OpensearchserverlessSecurityConfigSamlOptions, typing.Dict[builtins.str, typing.Any]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -736,9 +874,49 @@ def _typecheckingstub__35c38e9853e218d5204ef7c34c23bbe72419ad88cbd5617fcde3607c2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2908ab3139bf994dc1ccbc56a2151bd8692935cbaaa24f82fd7d3995c52d657c(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92c1bb2199f45457146757edcd9c68806d05b396e6e1ae3582fd241afc1f2561(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ced0a368aa641ec8365e4ec73ca3a4e6538a4b2dc576e29b71324961f54e96b9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f10466545be483fd72d5c89d3c43f3f698513f9a1fd071ae670fb57e3672cf9b(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e90b77af712415f0acd97f39ae6215fdbc992dcf559a40ccf2cf273f328c541(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0790d8f4a8512db98f6d4e5c464ee456ccb0a94e13fb1b0de7cb889d727edbe4(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OpensearchserverlessSecurityConfigSamlOptions]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3029a309a27c5794a346c075b0a0f6628a4186ec5cd278902f63c67f4a925fba(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
 ) -> None:
     """Type checking stubs"""
     pass

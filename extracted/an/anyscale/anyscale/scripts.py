@@ -43,6 +43,7 @@ from anyscale.commands.user_commands import user_cli
 from anyscale.commands.workspace_commands import workspace_cli
 from anyscale.commands.workspace_commands_v2 import workspace_cli as workspace_cli_v2
 import anyscale.conf
+import anyscale.telemetry  # IMPORTANT: auto-patches click instrumentation on import
 from anyscale.utils.cli_version_check_util import log_warning_if_version_needs_upgrade
 
 

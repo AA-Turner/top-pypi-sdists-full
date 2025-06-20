@@ -2,10 +2,14 @@ import os
 import re
 import textwrap
 import warnings
-from typing import Any, Optional, Sequence, Union
+import operator
+import numpy as np
+from itertools import takewhile
+from typing import TYPE_CHECKING, Optional, Union, cast
 
-from .._schema import GenToken, GenTokenExtra
-from ._engine import Engine, Tokenizer, EngineClient, EngineState, Llama3VisionClient, Phi3VisionClient
+from ..chat import ChatTemplate
+from ._engine import Engine, Tokenizer, EngineInterpreter, Llama3VisionInterpreter, Phi3VisionInterpreter
+from ._engine._tokenizer import TokenizerWrappable
 from ._base import Model
 
 try:
@@ -19,7 +23,11 @@ try:
     has_transformers = True
 except ModuleNotFoundError:
     has_transformers = False
+else:
+    import llguidance.hf
 
+if TYPE_CHECKING:
+     from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 # Formed by comparing model and tokenizer from_pretrained methods
 # transformers/models/auto/auto_factory.py
@@ -46,101 +54,100 @@ class ByteTokensError(Exception):
 class TransformersTokenizer(Tokenizer):
     def __init__(
         self,
-        model: Union[str, "transformers_package.PreTrainedModel"],
-        transformers_tokenizer: Union[
-            "transformers_package.PreTrainedTokenizer",
-            "transformers_package.PreTrainedTokenizerFast",
-            None,
-        ],
-        chat_template=None,
-        ignore_bos_token=False,
-        **kwargs,
+        hf_tokenizer: Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"],
+        chat_template: Union[str, ChatTemplate, None] = None,
     ):
-        if transformers_tokenizer is None:
-            if isinstance(model, str):
-                transformers_tokenizer, byte_tokens = self._tokenizer(model, **kwargs)
-            else:
-                raise ValueError(
-                    "A model object was passed in, but no tokenizer was provided. Please provide a tokenizer."
-                )
-        else:
-            is_ptt = isinstance(transformers_tokenizer, transformers_package.PreTrainedTokenizer)
-            is_ptt_fast = isinstance(
-                transformers_tokenizer, transformers_package.PreTrainedTokenizerFast
+        self._orig_tokenizer = hf_tokenizer
+
+        if isinstance(hf_tokenizer, transformers_package.PreTrainedTokenizerFast):
+            ll_tokenizer = llguidance.hf.from_tokenizer(
+                hf_tokenizer=hf_tokenizer,
             )
-            assert is_ptt or is_ptt_fast
-            byte_tokens = self._byte_tokens(transformers_tokenizer)
+            vocab_size = hf_tokenizer.backend_tokenizer.get_vocab_size(with_added_tokens=True)
+        else:
+            byte_tokens = self._byte_tokens(hf_tokenizer)
+            vocab_size = len(byte_tokens)
+            ll_tokenizer = TokenizerWrappable(
+                eos_token_id=hf_tokenizer.eos_token_id, # type: ignore[attr-defined]
+                bos_token_id=getattr(hf_tokenizer, "bos_token_id", None),
+                tokens=byte_tokens,
+                special_token_ids=[
+                    token_id for (token_id, token) in hf_tokenizer.added_tokens_decoder.items()
+                    if token.special
+                ],
+                encode_callable=hf_tokenizer.encode,
+            ).as_ll_tokenizer()
 
-        self._orig_tokenizer = transformers_tokenizer
+        # Get chat template from the tokenizer if not provided
+        if chat_template is None and isinstance(hf_tokenizer.chat_template, str):
+            chat_template = hf_tokenizer.chat_template
 
-        # Chat Template logic
-        if chat_template is None and hasattr(self._orig_tokenizer, "chat_template"):
-            chat_template = self._orig_tokenizer.chat_template
-
-        # the superclass does most of the work once we have the tokens
         super().__init__(
-            byte_tokens,
-            chat_template,
-            None if ignore_bos_token else transformers_tokenizer.bos_token_id,
-            transformers_tokenizer.eos_token_id,
-            special_token_ids=[
-                token_id for (token_id, token) in transformers_tokenizer.added_tokens_decoder.items()
-                if token.special
-            ]
+            ll_tokenizer=ll_tokenizer,
+            chat_template=chat_template,
+            bos_token_id=getattr(hf_tokenizer, "bos_token_id", None),
         )
+        self._vocab_size = vocab_size
 
-    def _tokenizer(self, model: str, **kwargs) -> tuple[
-        Union[
-            "transformers_package.PreTrainedTokenizer",
-            "transformers_package.PreTrainedTokenizerFast",
-        ],
-        list[bytes],
-    ]:
-        # make sure transformers is installed
-        if not has_transformers:
-            raise ImportError("Please install transformers with `pip install transformers`")
-
-        try:
-            tokenizer = transformers_package.AutoTokenizer.from_pretrained(
-                model, use_fast=False, **kwargs
-            )
-            byte_tokens = self._byte_tokens(tokenizer)
-        except ImportError:
-            # Raise on ImportError because it's likely a missing dependency that the user can install
-            raise
-        except ByteTokensError as e:
-            # Give a specific warning for ByteTokensError and fall back to fast tokenizer
-            warnings.warn(
-                f"Falling back to fast tokenizer. Could not build byte tokens for model {model!r} due to exception {e.__class__.__name__}: {e}"
-            )
-        except Exception as e:
-            # Fall back for other exceptions
-            warnings.warn(
-                f"Falling back to fast tokenizer. Could not load tokenizer for model {model!r} due to exception {e.__class__.__name__}: {e}"
-            )
-        else:
-            return tokenizer, byte_tokens
-
+    @classmethod
+    def from_pretrained(
+        cls,
+        pretrained_model_name_or_path: str,
+        chat_template: Union[str, ChatTemplate, None] = None,
+        use_fast=True,
+        **kwargs
+    ) -> "TransformersTokenizer":
         tokenizer = transformers_package.AutoTokenizer.from_pretrained(
-            model, use_fast=True, **kwargs
+            pretrained_model_name_or_path,
+            use_fast=use_fast,
+            **kwargs
         )
-        try:
-            byte_tokens = self._byte_tokens(tokenizer)
-        except ByteTokensError as e:
-            raise ValueError(f"Fallback to fast tokenizer failed for model {model!r}") from e
-        return tokenizer, byte_tokens
+        return cls(
+            hf_tokenizer=tokenizer,
+            chat_template=chat_template,
+        )
 
+
+    def recode(self, tokens: list[int]) -> list[int]:
+        # the encode/decode cycle might not work if we have partial unicode strings
+        used_tokens = len(tokens)
+        for _ in range(3):
+            try:
+                first_decode = self.decode(tokens).decode("utf8")
+            except UnicodeDecodeError:
+                if used_tokens == 0:
+                    break
+                else:
+                    used_tokens -= 1
+
+        new_ids = list(self.encode(first_decode.encode("utf-8")))
+        if used_tokens < len(tokens):
+            new_ids += tokens[used_tokens:]
+
+        # HACK: check for a bug in the HuggingFace tokenizer
+        # (that will just add extra spaces during an encode-decode cycle)
+        second_decode = self._orig_tokenizer.decode(new_ids)
+        if (
+            second_decode != first_decode
+            and len(second_decode) == len(first_decode) + 1
+            and second_decode.startswith("<s>  ")
+        ):
+            new_ids = new_ids[0:1] + new_ids[2:]
+
+        return new_ids
+
+    @classmethod
     def _byte_tokens(
-        self,
+        cls,
         transformers_tokenizer: Union[
-            "transformers_package.PreTrainedTokenizer",
-            "transformers_package.PreTrainedTokenizerFast",
+            "PreTrainedTokenizer",
+            "PreTrainedTokenizerFast",
         ],
     ) -> list[bytes]:
 
         if hasattr(transformers_tokenizer, "byte_decoder"):
             try:
-                self._check_byte_decoder(
+                cls._check_byte_decoder(
                     transformers_tokenizer.byte_decoder, transformers_tokenizer
                 )
             except ByteDecoderError as e:
@@ -149,37 +156,38 @@ class TransformersTokenizer(Tokenizer):
                 )
                 pass
             else:
-                return self._byte_tokens_from_byte_decoder(
+                return cls._byte_tokens_from_byte_decoder(
                     transformers_tokenizer.byte_decoder, transformers_tokenizer
                 )
 
         if hasattr(transformers_tokenizer, "sp_model"):
-            return self._byte_tokens_from_sp_model(transformers_tokenizer)
+            return cls._byte_tokens_from_sp_model(transformers_tokenizer)
 
         try:
-            return self._byte_tokens_by_encoding_token_strings(transformers_tokenizer)
+            return cls._byte_tokens_by_encoding_token_strings(transformers_tokenizer)
         except ValueError as e:
             warnings.warn(
                 f"Could not build_byte tokens from the tokenizer by encoding token strings: {e}"
             )
             pass
 
-        fallback_byte_decoder = self._fallback_byte_decoder()
+        fallback_byte_decoder = cls._fallback_byte_decoder()
         try:
-            self._check_byte_decoder(fallback_byte_decoder, transformers_tokenizer)
+            cls._check_byte_decoder(fallback_byte_decoder, transformers_tokenizer)
         except ByteDecoderError as e:
             # Should be the only exception that is raised in _byte_tokens
             raise ByteTokensError(
                 "Could not build byte tokens from the tokenizer, and falling back to a standard gpt2 byte_decoder failed"
             ) from e
-        return self._byte_tokens_from_byte_decoder(fallback_byte_decoder, transformers_tokenizer)
+        return cls._byte_tokens_from_byte_decoder(fallback_byte_decoder, transformers_tokenizer)
 
+    @classmethod
     def _byte_tokens_from_byte_decoder(
-        self,
+        cls,
         byte_decoder: dict[str, int],
         transformers_tokenizer: Union[
-            "transformers_package.PreTrainedTokenizer",
-            "transformers_package.PreTrainedTokenizerFast",
+            "PreTrainedTokenizer",
+            "PreTrainedTokenizerFast",
         ],
     ) -> list[bytes]:
         byte_tokens = [b""] * len(transformers_tokenizer)
@@ -190,11 +198,12 @@ class TransformersTokenizer(Tokenizer):
             byte_tokens[i] = byte_coded
         return byte_tokens
 
+    @classmethod
     def _byte_tokens_from_sp_model(
-        self,
+        cls,
         transformers_tokenizer: Union[
-            "transformers_package.PreTrainedTokenizer",
-            "transformers_package.PreTrainedTokenizerFast",
+            "PreTrainedTokenizer",
+            "PreTrainedTokenizerFast",
         ],
     ) -> list[bytes]:
         byte_tokens = [b""] * len(transformers_tokenizer)
@@ -214,18 +223,19 @@ class TransformersTokenizer(Tokenizer):
             byte_tokens[i] = byte_coded.replace(space_prefix, b" ")
         return byte_tokens
 
+    @classmethod
     def _byte_tokens_by_encoding_token_strings(
-        self,
+        cls,
         transformers_tokenizer: Union[
-            "transformers_package.PreTrainedTokenizer",
-            "transformers_package.PreTrainedTokenizerFast",
+            "PreTrainedTokenizer",
+            "PreTrainedTokenizerFast",
         ],
     ) -> list[bytes]:
         byte_tokens = [b""] * len(transformers_tokenizer)
         special_tokens_map = {
             id: token for token, id in transformers_tokenizer.get_added_vocab().items()
         }
-        byte_encoder = self._bytes_to_unicode()
+        byte_encoder = cls._bytes_to_unicode()
         byte_decoder = {v: k for k, v in byte_encoder.items()}
 
         for i in range(len(transformers_tokenizer)):
@@ -255,7 +265,8 @@ class TransformersTokenizer(Tokenizer):
             byte_tokens[i] = byte_coded
         return byte_tokens
 
-    def _fallback_byte_decoder(self) -> dict[str, int]:
+    @classmethod
+    def _fallback_byte_decoder(cls) -> dict[str, int]:
         byte_decoder = transformers_package.AutoTokenizer.from_pretrained(
             "gpt2", use_fast=False
         ).byte_decoder  # fall back to gpt2 mapping
@@ -269,12 +280,13 @@ class TransformersTokenizer(Tokenizer):
 
         return byte_decoder
 
+    @classmethod
     def _check_byte_decoder(
-        self,
+        cls,
         byte_decoder: dict[str, int],
         transformers_tokenizer: Union[
-            "transformers_package.PreTrainedTokenizer",
-            "transformers_package.PreTrainedTokenizerFast",
+            "PreTrainedTokenizer",
+            "PreTrainedTokenizerFast",
         ],
     ) -> None:
 
@@ -329,7 +341,8 @@ class TransformersTokenizer(Tokenizer):
         check_byte_decoder_has_all_bytes()
         check_byte_decoder_complex_round_trip()
 
-    def _bytes_to_unicode(self):
+    @classmethod
+    def _bytes_to_unicode(cls):
         bs = (
             list(range(ord("!"), ord("~") + 1))
             + list(range(ord("¡"), ord("¬") + 1))
@@ -345,50 +358,15 @@ class TransformersTokenizer(Tokenizer):
         cs = [chr(n) for n in cs]
         return dict(zip(bs, cs))
 
-    def encode(self, byte_string: bytes) -> list[int]:
-        assert isinstance(byte_string, bytes)
-        # HF tokenizers take in strings apparently
-        tokenization = self._orig_tokenizer(byte_string.decode(), add_special_tokens=False)
-        return tokenization["input_ids"]
-
-    def decode(self, tokens: Sequence[int]) -> bytes:
-        decoded_str = self._orig_tokenizer.decode(tokens)
-        return decoded_str.encode()
-
-    def recode(self, tokens: Sequence[int]) -> list[int]:
-        # the encode/decode cycle might not work if we have partial unicode strings
-        used_tokens = len(tokens)
-        for _ in range(3):
-            try:
-                first_decode = self.decode(tokens).decode("utf8")
-            except UnicodeDecodeError:
-                if used_tokens == 0:
-                    break
-                else:
-                    used_tokens -= 1
-
-        new_ids = list(self.encode(first_decode.encode("utf-8")))
-        if used_tokens < len(tokens):
-            new_ids += tokens[used_tokens:]
-
-        # HACK: check for a bug in the HuggingFace tokenizer
-        # (that will just add extra spaces during an encode-decode cycle)
-        second_decode = self._orig_tokenizer.decode(new_ids)
-        if (
-            second_decode != first_decode
-            and len(second_decode) == len(first_decode) + 1
-            and second_decode.startswith("<s>  ")
-        ):
-            new_ids = new_ids[0:1] + new_ids[2:]
-
-        return new_ids
-
-
 class TransformersEngine(Engine):
     def __init__(
         self,
-        model,
-        tokenizer,
+        model: Union[str, "PreTrainedModel"],
+        tokenizer: Union[
+            "PreTrainedTokenizer",
+            "PreTrainedTokenizerFast",
+            None,
+        ],
         compute_log_probs: bool,
         chat_template=None,
         enable_backtrack=True,
@@ -410,8 +388,8 @@ class TransformersEngine(Engine):
 
         if not isinstance(model, str):
             try:
-                self.model = self.model_obj.config["_name_or_path"]
-            except KeyError:
+                self.model = self.model_obj.config._name_or_path
+            except AttributeError:
                 self.model = self.model_obj.__class__.__name__
         else:
             self.model = model
@@ -439,14 +417,37 @@ class TransformersEngine(Engine):
                 passed_common_kwargs[arg_name] = kwargs[arg_name]
 
         # Create the tokenizer
+        if tokenizer is None:
+            if isinstance(model, str):
+                # Note: prioritize the fast tokenizer if available
+                tokenizer = cast(
+                    Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"],
+                    transformers_package.AutoTokenizer.from_pretrained(
+                        pretrained_model_name_or_path=model,
+                        use_fast=True,
+                        **kwargs
+                    )
+                )
+            else:
+                raise ValueError(
+                    "If no tokenizer is provided, a model name must be provided to load the tokenizer."
+                )
         my_tokenizer = TransformersTokenizer(
-            model, tokenizer, chat_template, **passed_common_kwargs
+            hf_tokenizer=tokenizer,
+            chat_template=chat_template,
+        )
+        self._orig_tokenizer = tokenizer
+
+        super().__init__(
+            tokenizer=my_tokenizer,
+            compute_log_probs=compute_log_probs,
+            enable_backtrack=enable_backtrack,
+            enable_ff_tokens=enable_ff_tokens,
+            enable_monitoring=enable_monitoring,
+            **kwargs
         )
 
-        super().__init__(my_tokenizer, compute_log_probs=compute_log_probs, enable_backtrack=enable_backtrack,
-                         enable_ff_tokens=enable_ff_tokens, enable_monitoring=enable_monitoring, **kwargs)
-
-    def _model(self, model, **kwargs):
+    def _model(self, model, **kwargs) -> "PreTrainedModel":
         # intantiate the model if needed
         if isinstance(model, str):
 
@@ -458,32 +459,31 @@ class TransformersEngine(Engine):
             model = transformers_package.AutoModelForCausalLM.from_pretrained(model, **kwargs)
         return model
 
-    def get_logits(self, token_ids):
+    def get_logits(self, token_ids: list[int], full_sequence: bool = False):
         """Computes the logits for the given token state.
 
         This overrides a method from the LocalEngine class that is used to get
         inference results from the model.
         """
 
-        # make sure we don't run off the end of the model
+        if len(token_ids) == 0:
+            raise ValueError("token_ids must contain some tokens.")
+
+        # make sure we don't run off the end of the model's context
         if len(token_ids) >= getattr(self.model_obj.config, "max_position_embeddings", 1e10):
             raise Exception(
                 f"Attempted to run a transformers model past its maximum context window size of {self.model_obj.config.max_position_embeddings}!"
             )
 
-        # get the number of cache positions we are using
-        cache_token_ids = self._cached_token_ids
-        num_cached = 0
-        for id in cache_token_ids:
-            if (
-                num_cached >= len(cache_token_ids)
-                or num_cached >= len(token_ids)
-                or token_ids[num_cached] != id
-            ):
-                break
-            num_cached += 1
+        # check what we have already cached
+        num_cached = sum(takewhile(operator.truth, map(operator.eq, token_ids, self._cached_token_ids)))
+        if num_cached == len(token_ids):
+            if full_sequence:
+                return self._cached_logits[:num_cached, :]
+            else:
+                return self._cached_logits[[num_cached - 1], :]
 
-        # reset the cache length according to that number of positions
+        # check how many tokens are in the kv cache and what the max size of the cache is
         past_key_values = self._past_key_values
         max_cache_shape = None
         if past_key_values is None:
@@ -503,6 +503,7 @@ class TransformersEngine(Engine):
         else:
             raise TypeError(f"Unknown type of past_key_values: {type(past_key_values)}")
 
+        # If the cache is too small, we need to resize it or make a new one.
         if max_cache_shape is not None and len(token_ids) > max_cache_shape:
             # TODO: this seems to get set to the length of the first sequence we pass for models using
             # StaticCache or HybridCache. We need to initialize our own cache with a large enough size
@@ -524,10 +525,10 @@ class TransformersEngine(Engine):
                 }
                 self._past_key_values = cache_type(
                     config=config,
-                    batch_size=past_key_values.batch_size,
+                    max_batch_size=past_key_values.max_batch_size,
                     # Double the cache size to be safe
                     max_cache_len=len(token_ids) * 2,
-                    dtype=past_key_values.dtype,
+                    dtype=past_key_values._dtype,
                     layer_device_map=layer_device_map,
                 )
             else:
@@ -536,8 +537,10 @@ class TransformersEngine(Engine):
                 )
                 self._past_key_values = None
             past_length = 0
-        elif past_length > num_cached:
-            past_length = max(0, num_cached - 1)
+
+        # clear obsolete parts of kv cache
+        if past_length > num_cached:
+            past_length = num_cached
             if isinstance(past_key_values, tuple):
                 self._past_key_values = tuple(
                     tuple(p[..., :past_length, :] for p in v) for v in past_key_values
@@ -556,124 +559,99 @@ class TransformersEngine(Engine):
                         self._past_key_values = None
                     past_length = 0
 
-        cache_token_ids[past_length:] = []
+        # clear obsolete parts of logit cache
+        if self._cached_logits is not None and len(self._cached_logits) > num_cached:
+            self._cached_logits = self._cached_logits[:num_cached, :]
 
-        # call the model
+        # eval the model
+        assert past_length <= num_cached
+        assert num_cached <= len(token_ids)
         new_token_ids = token_ids[past_length:]
-        if len(new_token_ids) > 0:
-            with torch.no_grad():
-                # Not all models support batched tokens for some reason
-                try:
+        assert len(new_token_ids) > 0
+        logits_for_each_batch = []
+        with torch.no_grad():
+            # Not all models support batched tokens for some reason
+            try:
+                model_out = self.model_obj(
+                    input_ids=torch.tensor(new_token_ids).unsqueeze(0).to(self.device),
+                    past_key_values=self._past_key_values,
+                    use_cache=True,
+                    position_ids=torch.arange(past_length, past_length + len(new_token_ids))
+                    .unsqueeze(0)
+                    .to(self.device),
+                    attention_mask=torch.ones(1, past_length + len(new_token_ids)).to(
+                        self.device
+                    ),
+                    return_dict=True,
+                    output_attentions=False,
+                    output_hidden_states=False,
+                )
+                # Need to add special truncating logic here for weird models that have a different output size than tokenizer vocab
+                logits_for_each_batch.append(
+                    model_out.logits[0, :, :self.tokenizer._vocab_size]
+                    .float()
+                    .cpu()
+                    .numpy()
+                )
+            except AssertionError:
+                for i, new_token_id in enumerate(new_token_ids):
+                    input_ids = torch.tensor([new_token_id]).unsqueeze(0).to(self.device)
+
                     model_out = self.model_obj(
-                        input_ids=torch.tensor(new_token_ids).unsqueeze(0).to(self.device),
+                        input_ids=input_ids,
                         past_key_values=self._past_key_values,
                         use_cache=True,
-                        position_ids=torch.arange(past_length, past_length + len(new_token_ids))
+                        position_ids=torch.arange(past_length, past_length + 1)
                         .unsqueeze(0)
                         .to(self.device),
-                        attention_mask=torch.ones(1, past_length + len(new_token_ids)).to(
-                            self.device
-                        ),
+                        attention_mask=torch.ones(1, past_length + 1).to(self.device),
                         return_dict=True,
                         output_attentions=False,
                         output_hidden_states=False,
                     )
-                except AssertionError:
-                    for i, new_token_id in enumerate(new_token_ids):
-                        input_ids = torch.tensor([new_token_id]).unsqueeze(0).to(self.device)
 
-                        model_out = self.model_obj(
-                            input_ids=input_ids,
-                            past_key_values=self._past_key_values,
-                            use_cache=True,
-                            position_ids=torch.arange(past_length, past_length + 1)
-                            .unsqueeze(0)
-                            .to(self.device),
-                            attention_mask=torch.ones(1, past_length + 1).to(self.device),
-                            return_dict=True,
-                            output_attentions=False,
-                            output_hidden_states=False,
-                        )
+                    self._past_key_values = model_out.past_key_values
+                    past_length += 1
 
-                        self._past_key_values = model_out.past_key_values
-                        past_length += 1
-
-            # save the results
-            self._past_key_values = model_out.past_key_values
-            cache_token_ids.extend(new_token_ids)
-            # Need to add special truncating logic here for weird models that have a different output size than tokenizer vocab
-            self._cached_logits = (
-                model_out.logits[0, -1, : len(self.tokenizer.tokens)].float().cpu().numpy()
-            )
-            self.metrics.engine_input_tokens += len(new_token_ids)
-            self.metrics.engine_output_tokens += 1
-
-        return self._cached_logits
-
-    def get_per_token_topk_probs(
-        self, token_ids: list[int], top_k: int = 5
-    ) -> list[GenTokenExtra]:
-        tokenizer = self.tokenizer._orig_tokenizer
-
-        # NOTE (loc) - assume batch size of 1
-        input_ids = torch.tensor(token_ids).unsqueeze(0).long().to(self.device)
-
-        outputs = self.model_obj(input_ids)
-        probs = torch.softmax(outputs.logits, dim=-1).detach()
-
-        # append "1" to probs to account for the 1st token in the input_ids
-        probs = torch.cat([torch.ones_like(probs[:, :1, :]), probs], dim=1)
-
-        # collect the probability of the generated token
-        probs = probs[:, :-1, :]
-
-        batch = []
-        for input_sentence, input_probs in zip(input_ids, probs):
-            text_sequence = []
-
-            for _token_id, _probs in zip(input_sentence, input_probs):
-                _token = tokenizer.decode(_token_id)
-
-                if len(text_sequence) == 0:
-                    token = GenTokenExtra(
-                        token_id=_token_id.item(),
-                        prob=1.0,
-                        text=tokenizer.decode([_token_id]),
-                        top_k=[
-                            GenToken(token_id=_token_id.item(), prob=1.0, text=_token),
-                        ],
+                    # Need to add special truncating logic here for weird models that have a different output size than tokenizer vocab
+                    logits_for_each_batch.append(
+                        model_out.logits[0, :, :self.tokenizer._vocab_size]
+                        .float()
+                        .cpu()
+                        .numpy()
                     )
-                    text_sequence.append(token)
-                    continue
 
-                # get the top k indices
-                top_k_indices = torch.topk(_probs, top_k).indices.tolist()
-                if _token_id not in top_k_indices:
-                    top_k_indices.append(_token_id.item())
+        # update the metrics
+        self.metrics.engine_input_tokens += len(new_token_ids)
+        self.metrics.engine_output_tokens += 1
 
-                top_k_probs = [_probs[i].item() for i in top_k_indices]
-                top_k_list = []
-                for t, p in zip(top_k_indices, top_k_probs):
-                    top_k_list.append(GenToken(token_id=t, prob=p, text=tokenizer.decode([t])))
+        # save the results
+        self._past_key_values = model_out.past_key_values
+        self._cached_token_ids = token_ids.copy()
 
-                token = GenTokenExtra(
-                    token_id=_token_id.item(),
-                    prob=_probs[_token_id].item(),
-                    text=_token,
-                    top_k=top_k_list,
-                )
-                text_sequence.append(token)
+        if self._cached_logits is not None:
+            logits_for_each_batch = [self._cached_logits] + logits_for_each_batch
 
-            batch.append(text_sequence)
+        self._cached_logits = np.concatenate(
+            logits_for_each_batch,
+            axis=0
+        )
 
-        return batch[0]
-
+        if full_sequence:
+            return self._cached_logits
+        else:
+            return self._cached_logits[[-1], :]
 
 class Transformers(Model):
     def __init__(
         self,
-        model=None,
-        tokenizer=None,
+        model: Union[str, "PreTrainedModel"],
+        tokenizer: Union[
+            "PreTrainedTokenizer",
+            "PreTrainedTokenizerFast",
+            None,
+        ] = None,
+        interpreter_cls: Optional[type[EngineInterpreter]] = None,
         echo=True,
         compute_log_probs=False,
         chat_template=None,
@@ -683,14 +661,15 @@ class Transformers(Model):
         **kwargs,
     ):
         """Build a new Transformers model object that represents a model in a given state."""
-        if re.search("Llama-3.*-Vision", model):
-            client_cls = Llama3VisionClient
-        elif re.search("Phi-3-vision", model):
-            client_cls = Phi3VisionClient
-        else:
-            client_cls = EngineClient
+        if interpreter_cls is None and isinstance(model, str):
+            if re.search("Llama-3.*-Vision", model):
+                interpreter_cls = Llama3VisionInterpreter
+            elif re.search("Phi-3-vision", model):
+                interpreter_cls = Phi3VisionInterpreter
+        if interpreter_cls is None:
+                interpreter_cls = EngineInterpreter
 
-        client = client_cls(
+        client = interpreter_cls(
             TransformersEngine(
                 model,
                 tokenizer,
@@ -703,7 +682,6 @@ class Transformers(Model):
             )
         )
         super().__init__(
-            client=client,
-            state=EngineState(),
+            interpreter=client,
             echo=echo,
         )

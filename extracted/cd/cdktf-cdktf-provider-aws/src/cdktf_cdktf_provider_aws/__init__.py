@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 5.100.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.0.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -58,12 +58,12 @@ You can also visit a hosted version of the documentation on [constructs.dev](htt
 
 ## Versioning
 
-This project is explicitly not tracking the Terraform aws provider version 1:1. In fact, it always tracks `latest` of `~> 5.0` with every release. If there are scenarios where you explicitly have to pin your provider version, you can do so by [generating the provider constructs manually](https://cdk.tf/imports).
+This project is explicitly not tracking the Terraform aws provider version 1:1. In fact, it always tracks `latest` of `~> 6.0` with every release. If there are scenarios where you explicitly have to pin your provider version, you can do so by [generating the provider constructs manually](https://cdk.tf/imports).
 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/5.100.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.0.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -929,7 +929,6 @@ __all__ = [
     "data_aws_redshift_data_shares",
     "data_aws_redshift_orderable_cluster",
     "data_aws_redshift_producer_data_shares",
-    "data_aws_redshift_service_account",
     "data_aws_redshift_subnet_group",
     "data_aws_redshiftserverless_credentials",
     "data_aws_redshiftserverless_namespace",
@@ -1711,23 +1710,6 @@ __all__ = [
     "opensearchserverless_security_config",
     "opensearchserverless_security_policy",
     "opensearchserverless_vpc_endpoint",
-    "opsworks_application",
-    "opsworks_custom_layer",
-    "opsworks_ecs_cluster_layer",
-    "opsworks_ganglia_layer",
-    "opsworks_haproxy_layer",
-    "opsworks_instance",
-    "opsworks_java_app_layer",
-    "opsworks_memcached_layer",
-    "opsworks_mysql_layer",
-    "opsworks_nodejs_app_layer",
-    "opsworks_permission",
-    "opsworks_php_app_layer",
-    "opsworks_rails_app_layer",
-    "opsworks_rds_db_instance",
-    "opsworks_stack",
-    "opsworks_static_web_layer",
-    "opsworks_user_profile",
     "organizations_account",
     "organizations_delegated_administrator",
     "organizations_organization",
@@ -2064,7 +2046,6 @@ __all__ = [
     "signer_signing_job",
     "signer_signing_profile",
     "signer_signing_profile_permission",
-    "simpledb_domain",
     "snapshot_create_volume_permission",
     "sns_platform_application",
     "sns_sms_preferences",
@@ -2245,8 +2226,6 @@ __all__ = [
     "wafv2_web_acl",
     "wafv2_web_acl_association",
     "wafv2_web_acl_logging_configuration",
-    "worklink_fleet",
-    "worklink_website_certificate_authority_association",
     "workspaces_connection_alias",
     "workspaces_directory",
     "workspaces_ip_group",
@@ -3069,7 +3048,6 @@ from . import data_aws_redshift_cluster_credentials
 from . import data_aws_redshift_data_shares
 from . import data_aws_redshift_orderable_cluster
 from . import data_aws_redshift_producer_data_shares
-from . import data_aws_redshift_service_account
 from . import data_aws_redshift_subnet_group
 from . import data_aws_redshiftserverless_credentials
 from . import data_aws_redshiftserverless_namespace
@@ -3851,23 +3829,6 @@ from . import opensearchserverless_lifecycle_policy
 from . import opensearchserverless_security_config
 from . import opensearchserverless_security_policy
 from . import opensearchserverless_vpc_endpoint
-from . import opsworks_application
-from . import opsworks_custom_layer
-from . import opsworks_ecs_cluster_layer
-from . import opsworks_ganglia_layer
-from . import opsworks_haproxy_layer
-from . import opsworks_instance
-from . import opsworks_java_app_layer
-from . import opsworks_memcached_layer
-from . import opsworks_mysql_layer
-from . import opsworks_nodejs_app_layer
-from . import opsworks_permission
-from . import opsworks_php_app_layer
-from . import opsworks_rails_app_layer
-from . import opsworks_rds_db_instance
-from . import opsworks_stack
-from . import opsworks_static_web_layer
-from . import opsworks_user_profile
 from . import organizations_account
 from . import organizations_delegated_administrator
 from . import organizations_organization
@@ -4204,7 +4165,6 @@ from . import shield_subscription
 from . import signer_signing_job
 from . import signer_signing_profile
 from . import signer_signing_profile_permission
-from . import simpledb_domain
 from . import snapshot_create_volume_permission
 from . import sns_platform_application
 from . import sns_sms_preferences
@@ -4385,8 +4345,6 @@ from . import wafv2_rule_group
 from . import wafv2_web_acl
 from . import wafv2_web_acl_association
 from . import wafv2_web_acl_logging_configuration
-from . import worklink_fleet
-from . import worklink_website_certificate_authority_association
 from . import workspaces_connection_alias
 from . import workspaces_directory
 from . import workspaces_ip_group

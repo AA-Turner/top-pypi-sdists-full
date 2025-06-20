@@ -1,7 +1,7 @@
 r'''
 # `aws_lambda_invocation`
 
-Refer to the Terraform Registry for docs: [`aws_lambda_invocation`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation).
+Refer to the Terraform Registry for docs: [`aws_lambda_invocation`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LambdaInvocation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lambdaInvocation.LambdaInvocation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation aws_lambda_invocation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation aws_lambda_invocation}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class LambdaInvocation(
         id: typing.Optional[builtins.str] = None,
         lifecycle_scope: typing.Optional[builtins.str] = None,
         qualifier: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         terraform_key: typing.Optional[builtins.str] = None,
         triggers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -66,17 +67,18 @@ class LambdaInvocation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation aws_lambda_invocation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation aws_lambda_invocation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#function_name LambdaInvocation#function_name}.
-        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#input LambdaInvocation#input}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#id LambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lifecycle_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#lifecycle_scope LambdaInvocation#lifecycle_scope}.
-        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#qualifier LambdaInvocation#qualifier}.
-        :param terraform_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#terraform_key LambdaInvocation#terraform_key}.
-        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#triggers LambdaInvocation#triggers}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#function_name LambdaInvocation#function_name}.
+        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#input LambdaInvocation#input}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#id LambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lifecycle_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#lifecycle_scope LambdaInvocation#lifecycle_scope}.
+        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#qualifier LambdaInvocation#qualifier}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#region LambdaInvocation#region}
+        :param terraform_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#terraform_key LambdaInvocation#terraform_key}.
+        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#triggers LambdaInvocation#triggers}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -95,6 +97,7 @@ class LambdaInvocation(
             id=id,
             lifecycle_scope=lifecycle_scope,
             qualifier=qualifier,
+            region=region,
             terraform_key=terraform_key,
             triggers=triggers,
             connection=connection,
@@ -121,7 +124,7 @@ class LambdaInvocation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LambdaInvocation to import.
-        :param import_from_id: The id of the existing LambdaInvocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LambdaInvocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LambdaInvocation to import is found.
         '''
         if __debug__:
@@ -143,6 +146,10 @@ class LambdaInvocation(
     @jsii.member(jsii_name="resetQualifier")
     def reset_qualifier(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetQualifier", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTerraformKey")
     def reset_terraform_key(self) -> None:
@@ -194,6 +201,11 @@ class LambdaInvocation(
     @jsii.member(jsii_name="qualifierInput")
     def qualifier_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "qualifierInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="terraformKeyInput")
@@ -268,6 +280,18 @@ class LambdaInvocation(
         jsii.set(self, "qualifier", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8ff909e0159e91d70b94c17483fde81d6dfbebb396f565793724c54ebfacc1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="terraformKey")
     def terraform_key(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "terraformKey"))
@@ -308,6 +332,7 @@ class LambdaInvocation(
         "id": "id",
         "lifecycle_scope": "lifecycleScope",
         "qualifier": "qualifier",
+        "region": "region",
         "terraform_key": "terraformKey",
         "triggers": "triggers",
     },
@@ -328,6 +353,7 @@ class LambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         lifecycle_scope: typing.Optional[builtins.str] = None,
         qualifier: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         terraform_key: typing.Optional[builtins.str] = None,
         triggers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -339,13 +365,14 @@ class LambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#function_name LambdaInvocation#function_name}.
-        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#input LambdaInvocation#input}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#id LambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lifecycle_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#lifecycle_scope LambdaInvocation#lifecycle_scope}.
-        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#qualifier LambdaInvocation#qualifier}.
-        :param terraform_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#terraform_key LambdaInvocation#terraform_key}.
-        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#triggers LambdaInvocation#triggers}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#function_name LambdaInvocation#function_name}.
+        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#input LambdaInvocation#input}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#id LambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lifecycle_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#lifecycle_scope LambdaInvocation#lifecycle_scope}.
+        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#qualifier LambdaInvocation#qualifier}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#region LambdaInvocation#region}
+        :param terraform_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#terraform_key LambdaInvocation#terraform_key}.
+        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#triggers LambdaInvocation#triggers}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -363,6 +390,7 @@ class LambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument lifecycle_scope", value=lifecycle_scope, expected_type=type_hints["lifecycle_scope"])
             check_type(argname="argument qualifier", value=qualifier, expected_type=type_hints["qualifier"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument terraform_key", value=terraform_key, expected_type=type_hints["terraform_key"])
             check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -389,6 +417,8 @@ class LambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["lifecycle_scope"] = lifecycle_scope
         if qualifier is not None:
             self._values["qualifier"] = qualifier
+        if region is not None:
+            self._values["region"] = region
         if terraform_key is not None:
             self._values["terraform_key"] = terraform_key
         if triggers is not None:
@@ -460,21 +490,21 @@ class LambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def function_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#function_name LambdaInvocation#function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#function_name LambdaInvocation#function_name}.'''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def input(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#input LambdaInvocation#input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#input LambdaInvocation#input}.'''
         result = self._values.get("input")
         assert result is not None, "Required property 'input' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#id LambdaInvocation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#id LambdaInvocation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -484,25 +514,34 @@ class LambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def lifecycle_scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#lifecycle_scope LambdaInvocation#lifecycle_scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#lifecycle_scope LambdaInvocation#lifecycle_scope}.'''
         result = self._values.get("lifecycle_scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def qualifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#qualifier LambdaInvocation#qualifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#qualifier LambdaInvocation#qualifier}.'''
         result = self._values.get("qualifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#region LambdaInvocation#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def terraform_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#terraform_key LambdaInvocation#terraform_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#terraform_key LambdaInvocation#terraform_key}.'''
         result = self._values.get("terraform_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def triggers(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/lambda_invocation#triggers LambdaInvocation#triggers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/lambda_invocation#triggers LambdaInvocation#triggers}.'''
         result = self._values.get("triggers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -534,6 +573,7 @@ def _typecheckingstub__ae82f7e8c0ccde15b71bce2ec4892db2c1bd13ac2ae8a2897ceea1b6e
     id: typing.Optional[builtins.str] = None,
     lifecycle_scope: typing.Optional[builtins.str] = None,
     qualifier: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     terraform_key: typing.Optional[builtins.str] = None,
     triggers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -586,6 +626,12 @@ def _typecheckingstub__cb4b740953ef1adc38fcfb719895695ac09bc7b0eb214d4a70f4ca285
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d8ff909e0159e91d70b94c17483fde81d6dfbebb396f565793724c54ebfacc1b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__da65dae4194ac7f688488d3677395f84d12a12a8bc7cb48d5e606224d4e2e54e(
     value: builtins.str,
 ) -> None:
@@ -612,6 +658,7 @@ def _typecheckingstub__76e7c62e1538e7e03328674a4684aff916b304f7854a004c11d9bb3b2
     id: typing.Optional[builtins.str] = None,
     lifecycle_scope: typing.Optional[builtins.str] = None,
     qualifier: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     terraform_key: typing.Optional[builtins.str] = None,
     triggers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:

@@ -25,47 +25,112 @@ Label mappers and transforms take the same inputs as
 `~astropy.modeling.mappings.Mapping`.  The transforms in "transform_selector"
 should have the same number of inputs and outputs.
 
-This is illustrated below using two regions, labeled 1 and 2 ::
+This is illustrated below using two regions, labeled 1 and 2
 
-    +-----------+
-    | +-+       |
-    | | |  +-+  |
-    | |1|  |2|  |
-    | | |  +-+  |
-    | +-+       |
-    +-----------+
 
-::
+.. tabs::
+    .. tab:: Diagram
 
-                              +--------------+
-                              | label mapper |
-                              +--------------+
-                                ^       |
-                                |       V
-                      ----------|   +-------+
-                      |             | label |
-                    +--------+      +-------+
-           --->     | inputs |          |
-                    +--------+          V
-                         |          +--------------------+
-                         |          | transform_selector |
-                         |          +--------------------+
-                         V                  |
-                    +-----------+           |
-                    | transform |<-----------
-                    +------------+
-                         |
-                         V
-                    +---------+
-                    | outputs |
-                    +---------+
+        .. graphviz::
+            :align: center
+
+            digraph regions {
+                node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", margin="0.3,0.3"];
+
+                subgraph cluster_detector {
+                    label="Detector";
+                    style=filled;
+                    color=lightgray;
+                    fontname="Helvetica";
+
+                    region1 [label="1", shape=box, height=2, width=1];
+                    region2 [label="2", shape=box, height=1, width=1];
+
+                    {rank=same; region1 region2}
+                }
+            }
+
+    .. tab:: ASCII
+
+        .. code-block::
+
+            +-----------+
+            | +-+       |
+            | | |  +-+  |
+            | |1|  |2|  |
+            | | |  +-+  |
+            | +-+       |
+            +-----------+
+
+
+.. tabs::
+    .. tab:: Diagram
+
+        .. graphviz::
+            :align: center
+
+            digraph selector_workflow {
+                splines="ortho"
+                node [shape=box, style=filled, fillcolor=lightblue, fontname="Arial", margin="0.3,0.3"];
+
+                // Nodes
+                in [shape=point, width=0, height=0];
+                inputs [label="inputs", fillcolor=lightgreen];
+                label_mapper [label="label mapper"];
+                label [label="label"];
+                transform_selector [label="transform_selector"];
+                transform [label="transform"];
+                outputs [label="outputs", fillcolor=lightgreen];
+
+                // Invisible nodes for alignment
+                invisible1 [style=invis, shape=point];
+                invisible2 [style=invis, shape=point];
+
+                // Main flow
+                in ->inputs -> transform -> outputs;
+                inputs -> invisible1 [style=invis];
+                inputs -> label_mapper [constraint=false];
+                label_mapper -> label;
+                label -> transform_selector;
+                transform_selector -> transform;
+                invisible2 -> transform [style=invis];
+
+                // Layout adjustments
+                {rank=same; label_mapper; invisible1;}
+                {rank=same; transform_selector; invisible2;}
+            }
+
+    .. tab:: ASCII
+
+        .. code-block::
+
+                               +--------------+
+                               | label mapper |
+                               +--------------+
+                                 ^       |
+                                 |       V
+                       ----------|   +-------+
+                       |             | label |
+                     +--------+      +-------+
+            --->     | inputs |          |
+                     +--------+          V
+                          |          +--------------------+
+                          |          | transform_selector |
+                          |          +--------------------+
+                          V                  |
+                     +-----------+           |
+                     | transform |<-----------
+                     +------------+
+                          |
+                          V
+                     +---------+
+                     | outputs |
+                     +---------+
 
 
 The base class _LabelMapper can be subclassed to create other
 label mappers.
-
-
-"""
+"""  # noqa: E501
 
 import contextlib
 import warnings
@@ -294,8 +359,8 @@ class LabelMapperDict(_LabelMapper):
         if not all(m.n_outputs == 1 for m in mapper.values()):
             msg = "All transforms in mapper must have one output."
             raise TypeError(msg)
-        self._input_units_strict = {key: False for key in self._inputs}
-        self._input_units_allow_dimensionless = {key: False for key in self._inputs}
+        self._input_units_strict = dict.fromkeys(self._inputs, False)
+        self._input_units_allow_dimensionless = dict.fromkeys(self._inputs, False)
         super().__init__(mapper, _no_label, inputs_mapping, name=name, **kwargs)
         self.outputs = ("labels",)
 
@@ -394,8 +459,8 @@ class LabelMapperRange(_LabelMapper):
         if not all(m.n_outputs == 1 for m in mapper.values()):
             msg = "All transforms in mapper must have one output."
             raise TypeError(msg)
-        self._input_units_strict = {key: False for key in self._inputs}
-        self._input_units_allow_dimensionless = {key: False for key in self._inputs}
+        self._input_units_strict = dict.fromkeys(self._inputs, False)
+        self._input_units_allow_dimensionless = dict.fromkeys(self._inputs, False)
         super().__init__(mapper, _no_label, inputs_mapping, name=name, **kwargs)
         self.outputs = ("labels",)
 
@@ -546,8 +611,8 @@ class RegionsSelector(Model):
         if " " in selector or 0 in selector:
             msg = '"0" and " " are not allowed as keys.'
             raise ValueError(msg)
-        self._input_units_strict = {key: False for key in self._inputs}
-        self._input_units_allow_dimensionless = {key: False for key in self._inputs}
+        self._input_units_strict = dict.fromkeys(self._inputs, False)
+        self._input_units_allow_dimensionless = dict.fromkeys(self._inputs, False)
         super().__init__(n_models=1, name=name, **kwargs)
         # Validate uses_quantity at init time for nicer error message
         _ = self.uses_quantity
@@ -631,7 +696,7 @@ class RegionsSelector(Model):
             else:
                 # If there's no transform for a label, return np.nan
                 result = [
-                    np.empty(inputs[0].shape) + self._undefined_transform_value
+                    np.full(inputs[0].shape, self._undefined_transform_value)
                     for i in range(self.n_outputs)
                 ]
             for j in range(self.n_outputs):
@@ -726,8 +791,8 @@ class LabelMapper(_LabelMapper):
 
         self._inputs_mapping = inputs_mapping
         self._mapper = mapper
-        self._input_units_strict = {key: False for key in self._inputs}
-        self._input_units_allow_dimensionless = {key: False for key in self._inputs}
+        self._input_units_strict = dict.fromkeys(self._inputs, False)
+        self._input_units_allow_dimensionless = dict.fromkeys(self._inputs, False)
         super(_LabelMapper, self).__init__(name=name, **kwargs)
         self.outputs = ("label",)
 

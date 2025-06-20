@@ -59,12 +59,12 @@ pub async fn handle_formatting(
         Some(Either::Left(&text_document.uri)),
         &backend.schema_store,
     )
-    .format(&document_source.source)
+    .format(&document_source.text)
     .await
     {
         Ok(new_text) => {
-            if new_text != document_source.source {
-                document_source.source = new_text.clone();
+            if new_text != document_source.text {
+                document_source.text = new_text.clone();
 
                 return Ok(Some(vec![TextEdit {
                     range: tombi_text::Range::new(

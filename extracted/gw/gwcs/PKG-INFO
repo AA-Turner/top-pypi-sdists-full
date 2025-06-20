@@ -1,60 +1,36 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: gwcs
-Version: 0.24.0
+Version: 0.25.0
 Summary: Generalized World Coordinate System
 Author-email: gwcs developers <help@stsci.edu>
-License: Copyright (c) 2015, Space Telescope Science Institute
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without modification,
-        are permitted provided that the following conditions are met:
-        
-        * Redistributions of source code must retain the above copyright notice, this
-          list of conditions and the following disclaimer.
-        * Redistributions in binary form must reproduce the above copyright notice, this
-          list of conditions and the following disclaimer in the documentation and/or
-          other materials provided with the distribution.
-        * Neither the name of the Astropy Team nor the names of its contributors may be
-          used to endorse or promote products derived from this software without
-          specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-        ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
 Project-URL: Homepage, https://github.com/spacetelescope/gwcs
 Project-URL: Tracker, https://github.com/spacetelescope/gwcs/issues
 Project-URL: Documentation, https://gwcs.readthedocs.io/en/stable/
 Project-URL: Source Code, https://github.com/spacetelescope/jwst
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
+License-File: licenses/LICENSE.rst
 Requires-Dist: asdf>=3.3.0
 Requires-Dist: astropy>=6.0
-Requires-Dist: numpy>=1.24
+Requires-Dist: numpy>1.26
 Requires-Dist: scipy>=1.14.1
-Requires-Dist: asdf_wcs_schemas>=0.4.0
-Requires-Dist: asdf-astropy>=0.5.0
+Requires-Dist: asdf_wcs_schemas>=0.5.0
+Requires-Dist: asdf-astropy>=0.8.0
+Requires-Dist: importlib-metadata>=4.11.4; python_version <= "3.11"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-automodapi; extra == "docs"
-Requires-Dist: sphinx-rtd-theme; extra == "docs"
-Requires-Dist: stsci-rtd-theme; extra == "docs"
 Requires-Dist: sphinx-astropy; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
-Requires-Dist: pydata-sphinx-theme; extra == "docs"
 Requires-Dist: sphinx-asdf; extra == "docs"
-Requires-Dist: tomli; python_version < "3.11" and extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx-tabs; extra == "docs"
+Requires-Dist: matplotlib; extra == "docs"
 Provides-Extra: test
 Requires-Dist: ci-watson>=0.3.0; extra == "test"
 Requires-Dist: pytest>=8.0.0; extra == "test"
 Requires-Dist: pytest-astropy>=0.11.0; extra == "test"
+Dynamic: license-file
 
 GWCS - Generalized World Coordinate System
 ==========================================

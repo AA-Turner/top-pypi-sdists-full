@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.17.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-18T08:04:08.870655                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
+# Generated on 2025-06-19T23:04:39.585390                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -21,8 +21,6 @@ CARD_SUFFIX: str
 CARD_AZUREROOT: None
 
 CARD_GSROOT: None
-
-SKIP_CARD_DUALWRITE: bool
 
 TEMP_DIR_NAME: str
 

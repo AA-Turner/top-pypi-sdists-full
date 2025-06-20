@@ -1,15 +1,14 @@
-# SPDX-FileCopyrightText: 2014-2023 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2024 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-import os
 import struct
+from time import sleep
 from typing import Dict
 
 from .esp32 import ESP32ROM
 from ..loader import ESPLoader
-from ..reset import HardReset
 from ..util import FatalError, NotImplementedInROMError
 
 
@@ -17,8 +16,6 @@ class ESP32S3ROM(ESP32ROM):
     CHIP_NAME = "ESP32-S3"
 
     IMAGE_CHIP_ID = 9
-
-    CHIP_DETECT_MAGIC_VALUE = [0x9]
 
     IROM_MAP_START = 0x42000000
     IROM_MAP_END = 0x44000000
@@ -36,6 +33,8 @@ class ESP32S3ROM(ESP32ROM):
     SPI_W0_OFFS = 0x58
 
     SPI_ADDR_REG_MSB = False
+
+    USES_MAGIC_VALUE = False
 
     BOOTLOADER_FLASH_OFFSET = 0x0
 
@@ -91,13 +90,14 @@ class ESP32S3ROM(ESP32ROM):
     RTC_CNTL_SWD_WKEY = 0x8F1D312A
 
     RTC_CNTL_WDTCONFIG0_REG = RTCCNTL_BASE_REG + 0x0098
+    RTC_CNTL_WDTCONFIG1_REG = RTCCNTL_BASE_REG + 0x009C
     RTC_CNTL_WDTWPROTECT_REG = RTCCNTL_BASE_REG + 0x00B0
     RTC_CNTL_WDT_WKEY = 0x50D83AA1
 
     USB_RAM_BLOCK = 0x800  # Max block size USB-OTG is used
 
     GPIO_STRAP_REG = 0x60004038
-    GPIO_STRAP_SPI_BOOT_MASK = 0x8  # Not download mode
+    GPIO_STRAP_SPI_BOOT_MASK = 1 << 3  # Not download mode
     GPIO_STRAP_VDDSPI_MASK = 1 << 4
     RTC_CNTL_OPTION1_REG = 0x6000812C
     RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK = 0x1  # Is download mode forced over USB?
@@ -210,7 +210,12 @@ class ESP32S3ROM(ESP32ROM):
 
     def get_psram_cap(self):
         num_word = 4
-        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 3) & 0x03
+        psram_cap = (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 3) & 0x03
+        num_word = 5
+        psram_cap_hi_bit = (
+            self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 19
+        ) & 0x01
+        return (psram_cap_hi_bit << 2) | psram_cap
 
     def get_psram_vendor(self):
         num_word = 4
@@ -232,6 +237,8 @@ class ESP32S3ROM(ESP32ROM):
             0: None,
             1: "Embedded PSRAM 8MB",
             2: "Embedded PSRAM 2MB",
+            3: "Embedded PSRAM 16MB",
+            4: "Embedded PSRAM 4MB",
         }.get(self.get_psram_cap(), "Unknown Embedded PSRAM")
         if psram is not None:
             features += [psram + f" ({self.get_psram_vendor()})"]
@@ -345,33 +352,17 @@ class ESP32S3ROM(ESP32ROM):
         if not self.sync_stub_detected:  # Don't run if stub is reused
             self.disable_watchdogs()
 
-    def _check_if_can_reset(self):
-        """
-        Check the strapping register to see if we can reset out of download mode.
-        """
-        if os.getenv("ESPTOOL_TESTING") is not None:
-            print("ESPTOOL_TESTING is set, ignoring strapping mode check")
-            # Esptool tests over USB-OTG run with GPIO0 strapped low,
-            # don't complain in this case.
-            return
-        strap_reg = self.read_reg(self.GPIO_STRAP_REG)
-        force_dl_reg = self.read_reg(self.RTC_CNTL_OPTION1_REG)
-        if (
-            strap_reg & self.GPIO_STRAP_SPI_BOOT_MASK == 0
-            and force_dl_reg & self.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK == 0
-        ):
-            raise SystemExit(
-                f"Error: {self.get_chip_description()} chip was placed into download "
-                "mode using GPIO0.\nesptool.py can not exit the download mode over "
-                "USB. To run the app, reset the chip manually.\n"
-                "To suppress this note, set --after option to 'no_reset'."
-            )
+    def watchdog_reset(self):
+        print("Hard resetting with a watchdog...")
+        self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, self.RTC_CNTL_WDT_WKEY)  # unlock
+        self.write_reg(self.RTC_CNTL_WDTCONFIG1_REG, 2000)  # set WDT timeout
+        self.write_reg(
+            self.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2
+        )  # enable WDT
+        self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, 0)  # lock
+        sleep(0.5)  # wait for reset to take effect
 
     def hard_reset(self):
-        uses_usb_otg = self.uses_usb_otg()
-        if uses_usb_otg:
-            self._check_if_can_reset()
-
         try:
             # Clear force download boot mode to avoid the chip being stuck in download mode after reset
             # workaround for issue: https://github.com/espressif/arduino-esp32/issues/6762
@@ -381,9 +372,19 @@ class ESP32S3ROM(ESP32ROM):
         except Exception:
             # Skip if response was not valid and proceed to reset; e.g. when monitoring while resetting
             pass
+        uses_usb_otg = self.uses_usb_otg()
+        if uses_usb_otg:
+            # Check the strapping register to see if we can perform a watchdog reset
+            strap_reg = self.read_reg(self.GPIO_STRAP_REG)
+            force_dl_reg = self.read_reg(self.RTC_CNTL_OPTION1_REG)
+            if (
+                strap_reg & self.GPIO_STRAP_SPI_BOOT_MASK == 0  # GPIO0 low
+                and force_dl_reg & self.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK == 0
+            ):
+                self.watchdog_reset()
+                return
 
-        print("Hard resetting via RTS pin...")
-        HardReset(self._port, uses_usb_otg)()
+        ESPLoader.hard_reset(self, uses_usb_otg)
 
     def change_baud(self, baud):
         ESPLoader.change_baud(self, baud)

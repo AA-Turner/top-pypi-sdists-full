@@ -39,7 +39,7 @@ benchmark: etc/benchmarks/benchmark.py build
 	python3 $^
 
 valgrind:
-	python -c "import sys;print(sys.version)"
+	venv/bin/python3 -c "import sys;print(sys.version)"
 	valgrind --leak-check=full --track-origins=yes --log-file=valgrind.log venv/bin/pytest -vvs
 
 clean:

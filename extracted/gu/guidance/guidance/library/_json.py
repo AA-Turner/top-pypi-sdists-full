@@ -1,12 +1,9 @@
-import warnings
-from json import dumps as json_dumps
 from json import loads as json_loads
-from typing import Any, Mapping, Optional, Type, Union, cast
+from typing import Any, Mapping, Optional, Type, Union
 
 import pydantic
-from llguidance import JsonCompiler
 
-from .._ast import JsonNode
+from .._ast import JsonNode, LLGJsonCompileOptions, RuleNode
 from .._grammar import capture, token_limit, with_temperature
 from ._pydantic import pydantic_to_json_schema
 
@@ -21,12 +18,14 @@ def json(
         str,
         JSONSchema,
         Type[pydantic.BaseModel],
-        pydantic.TypeAdapter,
+        pydantic.TypeAdapter[Any],
     ] = None,
     temperature: Optional[float] = None,
     max_tokens: Optional[int] = None,
     separators: Optional[tuple[str, str]] = None,
     whitespace_flexible: bool = False,
+    whitespace_pattern: Optional[str] = None,
+    lenient: bool = False,
 ):
     """Generate valid JSON according to the supplied JSON schema or `pydantic` model.
 
@@ -74,10 +73,7 @@ def json(
     if schema is False:
         raise ValueError("Unsatisfiable schema: schema is false")
     elif schema is True:
-        schema = {}
-    elif schema is None:
-        # Default schema is empty, "anything goes" schema
-        # TODO: consider default being `{"type": "object"}`
+        # Any valid JSON is acceptable
         schema = {}
     elif isinstance(schema, pydantic.TypeAdapter) or (
         isinstance(schema, type) and issubclass(schema, pydantic.BaseModel)
@@ -89,66 +85,56 @@ def json(
             raise ValueError("JSON schema string must be a JSON object (i.e. a dictionary)")
         schema = from_str
 
-    if isinstance(schema, Mapping):
-        schema = dict(schema)
-    else:
-        raise TypeError(f"Unsupported schema type: {type(schema)}")
-
-    coerce_one_of = False
-    # TODO: decide whether or not to keep this -- it lets us double check that llguidance can handle the schema which isn't necessarily
-    # what we want, as llguidance may or may not be the backend we are using. That being said, it's sort of nice to get an exception when
-    # you call `json` instead of waiting for generation to fail.
-    VALIDATE = True
-    if VALIDATE:
-        schema_string = json_dumps(schema)
-        try:
-            compiler = JsonCompiler(
-                separators=separators,
-                whitespace_flexible=whitespace_flexible,
-                coerce_one_of=False,
-            )
-            compiler.compile(schema_string)
-        except ValueError as e:
-            if (
-                e.args[0]
-                == "oneOf constraints are not supported. Enable 'coerce_one_of' option to approximate oneOf with anyOf"
-            ):
-                warnings.warn(
-                    "oneOf not fully supported, falling back to anyOf. This may cause validation errors in some cases."
-                )
-                compiler = JsonCompiler(
-                    separators=separators,
-                    whitespace_flexible=whitespace_flexible,
-                    coerce_one_of=True,
-                )
-                compiler.compile(schema_string)
-                coerce_one_of = True
-            else:
-                raise
+    if whitespace_pattern is not None:
+        whitespace_flexible = True
 
     if separators is None:
-        if whitespace_flexible:
+        if whitespace_flexible or whitespace_pattern:
             separators = (",", ":")
         else:
             separators = (", ", ": ")
+
+    if len(separators) != 2:
+        raise ValueError("separators must be a tuple of (item_separator, key_separator)")
     item_separator, key_separator = separators
 
-    if schema.get("x-guidance") is None:
-        schema["x-guidance"] = {
-            "item_separator": item_separator,
-            "key_separator": key_separator,
-            "whitespace_flexible": whitespace_flexible,
-            "coerce_one_of": coerce_one_of,
-        }
+    llg_options = LLGJsonCompileOptions(
+        whitespace_flexible=whitespace_flexible,
+        whitespace_pattern=whitespace_pattern,
+        item_separator=item_separator,
+        key_separator=key_separator,
+        coerce_one_of=True,
+        lenient=lenient,
+    )
+
+    if isinstance(schema, Mapping):
+        schema = dict(schema)
+    elif schema is not None:
+        raise TypeError(
+            f"Invalid schema type: {type(schema)}. Expected None, a boolean, a JSON schema object, a pydantic model, or a pydantic TypeAdapter."
+        )
 
     node = JsonNode(
-        name=name or "json",
         schema=schema,
+        llg_options=llg_options,
     )
+
+    VALIDATE = True
+    if VALIDATE:
+        # TODO: decide whether or not to keep this -- it lets us double check that llguidance can handle the schema which isn't necessarily
+        # what we want, as llguidance may or may not be the backend we are using. That being said, it's sort of nice to get an exception when
+        # you call `json` instead of waiting for generation to fail.
+        node._llguidance_validate()
+
+    rule = RuleNode(
+        name=name or "json",
+        value=node,
+    )
+
     if temperature is not None:
-        node = with_temperature(node, temperature)
+        rule = with_temperature(rule, temperature)
     if max_tokens is not None:
-        node = token_limit(node, max_tokens)
+        rule = token_limit(rule, max_tokens)
     if name is not None:
-        node = capture(node, name)
-    return node
+        rule = capture(rule, name)
+    return rule

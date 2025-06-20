@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: large-image-source-pil
-Version: 1.32.9
+Version: 1.32.10
 Summary: A Pillow tilesource for large_image.
 Home-page: https://github.com/girder/large_image
 Author: Kitware, Inc.
@@ -18,15 +18,20 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: large-image>=1.32.9
+Requires-Dist: large-image>=1.32.10
 Provides-Extra: all
 Requires-Dist: rawpy; extra == "all"
 Requires-Dist: pillow-heif; extra == "all"
-Requires-Dist: pillow-jxl-plugin<1.3; python_version < "3.8" and extra == "all"
+Requires-Dist: pillow-jxl-plugin<1.3; python_version < "3.9" and extra == "all"
 Requires-Dist: pillow-jxl-plugin; python_version >= "3.9" and extra == "all"
-Requires-Dist: pillow-jpls; extra == "all"
+Requires-Dist: pillow-jpls; python_version < "3.13" and extra == "all"
+Provides-Extra: common
+Requires-Dist: rawpy; extra == "common"
+Requires-Dist: pillow-heif; extra == "common"
+Requires-Dist: pillow-jxl-plugin<1.3; python_version < "3.9" and extra == "common"
+Requires-Dist: pillow-jxl-plugin; python_version >= "3.9" and extra == "common"
 Provides-Extra: girder
-Requires-Dist: girder-large-image>=1.32.9; extra == "girder"
+Requires-Dist: girder-large-image>=1.32.10; extra == "girder"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

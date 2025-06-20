@@ -388,6 +388,11 @@ def scan_iceberg(
         Iceberg tables automatically track partitions, including automatically applying transformation like date_trunc to timestamp columns.
         However, if you are partitioned by a column e.g. `event_date: date` which is the truncation of another column `event_timestamp: datetime`
         then you can provide information about this relationship in order to optimize queries made with Chalk.
+
+    partition_column
+        The name of the partition column to use for the Iceberg table. E.g., if you are partitioned by DAY(transaction_timestamp),
+        you would set this to 'transaction_timestamp'.
+
     """
     from chalk.operators._iceberg_scan import IcebergScanOperator
 

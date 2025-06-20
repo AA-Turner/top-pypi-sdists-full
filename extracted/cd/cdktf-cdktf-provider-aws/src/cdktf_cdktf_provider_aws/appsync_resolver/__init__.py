@@ -1,7 +1,7 @@
 r'''
 # `aws_appsync_resolver`
 
-Refer to the Terraform Registry for docs: [`aws_appsync_resolver`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver).
+Refer to the Terraform Registry for docs: [`aws_appsync_resolver`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppsyncResolver(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appsyncResolver.AppsyncResolver",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver aws_appsync_resolver}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver aws_appsync_resolver}.'''
 
     def __init__(
         self,
@@ -61,6 +61,7 @@ class AppsyncResolver(
         kind: typing.Optional[builtins.str] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
         pipeline_config: typing.Optional[typing.Union["AppsyncResolverPipelineConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         request_template: typing.Optional[builtins.str] = None,
         response_template: typing.Optional[builtins.str] = None,
         runtime: typing.Optional[typing.Union["AppsyncResolverRuntime", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -73,24 +74,25 @@ class AppsyncResolver(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver aws_appsync_resolver} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver aws_appsync_resolver} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#api_id AppsyncResolver#api_id}.
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#field AppsyncResolver#field}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#type AppsyncResolver#type}.
-        :param caching_config: caching_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#caching_config AppsyncResolver#caching_config}
-        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#code AppsyncResolver#code}.
-        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#data_source AppsyncResolver#data_source}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#id AppsyncResolver#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#kind AppsyncResolver#kind}.
-        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#max_batch_size AppsyncResolver#max_batch_size}.
-        :param pipeline_config: pipeline_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#pipeline_config AppsyncResolver#pipeline_config}
-        :param request_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#request_template AppsyncResolver#request_template}.
-        :param response_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#response_template AppsyncResolver#response_template}.
-        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#runtime AppsyncResolver#runtime}
-        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#sync_config AppsyncResolver#sync_config}
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#api_id AppsyncResolver#api_id}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#field AppsyncResolver#field}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#type AppsyncResolver#type}.
+        :param caching_config: caching_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#caching_config AppsyncResolver#caching_config}
+        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#code AppsyncResolver#code}.
+        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#data_source AppsyncResolver#data_source}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#id AppsyncResolver#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#kind AppsyncResolver#kind}.
+        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#max_batch_size AppsyncResolver#max_batch_size}.
+        :param pipeline_config: pipeline_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#pipeline_config AppsyncResolver#pipeline_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#region AppsyncResolver#region}
+        :param request_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#request_template AppsyncResolver#request_template}.
+        :param response_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#response_template AppsyncResolver#response_template}.
+        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#runtime AppsyncResolver#runtime}
+        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#sync_config AppsyncResolver#sync_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -114,6 +116,7 @@ class AppsyncResolver(
             kind=kind,
             max_batch_size=max_batch_size,
             pipeline_config=pipeline_config,
+            region=region,
             request_template=request_template,
             response_template=response_template,
             runtime=runtime,
@@ -142,7 +145,7 @@ class AppsyncResolver(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppsyncResolver to import.
-        :param import_from_id: The id of the existing AppsyncResolver that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppsyncResolver that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppsyncResolver to import is found.
         '''
         if __debug__:
@@ -161,8 +164,8 @@ class AppsyncResolver(
         ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param caching_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#caching_keys AppsyncResolver#caching_keys}.
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#ttl AppsyncResolver#ttl}.
+        :param caching_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#caching_keys AppsyncResolver#caching_keys}.
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#ttl AppsyncResolver#ttl}.
         '''
         value = AppsyncResolverCachingConfig(caching_keys=caching_keys, ttl=ttl)
 
@@ -175,7 +178,7 @@ class AppsyncResolver(
         functions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param functions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#functions AppsyncResolver#functions}.
+        :param functions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#functions AppsyncResolver#functions}.
         '''
         value = AppsyncResolverPipelineConfig(functions=functions)
 
@@ -184,8 +187,8 @@ class AppsyncResolver(
     @jsii.member(jsii_name="putRuntime")
     def put_runtime(self, *, name: builtins.str, runtime_version: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#name AppsyncResolver#name}.
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#runtime_version AppsyncResolver#runtime_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#name AppsyncResolver#name}.
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#runtime_version AppsyncResolver#runtime_version}.
         '''
         value = AppsyncResolverRuntime(name=name, runtime_version=runtime_version)
 
@@ -200,9 +203,9 @@ class AppsyncResolver(
         lambda_conflict_handler_config: typing.Optional[typing.Union["AppsyncResolverSyncConfigLambdaConflictHandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#conflict_detection AppsyncResolver#conflict_detection}.
-        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#conflict_handler AppsyncResolver#conflict_handler}.
-        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#lambda_conflict_handler_config AppsyncResolver#lambda_conflict_handler_config}
+        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#conflict_detection AppsyncResolver#conflict_detection}.
+        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#conflict_handler AppsyncResolver#conflict_handler}.
+        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#lambda_conflict_handler_config AppsyncResolver#lambda_conflict_handler_config}
         '''
         value = AppsyncResolverSyncConfig(
             conflict_detection=conflict_detection,
@@ -239,6 +242,10 @@ class AppsyncResolver(
     @jsii.member(jsii_name="resetPipelineConfig")
     def reset_pipeline_config(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPipelineConfig", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRequestTemplate")
     def reset_request_template(self) -> None:
@@ -338,6 +345,11 @@ class AppsyncResolver(
     @jsii.member(jsii_name="pipelineConfigInput")
     def pipeline_config_input(self) -> typing.Optional["AppsyncResolverPipelineConfig"]:
         return typing.cast(typing.Optional["AppsyncResolverPipelineConfig"], jsii.get(self, "pipelineConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="requestTemplateInput")
@@ -449,6 +461,18 @@ class AppsyncResolver(
         jsii.set(self, "maxBatchSize", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0302ab6ed4425e880cad8d3091c185cda47fa278fb9e4a1b9dfd4f658bf64b14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="requestTemplate")
     def request_template(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "requestTemplate"))
@@ -498,8 +522,8 @@ class AppsyncResolverCachingConfig:
         ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param caching_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#caching_keys AppsyncResolver#caching_keys}.
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#ttl AppsyncResolver#ttl}.
+        :param caching_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#caching_keys AppsyncResolver#caching_keys}.
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#ttl AppsyncResolver#ttl}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee6e376ba6e4d29078526de2ce062bcbc4d937160d99a50289d70986b9912028)
@@ -513,13 +537,13 @@ class AppsyncResolverCachingConfig:
 
     @builtins.property
     def caching_keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#caching_keys AppsyncResolver#caching_keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#caching_keys AppsyncResolver#caching_keys}.'''
         result = self._values.get("caching_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#ttl AppsyncResolver#ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#ttl AppsyncResolver#ttl}.'''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -634,6 +658,7 @@ class AppsyncResolverCachingConfigOutputReference(
         "kind": "kind",
         "max_batch_size": "maxBatchSize",
         "pipeline_config": "pipelineConfig",
+        "region": "region",
         "request_template": "requestTemplate",
         "response_template": "responseTemplate",
         "runtime": "runtime",
@@ -661,6 +686,7 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         kind: typing.Optional[builtins.str] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
         pipeline_config: typing.Optional[typing.Union["AppsyncResolverPipelineConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         request_template: typing.Optional[builtins.str] = None,
         response_template: typing.Optional[builtins.str] = None,
         runtime: typing.Optional[typing.Union["AppsyncResolverRuntime", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -674,20 +700,21 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#api_id AppsyncResolver#api_id}.
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#field AppsyncResolver#field}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#type AppsyncResolver#type}.
-        :param caching_config: caching_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#caching_config AppsyncResolver#caching_config}
-        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#code AppsyncResolver#code}.
-        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#data_source AppsyncResolver#data_source}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#id AppsyncResolver#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#kind AppsyncResolver#kind}.
-        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#max_batch_size AppsyncResolver#max_batch_size}.
-        :param pipeline_config: pipeline_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#pipeline_config AppsyncResolver#pipeline_config}
-        :param request_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#request_template AppsyncResolver#request_template}.
-        :param response_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#response_template AppsyncResolver#response_template}.
-        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#runtime AppsyncResolver#runtime}
-        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#sync_config AppsyncResolver#sync_config}
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#api_id AppsyncResolver#api_id}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#field AppsyncResolver#field}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#type AppsyncResolver#type}.
+        :param caching_config: caching_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#caching_config AppsyncResolver#caching_config}
+        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#code AppsyncResolver#code}.
+        :param data_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#data_source AppsyncResolver#data_source}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#id AppsyncResolver#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#kind AppsyncResolver#kind}.
+        :param max_batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#max_batch_size AppsyncResolver#max_batch_size}.
+        :param pipeline_config: pipeline_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#pipeline_config AppsyncResolver#pipeline_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#region AppsyncResolver#region}
+        :param request_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#request_template AppsyncResolver#request_template}.
+        :param response_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#response_template AppsyncResolver#response_template}.
+        :param runtime: runtime block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#runtime AppsyncResolver#runtime}
+        :param sync_config: sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#sync_config AppsyncResolver#sync_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -718,6 +745,7 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument kind", value=kind, expected_type=type_hints["kind"])
             check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
             check_type(argname="argument pipeline_config", value=pipeline_config, expected_type=type_hints["pipeline_config"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument request_template", value=request_template, expected_type=type_hints["request_template"])
             check_type(argname="argument response_template", value=response_template, expected_type=type_hints["response_template"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
@@ -755,6 +783,8 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["max_batch_size"] = max_batch_size
         if pipeline_config is not None:
             self._values["pipeline_config"] = pipeline_config
+        if region is not None:
+            self._values["region"] = region
         if request_template is not None:
             self._values["request_template"] = request_template
         if response_template is not None:
@@ -830,21 +860,21 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#api_id AppsyncResolver#api_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#api_id AppsyncResolver#api_id}.'''
         result = self._values.get("api_id")
         assert result is not None, "Required property 'api_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#field AppsyncResolver#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#field AppsyncResolver#field}.'''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#type AppsyncResolver#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#type AppsyncResolver#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -853,26 +883,26 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def caching_config(self) -> typing.Optional[AppsyncResolverCachingConfig]:
         '''caching_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#caching_config AppsyncResolver#caching_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#caching_config AppsyncResolver#caching_config}
         '''
         result = self._values.get("caching_config")
         return typing.cast(typing.Optional[AppsyncResolverCachingConfig], result)
 
     @builtins.property
     def code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#code AppsyncResolver#code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#code AppsyncResolver#code}.'''
         result = self._values.get("code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#data_source AppsyncResolver#data_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#data_source AppsyncResolver#data_source}.'''
         result = self._values.get("data_source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#id AppsyncResolver#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#id AppsyncResolver#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -882,13 +912,13 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kind(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#kind AppsyncResolver#kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#kind AppsyncResolver#kind}.'''
         result = self._values.get("kind")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#max_batch_size AppsyncResolver#max_batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#max_batch_size AppsyncResolver#max_batch_size}.'''
         result = self._values.get("max_batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -896,20 +926,29 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pipeline_config(self) -> typing.Optional["AppsyncResolverPipelineConfig"]:
         '''pipeline_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#pipeline_config AppsyncResolver#pipeline_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#pipeline_config AppsyncResolver#pipeline_config}
         '''
         result = self._values.get("pipeline_config")
         return typing.cast(typing.Optional["AppsyncResolverPipelineConfig"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#region AppsyncResolver#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def request_template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#request_template AppsyncResolver#request_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#request_template AppsyncResolver#request_template}.'''
         result = self._values.get("request_template")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def response_template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#response_template AppsyncResolver#response_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#response_template AppsyncResolver#response_template}.'''
         result = self._values.get("response_template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -917,7 +956,7 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime(self) -> typing.Optional["AppsyncResolverRuntime"]:
         '''runtime block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#runtime AppsyncResolver#runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#runtime AppsyncResolver#runtime}
         '''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional["AppsyncResolverRuntime"], result)
@@ -926,7 +965,7 @@ class AppsyncResolverConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sync_config(self) -> typing.Optional["AppsyncResolverSyncConfig"]:
         '''sync_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#sync_config AppsyncResolver#sync_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#sync_config AppsyncResolver#sync_config}
         '''
         result = self._values.get("sync_config")
         return typing.cast(typing.Optional["AppsyncResolverSyncConfig"], result)
@@ -955,7 +994,7 @@ class AppsyncResolverPipelineConfig:
         functions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param functions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#functions AppsyncResolver#functions}.
+        :param functions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#functions AppsyncResolver#functions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a92a2ce5b3ecac5ede53930c32f299407af23013fe7624276b3eb7ce392b892)
@@ -966,7 +1005,7 @@ class AppsyncResolverPipelineConfig:
 
     @builtins.property
     def functions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#functions AppsyncResolver#functions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#functions AppsyncResolver#functions}.'''
         result = self._values.get("functions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1047,8 +1086,8 @@ class AppsyncResolverPipelineConfigOutputReference(
 class AppsyncResolverRuntime:
     def __init__(self, *, name: builtins.str, runtime_version: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#name AppsyncResolver#name}.
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#runtime_version AppsyncResolver#runtime_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#name AppsyncResolver#name}.
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#runtime_version AppsyncResolver#runtime_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cb5ecd45ddf008ff2f9dc3ad16cc1666058d337d2d44b020ba986c1b2f6c656)
@@ -1061,14 +1100,14 @@ class AppsyncResolverRuntime:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#name AppsyncResolver#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#name AppsyncResolver#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def runtime_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#runtime_version AppsyncResolver#runtime_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#runtime_version AppsyncResolver#runtime_version}.'''
         result = self._values.get("runtime_version")
         assert result is not None, "Required property 'runtime_version' is missing"
         return typing.cast(builtins.str, result)
@@ -1170,9 +1209,9 @@ class AppsyncResolverSyncConfig:
         lambda_conflict_handler_config: typing.Optional[typing.Union["AppsyncResolverSyncConfigLambdaConflictHandlerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#conflict_detection AppsyncResolver#conflict_detection}.
-        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#conflict_handler AppsyncResolver#conflict_handler}.
-        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#lambda_conflict_handler_config AppsyncResolver#lambda_conflict_handler_config}
+        :param conflict_detection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#conflict_detection AppsyncResolver#conflict_detection}.
+        :param conflict_handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#conflict_handler AppsyncResolver#conflict_handler}.
+        :param lambda_conflict_handler_config: lambda_conflict_handler_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#lambda_conflict_handler_config AppsyncResolver#lambda_conflict_handler_config}
         '''
         if isinstance(lambda_conflict_handler_config, dict):
             lambda_conflict_handler_config = AppsyncResolverSyncConfigLambdaConflictHandlerConfig(**lambda_conflict_handler_config)
@@ -1191,13 +1230,13 @@ class AppsyncResolverSyncConfig:
 
     @builtins.property
     def conflict_detection(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#conflict_detection AppsyncResolver#conflict_detection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#conflict_detection AppsyncResolver#conflict_detection}.'''
         result = self._values.get("conflict_detection")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def conflict_handler(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#conflict_handler AppsyncResolver#conflict_handler}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#conflict_handler AppsyncResolver#conflict_handler}.'''
         result = self._values.get("conflict_handler")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1207,7 +1246,7 @@ class AppsyncResolverSyncConfig:
     ) -> typing.Optional["AppsyncResolverSyncConfigLambdaConflictHandlerConfig"]:
         '''lambda_conflict_handler_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#lambda_conflict_handler_config AppsyncResolver#lambda_conflict_handler_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#lambda_conflict_handler_config AppsyncResolver#lambda_conflict_handler_config}
         '''
         result = self._values.get("lambda_conflict_handler_config")
         return typing.cast(typing.Optional["AppsyncResolverSyncConfigLambdaConflictHandlerConfig"], result)
@@ -1236,7 +1275,7 @@ class AppsyncResolverSyncConfigLambdaConflictHandlerConfig:
         lambda_conflict_handler_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#lambda_conflict_handler_arn AppsyncResolver#lambda_conflict_handler_arn}.
+        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#lambda_conflict_handler_arn AppsyncResolver#lambda_conflict_handler_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d32442d095d6fef6809271d77c2989fb035f8c68bc4a76d1ec0effd235fb63a)
@@ -1247,7 +1286,7 @@ class AppsyncResolverSyncConfigLambdaConflictHandlerConfig:
 
     @builtins.property
     def lambda_conflict_handler_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#lambda_conflict_handler_arn AppsyncResolver#lambda_conflict_handler_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#lambda_conflict_handler_arn AppsyncResolver#lambda_conflict_handler_arn}.'''
         result = self._values.get("lambda_conflict_handler_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1349,7 +1388,7 @@ class AppsyncResolverSyncConfigOutputReference(
         lambda_conflict_handler_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/appsync_resolver#lambda_conflict_handler_arn AppsyncResolver#lambda_conflict_handler_arn}.
+        :param lambda_conflict_handler_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/appsync_resolver#lambda_conflict_handler_arn AppsyncResolver#lambda_conflict_handler_arn}.
         '''
         value = AppsyncResolverSyncConfigLambdaConflictHandlerConfig(
             lambda_conflict_handler_arn=lambda_conflict_handler_arn
@@ -1461,6 +1500,7 @@ def _typecheckingstub__b99f2c2d330c4118a27de432d0e4c6e958e93427e595ad3f42f5a4de3
     kind: typing.Optional[builtins.str] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
     pipeline_config: typing.Optional[typing.Union[AppsyncResolverPipelineConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     request_template: typing.Optional[builtins.str] = None,
     response_template: typing.Optional[builtins.str] = None,
     runtime: typing.Optional[typing.Union[AppsyncResolverRuntime, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1523,6 +1563,12 @@ def _typecheckingstub__7432f4180bec9d58435be63d38d783265419a7d2b1b95b163591076ce
 
 def _typecheckingstub__e6033a98865aa5f2e7330b2761aae01b5083da9461562199a984c66184842470(
     value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0302ab6ed4425e880cad8d3091c185cda47fa278fb9e4a1b9dfd4f658bf64b14(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1597,6 +1643,7 @@ def _typecheckingstub__a69a9222bc5c3cce05d8ffbcc5a2eee1a4db739506a2dd1c0281c3299
     kind: typing.Optional[builtins.str] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
     pipeline_config: typing.Optional[typing.Union[AppsyncResolverPipelineConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     request_template: typing.Optional[builtins.str] = None,
     response_template: typing.Optional[builtins.str] = None,
     runtime: typing.Optional[typing.Union[AppsyncResolverRuntime, typing.Dict[builtins.str, typing.Any]]] = None,

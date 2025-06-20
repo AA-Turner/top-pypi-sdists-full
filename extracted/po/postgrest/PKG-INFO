@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: postgrest
-Version: 1.0.2
+Version: 1.1.0
 Summary: PostgREST client for Python. This library provides an ORM interface to PostgREST.
 Home-page: https://github.com/supabase/postgrest-py
 License: MIT

@@ -1,33 +1,38 @@
 """This module contains utilities for managing dao-treasury's docker containers"""
 
 import logging
-import os
+from importlib import resources
 import subprocess
 from functools import wraps
-from typing import Any, Callable, Coroutine, Final, Iterable, Tuple, TypeVar
+from typing import Any, Callable, Coroutine, Final, Iterable, Tuple, TypeVar, List
 
 import eth_portfolio_scripts.docker
 from typing_extensions import ParamSpec
 
 logger: Final = logging.getLogger(__name__)
 
-compose_file: Final = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "docker-compose.yaml"
+compose_file: Final = str(
+    resources.files("dao_treasury").joinpath("docker-compose.yaml")
 )
 """The path of dao-treasury's docker-compose.yaml file on your machine"""
 
 
-def up() -> None:
-    """Build and start Grafana containers defined in the compose file.
+def up(*services: str) -> None:
+    """Build and start the specified containers defined in the compose file.
+
+    Args:
+        services: service names to bring up.
 
     This function first builds the Docker services by invoking
-    :func:`build` and then starts them in detached mode using
+    :func:`build` and then starts the specified services in detached mode using
     Docker Compose. If Docker Compose is not available, it falls back
     to the legacy ``docker-compose`` command.
 
     Examples:
+        >>> up('grafana')
+        starting the grafana container
         >>> up()
-        starting the grafana containers
+        starting all containers (grafana and renderer)
 
     See Also:
         :func:`build`
@@ -35,10 +40,10 @@ def up() -> None:
         :func:`_exec_command`
     """
     # eth-portfolio containers must be started first so dao-treasury can attach to the eth-portfolio docker network
-    eth_portfolio_scripts.docker.up()
-    build()
-    print("starting the grafana containers")
-    _exec_command(["up", "-d"])
+    eth_portfolio_scripts.docker.up("victoria-metrics")
+    build(*services)
+    print(f"starting the {', '.join(services) if services else 'grafana'} container(s)")
+    _exec_command(["up", "-d", *services])
 
 
 def down() -> None:
@@ -57,7 +62,7 @@ def down() -> None:
     _exec_command(["down"])
 
 
-def build() -> None:
+def build(*services: str) -> None:
     """Build Docker images for Grafana containers.
 
     This function builds all services defined in the Docker Compose
@@ -73,7 +78,7 @@ def build() -> None:
         :func:`_exec_command`
     """
     print("building the grafana containers")
-    _exec_command(["build"])
+    _exec_command(["build", *services])
 
 
 _P = ParamSpec("_P")
@@ -118,20 +123,20 @@ def ensure_containers(
         # signal.signal(signal.SIGINT, down)
 
         # start Grafana containers
-        up()
+        up("grafana")
 
         try:
             # attempt to run `fn`
-            await fn(*args, **kwargs)
+            return await fn(*args, **kwargs)
         finally:
             # stop and remove containers
             # down()
-            return
+            pass
 
     return compose_wrap
 
 
-def _exec_command(command: Iterable[str], *, compose_options: Tuple[str] = ()) -> None:
+def _exec_command(command: List[str], *, compose_options: Tuple[str, ...] = ()) -> None:
     """Execute a Docker Compose command with system checks and fallback.
 
     This internal function ensures that Docker and Docker Compose

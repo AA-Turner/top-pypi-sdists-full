@@ -1,11 +1,12 @@
 use tower_lsp::lsp_types::{
-    ClientCapabilities, ClientInfo, CompletionOptions, CompletionOptionsCompletionItem,
-    DeclarationCapability, DiagnosticOptions, DiagnosticServerCapabilities, DocumentLinkOptions,
-    FoldingRangeProviderCapability, HoverProviderCapability, InitializeParams, InitializeResult,
-    MessageType, OneOf, PositionEncodingKind, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions,
-    TypeDefinitionProviderCapability, WorkDoneProgressOptions,
+    ClientCapabilities, ClientInfo, CodeActionProviderCapability, CompletionOptions,
+    CompletionOptionsCompletionItem, DeclarationCapability, DiagnosticOptions,
+    DiagnosticServerCapabilities, DocumentLinkOptions, FoldingRangeProviderCapability,
+    HoverProviderCapability, InitializeParams, InitializeResult, MessageType, OneOf,
+    PositionEncodingKind, SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
+    ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, TypeDefinitionProviderCapability,
+    WorkDoneProgressOptions,
 };
 
 use crate::{semantic_tokens::SUPPORTED_TOKEN_TYPES, Backend};
@@ -65,6 +66,7 @@ pub fn server_capabilities(client_capabilities: &ClientCapabilities) -> ServerCa
             },
         )),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
+        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
         completion_provider: Some(CompletionOptions {
             trigger_characters: Some(vec![
                 ".".into(),

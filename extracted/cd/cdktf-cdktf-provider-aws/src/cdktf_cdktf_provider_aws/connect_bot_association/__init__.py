@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_bot_association`
 
-Refer to the Terraform Registry for docs: [`aws_connect_bot_association`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association).
+Refer to the Terraform Registry for docs: [`aws_connect_bot_association`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectBotAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectBotAssociation.ConnectBotAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association aws_connect_bot_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association aws_connect_bot_association}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class ConnectBotAssociation(
         instance_id: builtins.str,
         lex_bot: typing.Union["ConnectBotAssociationLexBot", typing.Dict[builtins.str, typing.Any]],
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class ConnectBotAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association aws_connect_bot_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association aws_connect_bot_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
-        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
+        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#region ConnectBotAssociation#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class ConnectBotAssociation(
             instance_id=instance_id,
             lex_bot=lex_bot,
             id=id,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class ConnectBotAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectBotAssociation to import.
-        :param import_from_id: The id of the existing ConnectBotAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectBotAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectBotAssociation to import is found.
         '''
         if __debug__:
@@ -128,8 +131,8 @@ class ConnectBotAssociation(
         lex_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
-        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
+        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
         '''
         value = ConnectBotAssociationLexBot(name=name, lex_region=lex_region)
 
@@ -138,6 +141,10 @@ class ConnectBotAssociation(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -173,6 +180,11 @@ class ConnectBotAssociation(
         return typing.cast(typing.Optional["ConnectBotAssociationLexBot"], jsii.get(self, "lexBotInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="id")
     def id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "id"))
@@ -196,6 +208,18 @@ class ConnectBotAssociation(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfd0ff8ad87b09be21eaeb9b681ac2195bb0e9b54beb24c67e2895e17851c235)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.connectBotAssociation.ConnectBotAssociationConfig",
@@ -211,6 +235,7 @@ class ConnectBotAssociation(
         "instance_id": "instanceId",
         "lex_bot": "lexBot",
         "id": "id",
+        "region": "region",
     },
 )
 class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -227,6 +252,7 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         instance_id: builtins.str,
         lex_bot: typing.Union["ConnectBotAssociationLexBot", typing.Dict[builtins.str, typing.Any]],
         id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -236,9 +262,10 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
-        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
+        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#region ConnectBotAssociation#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -256,6 +283,7 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument lex_bot", value=lex_bot, expected_type=type_hints["lex_bot"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
             "lex_bot": lex_bot,
@@ -276,6 +304,8 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -343,7 +373,7 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
@@ -352,7 +382,7 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lex_bot(self) -> "ConnectBotAssociationLexBot":
         '''lex_bot block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
         '''
         result = self._values.get("lex_bot")
         assert result is not None, "Required property 'lex_bot' is missing"
@@ -360,12 +390,21 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#region ConnectBotAssociation#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -393,8 +432,8 @@ class ConnectBotAssociationLexBot:
         lex_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
-        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
+        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8bd6ede854ce7d47a28cf94bc2922422d84b25577a5be3c28998c71013b7bd56)
@@ -408,14 +447,14 @@ class ConnectBotAssociationLexBot:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lex_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.'''
         result = self._values.get("lex_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -521,6 +560,7 @@ def _typecheckingstub__db9f80af3d934a27091f0f085fb2d5b5accc7393655c038f76974ffe0
     instance_id: builtins.str,
     lex_bot: typing.Union[ConnectBotAssociationLexBot, typing.Dict[builtins.str, typing.Any]],
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -553,6 +593,12 @@ def _typecheckingstub__377219ad9720a785f454a389682d2e87308595e68fbeab74358e1bea7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bfd0ff8ad87b09be21eaeb9b681ac2195bb0e9b54beb24c67e2895e17851c235(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9229256bf86985511606e6635333f792ceeac6a5f528f02ececaab9420fcc8fe(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -565,6 +611,7 @@ def _typecheckingstub__9229256bf86985511606e6635333f792ceeac6a5f528f02ececaab942
     instance_id: builtins.str,
     lex_bot: typing.Union[ConnectBotAssociationLexBot, typing.Dict[builtins.str, typing.Any]],
     id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

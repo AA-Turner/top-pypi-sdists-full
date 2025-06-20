@@ -20,6 +20,8 @@ import os
 import re
 import sys
 import logging
+import fnmatch
+from wcmatch import glob
 
 
 from pathlib import Path
@@ -613,3 +615,30 @@ def attrs_to_relative(context: CertoraContext) -> None:
     packages_to_relative()
     prover_resource_file_to_relative()
     verify_to_relative()
+
+def get_map_attribute_value(context: CertoraContext, path: Path, attr_name: str) -> Optional[str | bool]:
+
+    value = getattr(context, attr_name, None)
+    if value:
+        return value
+
+    map_value = getattr(context, f"{attr_name}_map", None)
+    if not map_value:
+        return None  # No map value defined
+    for key, entry_value in map_value.items():
+        # Split key to handle contract:field syntax
+        key_parts = key.split(':')
+        pattern = key_parts[0]
+
+        if Path(pattern).suffix == "":  # This is a contract pattern
+            # Find contracts that match the pattern
+            for contract_name, contract_file_path in context.contract_to_file.items():
+                if fnmatch.fnmatch(contract_name, pattern):
+                    # Check if this contract's file matches our target path
+                    if Path(contract_file_path) == path:
+                        return entry_value
+        else:  # This is a file pattern
+            # Match the file pattern against the path
+            if glob.globmatch(str(path), pattern, flags=glob.GLOBSTAR):
+                return entry_value
+    return None  # No match

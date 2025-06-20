@@ -385,7 +385,6 @@ async def next_cmd(
     ...         SnmpDispatcher(),
     ...         CommunityData('public'),
     ...         await UdpTransportTarget.create(('demo.pysnmp.com', 161)),
-    ...         ContextData(),
     ...         ObjectType(ObjectIdentity('SNMPv2-MIB', 'system'))
     ...     )
     ...     print(errorIndication, errorStatus, errorIndex, varBinds)
@@ -478,7 +477,7 @@ async def bulk_cmd(
         associated state information.
 
     authData: :py:class:`~pysnmp.hlapi.v1arch.asyncio.CommunityData`
-        Class instance representing SNMPv1/v2c credentials.
+        Class instance representing SNMPv2c credentials. (SNMPv1 / mpModel=0 is not allowed)
 
     transportTarget: :py:class:`~pysnmp.hlapi.v1arch.asyncio.UdpTransportTarget` or
         :py:class:`~pysnmp.hlapi.v1arch.asyncio.Udp6TransportTarget` Class instance representing
@@ -838,7 +837,7 @@ async def bulk_walk_cmd(
         Class instance representing SNMP engine.
 
     authData : :py:class:`~pysnmp.hlapi.v1arch.asyncio.CommunityData`
-        Class instance representing SNMP credentials.
+        Class instance representing SNMPv2c credentials. (SNMPv1 / mpModel=0 is not allowed)
 
     transportTarget : :py:class:`~pysnmp.hlapi.v1arch.asyncio.UdpTransportTarget` or :py:class:`~pysnmp.hlapi.v1arch.asyncio.Udp6TransportTarget`
         Class instance representing transport type along with SNMP peer address.
@@ -948,13 +947,17 @@ async def bulk_walk_cmd(
             maxRepetitions = min(maxRepetitions, maxRows - totalRows)
 
         if varBinds:
+            # Create a simple tuple with the OID from the previous response and Null value
+            # This approach matches walk_cmd() and works with both lookupMib=True and False
+            nextVarBinds = [(varBinds[-1][0], Null(""))]
+
             errorIndication, errorStatus, errorIndex, varBindTable = await bulk_cmd(
                 dispatcher,
                 authData,
                 transportTarget,
                 nonRepeaters,
                 maxRepetitions,
-                *[ObjectType(varBinds[-1][0], Null(""))],
+                *nextVarBinds,
                 **dict(lookupMib=options.get("lookupMib", True)),
             )
 

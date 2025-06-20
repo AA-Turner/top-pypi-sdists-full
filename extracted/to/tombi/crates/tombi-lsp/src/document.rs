@@ -1,12 +1,14 @@
 #[derive(Debug, Clone)]
 pub struct DocumentSource {
-    pub source: String,
+    pub text: String,
     pub version: i32,
 }
 
 impl DocumentSource {
-    pub fn new(source: impl Into<String>, version: i32) -> Self {
-        let source = source.into();
-        Self { source, version }
+    pub fn new(text: impl Into<String>, version: i32) -> Self {
+        Self {
+            text: text.into(),
+            version,
+        }
     }
 }

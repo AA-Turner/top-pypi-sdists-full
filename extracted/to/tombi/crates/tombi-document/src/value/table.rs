@@ -417,7 +417,7 @@ mod test {
         fn duplicate_key_3(
             r#"tbl = { fruit = { apple.color = "red" }, fruit.apple.texture = { smooth = true } }"#
         ) -> Err([
-            ("conflicting table", ((0, 41), (0, 80)))
+            ("conflicting table", ((0, 47), (0, 80)))
         ])
     }
 

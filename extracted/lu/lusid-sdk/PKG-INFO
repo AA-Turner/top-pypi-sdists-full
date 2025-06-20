@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lusid-sdk
-Version: 2.1.828
+Version: 2.1.833
 Summary: LUSID API
 Home-page: https://github.com/finbourne/lusid-sdk-python
 License: MIT
@@ -144,6 +144,7 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**list_compliance_rules**](docs/ComplianceApi.md#list_compliance_rules) | **GET** /api/compliance/rules | [EARLY ACCESS] ListComplianceRules: List compliance rules.
 *ComplianceApi* | [**list_compliance_runs**](docs/ComplianceApi.md#list_compliance_runs) | **GET** /api/compliance/runs | [EARLY ACCESS] ListComplianceRuns: List historical compliance run identifiers.
 *ComplianceApi* | [**list_compliance_templates**](docs/ComplianceApi.md#list_compliance_templates) | **GET** /api/compliance/templates | [EARLY ACCESS] ListComplianceTemplates: List compliance templates.
+*ComplianceApi* | [**list_order_breach_history**](docs/ComplianceApi.md#list_order_breach_history) | **GET** /api/compliance/runs/breaches | [EXPERIMENTAL] ListOrderBreachHistory: List Historical Order Breaches.
 *ComplianceApi* | [**run_compliance**](docs/ComplianceApi.md#run_compliance) | **POST** /api/compliance/runs | [EARLY ACCESS] RunCompliance: Run a compliance check.
 *ComplianceApi* | [**run_compliance_preview**](docs/ComplianceApi.md#run_compliance_preview) | **POST** /api/compliance/preview/runs | [EARLY ACCESS] RunCompliancePreview: Run a compliance check.
 *ComplianceApi* | [**update_compliance_template**](docs/ComplianceApi.md#update_compliance_template) | **PUT** /api/compliance/templates/{scope}/{code} | [EARLY ACCESS] UpdateComplianceTemplate: Update a ComplianceRuleTemplate
@@ -587,6 +588,7 @@ Class | Method | HTTP request | Description
 *TimelinesApi* | [**get_timeline**](docs/TimelinesApi.md#get_timeline) | **GET** /api/timelines/{scope}/{code} | [EXPERIMENTAL] GetTimeline: Get a single Timeline by scope and code.
 *TimelinesApi* | [**list_closed_periods**](docs/TimelinesApi.md#list_closed_periods) | **GET** /api/timelines/{scope}/{code}/closedperiods | [EXPERIMENTAL] ListClosedPeriods: List ClosedPeriods for a specified Timeline.
 *TimelinesApi* | [**list_timelines**](docs/TimelinesApi.md#list_timelines) | **GET** /api/timelines | [EXPERIMENTAL] ListTimelines: List Timelines
+*TimelinesApi* | [**set_post_close_activity**](docs/TimelinesApi.md#set_post_close_activity) | **POST** /api/timelines/{scope}/{code}/closedperiods/{closedPeriodId}/postcloseactivity | [EXPERIMENTAL] SetPostCloseActivity: Sets post close activities to a closed period.
 *TimelinesApi* | [**update_timeline**](docs/TimelinesApi.md#update_timeline) | **PUT** /api/timelines/{scope}/{code} | [EXPERIMENTAL] UpdateTimeline: Update Timeline defined by scope and code
 *TransactionConfigurationApi* | [**delete_side_definition**](docs/TransactionConfigurationApi.md#delete_side_definition) | **DELETE** /api/transactionconfiguration/sides/{side}/$delete | DeleteSideDefinition: Delete the given side definition
 *TransactionConfigurationApi* | [**delete_transaction_type**](docs/TransactionConfigurationApi.md#delete_transaction_type) | **DELETE** /api/transactionconfiguration/types/{source}/{type} | DeleteTransactionType: Delete a transaction type
@@ -1299,6 +1301,7 @@ Class | Method | HTTP request | Description
  - [OptionExercisePhysicalEvent](docs/OptionExercisePhysicalEvent.md)
  - [OptionalitySchedule](docs/OptionalitySchedule.md)
  - [Order](docs/Order.md)
+ - [OrderBreachHistory](docs/OrderBreachHistory.md)
  - [OrderBySpec](docs/OrderBySpec.md)
  - [OrderFlowConfiguration](docs/OrderFlowConfiguration.md)
  - [OrderGraphBlock](docs/OrderGraphBlock.md)
@@ -1325,6 +1328,7 @@ Class | Method | HTTP request | Description
  - [OrderInstructionRequest](docs/OrderInstructionRequest.md)
  - [OrderInstructionSetRequest](docs/OrderInstructionSetRequest.md)
  - [OrderRequest](docs/OrderRequest.md)
+ - [OrderRuleBreach](docs/OrderRuleBreach.md)
  - [OrderSetRequest](docs/OrderSetRequest.md)
  - [OrderUpdateRequest](docs/OrderUpdateRequest.md)
  - [OtcConfirmation](docs/OtcConfirmation.md)
@@ -1373,6 +1377,7 @@ Class | Method | HTTP request | Description
  - [PagedResourceListOfItemAndWorkspace](docs/PagedResourceListOfItemAndWorkspace.md)
  - [PagedResourceListOfLegalEntity](docs/PagedResourceListOfLegalEntity.md)
  - [PagedResourceListOfOrder](docs/PagedResourceListOfOrder.md)
+ - [PagedResourceListOfOrderBreachHistory](docs/PagedResourceListOfOrderBreachHistory.md)
  - [PagedResourceListOfOrderGraphBlock](docs/PagedResourceListOfOrderGraphBlock.md)
  - [PagedResourceListOfOrderGraphPlacement](docs/PagedResourceListOfOrderGraphPlacement.md)
  - [PagedResourceListOfOrderInstruction](docs/PagedResourceListOfOrderInstruction.md)
@@ -1446,6 +1451,8 @@ Class | Method | HTTP request | Description
  - [PortfolioType](docs/PortfolioType.md)
  - [PortfolioWithoutHref](docs/PortfolioWithoutHref.md)
  - [PortfoliosReconciliationRequest](docs/PortfoliosReconciliationRequest.md)
+ - [PostCloseActivitiesRequest](docs/PostCloseActivitiesRequest.md)
+ - [PostCloseActivity](docs/PostCloseActivity.md)
  - [PostingModuleDetails](docs/PostingModuleDetails.md)
  - [PostingModuleRequest](docs/PostingModuleRequest.md)
  - [PostingModuleResponse](docs/PostingModuleResponse.md)

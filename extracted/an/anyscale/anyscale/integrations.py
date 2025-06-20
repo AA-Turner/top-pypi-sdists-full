@@ -20,8 +20,6 @@ WANDB_API_KEY_NAME = "WANDB_API_KEY_NAME"  # pragma: allowlist secret
 WANDB_PROJECT_NAME = "WANDB_PROJECT_NAME"
 WANDB_GROUP_NAME = "WANDB_GROUP_NAME"
 
-FLAG_WANDB_INTEGRATION_PROTOTYPE = "wandb-integration-prototype"
-
 log = BlockLogger()  # Anyscale CLI Logger
 
 
@@ -131,13 +129,6 @@ def wandb_setup_api_key_hook() -> Optional[str]:
     be called by the OSS WandbLoggerCallback. Because this is called
     before wandb.init(), any other setup can also be done here.
     """
-    api_client = get_auth_api_client(log_output=False).api_client
-    feature_flag_on = api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
-        FLAG_WANDB_INTEGRATION_PROTOTYPE
-    ).result.is_on
-    if not feature_flag_on:
-        return None
-
     protected_api_key = wandb_get_api_key()
 
     try:
@@ -171,11 +162,6 @@ def set_wandb_project_group_env_vars():
     for production jobs, workspaces, and Ray jobs.
     """
     api_client = get_auth_api_client(log_output=False).api_client
-    feature_flag_on = api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
-        FLAG_WANDB_INTEGRATION_PROTOTYPE
-    ).result.is_on
-    if not feature_flag_on:
-        return
 
     wandb_project_default = None
     wandb_group_default = None
@@ -223,12 +209,6 @@ def wandb_send_run_info_hook(run: Any) -> None:
     auth_api_client = get_auth_api_client(log_output=False)
     api_client = auth_api_client.api_client
     anyscale_api_client = auth_api_client.anyscale_api_client
-
-    feature_flag_on = api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
-        FLAG_WANDB_INTEGRATION_PROTOTYPE
-    ).result.is_on
-    if not feature_flag_on:
-        return
 
     try:
         import wandb

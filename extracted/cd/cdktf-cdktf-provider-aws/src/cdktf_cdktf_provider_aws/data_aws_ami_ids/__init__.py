@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ami_ids`
 
-Refer to the Terraform Registry for docs: [`data_aws_ami_ids`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids).
+Refer to the Terraform Registry for docs: [`data_aws_ami_ids`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsAmiIds(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsAmiIds.DataAwsAmiIds",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids aws_ami_ids}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids aws_ami_ids}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class DataAwsAmiIds(
         id: typing.Optional[builtins.str] = None,
         include_deprecated: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         name_regex: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         sort_ascending: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["DataAwsAmiIdsTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -67,18 +68,19 @@ class DataAwsAmiIds(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids aws_ami_ids} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids aws_ami_ids} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param owners: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#owners DataAwsAmiIds#owners}.
-        :param executable_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#executable_users DataAwsAmiIds#executable_users}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#filter DataAwsAmiIds#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#id DataAwsAmiIds#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_deprecated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#include_deprecated DataAwsAmiIds#include_deprecated}.
-        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#name_regex DataAwsAmiIds#name_regex}.
-        :param sort_ascending: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#sort_ascending DataAwsAmiIds#sort_ascending}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#timeouts DataAwsAmiIds#timeouts}
+        :param owners: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#owners DataAwsAmiIds#owners}.
+        :param executable_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#executable_users DataAwsAmiIds#executable_users}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#filter DataAwsAmiIds#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#id DataAwsAmiIds#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_deprecated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#include_deprecated DataAwsAmiIds#include_deprecated}.
+        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#name_regex DataAwsAmiIds#name_regex}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#region DataAwsAmiIds#region}
+        :param sort_ascending: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#sort_ascending DataAwsAmiIds#sort_ascending}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#timeouts DataAwsAmiIds#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -98,6 +100,7 @@ class DataAwsAmiIds(
             id=id,
             include_deprecated=include_deprecated,
             name_regex=name_regex,
+            region=region,
             sort_ascending=sort_ascending,
             timeouts=timeouts,
             connection=connection,
@@ -124,7 +127,7 @@ class DataAwsAmiIds(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsAmiIds to import.
-        :param import_from_id: The id of the existing DataAwsAmiIds that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsAmiIds that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsAmiIds to import is found.
         '''
         if __debug__:
@@ -151,7 +154,7 @@ class DataAwsAmiIds(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#read DataAwsAmiIds#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#read DataAwsAmiIds#read}.
         '''
         value = DataAwsAmiIdsTimeouts(read=read)
 
@@ -176,6 +179,10 @@ class DataAwsAmiIds(
     @jsii.member(jsii_name="resetNameRegex")
     def reset_name_regex(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetNameRegex", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSortAscending")
     def reset_sort_ascending(self) -> None:
@@ -246,6 +253,11 @@ class DataAwsAmiIds(
     @jsii.member(jsii_name="ownersInput")
     def owners_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "ownersInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="sortAscendingInput")
@@ -327,6 +339,18 @@ class DataAwsAmiIds(
         jsii.set(self, "owners", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c937de190d86646dde1090cd97e6ed2485599f7d7d2650d4cc137d9416eab400)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="sortAscending")
     def sort_ascending(
         self,
@@ -361,6 +385,7 @@ class DataAwsAmiIds(
         "id": "id",
         "include_deprecated": "includeDeprecated",
         "name_regex": "nameRegex",
+        "region": "region",
         "sort_ascending": "sortAscending",
         "timeouts": "timeouts",
     },
@@ -382,6 +407,7 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         include_deprecated: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         name_regex: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         sort_ascending: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["DataAwsAmiIdsTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -393,14 +419,15 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param owners: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#owners DataAwsAmiIds#owners}.
-        :param executable_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#executable_users DataAwsAmiIds#executable_users}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#filter DataAwsAmiIds#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#id DataAwsAmiIds#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_deprecated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#include_deprecated DataAwsAmiIds#include_deprecated}.
-        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#name_regex DataAwsAmiIds#name_regex}.
-        :param sort_ascending: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#sort_ascending DataAwsAmiIds#sort_ascending}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#timeouts DataAwsAmiIds#timeouts}
+        :param owners: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#owners DataAwsAmiIds#owners}.
+        :param executable_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#executable_users DataAwsAmiIds#executable_users}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#filter DataAwsAmiIds#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#id DataAwsAmiIds#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_deprecated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#include_deprecated DataAwsAmiIds#include_deprecated}.
+        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#name_regex DataAwsAmiIds#name_regex}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#region DataAwsAmiIds#region}
+        :param sort_ascending: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#sort_ascending DataAwsAmiIds#sort_ascending}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#timeouts DataAwsAmiIds#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -421,6 +448,7 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument include_deprecated", value=include_deprecated, expected_type=type_hints["include_deprecated"])
             check_type(argname="argument name_regex", value=name_regex, expected_type=type_hints["name_regex"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument sort_ascending", value=sort_ascending, expected_type=type_hints["sort_ascending"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -450,6 +478,8 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["include_deprecated"] = include_deprecated
         if name_regex is not None:
             self._values["name_regex"] = name_regex
+        if region is not None:
+            self._values["region"] = region
         if sort_ascending is not None:
             self._values["sort_ascending"] = sort_ascending
         if timeouts is not None:
@@ -521,14 +551,14 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def owners(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#owners DataAwsAmiIds#owners}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#owners DataAwsAmiIds#owners}.'''
         result = self._values.get("owners")
         assert result is not None, "Required property 'owners' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def executable_users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#executable_users DataAwsAmiIds#executable_users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#executable_users DataAwsAmiIds#executable_users}.'''
         result = self._values.get("executable_users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -538,14 +568,14 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAmiIdsFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#filter DataAwsAmiIds#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#filter DataAwsAmiIds#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAmiIdsFilter"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#id DataAwsAmiIds#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#id DataAwsAmiIds#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -557,21 +587,30 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def include_deprecated(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#include_deprecated DataAwsAmiIds#include_deprecated}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#include_deprecated DataAwsAmiIds#include_deprecated}.'''
         result = self._values.get("include_deprecated")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def name_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#name_regex DataAwsAmiIds#name_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#name_regex DataAwsAmiIds#name_regex}.'''
         result = self._values.get("name_regex")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#region DataAwsAmiIds#region}
+        '''
+        result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sort_ascending(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#sort_ascending DataAwsAmiIds#sort_ascending}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#sort_ascending DataAwsAmiIds#sort_ascending}.'''
         result = self._values.get("sort_ascending")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -579,7 +618,7 @@ class DataAwsAmiIdsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAwsAmiIdsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#timeouts DataAwsAmiIds#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#timeouts DataAwsAmiIds#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAwsAmiIdsTimeouts"], result)
@@ -609,8 +648,8 @@ class DataAwsAmiIdsFilter:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#name DataAwsAmiIds#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#values DataAwsAmiIds#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#name DataAwsAmiIds#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#values DataAwsAmiIds#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4126a6b60619cd6d0aaf0f424023e9fa9318f84097de923fac0922f8633eb80a)
@@ -623,14 +662,14 @@ class DataAwsAmiIdsFilter:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#name DataAwsAmiIds#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#name DataAwsAmiIds#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#values DataAwsAmiIds#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#values DataAwsAmiIds#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -823,7 +862,7 @@ class DataAwsAmiIdsFilterOutputReference(
 class DataAwsAmiIdsTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#read DataAwsAmiIds#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#read DataAwsAmiIds#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__167b6ca2853f9260187fb76fb7a91aee0964dd70e0c69b58f2aa737380719929)
@@ -834,7 +873,7 @@ class DataAwsAmiIdsTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ami_ids#read DataAwsAmiIds#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ami_ids#read DataAwsAmiIds#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -931,6 +970,7 @@ def _typecheckingstub__4cac1f4401fb9c1159a4ef8c11a18439c2f5ed61c683b501fdc69ce68
     id: typing.Optional[builtins.str] = None,
     include_deprecated: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     name_regex: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     sort_ascending: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[DataAwsAmiIdsTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -989,6 +1029,12 @@ def _typecheckingstub__a8bae8613581fb6664fa607e94b6e1a1b1df442707bc044f4036340a7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c937de190d86646dde1090cd97e6ed2485599f7d7d2650d4cc137d9416eab400(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__43ff55bb3ba2f5d3a62b04ec31a8675f089652e7f7f54147aed978b5c337db83(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
@@ -1010,6 +1056,7 @@ def _typecheckingstub__2fcfab1d4cbd218a8a52713277d716f846c9516d84146abd165913a8b
     id: typing.Optional[builtins.str] = None,
     include_deprecated: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     name_regex: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     sort_ascending: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[DataAwsAmiIdsTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:

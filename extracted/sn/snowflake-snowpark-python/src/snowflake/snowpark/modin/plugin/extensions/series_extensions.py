@@ -8,14 +8,18 @@ as `Series.to_snowflake`.
 """
 
 from collections.abc import Iterable
+import functools
 from typing import Any, List, Literal, Optional, Union
 
 import modin.pandas as pd
+from modin.pandas.api.extensions import (
+    register_series_accessor as _register_series_accessor,
+)
 import pandas
-from modin.pandas.api.extensions import register_series_accessor
 from pandas._typing import Axis, IndexLabel
 
 from snowflake.snowpark._internal.type_utils import ColumnOrName
+from snowflake.snowpark.modin.plugin._internal.utils import MODIN_IS_AT_LEAST_0_33_0
 from snowflake.snowpark.async_job import AsyncJob
 from snowflake.snowpark.dataframe import DataFrame as SnowparkDataFrame
 from snowflake.snowpark.modin.plugin.extensions.utils import add_cache_result_docstring
@@ -23,6 +27,25 @@ from snowflake.snowpark.modin.plugin.utils.warning_message import (
     materialization_warning,
 )
 from snowflake.snowpark.row import Row
+
+
+if MODIN_IS_AT_LEAST_0_33_0:
+    register_series_accessor = functools.partial(
+        _register_series_accessor, backend="Snowflake"
+    )
+    _register_series_accessor(name="to_pandas", backend="Pandas")(pd.Series._to_pandas)
+    _register_series_accessor("to_snowflake", backend="Pandas")(
+        lambda self, *args, **kwargs: self.move_to("Snowflake").to_snowflake(
+            *args, **kwargs
+        )
+    )
+    _register_series_accessor("to_snowpark", backend="Pandas")(
+        lambda self, *args, **kwargs: self.move_to("Snowflake").to_snowpark(
+            *args, **kwargs
+        )
+    )
+else:
+    register_series_accessor = _register_series_accessor
 
 
 @register_series_accessor("_set_axis_name")
@@ -253,7 +276,7 @@ def create_or_replace_view(
     name: Union[str, Iterable[str]],
     *,
     comment: Optional[str] = None,
-    index: bool = True,
+    index: bool = False,
     index_label: Optional[IndexLabel] = None,
 ) -> List[Row]:
     """
@@ -270,7 +293,7 @@ def create_or_replace_view(
             that specifies the database name, schema name, and view name.
         comment: Adds a comment for the created view. See
             `COMMENT <https://docs.snowflake.com/en/sql-reference/sql/comment>`_.
-        index: default True
+        index: default False
             If true, save DataFrame index columns in view columns.
         index_label:
             Column label for index column(s). If None is given (default) and index is True,
@@ -300,7 +323,7 @@ def create_or_replace_dynamic_table(
     data_retention_time: Optional[int] = None,
     max_data_extension_time: Optional[int] = None,
     iceberg_config: Optional[dict] = None,
-    index: bool = True,
+    index: bool = False,
     index_label: Optional[IndexLabel] = None,
 ) -> List[Row]:
     """
@@ -344,7 +367,7 @@ def create_or_replace_dynamic_table(
             - base_location: the base directory that snowflake can write iceberg metadata and files to.
             - catalog_sync: optionally sets the catalog integration configured for Polaris Catalog.
             - storage_serialization_policy: specifies the storage serialization policy for the table.
-        index: default True
+        index: default False
             If true, save DataFrame index columns as table columns.
         index_label:
             Column label for index column(s). If None is given (default) and index is True,
@@ -379,7 +402,7 @@ def to_view(
     name: Union[str, Iterable[str]],
     *,
     comment: Optional[str] = None,
-    index: bool = True,
+    index: bool = False,
     index_label: Optional[IndexLabel] = None,
 ) -> List[Row]:
     """
@@ -396,7 +419,7 @@ def to_view(
             that specifies the database name, schema name, and view name.
         comment: Adds a comment for the created view. See
             `COMMENT <https://docs.snowflake.com/en/sql-reference/sql/comment>`_.
-        index: default True
+        index: default False
             If true, save DataFrame index columns in view columns.
         index_label:
             Column label for index column(s). If None is given (default) and index is True,
@@ -426,7 +449,7 @@ def to_dynamic_table(
     data_retention_time: Optional[int] = None,
     max_data_extension_time: Optional[int] = None,
     iceberg_config: Optional[dict] = None,
-    index: bool = True,
+    index: bool = False,
     index_label: Optional[IndexLabel] = None,
 ) -> List[Row]:
     """
@@ -470,7 +493,7 @@ def to_dynamic_table(
             - base_location: the base directory that snowflake can write iceberg metadata and files to.
             - catalog_sync: optionally sets the catalog integration configured for Polaris Catalog.
             - storage_serialization_policy: specifies the storage serialization policy for the table.
-        index: default True
+        index: default False
             If true, save DataFrame index columns as table columns.
         index_label:
             Column label for index column(s). If None is given (default) and index is True,

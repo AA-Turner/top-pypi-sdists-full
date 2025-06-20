@@ -34,6 +34,9 @@ class CommonParameterType(Enum):
     # TOOL_SELECTOR = "tool-selector"
     TOOLS_SELECTOR = "array[tools]"
     ANY = "any"
+    # MCP object and array type parameters
+    OBJECT = "object"
+    ARRAY = "array"
 
 
 @docs(

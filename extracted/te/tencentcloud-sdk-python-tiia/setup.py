@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-tiia',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1394"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1406"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Tiia SDK for Python',
     long_description=open('README.rst').read(),

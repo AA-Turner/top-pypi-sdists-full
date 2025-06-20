@@ -1,7 +1,7 @@
 r'''
 # `aws_servicequotas_template`
 
-Refer to the Terraform Registry for docs: [`aws_servicequotas_template`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template).
+Refer to the Terraform Registry for docs: [`aws_servicequotas_template`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServicequotasTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.servicequotasTemplate.ServicequotasTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template aws_servicequotas_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template aws_servicequotas_template}.'''
 
     def __init__(
         self,
@@ -52,9 +52,10 @@ class ServicequotasTemplate(
         id: builtins.str,
         *,
         quota_code: builtins.str,
-        region: builtins.str,
         service_code: builtins.str,
         value: jsii.Number,
+        aws_region: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -63,14 +64,15 @@ class ServicequotasTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template aws_servicequotas_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template aws_servicequotas_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
-        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
+        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
+        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#aws_region ServicequotasTemplate#aws_region}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,9 +87,10 @@ class ServicequotasTemplate(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = ServicequotasTemplateConfig(
             quota_code=quota_code,
-            region=region,
             service_code=service_code,
             value=value,
+            aws_region=aws_region,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -112,7 +115,7 @@ class ServicequotasTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServicequotasTemplate to import.
-        :param import_from_id: The id of the existing ServicequotasTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServicequotasTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServicequotasTemplate to import is found.
         '''
         if __debug__:
@@ -122,6 +125,14 @@ class ServicequotasTemplate(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetAwsRegion")
+    def reset_aws_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAwsRegion", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -162,6 +173,11 @@ class ServicequotasTemplate(
         return typing.cast(builtins.str, jsii.get(self, "unit"))
 
     @builtins.property
+    @jsii.member(jsii_name="awsRegionInput")
+    def aws_region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "awsRegionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="quotaCodeInput")
     def quota_code_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "quotaCodeInput"))
@@ -180,6 +196,18 @@ class ServicequotasTemplate(
     @jsii.member(jsii_name="valueInput")
     def value_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "valueInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="awsRegion")
+    def aws_region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "awsRegion"))
+
+    @aws_region.setter
+    def aws_region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__973171cbfc078338057d3002f05426cec4e93920f3591771b7049bfca40fe032)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsRegion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="quotaCode")
@@ -242,9 +270,10 @@ class ServicequotasTemplate(
         "provider": "provider",
         "provisioners": "provisioners",
         "quota_code": "quotaCode",
-        "region": "region",
         "service_code": "serviceCode",
         "value": "value",
+        "aws_region": "awsRegion",
+        "region": "region",
     },
 )
 class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -259,9 +288,10 @@ class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         quota_code: builtins.str,
-        region: builtins.str,
         service_code: builtins.str,
         value: jsii.Number,
+        aws_region: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -271,10 +301,11 @@ class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
-        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
+        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
+        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#aws_region ServicequotasTemplate#aws_region}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -288,12 +319,12 @@ class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument quota_code", value=quota_code, expected_type=type_hints["quota_code"])
-            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument service_code", value=service_code, expected_type=type_hints["service_code"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            check_type(argname="argument aws_region", value=aws_region, expected_type=type_hints["aws_region"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "quota_code": quota_code,
-            "region": region,
             "service_code": service_code,
             "value": value,
         }
@@ -311,6 +342,10 @@ class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if aws_region is not None:
+            self._values["aws_region"] = aws_region
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -378,31 +413,36 @@ class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def quota_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.'''
         result = self._values.get("quota_code")
         assert result is not None, "Required property 'quota_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.'''
-        result = self._values.get("region")
-        assert result is not None, "Required property 'region' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def service_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.'''
         result = self._values.get("service_code")
         assert result is not None, "Required property 'service_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def aws_region(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#aws_region ServicequotasTemplate#aws_region}.'''
+        result = self._values.get("aws_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.'''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -428,9 +468,10 @@ def _typecheckingstub__25d95dcb615f9e32a0f1fff53170804319ba168017d68998b8ee59261
     id: builtins.str,
     *,
     quota_code: builtins.str,
-    region: builtins.str,
     service_code: builtins.str,
     value: jsii.Number,
+    aws_region: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -447,6 +488,12 @@ def _typecheckingstub__d8095fa2cf6c2fecb0e16916b9c182ee42b101d54b6664365a0c23e9c
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__973171cbfc078338057d3002f05426cec4e93920f3591771b7049bfca40fe032(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -485,9 +532,10 @@ def _typecheckingstub__d15c407687cdb55c5dfd4ad7cf6cbacc9e96dd9f4e42606870dd87129
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     quota_code: builtins.str,
-    region: builtins.str,
     service_code: builtins.str,
     value: jsii.Number,
+    aws_region: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,5 +1,5 @@
 use tombi_config::TomlVersion;
-use tombi_schema_store::match_accessors;
+use tombi_schema_store::matches_accessors;
 use tower_lsp::lsp_types::TextDocumentIdentifier;
 
 use crate::goto_definition_for_member_pyproject_toml;
@@ -18,7 +18,7 @@ pub async fn goto_declaration(
         return Ok(Default::default());
     };
 
-    let locations = if match_accessors!(
+    let locations = if matches_accessors!(
         accessors[..accessors.len().min(3)],
         ["tool", "uv", "sources"]
     ) {

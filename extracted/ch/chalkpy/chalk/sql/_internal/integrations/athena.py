@@ -337,12 +337,12 @@ class AthenaSourceImpl(BaseSQLSource):
                 remaining_prefix = "/".join(s3_prefix.split("/")[3:])
                 objects_list_response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=remaining_prefix)
                 if "Contents" not in objects_list_response:
-                    chalk_logger.error(
+                    chalk_logger.warning(
                         f"Failed to enumerate unloaded files for Athena query with query ID: {query_id}. This may mean there was no data to unload."
                     )
-                    raise ValueError(
-                        "Failed to enumerate unloaded files for Athena query: this can happen if no data was unloaded."
-                    )
+                    # Without any unloaded files, we cannot determine the schema of the output, so even if
+                    # yield_empty_batches is True, we do not yield anything
+                    return
 
                 chalk_logger.info(f"Found {len(objects_list_response['Contents'])} unloaded files")
                 for object in objects_list_response["Contents"]:

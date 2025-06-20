@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ssoadmin_application`
 
-Refer to the Terraform Registry for docs: [`data_aws_ssoadmin_application`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application).
+Refer to the Terraform Registry for docs: [`data_aws_ssoadmin_application`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsSsoadminApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsSsoadminApplication.DataAwsSsoadminApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application aws_ssoadmin_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application aws_ssoadmin_application}.'''
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class DataAwsSsoadminApplication(
         id: builtins.str,
         *,
         application_arn: builtins.str,
-        portal_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationPortalOptions", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -61,12 +61,12 @@ class DataAwsSsoadminApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application aws_ssoadmin_application} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application aws_ssoadmin_application} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#application_arn DataAwsSsoadminApplication#application_arn}.
-        :param portal_options: portal_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#portal_options DataAwsSsoadminApplication#portal_options}
+        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application#application_arn DataAwsSsoadminApplication#application_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application#region DataAwsSsoadminApplication#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -81,7 +81,7 @@ class DataAwsSsoadminApplication(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = DataAwsSsoadminApplicationConfig(
             application_arn=application_arn,
-            portal_options=portal_options,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -106,7 +106,7 @@ class DataAwsSsoadminApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsSsoadminApplication to import.
-        :param import_from_id: The id of the existing DataAwsSsoadminApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsSsoadminApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsSsoadminApplication to import is found.
         '''
         if __debug__:
@@ -117,22 +117,9 @@ class DataAwsSsoadminApplication(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putPortalOptions")
-    def put_portal_options(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationPortalOptions", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c61b24f8c293e8b35dd530222825b601e185cb47dca3e92b763fbb3b444f162f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putPortalOptions", [value]))
-
-    @jsii.member(jsii_name="resetPortalOptions")
-    def reset_portal_options(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetPortalOptions", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -193,11 +180,9 @@ class DataAwsSsoadminApplication(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationArnInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="portalOptionsInput")
-    def portal_options_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptions"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptions"]]], jsii.get(self, "portalOptionsInput"))
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationArn")
@@ -210,6 +195,18 @@ class DataAwsSsoadminApplication(
             type_hints = typing.get_type_hints(_typecheckingstub__c565939add74adbbd6322d662cfe763e6aacd4cbf37040eb867b52daaf288344)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fdf37c304dd2ec76f74babd4f2d4a8c492f8839d3c675e94da2246faaf4451b2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -224,7 +221,7 @@ class DataAwsSsoadminApplication(
         "provider": "provider",
         "provisioners": "provisioners",
         "application_arn": "applicationArn",
-        "portal_options": "portalOptions",
+        "region": "region",
     },
 )
 class DataAwsSsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -239,7 +236,7 @@ class DataAwsSsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         application_arn: builtins.str,
-        portal_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationPortalOptions", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -249,8 +246,8 @@ class DataAwsSsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#application_arn DataAwsSsoadminApplication#application_arn}.
-        :param portal_options: portal_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#portal_options DataAwsSsoadminApplication#portal_options}
+        :param application_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application#application_arn DataAwsSsoadminApplication#application_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application#region DataAwsSsoadminApplication#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -264,7 +261,7 @@ class DataAwsSsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument portal_options", value=portal_options, expected_type=type_hints["portal_options"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_arn": application_arn,
         }
@@ -282,8 +279,8 @@ class DataAwsSsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if portal_options is not None:
-            self._values["portal_options"] = portal_options
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -351,21 +348,19 @@ class DataAwsSsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def application_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#application_arn DataAwsSsoadminApplication#application_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application#application_arn DataAwsSsoadminApplication#application_arn}.'''
         result = self._values.get("application_arn")
         assert result is not None, "Required property 'application_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def portal_options(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptions"]]]:
-        '''portal_options block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#portal_options DataAwsSsoadminApplication#portal_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/ssoadmin_application#region DataAwsSsoadminApplication#region}
         '''
-        result = self._values.get("portal_options")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptions"]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -382,34 +377,11 @@ class DataAwsSsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.dataAwsSsoadminApplication.DataAwsSsoadminApplicationPortalOptions",
     jsii_struct_bases=[],
-    name_mapping={"sign_in_options": "signInOptions"},
+    name_mapping={},
 )
 class DataAwsSsoadminApplicationPortalOptions:
-    def __init__(
-        self,
-        *,
-        sign_in_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationPortalOptionsSignInOptions", typing.Dict[builtins.str, typing.Any]]]]] = None,
-    ) -> None:
-        '''
-        :param sign_in_options: sign_in_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#sign_in_options DataAwsSsoadminApplication#sign_in_options}
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b3c52b65a74382d249e24d42e440087241a7947a8948d7836bd8b2b1664eda6)
-            check_type(argname="argument sign_in_options", value=sign_in_options, expected_type=type_hints["sign_in_options"])
+    def __init__(self) -> None:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if sign_in_options is not None:
-            self._values["sign_in_options"] = sign_in_options
-
-    @builtins.property
-    def sign_in_options(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptionsSignInOptions"]]]:
-        '''sign_in_options block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/ssoadmin_application#sign_in_options DataAwsSsoadminApplication#sign_in_options}
-        '''
-        result = self._values.get("sign_in_options")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptionsSignInOptions"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -498,23 +470,6 @@ class DataAwsSsoadminApplicationPortalOptionsList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptions]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptions]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptions]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a736c2331682caac35338b955ce337f732809b94ead9a92dd716a96c23bcc6ea)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsSsoadminApplicationPortalOptionsOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -542,23 +497,6 @@ class DataAwsSsoadminApplicationPortalOptionsOutputReference(
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
-    @jsii.member(jsii_name="putSignInOptions")
-    def put_sign_in_options(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsSsoadminApplicationPortalOptionsSignInOptions", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a35d33236e1f56890384b24a3ee8ec6bb13a4a46acb131e5809660a17ba89853)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putSignInOptions", [value]))
-
-    @jsii.member(jsii_name="resetSignInOptions")
-    def reset_sign_in_options(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetSignInOptions", []))
-
     @builtins.property
     @jsii.member(jsii_name="signInOptions")
     def sign_in_options(
@@ -572,23 +510,16 @@ class DataAwsSsoadminApplicationPortalOptionsOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "visibility"))
 
     @builtins.property
-    @jsii.member(jsii_name="signInOptionsInput")
-    def sign_in_options_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptionsSignInOptions"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsSsoadminApplicationPortalOptionsSignInOptions"]]], jsii.get(self, "signInOptionsInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptions]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptions]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsSsoadminApplicationPortalOptions]:
+        return typing.cast(typing.Optional[DataAwsSsoadminApplicationPortalOptions], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptions]],
+        value: typing.Optional[DataAwsSsoadminApplicationPortalOptions],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa46d4ddf1631a1a91859f02ecab1ddb50272532fb3d362083f1a7432a482d30)
@@ -692,23 +623,6 @@ class DataAwsSsoadminApplicationPortalOptionsSignInOptionsList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptionsSignInOptions]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptionsSignInOptions]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptionsSignInOptions]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a73348afa529842e6d547f66991231112b5495a33b19d72c3f0ddbd3ed13926b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsSsoadminApplicationPortalOptionsSignInOptionsOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -750,13 +664,13 @@ class DataAwsSsoadminApplicationPortalOptionsSignInOptionsOutputReference(
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptionsSignInOptions]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptionsSignInOptions]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsSsoadminApplicationPortalOptionsSignInOptions]:
+        return typing.cast(typing.Optional[DataAwsSsoadminApplicationPortalOptionsSignInOptions], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptionsSignInOptions]],
+        value: typing.Optional[DataAwsSsoadminApplicationPortalOptionsSignInOptions],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6fa4dc10663392ba73b5e3e961b46f62dbcf409ef51ab23d2afa0040d232268)
@@ -782,7 +696,7 @@ def _typecheckingstub__6bb9bea19c077441e5020abd3119e263c70e5afe01ce435818997bba3
     id: builtins.str,
     *,
     application_arn: builtins.str,
-    portal_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationPortalOptions, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -803,13 +717,13 @@ def _typecheckingstub__bbed59ca1507d4c0e1e4a0f0a69f0b440b83a45af831e115b8fbd4823
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c61b24f8c293e8b35dd530222825b601e185cb47dca3e92b763fbb3b444f162f(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationPortalOptions, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__c565939add74adbbd6322d662cfe763e6aacd4cbf37040eb867b52daaf288344(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c565939add74adbbd6322d662cfe763e6aacd4cbf37040eb867b52daaf288344(
+def _typecheckingstub__fdf37c304dd2ec76f74babd4f2d4a8c492f8839d3c675e94da2246faaf4451b2(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -825,14 +739,7 @@ def _typecheckingstub__15365025ce0b4195756bbebf0609d14e9093cc7b000b62f70743e0793
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     application_arn: builtins.str,
-    portal_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationPortalOptions, typing.Dict[builtins.str, typing.Any]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8b3c52b65a74382d249e24d42e440087241a7947a8948d7836bd8b2b1664eda6(
-    *,
-    sign_in_options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationPortalOptionsSignInOptions, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -869,12 +776,6 @@ def _typecheckingstub__1dcb0549a78d4b280729b58025f4cbf0ea488fe2e2e49e3d4efed61fb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a736c2331682caac35338b955ce337f732809b94ead9a92dd716a96c23bcc6ea(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptions]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6dc8802695764a353948bd925eea91cec3387eafe2faebb79efe94013796737a(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -884,14 +785,8 @@ def _typecheckingstub__6dc8802695764a353948bd925eea91cec3387eafe2faebb79efe94013
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a35d33236e1f56890384b24a3ee8ec6bb13a4a46acb131e5809660a17ba89853(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsSsoadminApplicationPortalOptionsSignInOptions, typing.Dict[builtins.str, typing.Any]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aa46d4ddf1631a1a91859f02ecab1ddb50272532fb3d362083f1a7432a482d30(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptions]],
+    value: typing.Optional[DataAwsSsoadminApplicationPortalOptions],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -928,12 +823,6 @@ def _typecheckingstub__7aa533b4d666b1415448c4dfaf672ae16dd2411bdc326115a1a29b26c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a73348afa529842e6d547f66991231112b5495a33b19d72c3f0ddbd3ed13926b(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsSsoadminApplicationPortalOptionsSignInOptions]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__310173f41c2ee1e9f47b013b9c1600dc5a6af7c32068a81810fb023e62fdc5d3(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -944,7 +833,7 @@ def _typecheckingstub__310173f41c2ee1e9f47b013b9c1600dc5a6af7c32068a81810fb023e6
     pass
 
 def _typecheckingstub__e6fa4dc10663392ba73b5e3e961b46f62dbcf409ef51ab23d2afa0040d232268(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsSsoadminApplicationPortalOptionsSignInOptions]],
+    value: typing.Optional[DataAwsSsoadminApplicationPortalOptionsSignInOptions],
 ) -> None:
     """Type checking stubs"""
     pass

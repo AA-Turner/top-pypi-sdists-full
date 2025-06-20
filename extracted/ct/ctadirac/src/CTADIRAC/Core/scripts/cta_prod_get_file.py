@@ -60,34 +60,37 @@ def sigint_handler(signum, frame):
 
 
 def getfile(lfn):
-    voName = lfn.split("/")[1]
-    if voName not in ["ctao", "vo.cta.in2p3.fr"]:
-        message = (
-            f"Wrong lfn: path must start with vo name (ctao or vo.cta.in2p3.fr):\n{lfn}"
-        )
-        gLogger.error(message)
-        return
+    try:
+        voName = lfn.split("/")[1]
+        if voName not in ["ctao", "vo.cta.in2p3.fr"]:
+            message = f"Wrong lfn: path must start with vo name (ctao or vo.cta.in2p3.fr):\n{lfn}"
+            gLogger.error(message)
+            return
 
-    name = os.path.basename(lfn)
-    if config["skip_existing"] and os.path.isfile(name):
-        gLogger.notice("Skipping already downloaded file", lfn)
-        return
+        name = os.path.basename(lfn)
+        if config["skip_existing"] and os.path.isfile(name):
+            gLogger.notice("Skipping already downloaded file", lfn)
+            return
 
-    dm = DataManager(vo=voName)
-    gLogger.notice("Start downloading file", lfn)
-    res = dm.getFile(lfn)
+        dm = DataManager(vo=voName)
+        gLogger.notice("Start downloading file", lfn)
+        res = dm.getFile(lfn, destinationDir=TEMPDIR)
 
-    if not res["OK"]:
-        message = res["Message"]
-        gLogger.error(f"Error downloading file {lfn}:\n{message}")
-        return
-    elif res["Value"]["Failed"]:
-        message = res["Value"]["Failed"][lfn]
-        gLogger.error(f"Error downloading file {lfn}:\n{message}")
-        return
+        if not res["OK"]:
+            message = res["Message"]
+            gLogger.error(f"Error downloading file {lfn}:\n{message}")
+            return
+        elif res["Value"]["Failed"]:
+            message = res["Value"]["Failed"][lfn]
+            gLogger.error(f"Error downloading file {lfn}:\n{message}")
+            return
 
-    gLogger.info(f"Successfully downloaded file {lfn}")
-    os.rename(os.path.join(".incomplete", name), name)
+        gLogger.info(f"Successfully downloaded file {lfn}")
+        os.rename(os.path.join(".incomplete", name), name)
+
+    except Exception as e:
+        gLogger.error(f"Unexpected error while downloading {lfn}: {e}")
+        # Don't raise; just log so worker doesn't crash
 
 
 @Script()

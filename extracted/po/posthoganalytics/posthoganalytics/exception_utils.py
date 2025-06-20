@@ -9,6 +9,7 @@ import linecache
 import os
 import re
 import sys
+import types
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -437,11 +438,13 @@ def get_errno(exc_value):
 
 def get_error_message(exc_value):
     # type: (Optional[BaseException]) -> str
-    return (
+    message = (
         getattr(exc_value, "message", "")
         or getattr(exc_value, "detail", "")
-        or safe_str(exc_value)
+        or exc_value
     )
+
+    return safe_str(message)
 
 
 def single_exception_from_error_tuple(
@@ -809,6 +812,10 @@ def exc_info_from_error(error):
     if isinstance(error, tuple) and len(error) == 3:
         exc_type, exc_value, tb = error
     elif isinstance(error, BaseException):
+        try:
+            construct_artificial_traceback(error)
+        except Exception:
+            pass
         tb = getattr(error, "__traceback__", None)
         if tb is not None:
             exc_type = type(error)
@@ -831,6 +838,31 @@ def exc_info_from_error(error):
         exc_info = cast(ExcInfo, exc_info)
 
     return exc_info
+
+
+def construct_artificial_traceback(e):
+    # type: (BaseException) -> None
+    if getattr(e, "__traceback__", None) is not None:
+        return
+
+    depth = 0
+    frames = []
+    while True:
+        try:
+            frame = sys._getframe(depth)
+            depth += 1
+        except ValueError:
+            break
+
+        frames.append(frame)
+
+    frames.reverse()
+
+    tb = None
+    for frame in frames:
+        tb = types.TracebackType(tb, frame, frame.f_lasti, frame.f_lineno)
+
+    setattr(e, "__traceback__", tb)
 
 
 def event_from_exception(

@@ -4,11 +4,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from whiskerrag_types.interface.parser_interface import BaseParser, ParseResult
 from whiskerrag_types.model import Knowledge, TextSplitConfig
+from whiskerrag_types.model.knowledge import KnowledgeTypeEnum
 from whiskerrag_types.model.multi_modal import Text
 from whiskerrag_utils.registry import RegisterTypeEnum, register
 
 
-@register(RegisterTypeEnum.PARSER, "text")
+@register(RegisterTypeEnum.PARSER, KnowledgeTypeEnum.TEXT)
 class TextParser(BaseParser[Text]):
     async def parse(
         self,

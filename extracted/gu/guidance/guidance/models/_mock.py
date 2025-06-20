@@ -3,32 +3,42 @@ from typing import Optional, Sequence
 
 import numpy as np
 
-from .._schema import EngineOutput, GenToken, GenTokenExtra
-from .._utils import softmax
+from .._schema import EngineOutput
 from ..trace import TraceHandler
 from ..visual._renderer import DoNothingRenderer
 from ._base import Model
-from ._engine import Engine, EngineClient, EngineState, Tokenizer
+from ._engine import Engine, EngineInterpreter, Tokenizer
+from ._engine._tokenizer import TokenizerWrappable
 
 logger = logging.getLogger(__name__)
-
-# TODO: this import pattern happens in a few places, should be cleaned up
-try:
-    from .. import cpp  # type: ignore[attr-defined]
-except ImportError:
-    logger.warn("Failed to load guidance.cpp, falling back to Python mirror implementations...")
-    from .. import _cpp as cpp
 
 
 class MockTokenizer(Tokenizer):
     def __init__(self, tokens: Sequence[bytes], special_token_ids: Optional[list[int]] = None):
-        super().__init__(tokens, chat_template=None, bos_token_id=0, eos_token_id=0, special_token_ids=special_token_ids)
-        self.byte_trie = cpp.ByteTrie(self.tokens, np.arange(len(self.tokens)))
+        self.tokens = tokens
+        self.byte_trie = ByteTrie(self.tokens, np.arange(len(self.tokens)))
 
-    def encode(self, byte_string: bytes) -> list[int]:
+        ll_tokenizer = TokenizerWrappable(
+            eos_token_id=0,
+            bos_token_id=0,
+            tokens=tokens,
+            special_token_ids=[0],
+            # ENCODE MUST BE OVERRIDDEN
+            encode_callable=self.encode
+        ).as_ll_tokenizer()
+
+        super().__init__(
+            ll_tokenizer=ll_tokenizer,
+            chat_template=None,
+            bos_token_id=0,
+        )
+
+    def encode(self, byte_string: bytes, *, parse_special: bool = True) -> list[int]:
         """Simple greedy tokenizer
         TODO: could be a method on ByteTrie if we want to reuse it
         """
+        if not parse_special:
+            raise ValueError("parse_special=False is not supported in MockTokenizer")
         pos = 0
         tokens = []
         while pos < len(byte_string):
@@ -60,9 +70,8 @@ class MockTokenizer(Tokenizer):
 
 
 class MockEngine(Engine):
-    def __init__(self, tokenizer, byte_patterns, compute_log_probs, force):
-        renderer = DoNothingRenderer(trace_handler=TraceHandler())
-        super().__init__(tokenizer, compute_log_probs=compute_log_probs)
+    def __init__(self, tokenizer, byte_patterns, force):
+        super().__init__(tokenizer)
 
         self._valid_mask = np.zeros(len(tokenizer.tokens))
         for i, t in enumerate(tokenizer.tokens):
@@ -107,8 +116,25 @@ class MockEngine(Engine):
             logits, logits_lat_ms, token_ids, mask, temperature, k, force_return_unmasked_probs
         )
 
-    def get_logits(self, token_ids: list[int]) -> np.ndarray:
+    def get_logits(self, token_ids: list[int], full_sequence: bool = False) -> np.ndarray:
+        """Get the logits for the given token state."""
+        if not full_sequence:
+            return self._get_logits(token_ids).reshape(1, -1)
+        else:
+            # TODO: is it worth it to add a prefix cache here?
+            l0 = self._get_logits([token_ids[0]])
+            # if we are getting the full sequence then we need to compute the logits for all tokens
+            logits = np.zeros((len(token_ids), len(l0)))
+            logits[0] = l0
+            for i in range(1, len(token_ids)):
+                logits[i] = self._get_logits(token_ids[: i + 1])
+            return logits
+
+    def _get_logits(self, token_ids: list[int]) -> np.ndarray:
         """Pretends to compute the logits for the given token state."""
+        if len(token_ids) == 0:
+            raise ValueError("token_ids must not be empty")
+
         # build the byte strings
         byte_string = b"".join(self.tokenizer.tokens[i] for i in token_ids)
 
@@ -130,71 +156,9 @@ class MockEngine(Engine):
                 if p.startswith(byte_string) and len(p) > len(byte_string):
                     for i in self._get_next_tokens(p[len(byte_string) :]):
                         logits[i] += bias
-                    bias /= 2  # if we have multiple matches then they apply with decreasing bias
+                        bias /= 2  # if we have multiple matches then they apply with decreasing bias
 
         return logits
-
-    def get_per_token_topk_probs(
-        self, token_ids: list[int], top_k: int = 5
-    ) -> list[GenTokenExtra]:
-        result_list = []
-        if len(token_ids) == 0:
-            return result_list
-
-        added_bos = False
-        if self.tokenizer.bos_token is not None and token_ids[0] != self.tokenizer.bos_token_id:
-            token_ids = [self.tokenizer.bos_token_id] + token_ids
-            added_bos = True
-
-        # assume the first token has probability 1.0 because it is the input token
-        result_list.append(
-            GenTokenExtra(
-                token_id=token_ids[0],
-                prob=1.0,
-                text=self.tokenizer.decode([token_ids[0]]).decode("utf8"),
-                top_k=[
-                    GenToken(
-                        token_id=token_ids[0],
-                        prob=1.0,
-                        text=self.tokenizer.decode([token_ids[0]]).decode("utf8"),
-                    )
-                ],
-            )
-        )
-
-        for i in range(1, len(token_ids)):
-            token_id = token_ids[i]
-            _logits = self.get_logits(token_ids[:i])
-            _probs = softmax(_logits)
-            top_k_indices = np.argsort(_logits)[-top_k:][::-1]
-
-            top_k_indices = top_k_indices.tolist()
-            if token_ids[i] not in top_k_indices:
-                top_k_indices.append(token_id)
-
-            top_k_result = []
-            for token_id in top_k_indices:
-                top_k_result.append(
-                    GenToken(
-                        token_id=token_id,
-                        prob=_probs[token_id],
-                        text=self.tokenizer.decode([token_id]).decode("utf8"),
-                    )
-                )
-
-            result_list.append(
-                GenTokenExtra(
-                    token_id=token_id,
-                    prob=_probs[token_id],
-                    text=self.tokenizer.decode([token_id]).decode("utf-8"),
-                    top_k=top_k_result,
-                )
-            )
-
-        if added_bos:
-            result_list = result_list[1:]
-
-        return result_list
 
     def _get_next_tokens(self, byte_string):
         special_tokens = [
@@ -216,7 +180,6 @@ class Mock(Model):
         self,
         byte_patterns=[],
         echo=False,
-        compute_log_probs=False,
         force=False,
         **kwargs,
     ):
@@ -230,15 +193,70 @@ class Mock(Model):
         tokens = [b"<s>"] + all_lc_pairs + all_bytes
 
         tokenizer = MockTokenizer(tokens, special_token_ids=[0])
-        engine = MockEngine(tokenizer, byte_patterns, compute_log_probs, force)
+        engine = MockEngine(tokenizer, byte_patterns, force)
 
         super().__init__(
-            client=EngineClient(engine),
-            state=EngineState(),
+            interpreter=EngineInterpreter(engine),
             echo=echo,
         )
 
 
-# class MockChat(Mock, Chat):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
+class ByteTrie:
+    """A python implementation mirroring the C++ ByteTrie class."""
+
+    def __init__(self, byte_strings=None, values=None, parent=None):
+        self._parent = parent
+        self.match_version = -1
+        self.match = False
+        self.partial_match = False
+        self.prob = 0
+        self.value = -1
+        self.children = {}
+
+        if byte_strings is not None:
+            if values is None:
+                for s in byte_strings:
+                    self.insert(s, 0)
+            else:
+                for i, s in enumerate(byte_strings):
+                    self.insert(s, values[i])
+
+    def keys(self):
+        return self.children.keys()
+
+    def has_child(self, byte):
+        return byte in self.children
+
+    def child(self, byte):
+        return self.children[byte]
+
+    def parent(self):
+        return self._parent
+
+    def size(self):
+        return len(self.children)
+
+    def __len__(self):
+        return self.size()
+
+    def insert(self, s, value, pos=0):
+        if len(s) <= pos:
+            if self.value < 0:
+                self.value = value
+        else:
+            first_byte = s[pos : pos + 1]
+            if first_byte not in self.children:
+                self.children[first_byte] = ByteTrie(parent=self)
+            self.children[first_byte].insert(s, value, pos + 1)
+
+    def compute_probs(self, probs):
+        self.prob = 0.0
+
+        if self.value != -1:
+            self.prob += probs[self.value]
+
+        if self.children:
+            for k in self.children:
+                child = self.children[k]
+                child.compute_probs(probs)
+                self.prob += child.prob

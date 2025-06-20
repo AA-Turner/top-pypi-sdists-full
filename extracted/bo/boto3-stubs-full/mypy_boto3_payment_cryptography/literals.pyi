@@ -74,13 +74,17 @@ KeyAlgorithmType = Literal[
     "ECC_NIST_P256",
     "ECC_NIST_P384",
     "ECC_NIST_P521",
+    "HMAC_SHA224",
+    "HMAC_SHA256",
+    "HMAC_SHA384",
+    "HMAC_SHA512",
     "RSA_2048",
     "RSA_3072",
     "RSA_4096",
     "TDES_2KEY",
     "TDES_3KEY",
 ]
-KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC"]
+KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC", "HMAC"]
 KeyClassType = Literal["ASYMMETRIC_KEY_PAIR", "PRIVATE_KEY", "PUBLIC_KEY", "SYMMETRIC_KEY"]
 KeyDerivationFunctionType = Literal["ANSI_X963", "NIST_SP800"]
 KeyDerivationHashAlgorithmType = Literal["SHA_256", "SHA_384", "SHA_512"]
@@ -122,7 +126,17 @@ KeyUsageType = Literal[
 ListAliasesPaginatorName = Literal["list_aliases"]
 ListKeysPaginatorName = Literal["list_keys"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
-SymmetricKeyAlgorithmType = Literal["AES_128", "AES_192", "AES_256", "TDES_2KEY", "TDES_3KEY"]
+SymmetricKeyAlgorithmType = Literal[
+    "AES_128",
+    "AES_192",
+    "AES_256",
+    "HMAC_SHA224",
+    "HMAC_SHA256",
+    "HMAC_SHA384",
+    "HMAC_SHA512",
+    "TDES_2KEY",
+    "TDES_3KEY",
+]
 Tr34KeyBlockFormatType = Literal["X9_TR34_2012"]
 WrappedKeyMaterialFormatType = Literal["KEY_CRYPTOGRAM", "TR31_KEY_BLOCK", "TR34_KEY_BLOCK"]
 WrappingKeySpecType = Literal["RSA_OAEP_SHA_256", "RSA_OAEP_SHA_512"]

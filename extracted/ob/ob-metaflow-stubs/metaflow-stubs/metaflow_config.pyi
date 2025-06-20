@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.17.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-18T08:04:08.817746                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
+# Generated on 2025-06-19T23:04:39.533813                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -106,8 +106,6 @@ CARD_AZUREROOT: None
 CARD_GSROOT: None
 
 CARD_NO_WARNING: bool
-
-SKIP_CARD_DUALWRITE: bool
 
 RUNTIME_CARD_RENDER_INTERVAL: int
 

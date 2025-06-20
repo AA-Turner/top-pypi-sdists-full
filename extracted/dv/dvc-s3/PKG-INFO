@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc-s3
-Version: 3.2.1
+Version: 3.2.2
 Summary: s3 plugin for dvc
 Author-email: Iterative <support@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>

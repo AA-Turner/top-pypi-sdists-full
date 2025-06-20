@@ -228,12 +228,13 @@ class DistributedDataParallelKwargs(KwargsHandler):
 class GradScalerKwargs(KwargsHandler):
     """
     Use this object in your [`Accelerator`] to customize the behavior of mixed precision, specifically how the
-    `torch.cuda.amp.GradScaler` used is created. Please refer to the documentation of this
+    `torch.amp.GradScaler` or `torch.cuda.amp.GradScaler` used is created. Please refer to the documentation of this
     [scaler](https://pytorch.org/docs/stable/amp.html?highlight=gradscaler) for more information on each argument.
 
     <Tip warning={true}>
 
-    `GradScaler` is only available in PyTorch 1.5.0 and later versions.
+    `torch.cuda.amp.GradScaler` is only available in PyTorch 1.5.0 and later versions, and `torch.amp.GradScaler` is
+    only available in PyTorch 2.4.0 and later versions.
 
     </Tip>
 
@@ -700,6 +701,7 @@ class LoggerType(BaseEnum):
         - **WANDB** -- wandb as an experiment tracker
         - **COMETML** -- comet_ml as an experiment tracker
         - **DVCLIVE** -- dvclive as an experiment tracker
+        - **SWANLAB** -- swanlab as an experiment tracker
     """
 
     ALL = "all"
@@ -710,6 +712,7 @@ class LoggerType(BaseEnum):
     MLFLOW = "mlflow"
     CLEARML = "clearml"
     DVCLIVE = "dvclive"
+    SWANLAB = "swanlab"
 
 
 class PrecisionType(str, BaseEnum):
@@ -1784,7 +1787,7 @@ class FullyShardedDataParallelPlugin:
         if isinstance(self.auto_wrap_policy, str):
             if self.auto_wrap_policy.upper() not in FSDP_AUTO_WRAP_POLICY:
                 raise ValueError(
-                    f"Invalid auto wrap policy: {self.auto_wrap_policy}. Must be one of {list(FSDP_AUTO_WRAP_POLICY.keys())}"
+                    f"Invalid auto wrap policy: {self.auto_wrap_policy}. Must be one of {FSDP_AUTO_WRAP_POLICY}"
                 )
             from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy, transformer_auto_wrap_policy
 
@@ -2087,6 +2090,8 @@ class TorchTensorParallelPlugin:
         # support for other devices has to be investigated
         if is_hpu_available(init_hccl=True):
             device = "hpu"
+        elif is_xpu_available():
+            device = "xpu"
         else:
             device = "cuda"
 

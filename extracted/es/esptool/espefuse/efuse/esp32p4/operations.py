@@ -177,11 +177,15 @@ def add_commands(subparsers, efuses):
 
 
 def burn_custom_mac(esp, efuses, args):
-    print("Not supported yet")
+    efuses["CUSTOM_MAC"].save(args.mac)
+    if not efuses.burn_all(check_batch_mode=True):
+        return
+    get_custom_mac(esp, efuses, args)
+    print("Successful")
 
 
 def get_custom_mac(esp, efuses, args):
-    print("Not supported yet")
+    print("Custom MAC Address: {}".format(efuses["CUSTOM_MAC"].get()))
 
 
 def set_flash_voltage(esp, efuses, args):
@@ -189,7 +193,11 @@ def set_flash_voltage(esp, efuses, args):
 
 
 def adc_info(esp, efuses, args):
-    print("not supported yet")
+    print("Block version:", efuses.get_block_version())
+    if efuses.get_block_version() >= 1:
+        for efuse in efuses:
+            if efuse.category == "calibration":
+                print(f"{efuse.name:<30} = ", efuses[efuse.name].get())
 
 
 def key_block_is_unused(block, key_purpose_block):

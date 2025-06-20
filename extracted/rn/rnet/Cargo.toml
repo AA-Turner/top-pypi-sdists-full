@@ -1,6 +1,6 @@
 [package]
 name = "rnet"
-version = "2.3.0"
+version = "2.3.1"
 description = "A blazing-fast Python HTTP client with TLS fingerprint"
 edition = "2024"
 rust-version = "1.85.0"
@@ -41,7 +41,7 @@ wreq = { version = "5.1.0", features = [
     "cookies-preserve-order",
     "cookies-multiple",
 ] }
-wreq-util = { version = "2.2.2", features = ["emulation-rand"]}
+wreq-util = { version = "2.2.3", features = ["emulation-rand"]}
 
 [target.'cfg(all(not(target_env = "msvc"), not(all(target_os = "linux", target_env = "gnu"))) )'.dependencies]
 jemallocator = { package = "tikv-jemallocator", version = "0.6", features = [

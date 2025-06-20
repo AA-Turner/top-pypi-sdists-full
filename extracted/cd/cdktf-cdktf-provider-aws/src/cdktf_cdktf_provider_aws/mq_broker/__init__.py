@@ -1,7 +1,7 @@
 r'''
 # `aws_mq_broker`
 
-Refer to the Terraform Registry for docs: [`aws_mq_broker`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker).
+Refer to the Terraform Registry for docs: [`aws_mq_broker`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MqBroker(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.mqBroker.MqBroker",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker aws_mq_broker}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker aws_mq_broker}.'''
 
     def __init__(
         self,
@@ -69,6 +69,7 @@ class MqBroker(
         logs: typing.Optional[typing.Union["MqBrokerLogs", typing.Dict[builtins.str, typing.Any]]] = None,
         maintenance_window_start_time: typing.Optional[typing.Union["MqBrokerMaintenanceWindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
         publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -83,34 +84,35 @@ class MqBroker(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker aws_mq_broker} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker aws_mq_broker} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param broker_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#broker_name MqBroker#broker_name}.
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#engine_type MqBroker#engine_type}.
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#engine_version MqBroker#engine_version}.
-        :param host_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#host_instance_type MqBroker#host_instance_type}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user MqBroker#user}
-        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#apply_immediately MqBroker#apply_immediately}.
-        :param authentication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#authentication_strategy MqBroker#authentication_strategy}.
-        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#auto_minor_version_upgrade MqBroker#auto_minor_version_upgrade}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#configuration MqBroker#configuration}
-        :param data_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#data_replication_mode MqBroker#data_replication_mode}.
-        :param data_replication_primary_broker_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#data_replication_primary_broker_arn MqBroker#data_replication_primary_broker_arn}.
-        :param deployment_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#deployment_mode MqBroker#deployment_mode}.
-        :param encryption_options: encryption_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#encryption_options MqBroker#encryption_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ldap_server_metadata: ldap_server_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#ldap_server_metadata MqBroker#ldap_server_metadata}
-        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#logs MqBroker#logs}
-        :param maintenance_window_start_time: maintenance_window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#maintenance_window_start_time MqBroker#maintenance_window_start_time}
-        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#publicly_accessible MqBroker#publicly_accessible}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#security_groups MqBroker#security_groups}.
-        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#storage_type MqBroker#storage_type}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#subnet_ids MqBroker#subnet_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#tags MqBroker#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#tags_all MqBroker#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#timeouts MqBroker#timeouts}
+        :param broker_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#broker_name MqBroker#broker_name}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#engine_type MqBroker#engine_type}.
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#engine_version MqBroker#engine_version}.
+        :param host_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#host_instance_type MqBroker#host_instance_type}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user MqBroker#user}
+        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#apply_immediately MqBroker#apply_immediately}.
+        :param authentication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#authentication_strategy MqBroker#authentication_strategy}.
+        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#auto_minor_version_upgrade MqBroker#auto_minor_version_upgrade}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#configuration MqBroker#configuration}
+        :param data_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#data_replication_mode MqBroker#data_replication_mode}.
+        :param data_replication_primary_broker_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#data_replication_primary_broker_arn MqBroker#data_replication_primary_broker_arn}.
+        :param deployment_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#deployment_mode MqBroker#deployment_mode}.
+        :param encryption_options: encryption_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#encryption_options MqBroker#encryption_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ldap_server_metadata: ldap_server_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#ldap_server_metadata MqBroker#ldap_server_metadata}
+        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#logs MqBroker#logs}
+        :param maintenance_window_start_time: maintenance_window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#maintenance_window_start_time MqBroker#maintenance_window_start_time}
+        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#publicly_accessible MqBroker#publicly_accessible}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#region MqBroker#region}
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#security_groups MqBroker#security_groups}.
+        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#storage_type MqBroker#storage_type}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#subnet_ids MqBroker#subnet_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#tags MqBroker#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#tags_all MqBroker#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#timeouts MqBroker#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,6 +144,7 @@ class MqBroker(
             logs=logs,
             maintenance_window_start_time=maintenance_window_start_time,
             publicly_accessible=publicly_accessible,
+            region=region,
             security_groups=security_groups,
             storage_type=storage_type,
             subnet_ids=subnet_ids,
@@ -172,7 +175,7 @@ class MqBroker(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MqBroker to import.
-        :param import_from_id: The id of the existing MqBroker that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MqBroker that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MqBroker to import is found.
         '''
         if __debug__:
@@ -191,8 +194,8 @@ class MqBroker(
         revision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#revision MqBroker#revision}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#revision MqBroker#revision}.
         '''
         value = MqBrokerConfiguration(id=id, revision=revision)
 
@@ -206,8 +209,8 @@ class MqBroker(
         use_aws_owned_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#kms_key_id MqBroker#kms_key_id}.
-        :param use_aws_owned_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#use_aws_owned_key MqBroker#use_aws_owned_key}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#kms_key_id MqBroker#kms_key_id}.
+        :param use_aws_owned_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#use_aws_owned_key MqBroker#use_aws_owned_key}.
         '''
         value = MqBrokerEncryptionOptions(
             kms_key_id=kms_key_id, use_aws_owned_key=use_aws_owned_key
@@ -232,17 +235,17 @@ class MqBroker(
         user_search_subtree: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param hosts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#hosts MqBroker#hosts}.
-        :param role_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_base MqBroker#role_base}.
-        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_name MqBroker#role_name}.
-        :param role_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_search_matching MqBroker#role_search_matching}.
-        :param role_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_search_subtree MqBroker#role_search_subtree}.
-        :param service_account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#service_account_password MqBroker#service_account_password}.
-        :param service_account_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#service_account_username MqBroker#service_account_username}.
-        :param user_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_base MqBroker#user_base}.
-        :param user_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_role_name MqBroker#user_role_name}.
-        :param user_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_search_matching MqBroker#user_search_matching}.
-        :param user_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_search_subtree MqBroker#user_search_subtree}.
+        :param hosts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#hosts MqBroker#hosts}.
+        :param role_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_base MqBroker#role_base}.
+        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_name MqBroker#role_name}.
+        :param role_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_search_matching MqBroker#role_search_matching}.
+        :param role_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_search_subtree MqBroker#role_search_subtree}.
+        :param service_account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#service_account_password MqBroker#service_account_password}.
+        :param service_account_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#service_account_username MqBroker#service_account_username}.
+        :param user_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_base MqBroker#user_base}.
+        :param user_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_role_name MqBroker#user_role_name}.
+        :param user_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_search_matching MqBroker#user_search_matching}.
+        :param user_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_search_subtree MqBroker#user_search_subtree}.
         '''
         value = MqBrokerLdapServerMetadata(
             hosts=hosts,
@@ -268,8 +271,8 @@ class MqBroker(
         general: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param audit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#audit MqBroker#audit}.
-        :param general: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#general MqBroker#general}.
+        :param audit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#audit MqBroker#audit}.
+        :param general: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#general MqBroker#general}.
         '''
         value = MqBrokerLogs(audit=audit, general=general)
 
@@ -284,9 +287,9 @@ class MqBroker(
         time_zone: builtins.str,
     ) -> None:
         '''
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#day_of_week MqBroker#day_of_week}.
-        :param time_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#time_of_day MqBroker#time_of_day}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#time_zone MqBroker#time_zone}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#day_of_week MqBroker#day_of_week}.
+        :param time_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#time_of_day MqBroker#time_of_day}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#time_zone MqBroker#time_zone}.
         '''
         value = MqBrokerMaintenanceWindowStartTime(
             day_of_week=day_of_week, time_of_day=time_of_day, time_zone=time_zone
@@ -303,9 +306,9 @@ class MqBroker(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#create MqBroker#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#delete MqBroker#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#update MqBroker#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#create MqBroker#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#delete MqBroker#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#update MqBroker#update}.
         '''
         value = MqBrokerTimeouts(create=create, delete=delete, update=update)
 
@@ -375,6 +378,10 @@ class MqBroker(
     @jsii.member(jsii_name="resetPubliclyAccessible")
     def reset_publicly_accessible(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPubliclyAccessible", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSecurityGroups")
     def reset_security_groups(self) -> None:
@@ -561,6 +568,11 @@ class MqBroker(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "publiclyAccessibleInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupsInput")
@@ -763,6 +775,18 @@ class MqBroker(
         jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3e6903adf65b2f1b7606db0f54e6c653ff3afba83469f55697ef3e2f3010928)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="securityGroups")
     def security_groups(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "securityGroups"))
@@ -852,6 +876,7 @@ class MqBroker(
         "logs": "logs",
         "maintenance_window_start_time": "maintenanceWindowStartTime",
         "publicly_accessible": "publiclyAccessible",
+        "region": "region",
         "security_groups": "securityGroups",
         "storage_type": "storageType",
         "subnet_ids": "subnetIds",
@@ -889,6 +914,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         logs: typing.Optional[typing.Union["MqBrokerLogs", typing.Dict[builtins.str, typing.Any]]] = None,
         maintenance_window_start_time: typing.Optional[typing.Union["MqBrokerMaintenanceWindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
         publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -904,30 +930,31 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param broker_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#broker_name MqBroker#broker_name}.
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#engine_type MqBroker#engine_type}.
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#engine_version MqBroker#engine_version}.
-        :param host_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#host_instance_type MqBroker#host_instance_type}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user MqBroker#user}
-        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#apply_immediately MqBroker#apply_immediately}.
-        :param authentication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#authentication_strategy MqBroker#authentication_strategy}.
-        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#auto_minor_version_upgrade MqBroker#auto_minor_version_upgrade}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#configuration MqBroker#configuration}
-        :param data_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#data_replication_mode MqBroker#data_replication_mode}.
-        :param data_replication_primary_broker_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#data_replication_primary_broker_arn MqBroker#data_replication_primary_broker_arn}.
-        :param deployment_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#deployment_mode MqBroker#deployment_mode}.
-        :param encryption_options: encryption_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#encryption_options MqBroker#encryption_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ldap_server_metadata: ldap_server_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#ldap_server_metadata MqBroker#ldap_server_metadata}
-        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#logs MqBroker#logs}
-        :param maintenance_window_start_time: maintenance_window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#maintenance_window_start_time MqBroker#maintenance_window_start_time}
-        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#publicly_accessible MqBroker#publicly_accessible}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#security_groups MqBroker#security_groups}.
-        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#storage_type MqBroker#storage_type}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#subnet_ids MqBroker#subnet_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#tags MqBroker#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#tags_all MqBroker#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#timeouts MqBroker#timeouts}
+        :param broker_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#broker_name MqBroker#broker_name}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#engine_type MqBroker#engine_type}.
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#engine_version MqBroker#engine_version}.
+        :param host_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#host_instance_type MqBroker#host_instance_type}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user MqBroker#user}
+        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#apply_immediately MqBroker#apply_immediately}.
+        :param authentication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#authentication_strategy MqBroker#authentication_strategy}.
+        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#auto_minor_version_upgrade MqBroker#auto_minor_version_upgrade}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#configuration MqBroker#configuration}
+        :param data_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#data_replication_mode MqBroker#data_replication_mode}.
+        :param data_replication_primary_broker_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#data_replication_primary_broker_arn MqBroker#data_replication_primary_broker_arn}.
+        :param deployment_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#deployment_mode MqBroker#deployment_mode}.
+        :param encryption_options: encryption_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#encryption_options MqBroker#encryption_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ldap_server_metadata: ldap_server_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#ldap_server_metadata MqBroker#ldap_server_metadata}
+        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#logs MqBroker#logs}
+        :param maintenance_window_start_time: maintenance_window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#maintenance_window_start_time MqBroker#maintenance_window_start_time}
+        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#publicly_accessible MqBroker#publicly_accessible}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#region MqBroker#region}
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#security_groups MqBroker#security_groups}.
+        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#storage_type MqBroker#storage_type}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#subnet_ids MqBroker#subnet_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#tags MqBroker#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#tags_all MqBroker#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#timeouts MqBroker#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -970,6 +997,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument logs", value=logs, expected_type=type_hints["logs"])
             check_type(argname="argument maintenance_window_start_time", value=maintenance_window_start_time, expected_type=type_hints["maintenance_window_start_time"])
             check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
@@ -1023,6 +1051,8 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["maintenance_window_start_time"] = maintenance_window_start_time
         if publicly_accessible is not None:
             self._values["publicly_accessible"] = publicly_accessible
+        if region is not None:
+            self._values["region"] = region
         if security_groups is not None:
             self._values["security_groups"] = security_groups
         if storage_type is not None:
@@ -1102,28 +1132,28 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def broker_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#broker_name MqBroker#broker_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#broker_name MqBroker#broker_name}.'''
         result = self._values.get("broker_name")
         assert result is not None, "Required property 'broker_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def engine_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#engine_type MqBroker#engine_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#engine_type MqBroker#engine_type}.'''
         result = self._values.get("engine_type")
         assert result is not None, "Required property 'engine_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def engine_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#engine_version MqBroker#engine_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#engine_version MqBroker#engine_version}.'''
         result = self._values.get("engine_version")
         assert result is not None, "Required property 'engine_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host_instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#host_instance_type MqBroker#host_instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#host_instance_type MqBroker#host_instance_type}.'''
         result = self._values.get("host_instance_type")
         assert result is not None, "Required property 'host_instance_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1134,7 +1164,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MqBrokerUser"]]:
         '''user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user MqBroker#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user MqBroker#user}
         '''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
@@ -1144,13 +1174,13 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def apply_immediately(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#apply_immediately MqBroker#apply_immediately}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#apply_immediately MqBroker#apply_immediately}.'''
         result = self._values.get("apply_immediately")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def authentication_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#authentication_strategy MqBroker#authentication_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#authentication_strategy MqBroker#authentication_strategy}.'''
         result = self._values.get("authentication_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1158,7 +1188,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_minor_version_upgrade(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#auto_minor_version_upgrade MqBroker#auto_minor_version_upgrade}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#auto_minor_version_upgrade MqBroker#auto_minor_version_upgrade}.'''
         result = self._values.get("auto_minor_version_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1166,26 +1196,26 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["MqBrokerConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#configuration MqBroker#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#configuration MqBroker#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["MqBrokerConfiguration"], result)
 
     @builtins.property
     def data_replication_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#data_replication_mode MqBroker#data_replication_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#data_replication_mode MqBroker#data_replication_mode}.'''
         result = self._values.get("data_replication_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_replication_primary_broker_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#data_replication_primary_broker_arn MqBroker#data_replication_primary_broker_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#data_replication_primary_broker_arn MqBroker#data_replication_primary_broker_arn}.'''
         result = self._values.get("data_replication_primary_broker_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def deployment_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#deployment_mode MqBroker#deployment_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#deployment_mode MqBroker#deployment_mode}.'''
         result = self._values.get("deployment_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1193,14 +1223,14 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_options(self) -> typing.Optional["MqBrokerEncryptionOptions"]:
         '''encryption_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#encryption_options MqBroker#encryption_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#encryption_options MqBroker#encryption_options}
         '''
         result = self._values.get("encryption_options")
         return typing.cast(typing.Optional["MqBrokerEncryptionOptions"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#id MqBroker#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#id MqBroker#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1212,7 +1242,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ldap_server_metadata(self) -> typing.Optional["MqBrokerLdapServerMetadata"]:
         '''ldap_server_metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#ldap_server_metadata MqBroker#ldap_server_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#ldap_server_metadata MqBroker#ldap_server_metadata}
         '''
         result = self._values.get("ldap_server_metadata")
         return typing.cast(typing.Optional["MqBrokerLdapServerMetadata"], result)
@@ -1221,7 +1251,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logs(self) -> typing.Optional["MqBrokerLogs"]:
         '''logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#logs MqBroker#logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#logs MqBroker#logs}
         '''
         result = self._values.get("logs")
         return typing.cast(typing.Optional["MqBrokerLogs"], result)
@@ -1232,7 +1262,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MqBrokerMaintenanceWindowStartTime"]:
         '''maintenance_window_start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#maintenance_window_start_time MqBroker#maintenance_window_start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#maintenance_window_start_time MqBroker#maintenance_window_start_time}
         '''
         result = self._values.get("maintenance_window_start_time")
         return typing.cast(typing.Optional["MqBrokerMaintenanceWindowStartTime"], result)
@@ -1241,37 +1271,46 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def publicly_accessible(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#publicly_accessible MqBroker#publicly_accessible}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#publicly_accessible MqBroker#publicly_accessible}.'''
         result = self._values.get("publicly_accessible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#region MqBroker#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#security_groups MqBroker#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#security_groups MqBroker#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def storage_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#storage_type MqBroker#storage_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#storage_type MqBroker#storage_type}.'''
         result = self._values.get("storage_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#subnet_ids MqBroker#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#subnet_ids MqBroker#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#tags MqBroker#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#tags MqBroker#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#tags_all MqBroker#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#tags_all MqBroker#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1279,7 +1318,7 @@ class MqBrokerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MqBrokerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#timeouts MqBroker#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#timeouts MqBroker#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MqBrokerTimeouts"], result)
@@ -1309,8 +1348,8 @@ class MqBrokerConfiguration:
         revision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#revision MqBroker#revision}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#id MqBroker#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#revision MqBroker#revision}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e951b26c052993485272a2b85013e6a13a69c818de7aa7a1e1c9b3b4f733766)
@@ -1324,7 +1363,7 @@ class MqBrokerConfiguration:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#id MqBroker#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#id MqBroker#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1334,7 +1373,7 @@ class MqBrokerConfiguration:
 
     @builtins.property
     def revision(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#revision MqBroker#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#revision MqBroker#revision}.'''
         result = self._values.get("revision")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1438,8 +1477,8 @@ class MqBrokerEncryptionOptions:
         use_aws_owned_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#kms_key_id MqBroker#kms_key_id}.
-        :param use_aws_owned_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#use_aws_owned_key MqBroker#use_aws_owned_key}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#kms_key_id MqBroker#kms_key_id}.
+        :param use_aws_owned_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#use_aws_owned_key MqBroker#use_aws_owned_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__187cba30441c556ef5146e172b45acad28c0c0e742978216daf37979cc26ab74)
@@ -1453,7 +1492,7 @@ class MqBrokerEncryptionOptions:
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#kms_key_id MqBroker#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#kms_key_id MqBroker#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1461,7 +1500,7 @@ class MqBrokerEncryptionOptions:
     def use_aws_owned_key(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#use_aws_owned_key MqBroker#use_aws_owned_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#use_aws_owned_key MqBroker#use_aws_owned_key}.'''
         result = self._values.get("use_aws_owned_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1741,17 +1780,17 @@ class MqBrokerLdapServerMetadata:
         user_search_subtree: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param hosts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#hosts MqBroker#hosts}.
-        :param role_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_base MqBroker#role_base}.
-        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_name MqBroker#role_name}.
-        :param role_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_search_matching MqBroker#role_search_matching}.
-        :param role_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_search_subtree MqBroker#role_search_subtree}.
-        :param service_account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#service_account_password MqBroker#service_account_password}.
-        :param service_account_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#service_account_username MqBroker#service_account_username}.
-        :param user_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_base MqBroker#user_base}.
-        :param user_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_role_name MqBroker#user_role_name}.
-        :param user_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_search_matching MqBroker#user_search_matching}.
-        :param user_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_search_subtree MqBroker#user_search_subtree}.
+        :param hosts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#hosts MqBroker#hosts}.
+        :param role_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_base MqBroker#role_base}.
+        :param role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_name MqBroker#role_name}.
+        :param role_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_search_matching MqBroker#role_search_matching}.
+        :param role_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_search_subtree MqBroker#role_search_subtree}.
+        :param service_account_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#service_account_password MqBroker#service_account_password}.
+        :param service_account_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#service_account_username MqBroker#service_account_username}.
+        :param user_base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_base MqBroker#user_base}.
+        :param user_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_role_name MqBroker#user_role_name}.
+        :param user_search_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_search_matching MqBroker#user_search_matching}.
+        :param user_search_subtree: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_search_subtree MqBroker#user_search_subtree}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__498ffe2eb1f93096516511cda3265481f7cb11fcddb87971e494c2f58b65e6a8)
@@ -1792,25 +1831,25 @@ class MqBrokerLdapServerMetadata:
 
     @builtins.property
     def hosts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#hosts MqBroker#hosts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#hosts MqBroker#hosts}.'''
         result = self._values.get("hosts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def role_base(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_base MqBroker#role_base}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_base MqBroker#role_base}.'''
         result = self._values.get("role_base")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_name MqBroker#role_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_name MqBroker#role_name}.'''
         result = self._values.get("role_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_search_matching(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_search_matching MqBroker#role_search_matching}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_search_matching MqBroker#role_search_matching}.'''
         result = self._values.get("role_search_matching")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1818,37 +1857,37 @@ class MqBrokerLdapServerMetadata:
     def role_search_subtree(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#role_search_subtree MqBroker#role_search_subtree}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#role_search_subtree MqBroker#role_search_subtree}.'''
         result = self._values.get("role_search_subtree")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def service_account_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#service_account_password MqBroker#service_account_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#service_account_password MqBroker#service_account_password}.'''
         result = self._values.get("service_account_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_account_username(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#service_account_username MqBroker#service_account_username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#service_account_username MqBroker#service_account_username}.'''
         result = self._values.get("service_account_username")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_base(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_base MqBroker#user_base}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_base MqBroker#user_base}.'''
         result = self._values.get("user_base")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_role_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_role_name MqBroker#user_role_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_role_name MqBroker#user_role_name}.'''
         result = self._values.get("user_role_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_search_matching(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_search_matching MqBroker#user_search_matching}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_search_matching MqBroker#user_search_matching}.'''
         result = self._values.get("user_search_matching")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1856,7 +1895,7 @@ class MqBrokerLdapServerMetadata:
     def user_search_subtree(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#user_search_subtree MqBroker#user_search_subtree}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#user_search_subtree MqBroker#user_search_subtree}.'''
         result = self._values.get("user_search_subtree")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2166,8 +2205,8 @@ class MqBrokerLogs:
         general: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param audit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#audit MqBroker#audit}.
-        :param general: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#general MqBroker#general}.
+        :param audit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#audit MqBroker#audit}.
+        :param general: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#general MqBroker#general}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b816dd4402c8fc385d723dca86ee307c33287bdc2a0e674ec4b63d163d0348e)
@@ -2181,7 +2220,7 @@ class MqBrokerLogs:
 
     @builtins.property
     def audit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#audit MqBroker#audit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#audit MqBroker#audit}.'''
         result = self._values.get("audit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2189,7 +2228,7 @@ class MqBrokerLogs:
     def general(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#general MqBroker#general}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#general MqBroker#general}.'''
         result = self._values.get("general")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2303,9 +2342,9 @@ class MqBrokerMaintenanceWindowStartTime:
         time_zone: builtins.str,
     ) -> None:
         '''
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#day_of_week MqBroker#day_of_week}.
-        :param time_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#time_of_day MqBroker#time_of_day}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#time_zone MqBroker#time_zone}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#day_of_week MqBroker#day_of_week}.
+        :param time_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#time_of_day MqBroker#time_of_day}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#time_zone MqBroker#time_zone}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad1d92c8ce42597091ba43a40631e33073b7f4169a957909eeb530409871f74f)
@@ -2320,21 +2359,21 @@ class MqBrokerMaintenanceWindowStartTime:
 
     @builtins.property
     def day_of_week(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#day_of_week MqBroker#day_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#day_of_week MqBroker#day_of_week}.'''
         result = self._values.get("day_of_week")
         assert result is not None, "Required property 'day_of_week' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_of_day(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#time_of_day MqBroker#time_of_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#time_of_day MqBroker#time_of_day}.'''
         result = self._values.get("time_of_day")
         assert result is not None, "Required property 'time_of_day' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_zone(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#time_zone MqBroker#time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#time_zone MqBroker#time_zone}.'''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
         return typing.cast(builtins.str, result)
@@ -2452,9 +2491,9 @@ class MqBrokerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#create MqBroker#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#delete MqBroker#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#update MqBroker#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#create MqBroker#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#delete MqBroker#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#update MqBroker#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7041b21968b282985fbc45110aa623ffc99dd7343a4e8a4a11df084d72cb998b)
@@ -2471,19 +2510,19 @@ class MqBrokerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#create MqBroker#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#create MqBroker#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#delete MqBroker#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#delete MqBroker#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#update MqBroker#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#update MqBroker#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2622,11 +2661,11 @@ class MqBrokerUser:
         replication_user: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#password MqBroker#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#username MqBroker#username}.
-        :param console_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#console_access MqBroker#console_access}.
-        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#groups MqBroker#groups}.
-        :param replication_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#replication_user MqBroker#replication_user}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#password MqBroker#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#username MqBroker#username}.
+        :param console_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#console_access MqBroker#console_access}.
+        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#groups MqBroker#groups}.
+        :param replication_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#replication_user MqBroker#replication_user}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18c554b927cc078b64a0e11d032c564bfbda05b5c8008d5ab0500e6bbed5805f)
@@ -2648,14 +2687,14 @@ class MqBrokerUser:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#password MqBroker#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#password MqBroker#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#username MqBroker#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#username MqBroker#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -2664,13 +2703,13 @@ class MqBrokerUser:
     def console_access(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#console_access MqBroker#console_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#console_access MqBroker#console_access}.'''
         result = self._values.get("console_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#groups MqBroker#groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#groups MqBroker#groups}.'''
         result = self._values.get("groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2678,7 +2717,7 @@ class MqBrokerUser:
     def replication_user(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/mq_broker#replication_user MqBroker#replication_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/mq_broker#replication_user MqBroker#replication_user}.'''
         result = self._values.get("replication_user")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2986,6 +3025,7 @@ def _typecheckingstub__1db3032d0162c875ca199063df68262e13babe708aea33cd485f57441
     logs: typing.Optional[typing.Union[MqBrokerLogs, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_window_start_time: typing.Optional[typing.Union[MqBrokerMaintenanceWindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
     publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3090,6 +3130,12 @@ def _typecheckingstub__9b2ebe0fb5c2a20759791c1ab4a61ac3b4f739ffd5f7c563b4d7a8b18
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c3e6903adf65b2f1b7606db0f54e6c653ff3afba83469f55697ef3e2f3010928(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a7b8a85bca850a3f876a9e36eb6a5f659c40220d780204e95a5a576b01ebee42(
     value: typing.List[builtins.str],
 ) -> None:
@@ -3147,6 +3193,7 @@ def _typecheckingstub__07b077e2e689940fed4e8cb61ebb2f8b43d21f5e9427c26b4404a5f70
     logs: typing.Optional[typing.Union[MqBrokerLogs, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_window_start_time: typing.Optional[typing.Union[MqBrokerMaintenanceWindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
     publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,

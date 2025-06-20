@@ -1,20 +1,18 @@
 Metadata-Version: 2.1
 Name: evervault
-Version: 4.4.3
+Version: 5.0.0
 Summary: Evervault SDK
 Home-page: https://evervault.com
 License: MIT
 Author: Evervault
 Author-email: engineering@evervault.com
-Requires-Python: >=3.8.0,<4.0.0
+Requires-Python: >=3.10.0,<4.0.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Dist: certifi
-Requires-Dist: cryptography (>=43,<44)
+Requires-Dist: cryptography (>=44.0.3)
 Requires-Dist: evervault-attestation-bindings (==0.4.0)
 Requires-Dist: pyasn1 (>=0.4.8,<0.5.0)
 Requires-Dist: pycryptodome (>=3.10.1,<4.0.0)

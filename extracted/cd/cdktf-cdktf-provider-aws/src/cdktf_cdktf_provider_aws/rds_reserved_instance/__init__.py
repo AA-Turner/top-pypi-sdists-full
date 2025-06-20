@@ -1,7 +1,7 @@
 r'''
 # `aws_rds_reserved_instance`
 
-Refer to the Terraform Registry for docs: [`aws_rds_reserved_instance`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance).
+Refer to the Terraform Registry for docs: [`aws_rds_reserved_instance`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RdsReservedInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.rdsReservedInstance.RdsReservedInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance aws_rds_reserved_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance aws_rds_reserved_instance}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class RdsReservedInstance(
         offering_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
         instance_count: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         reservation_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -66,17 +67,18 @@ class RdsReservedInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance aws_rds_reserved_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance aws_rds_reserved_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param offering_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#offering_id RdsReservedInstance#offering_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#id RdsReservedInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#instance_count RdsReservedInstance#instance_count}.
-        :param reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#reservation_id RdsReservedInstance#reservation_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#tags RdsReservedInstance#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#tags_all RdsReservedInstance#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#timeouts RdsReservedInstance#timeouts}
+        :param offering_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#offering_id RdsReservedInstance#offering_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#id RdsReservedInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#instance_count RdsReservedInstance#instance_count}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#region RdsReservedInstance#region}
+        :param reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#reservation_id RdsReservedInstance#reservation_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#tags RdsReservedInstance#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#tags_all RdsReservedInstance#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#timeouts RdsReservedInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -93,6 +95,7 @@ class RdsReservedInstance(
             offering_id=offering_id,
             id=id,
             instance_count=instance_count,
+            region=region,
             reservation_id=reservation_id,
             tags=tags,
             tags_all=tags_all,
@@ -121,7 +124,7 @@ class RdsReservedInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RdsReservedInstance to import.
-        :param import_from_id: The id of the existing RdsReservedInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RdsReservedInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RdsReservedInstance to import is found.
         '''
         if __debug__:
@@ -141,9 +144,9 @@ class RdsReservedInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#create RdsReservedInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#delete RdsReservedInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#update RdsReservedInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#create RdsReservedInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#delete RdsReservedInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#update RdsReservedInstance#update}.
         '''
         value = RdsReservedInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -158,6 +161,10 @@ class RdsReservedInstance(
     @jsii.member(jsii_name="resetInstanceCount")
     def reset_instance_count(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetInstanceCount", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetReservationId")
     def reset_reservation_id(self) -> None:
@@ -274,6 +281,11 @@ class RdsReservedInstance(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "offeringIdInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="reservationIdInput")
     def reservation_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "reservationIdInput"))
@@ -334,6 +346,18 @@ class RdsReservedInstance(
         jsii.set(self, "offeringId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c238054995fd73e0894ea06c6c82d913c785cf4918f75f2f382fe106e7f24c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="reservationId")
     def reservation_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "reservationId"))
@@ -384,6 +408,7 @@ class RdsReservedInstance(
         "offering_id": "offeringId",
         "id": "id",
         "instance_count": "instanceCount",
+        "region": "region",
         "reservation_id": "reservationId",
         "tags": "tags",
         "tags_all": "tagsAll",
@@ -404,6 +429,7 @@ class RdsReservedInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         offering_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
         instance_count: typing.Optional[jsii.Number] = None,
+        region: typing.Optional[builtins.str] = None,
         reservation_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -417,13 +443,14 @@ class RdsReservedInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param offering_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#offering_id RdsReservedInstance#offering_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#id RdsReservedInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#instance_count RdsReservedInstance#instance_count}.
-        :param reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#reservation_id RdsReservedInstance#reservation_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#tags RdsReservedInstance#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#tags_all RdsReservedInstance#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#timeouts RdsReservedInstance#timeouts}
+        :param offering_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#offering_id RdsReservedInstance#offering_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#id RdsReservedInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#instance_count RdsReservedInstance#instance_count}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#region RdsReservedInstance#region}
+        :param reservation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#reservation_id RdsReservedInstance#reservation_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#tags RdsReservedInstance#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#tags_all RdsReservedInstance#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#timeouts RdsReservedInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -441,6 +468,7 @@ class RdsReservedInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument offering_id", value=offering_id, expected_type=type_hints["offering_id"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument reservation_id", value=reservation_id, expected_type=type_hints["reservation_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
@@ -466,6 +494,8 @@ class RdsReservedInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if instance_count is not None:
             self._values["instance_count"] = instance_count
+        if region is not None:
+            self._values["region"] = region
         if reservation_id is not None:
             self._values["reservation_id"] = reservation_id
         if tags is not None:
@@ -541,14 +571,14 @@ class RdsReservedInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def offering_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#offering_id RdsReservedInstance#offering_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#offering_id RdsReservedInstance#offering_id}.'''
         result = self._values.get("offering_id")
         assert result is not None, "Required property 'offering_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#id RdsReservedInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#id RdsReservedInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -558,25 +588,34 @@ class RdsReservedInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#instance_count RdsReservedInstance#instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#instance_count RdsReservedInstance#instance_count}.'''
         result = self._values.get("instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#region RdsReservedInstance#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def reservation_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#reservation_id RdsReservedInstance#reservation_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#reservation_id RdsReservedInstance#reservation_id}.'''
         result = self._values.get("reservation_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#tags RdsReservedInstance#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#tags RdsReservedInstance#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#tags_all RdsReservedInstance#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#tags_all RdsReservedInstance#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -584,7 +623,7 @@ class RdsReservedInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RdsReservedInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#timeouts RdsReservedInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#timeouts RdsReservedInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RdsReservedInstanceTimeouts"], result)
@@ -764,9 +803,9 @@ class RdsReservedInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#create RdsReservedInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#delete RdsReservedInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#update RdsReservedInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#create RdsReservedInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#delete RdsReservedInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#update RdsReservedInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__adb1e2e0fd97f56a0481bd9c6f5e55a6f8ade228aa11e12769856b7178a13775)
@@ -783,19 +822,19 @@ class RdsReservedInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#create RdsReservedInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#create RdsReservedInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#delete RdsReservedInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#delete RdsReservedInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/rds_reserved_instance#update RdsReservedInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/rds_reserved_instance#update RdsReservedInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -931,6 +970,7 @@ def _typecheckingstub__7a5440ac46472c90394f2777fa8a76634d323867d76bbc72d5231afb3
     offering_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
     instance_count: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     reservation_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -973,6 +1013,12 @@ def _typecheckingstub__60a933f55d994b59f2c8e640db0ed894690d75c43ac5fa31be4ebdbc3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2c238054995fd73e0894ea06c6c82d913c785cf4918f75f2f382fe106e7f24c0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6d66e8a3828136389de7c0bdc40fd5501f9edd4eb0a69200129d1e5c8d6ff69c(
     value: builtins.str,
 ) -> None:
@@ -1003,6 +1049,7 @@ def _typecheckingstub__7a6a8362cca884db23186e519c0c85ec311ff7b009fe2bf783c55e30e
     offering_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
     instance_count: typing.Optional[jsii.Number] = None,
+    region: typing.Optional[builtins.str] = None,
     reservation_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

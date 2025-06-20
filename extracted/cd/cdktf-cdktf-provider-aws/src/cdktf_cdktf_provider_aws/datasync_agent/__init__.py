@@ -1,7 +1,7 @@
 r'''
 # `aws_datasync_agent`
 
-Refer to the Terraform Registry for docs: [`aws_datasync_agent`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent).
+Refer to the Terraform Registry for docs: [`aws_datasync_agent`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatasyncAgent(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.datasyncAgent.DatasyncAgent",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent aws_datasync_agent}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent aws_datasync_agent}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class DatasyncAgent(
         ip_address: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         private_link_endpoint: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -70,21 +71,22 @@ class DatasyncAgent(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent aws_datasync_agent} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent aws_datasync_agent} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param activation_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#activation_key DatasyncAgent#activation_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#id DatasyncAgent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#ip_address DatasyncAgent#ip_address}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#name DatasyncAgent#name}.
-        :param private_link_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#private_link_endpoint DatasyncAgent#private_link_endpoint}.
-        :param security_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#security_group_arns DatasyncAgent#security_group_arns}.
-        :param subnet_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#subnet_arns DatasyncAgent#subnet_arns}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#tags DatasyncAgent#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#tags_all DatasyncAgent#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#timeouts DatasyncAgent#timeouts}
-        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#vpc_endpoint_id DatasyncAgent#vpc_endpoint_id}.
+        :param activation_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#activation_key DatasyncAgent#activation_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#id DatasyncAgent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#ip_address DatasyncAgent#ip_address}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#name DatasyncAgent#name}.
+        :param private_link_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#private_link_endpoint DatasyncAgent#private_link_endpoint}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#region DatasyncAgent#region}
+        :param security_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#security_group_arns DatasyncAgent#security_group_arns}.
+        :param subnet_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#subnet_arns DatasyncAgent#subnet_arns}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#tags DatasyncAgent#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#tags_all DatasyncAgent#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#timeouts DatasyncAgent#timeouts}
+        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#vpc_endpoint_id DatasyncAgent#vpc_endpoint_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,6 +105,7 @@ class DatasyncAgent(
             ip_address=ip_address,
             name=name,
             private_link_endpoint=private_link_endpoint,
+            region=region,
             security_group_arns=security_group_arns,
             subnet_arns=subnet_arns,
             tags=tags,
@@ -133,7 +136,7 @@ class DatasyncAgent(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatasyncAgent to import.
-        :param import_from_id: The id of the existing DatasyncAgent that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatasyncAgent that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatasyncAgent to import is found.
         '''
         if __debug__:
@@ -147,7 +150,7 @@ class DatasyncAgent(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#create DatasyncAgent#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#create DatasyncAgent#create}.
         '''
         value = DatasyncAgentTimeouts(create=create)
 
@@ -172,6 +175,10 @@ class DatasyncAgent(
     @jsii.member(jsii_name="resetPrivateLinkEndpoint")
     def reset_private_link_endpoint(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPrivateLinkEndpoint", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetSecurityGroupArns")
     def reset_security_group_arns(self) -> None:
@@ -244,6 +251,11 @@ class DatasyncAgent(
     @jsii.member(jsii_name="privateLinkEndpointInput")
     def private_link_endpoint_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateLinkEndpointInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupArnsInput")
@@ -340,6 +352,18 @@ class DatasyncAgent(
         jsii.set(self, "privateLinkEndpoint", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ae2aaf87cfaa5e0c5e2a5e0aaddd915db13991586b7c6bdc3ea88be5f2133eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="securityGroupArns")
     def security_group_arns(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "securityGroupArns"))
@@ -416,6 +440,7 @@ class DatasyncAgent(
         "ip_address": "ipAddress",
         "name": "name",
         "private_link_endpoint": "privateLinkEndpoint",
+        "region": "region",
         "security_group_arns": "securityGroupArns",
         "subnet_arns": "subnetArns",
         "tags": "tags",
@@ -440,6 +465,7 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         ip_address: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         private_link_endpoint: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -455,17 +481,18 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param activation_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#activation_key DatasyncAgent#activation_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#id DatasyncAgent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#ip_address DatasyncAgent#ip_address}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#name DatasyncAgent#name}.
-        :param private_link_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#private_link_endpoint DatasyncAgent#private_link_endpoint}.
-        :param security_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#security_group_arns DatasyncAgent#security_group_arns}.
-        :param subnet_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#subnet_arns DatasyncAgent#subnet_arns}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#tags DatasyncAgent#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#tags_all DatasyncAgent#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#timeouts DatasyncAgent#timeouts}
-        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#vpc_endpoint_id DatasyncAgent#vpc_endpoint_id}.
+        :param activation_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#activation_key DatasyncAgent#activation_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#id DatasyncAgent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#ip_address DatasyncAgent#ip_address}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#name DatasyncAgent#name}.
+        :param private_link_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#private_link_endpoint DatasyncAgent#private_link_endpoint}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#region DatasyncAgent#region}
+        :param security_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#security_group_arns DatasyncAgent#security_group_arns}.
+        :param subnet_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#subnet_arns DatasyncAgent#subnet_arns}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#tags DatasyncAgent#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#tags_all DatasyncAgent#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#timeouts DatasyncAgent#timeouts}
+        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#vpc_endpoint_id DatasyncAgent#vpc_endpoint_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -485,6 +512,7 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument ip_address", value=ip_address, expected_type=type_hints["ip_address"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument private_link_endpoint", value=private_link_endpoint, expected_type=type_hints["private_link_endpoint"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument security_group_arns", value=security_group_arns, expected_type=type_hints["security_group_arns"])
             check_type(argname="argument subnet_arns", value=subnet_arns, expected_type=type_hints["subnet_arns"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -516,6 +544,8 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["name"] = name
         if private_link_endpoint is not None:
             self._values["private_link_endpoint"] = private_link_endpoint
+        if region is not None:
+            self._values["region"] = region
         if security_group_arns is not None:
             self._values["security_group_arns"] = security_group_arns
         if subnet_arns is not None:
@@ -595,13 +625,13 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def activation_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#activation_key DatasyncAgent#activation_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#activation_key DatasyncAgent#activation_key}.'''
         result = self._values.get("activation_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#id DatasyncAgent#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#id DatasyncAgent#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -611,43 +641,52 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#ip_address DatasyncAgent#ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#ip_address DatasyncAgent#ip_address}.'''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#name DatasyncAgent#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#name DatasyncAgent#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_link_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#private_link_endpoint DatasyncAgent#private_link_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#private_link_endpoint DatasyncAgent#private_link_endpoint}.'''
         result = self._values.get("private_link_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#region DatasyncAgent#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def security_group_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#security_group_arns DatasyncAgent#security_group_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#security_group_arns DatasyncAgent#security_group_arns}.'''
         result = self._values.get("security_group_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#subnet_arns DatasyncAgent#subnet_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#subnet_arns DatasyncAgent#subnet_arns}.'''
         result = self._values.get("subnet_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#tags DatasyncAgent#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#tags DatasyncAgent#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#tags_all DatasyncAgent#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#tags_all DatasyncAgent#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -655,14 +694,14 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatasyncAgentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#timeouts DatasyncAgent#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#timeouts DatasyncAgent#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatasyncAgentTimeouts"], result)
 
     @builtins.property
     def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#vpc_endpoint_id DatasyncAgent#vpc_endpoint_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#vpc_endpoint_id DatasyncAgent#vpc_endpoint_id}.'''
         result = self._values.get("vpc_endpoint_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -686,7 +725,7 @@ class DatasyncAgentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DatasyncAgentTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#create DatasyncAgent#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#create DatasyncAgent#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b8c0d520b1da027d40738de20c392b4d0f2d490389e4caf8fff9a114d545f98)
@@ -697,7 +736,7 @@ class DatasyncAgentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_agent#create DatasyncAgent#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_agent#create DatasyncAgent#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -790,6 +829,7 @@ def _typecheckingstub__c3206cb68667dc61bfe25ce9ec7d141258de0e64e18de3fabe51468c3
     ip_address: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     private_link_endpoint: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -846,6 +886,12 @@ def _typecheckingstub__dd23b3f6e89d3d4f246970d5bf8e4880e65a3570746955f594ed7ad02
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1ae2aaf87cfaa5e0c5e2a5e0aaddd915db13991586b7c6bdc3ea88be5f2133eb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__478fe368b7ab146879e19db3eff87396c8e29ac2dfa6bbdfe97ca790b6556231(
     value: typing.List[builtins.str],
 ) -> None:
@@ -890,6 +936,7 @@ def _typecheckingstub__c60b24c003b99ab06158891b20778fcbae10ac3ae601ac17fc7a3e694
     ip_address: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     private_link_endpoint: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     security_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

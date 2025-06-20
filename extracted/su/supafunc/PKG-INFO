@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: supafunc
-Version: 0.9.4
+Version: 0.10.0
 Summary: Library for Supabase Functions
 Home-page: https://github.com/supabase/functions-py
 License: MIT

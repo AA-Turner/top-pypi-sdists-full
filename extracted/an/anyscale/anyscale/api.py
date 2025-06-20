@@ -9,6 +9,7 @@ import click
 from urllib3.connection import HTTPConnection
 import wrapt
 
+from anyscale.cli_logger import BlockLogger
 from anyscale.client import openapi_client
 from anyscale.client.openapi_client.api.default_api import DefaultApi
 from anyscale.client.openapi_client.rest import ApiException as ApiExceptionInternal
@@ -16,8 +17,11 @@ from anyscale.sdk import anyscale_client
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as AnyscaleApi
 from anyscale.sdk.anyscale_client.rest import ApiException as ApiExceptionExternal
 from anyscale.shared_anyscale_utils.headers import RequestHeaders
+from anyscale.telemetry import get_traceparent
 from anyscale.version import __version__ as version
 
+
+logger = BlockLogger()
 
 # NOTE: Some OSes don't implement all of these, so only include those that the OS supports.
 _SOCKET_OPTIONS = (
@@ -115,6 +119,15 @@ class ApiClientWrapperInternal(openapi_client.ApiClient):
         _request_timeout=None,
         _host=None,
     ):
+        # Add tracing correlation info
+        traceparent = get_traceparent()
+        if traceparent:
+            if header_params is None:
+                header_params = {}
+            header_params[RequestHeaders.TRACEPARENT] = traceparent
+
+        logger.debug(f"[API Internal] {method} {resource_path} (trace: {traceparent})")
+
         try:
             return openapi_client.ApiClient.call_api(
                 self,
@@ -173,6 +186,15 @@ class ApiClientWrapperExternal(anyscale_client.ApiClient):
         _request_timeout=None,
         _host=None,
     ):
+        # Add tracing correlation info
+        traceparent = get_traceparent()
+        if traceparent:
+            if header_params is None:
+                header_params = {}
+            header_params[RequestHeaders.TRACEPARENT] = traceparent
+
+        logger.debug(f"[API External] {method} {resource_path} (trace: {traceparent})")
+
         try:
             return anyscale_client.ApiClient.call_api(
                 self,

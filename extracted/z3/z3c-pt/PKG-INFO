@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: z3c.pt
-Version: 5.0
+Version: 5.1
 Summary: Fast ZPT engine.
 Home-page: https://github.com/zopefoundation/z3c.pt
 Author: Malthe Borch and the Zope Community
@@ -583,6 +583,12 @@ remaining path instead::
 ===========
  Changelog
 ===========
+
+5.1 (2025-06-19)
+================
+
+- Attempt to translate only messages (and strings).
+  (`Issue #36 <https://github.com/zopefoundation/z3c.pt/issues/36>`_).
 
 5.0 (2025-04-14)
 ================

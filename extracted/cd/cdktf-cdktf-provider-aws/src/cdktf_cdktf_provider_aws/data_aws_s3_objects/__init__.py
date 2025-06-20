@@ -1,7 +1,7 @@
 r'''
 # `data_aws_s3_objects`
 
-Refer to the Terraform Registry for docs: [`data_aws_s3_objects`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects).
+Refer to the Terraform Registry for docs: [`data_aws_s3_objects`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsS3Objects(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsS3Objects.DataAwsS3Objects",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects aws_s3_objects}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects aws_s3_objects}.'''
 
     def __init__(
         self,
@@ -58,6 +58,7 @@ class DataAwsS3Objects(
         id: typing.Optional[builtins.str] = None,
         max_keys: typing.Optional[jsii.Number] = None,
         prefix: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         request_payer: typing.Optional[builtins.str] = None,
         start_after: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -68,19 +69,20 @@ class DataAwsS3Objects(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects aws_s3_objects} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects aws_s3_objects} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#bucket DataAwsS3Objects#bucket}.
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#delimiter DataAwsS3Objects#delimiter}.
-        :param encoding_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#encoding_type DataAwsS3Objects#encoding_type}.
-        :param fetch_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#fetch_owner DataAwsS3Objects#fetch_owner}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#id DataAwsS3Objects#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#max_keys DataAwsS3Objects#max_keys}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#prefix DataAwsS3Objects#prefix}.
-        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#request_payer DataAwsS3Objects#request_payer}.
-        :param start_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#start_after DataAwsS3Objects#start_after}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#bucket DataAwsS3Objects#bucket}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#delimiter DataAwsS3Objects#delimiter}.
+        :param encoding_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#encoding_type DataAwsS3Objects#encoding_type}.
+        :param fetch_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#fetch_owner DataAwsS3Objects#fetch_owner}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#id DataAwsS3Objects#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#max_keys DataAwsS3Objects#max_keys}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#prefix DataAwsS3Objects#prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#region DataAwsS3Objects#region}
+        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#request_payer DataAwsS3Objects#request_payer}.
+        :param start_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#start_after DataAwsS3Objects#start_after}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -101,6 +103,7 @@ class DataAwsS3Objects(
             id=id,
             max_keys=max_keys,
             prefix=prefix,
+            region=region,
             request_payer=request_payer,
             start_after=start_after,
             connection=connection,
@@ -127,7 +130,7 @@ class DataAwsS3Objects(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsS3Objects to import.
-        :param import_from_id: The id of the existing DataAwsS3Objects that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsS3Objects that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsS3Objects to import is found.
         '''
         if __debug__:
@@ -161,6 +164,10 @@ class DataAwsS3Objects(
     @jsii.member(jsii_name="resetPrefix")
     def reset_prefix(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPrefix", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetRequestPayer")
     def reset_request_payer(self) -> None:
@@ -239,6 +246,11 @@ class DataAwsS3Objects(
     @jsii.member(jsii_name="prefixInput")
     def prefix_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "prefixInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="requestPayerInput")
@@ -338,6 +350,18 @@ class DataAwsS3Objects(
         jsii.set(self, "prefix", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6838365950f89d7bbc14c0cea3a849848ade2b80a163d80193e8158864f35edd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="requestPayer")
     def request_payer(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "requestPayer"))
@@ -380,6 +404,7 @@ class DataAwsS3Objects(
         "id": "id",
         "max_keys": "maxKeys",
         "prefix": "prefix",
+        "region": "region",
         "request_payer": "requestPayer",
         "start_after": "startAfter",
     },
@@ -402,6 +427,7 @@ class DataAwsS3ObjectsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         max_keys: typing.Optional[jsii.Number] = None,
         prefix: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
         request_payer: typing.Optional[builtins.str] = None,
         start_after: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -413,15 +439,16 @@ class DataAwsS3ObjectsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#bucket DataAwsS3Objects#bucket}.
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#delimiter DataAwsS3Objects#delimiter}.
-        :param encoding_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#encoding_type DataAwsS3Objects#encoding_type}.
-        :param fetch_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#fetch_owner DataAwsS3Objects#fetch_owner}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#id DataAwsS3Objects#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#max_keys DataAwsS3Objects#max_keys}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#prefix DataAwsS3Objects#prefix}.
-        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#request_payer DataAwsS3Objects#request_payer}.
-        :param start_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#start_after DataAwsS3Objects#start_after}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#bucket DataAwsS3Objects#bucket}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#delimiter DataAwsS3Objects#delimiter}.
+        :param encoding_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#encoding_type DataAwsS3Objects#encoding_type}.
+        :param fetch_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#fetch_owner DataAwsS3Objects#fetch_owner}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#id DataAwsS3Objects#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#max_keys DataAwsS3Objects#max_keys}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#prefix DataAwsS3Objects#prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#region DataAwsS3Objects#region}
+        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#request_payer DataAwsS3Objects#request_payer}.
+        :param start_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#start_after DataAwsS3Objects#start_after}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -441,6 +468,7 @@ class DataAwsS3ObjectsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument max_keys", value=max_keys, expected_type=type_hints["max_keys"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument request_payer", value=request_payer, expected_type=type_hints["request_payer"])
             check_type(argname="argument start_after", value=start_after, expected_type=type_hints["start_after"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -472,6 +500,8 @@ class DataAwsS3ObjectsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["max_keys"] = max_keys
         if prefix is not None:
             self._values["prefix"] = prefix
+        if region is not None:
+            self._values["region"] = region
         if request_payer is not None:
             self._values["request_payer"] = request_payer
         if start_after is not None:
@@ -543,20 +573,20 @@ class DataAwsS3ObjectsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#bucket DataAwsS3Objects#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#bucket DataAwsS3Objects#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def delimiter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#delimiter DataAwsS3Objects#delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#delimiter DataAwsS3Objects#delimiter}.'''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def encoding_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#encoding_type DataAwsS3Objects#encoding_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#encoding_type DataAwsS3Objects#encoding_type}.'''
         result = self._values.get("encoding_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -564,13 +594,13 @@ class DataAwsS3ObjectsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fetch_owner(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#fetch_owner DataAwsS3Objects#fetch_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#fetch_owner DataAwsS3Objects#fetch_owner}.'''
         result = self._values.get("fetch_owner")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#id DataAwsS3Objects#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#id DataAwsS3Objects#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -580,25 +610,34 @@ class DataAwsS3ObjectsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_keys(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#max_keys DataAwsS3Objects#max_keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#max_keys DataAwsS3Objects#max_keys}.'''
         result = self._values.get("max_keys")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#prefix DataAwsS3Objects#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#prefix DataAwsS3Objects#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#region DataAwsS3Objects#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def request_payer(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#request_payer DataAwsS3Objects#request_payer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#request_payer DataAwsS3Objects#request_payer}.'''
         result = self._values.get("request_payer")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_after(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/s3_objects#start_after DataAwsS3Objects#start_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/s3_objects#start_after DataAwsS3Objects#start_after}.'''
         result = self._values.get("start_after")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -632,6 +671,7 @@ def _typecheckingstub__f25799f894a31a3be9e89b4f6897e4c00c478b995a2fa20f304cda0b3
     id: typing.Optional[builtins.str] = None,
     max_keys: typing.Optional[jsii.Number] = None,
     prefix: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     request_payer: typing.Optional[builtins.str] = None,
     start_after: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -696,6 +736,12 @@ def _typecheckingstub__6bdfb1e0aaa64025f18e952b510d3d11e9b769e20fbe3f4e411e7bf5c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6838365950f89d7bbc14c0cea3a849848ade2b80a163d80193e8158864f35edd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ad1adc852904ce56c955421d4cd7cca2e3f0a80645a768b3939f6a59b1abc654(
     value: builtins.str,
 ) -> None:
@@ -724,6 +770,7 @@ def _typecheckingstub__4484bac0d5343940488cd16bb2d48debc2e2913abd0bc8fae906e3985
     id: typing.Optional[builtins.str] = None,
     max_keys: typing.Optional[jsii.Number] = None,
     prefix: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
     request_payer: typing.Optional[builtins.str] = None,
     start_after: typing.Optional[builtins.str] = None,
 ) -> None:

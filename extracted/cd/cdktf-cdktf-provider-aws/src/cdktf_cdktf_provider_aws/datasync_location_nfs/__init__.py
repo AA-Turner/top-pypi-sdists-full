@@ -1,7 +1,7 @@
 r'''
 # `aws_datasync_location_nfs`
 
-Refer to the Terraform Registry for docs: [`aws_datasync_location_nfs`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs).
+Refer to the Terraform Registry for docs: [`aws_datasync_location_nfs`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatasyncLocationNfs(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.datasyncLocationNfs.DatasyncLocationNfs",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs aws_datasync_location_nfs}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs aws_datasync_location_nfs}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class DatasyncLocationNfs(
         subdirectory: builtins.str,
         id: typing.Optional[builtins.str] = None,
         mount_options: typing.Optional[typing.Union["DatasyncLocationNfsMountOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -66,17 +67,18 @@ class DatasyncLocationNfs(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs aws_datasync_location_nfs} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs aws_datasync_location_nfs} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param on_prem_config: on_prem_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#on_prem_config DatasyncLocationNfs#on_prem_config}
-        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#server_hostname DatasyncLocationNfs#server_hostname}.
-        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#subdirectory DatasyncLocationNfs#subdirectory}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#id DatasyncLocationNfs#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#mount_options DatasyncLocationNfs#mount_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#tags DatasyncLocationNfs#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#tags_all DatasyncLocationNfs#tags_all}.
+        :param on_prem_config: on_prem_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#on_prem_config DatasyncLocationNfs#on_prem_config}
+        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#server_hostname DatasyncLocationNfs#server_hostname}.
+        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#subdirectory DatasyncLocationNfs#subdirectory}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#id DatasyncLocationNfs#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#mount_options DatasyncLocationNfs#mount_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#region DatasyncLocationNfs#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#tags DatasyncLocationNfs#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#tags_all DatasyncLocationNfs#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -95,6 +97,7 @@ class DatasyncLocationNfs(
             subdirectory=subdirectory,
             id=id,
             mount_options=mount_options,
+            region=region,
             tags=tags,
             tags_all=tags_all,
             connection=connection,
@@ -121,7 +124,7 @@ class DatasyncLocationNfs(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatasyncLocationNfs to import.
-        :param import_from_id: The id of the existing DatasyncLocationNfs that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatasyncLocationNfs that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatasyncLocationNfs to import is found.
         '''
         if __debug__:
@@ -139,7 +142,7 @@ class DatasyncLocationNfs(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#version DatasyncLocationNfs#version}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#version DatasyncLocationNfs#version}.
         '''
         value = DatasyncLocationNfsMountOptions(version=version)
 
@@ -148,7 +151,7 @@ class DatasyncLocationNfs(
     @jsii.member(jsii_name="putOnPremConfig")
     def put_on_prem_config(self, *, agent_arns: typing.Sequence[builtins.str]) -> None:
         '''
-        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#agent_arns DatasyncLocationNfs#agent_arns}.
+        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#agent_arns DatasyncLocationNfs#agent_arns}.
         '''
         value = DatasyncLocationNfsOnPremConfig(agent_arns=agent_arns)
 
@@ -161,6 +164,10 @@ class DatasyncLocationNfs(
     @jsii.member(jsii_name="resetMountOptions")
     def reset_mount_options(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMountOptions", []))
+
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -221,6 +228,11 @@ class DatasyncLocationNfs(
         return typing.cast(typing.Optional["DatasyncLocationNfsOnPremConfig"], jsii.get(self, "onPremConfigInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="serverHostnameInput")
     def server_hostname_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serverHostnameInput"))
@@ -253,6 +265,18 @@ class DatasyncLocationNfs(
             type_hints = typing.get_type_hints(_typecheckingstub__1f6e318b357481f97ddde707e6095db165465d8dd152777cf8caecc6c785ef85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "id", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__071bb76f7b847338e707caac9fb0be018c776586bba7a4b7eb1c73419e932d30)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="serverHostname")
@@ -319,6 +343,7 @@ class DatasyncLocationNfs(
         "subdirectory": "subdirectory",
         "id": "id",
         "mount_options": "mountOptions",
+        "region": "region",
         "tags": "tags",
         "tags_all": "tagsAll",
     },
@@ -339,6 +364,7 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         subdirectory: builtins.str,
         id: typing.Optional[builtins.str] = None,
         mount_options: typing.Optional[typing.Union["DatasyncLocationNfsMountOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -350,13 +376,14 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param on_prem_config: on_prem_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#on_prem_config DatasyncLocationNfs#on_prem_config}
-        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#server_hostname DatasyncLocationNfs#server_hostname}.
-        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#subdirectory DatasyncLocationNfs#subdirectory}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#id DatasyncLocationNfs#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#mount_options DatasyncLocationNfs#mount_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#tags DatasyncLocationNfs#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#tags_all DatasyncLocationNfs#tags_all}.
+        :param on_prem_config: on_prem_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#on_prem_config DatasyncLocationNfs#on_prem_config}
+        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#server_hostname DatasyncLocationNfs#server_hostname}.
+        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#subdirectory DatasyncLocationNfs#subdirectory}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#id DatasyncLocationNfs#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#mount_options DatasyncLocationNfs#mount_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#region DatasyncLocationNfs#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#tags DatasyncLocationNfs#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#tags_all DatasyncLocationNfs#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -378,6 +405,7 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument mount_options", value=mount_options, expected_type=type_hints["mount_options"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -403,6 +431,8 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if mount_options is not None:
             self._values["mount_options"] = mount_options
+        if region is not None:
+            self._values["region"] = region
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
@@ -476,7 +506,7 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def on_prem_config(self) -> "DatasyncLocationNfsOnPremConfig":
         '''on_prem_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#on_prem_config DatasyncLocationNfs#on_prem_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#on_prem_config DatasyncLocationNfs#on_prem_config}
         '''
         result = self._values.get("on_prem_config")
         assert result is not None, "Required property 'on_prem_config' is missing"
@@ -484,21 +514,21 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def server_hostname(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#server_hostname DatasyncLocationNfs#server_hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#server_hostname DatasyncLocationNfs#server_hostname}.'''
         result = self._values.get("server_hostname")
         assert result is not None, "Required property 'server_hostname' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subdirectory(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#subdirectory DatasyncLocationNfs#subdirectory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#subdirectory DatasyncLocationNfs#subdirectory}.'''
         result = self._values.get("subdirectory")
         assert result is not None, "Required property 'subdirectory' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#id DatasyncLocationNfs#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#id DatasyncLocationNfs#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -510,20 +540,29 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mount_options(self) -> typing.Optional["DatasyncLocationNfsMountOptions"]:
         '''mount_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#mount_options DatasyncLocationNfs#mount_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#mount_options DatasyncLocationNfs#mount_options}
         '''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional["DatasyncLocationNfsMountOptions"], result)
 
     @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#region DatasyncLocationNfs#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#tags DatasyncLocationNfs#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#tags DatasyncLocationNfs#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#tags_all DatasyncLocationNfs#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#tags_all DatasyncLocationNfs#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -547,7 +586,7 @@ class DatasyncLocationNfsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DatasyncLocationNfsMountOptions:
     def __init__(self, *, version: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#version DatasyncLocationNfs#version}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#version DatasyncLocationNfs#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6ac1e1a7ca762d62eb86a4315d54a2e861726e30a232dae5f91435836e8bc1e)
@@ -558,7 +597,7 @@ class DatasyncLocationNfsMountOptions:
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#version DatasyncLocationNfs#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#version DatasyncLocationNfs#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -639,7 +678,7 @@ class DatasyncLocationNfsMountOptionsOutputReference(
 class DatasyncLocationNfsOnPremConfig:
     def __init__(self, *, agent_arns: typing.Sequence[builtins.str]) -> None:
         '''
-        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#agent_arns DatasyncLocationNfs#agent_arns}.
+        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#agent_arns DatasyncLocationNfs#agent_arns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f99b23643f119f19999dd3f21670daaeb53838a3809e5c7b34b141cf3f8403a)
@@ -650,7 +689,7 @@ class DatasyncLocationNfsOnPremConfig:
 
     @builtins.property
     def agent_arns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/datasync_location_nfs#agent_arns DatasyncLocationNfs#agent_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/datasync_location_nfs#agent_arns DatasyncLocationNfs#agent_arns}.'''
         result = self._values.get("agent_arns")
         assert result is not None, "Required property 'agent_arns' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -740,6 +779,7 @@ def _typecheckingstub__a25bda3179dbc89cecf3818d84524f281294b699e0309a67e3ea25c05
     subdirectory: builtins.str,
     id: typing.Optional[builtins.str] = None,
     mount_options: typing.Optional[typing.Union[DatasyncLocationNfsMountOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -763,6 +803,12 @@ def _typecheckingstub__962ce33f473da2121d260d686c6ec168c35a19dc4690a9399aac963b5
     pass
 
 def _typecheckingstub__1f6e318b357481f97ddde707e6095db165465d8dd152777cf8caecc6c785ef85(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__071bb76f7b847338e707caac9fb0be018c776586bba7a4b7eb1c73419e932d30(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -806,6 +852,7 @@ def _typecheckingstub__246aea5d0663ea6f19ad18c47e8224a1cb0007eb9f7a1753ef3fcf9cc
     subdirectory: builtins.str,
     id: typing.Optional[builtins.str] = None,
     mount_options: typing.Optional[typing.Union[DatasyncLocationNfsMountOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:

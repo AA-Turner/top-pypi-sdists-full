@@ -35,16 +35,20 @@ class WorkspaceTemplateReadme(object):
     openapi_types = {
         'content': 'str',
         'title': 'str',
-        'description': 'str'
+        'description': 'str',
+        'icon_type': 'str',
+        'icon_bg_color': 'str'
     }
 
     attribute_map = {
         'content': 'content',
         'title': 'title',
-        'description': 'description'
+        'description': 'description',
+        'icon_type': 'icon_type',
+        'icon_bg_color': 'icon_bg_color'
     }
 
-    def __init__(self, content=None, title=None, description=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, content=None, title=None, description=None, icon_type=None, icon_bg_color=None, local_vars_configuration=None):  # noqa: E501
         """WorkspaceTemplateReadme - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,11 +57,17 @@ class WorkspaceTemplateReadme(object):
         self._content = None
         self._title = None
         self._description = None
+        self._icon_type = None
+        self._icon_bg_color = None
         self.discriminator = None
 
         self.content = content
         self.title = title
         self.description = description
+        if icon_type is not None:
+            self.icon_type = icon_type
+        if icon_bg_color is not None:
+            self.icon_bg_color = icon_bg_color
 
     @property
     def content(self):
@@ -133,6 +143,52 @@ class WorkspaceTemplateReadme(object):
             raise ValueError("Invalid value for `description`, must not be `None`")  # noqa: E501
 
         self._description = description
+
+    @property
+    def icon_type(self):
+        """Gets the icon_type of this WorkspaceTemplateReadme.  # noqa: E501
+
+        The remix icon name of the icon for the workspace template  # noqa: E501
+
+        :return: The icon_type of this WorkspaceTemplateReadme.  # noqa: E501
+        :rtype: str
+        """
+        return self._icon_type
+
+    @icon_type.setter
+    def icon_type(self, icon_type):
+        """Sets the icon_type of this WorkspaceTemplateReadme.
+
+        The remix icon name of the icon for the workspace template  # noqa: E501
+
+        :param icon_type: The icon_type of this WorkspaceTemplateReadme.  # noqa: E501
+        :type: str
+        """
+
+        self._icon_type = icon_type
+
+    @property
+    def icon_bg_color(self):
+        """Gets the icon_bg_color of this WorkspaceTemplateReadme.  # noqa: E501
+
+        The background color of the icon for the workspace template  # noqa: E501
+
+        :return: The icon_bg_color of this WorkspaceTemplateReadme.  # noqa: E501
+        :rtype: str
+        """
+        return self._icon_bg_color
+
+    @icon_bg_color.setter
+    def icon_bg_color(self, icon_bg_color):
+        """Sets the icon_bg_color of this WorkspaceTemplateReadme.
+
+        The background color of the icon for the workspace template  # noqa: E501
+
+        :param icon_bg_color: The icon_bg_color of this WorkspaceTemplateReadme.  # noqa: E501
+        :type: str
+        """
+
+        self._icon_bg_color = icon_bg_color
 
     def to_dict(self):
         """Returns the model properties as a dict"""

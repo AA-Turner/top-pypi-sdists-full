@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Adafruit-Blinka
-Version: 8.60.0
+Version: 8.60.3
 Summary: CircuitPython APIs for non-CircuitPython versions of Python such as CPython on Linux and MicroPython.
 Author-email: Adafruit Industries <circuitpython@adafruit.com>
 License: MIT
@@ -24,7 +24,7 @@ Requires-Dist: pyftdi>=0.40.0
 Requires-Dist: binho-host-adapter>=0.1.6
 Requires-Dist: adafruit-circuitpython-typing
 Requires-Dist: toml>=0.10.2; python_version < "3.11"
-Requires-Dist: lgpio>=0.2.2.0
+Requires-Dist: lgpio>=0.2.2.0; sys_platform == "linux" and python_version < "3.13"
 Requires-Dist: Adafruit-Blinka-Raspberry-Pi5-Neopixel; platform_machine == "aarch64"
 Dynamic: license-file
 

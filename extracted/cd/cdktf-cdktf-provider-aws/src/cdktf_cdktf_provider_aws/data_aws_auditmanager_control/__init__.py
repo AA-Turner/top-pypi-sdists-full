@@ -1,7 +1,7 @@
 r'''
 # `data_aws_auditmanager_control`
 
-Refer to the Terraform Registry for docs: [`data_aws_auditmanager_control`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control).
+Refer to the Terraform Registry for docs: [`data_aws_auditmanager_control`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsAuditmanagerControl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsAuditmanagerControl.DataAwsAuditmanagerControl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control aws_auditmanager_control}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control aws_auditmanager_control}.'''
 
     def __init__(
         self,
@@ -53,7 +53,7 @@ class DataAwsAuditmanagerControl(
         *,
         name: builtins.str,
         type: builtins.str,
-        control_mapping_sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsAuditmanagerControlControlMappingSources", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +62,13 @@ class DataAwsAuditmanagerControl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control aws_auditmanager_control} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control aws_auditmanager_control} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#name DataAwsAuditmanagerControl#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#type DataAwsAuditmanagerControl#type}.
-        :param control_mapping_sources: control_mapping_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#control_mapping_sources DataAwsAuditmanagerControl#control_mapping_sources}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#name DataAwsAuditmanagerControl#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#type DataAwsAuditmanagerControl#type}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#region DataAwsAuditmanagerControl#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -84,7 +84,7 @@ class DataAwsAuditmanagerControl(
         config = DataAwsAuditmanagerControlConfig(
             name=name,
             type=type,
-            control_mapping_sources=control_mapping_sources,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +109,7 @@ class DataAwsAuditmanagerControl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsAuditmanagerControl to import.
-        :param import_from_id: The id of the existing DataAwsAuditmanagerControl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsAuditmanagerControl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsAuditmanagerControl to import is found.
         '''
         if __debug__:
@@ -120,22 +120,9 @@ class DataAwsAuditmanagerControl(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putControlMappingSources")
-    def put_control_mapping_sources(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsAuditmanagerControlControlMappingSources", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9639a68cf19934e0659e938eec7025f6b9dbe31e77bc6261d3f2a21d702b592a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putControlMappingSources", [value]))
-
-    @jsii.member(jsii_name="resetControlMappingSources")
-    def reset_control_mapping_sources(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetControlMappingSources", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -193,16 +180,14 @@ class DataAwsAuditmanagerControl(
         return typing.cast(builtins.str, jsii.get(self, "testingInformation"))
 
     @builtins.property
-    @jsii.member(jsii_name="controlMappingSourcesInput")
-    def control_mapping_sources_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSources"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSources"]]], jsii.get(self, "controlMappingSourcesInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="nameInput")
     def name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="typeInput")
@@ -220,6 +205,18 @@ class DataAwsAuditmanagerControl(
             type_hints = typing.get_type_hints(_typecheckingstub__3071f20e2c7352c262c13237b425f4b3ac58b92934e57fe36b19374363d92183)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @region.setter
+    def region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06ffa539b052b03d96f9e675c397fd0ef3dc6de2422a40bef271ccd7c4183701)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -247,7 +244,7 @@ class DataAwsAuditmanagerControl(
         "provisioners": "provisioners",
         "name": "name",
         "type": "type",
-        "control_mapping_sources": "controlMappingSources",
+        "region": "region",
     },
 )
 class DataAwsAuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -263,7 +260,7 @@ class DataAwsAuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         name: builtins.str,
         type: builtins.str,
-        control_mapping_sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsAuditmanagerControlControlMappingSources", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -273,9 +270,9 @@ class DataAwsAuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#name DataAwsAuditmanagerControl#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#type DataAwsAuditmanagerControl#type}.
-        :param control_mapping_sources: control_mapping_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#control_mapping_sources DataAwsAuditmanagerControl#control_mapping_sources}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#name DataAwsAuditmanagerControl#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#type DataAwsAuditmanagerControl#type}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#region DataAwsAuditmanagerControl#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -290,7 +287,7 @@ class DataAwsAuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument control_mapping_sources", value=control_mapping_sources, expected_type=type_hints["control_mapping_sources"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "type": type,
@@ -309,8 +306,8 @@ class DataAwsAuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
-        if control_mapping_sources is not None:
-            self._values["control_mapping_sources"] = control_mapping_sources
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -378,28 +375,26 @@ class DataAwsAuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#name DataAwsAuditmanagerControl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#name DataAwsAuditmanagerControl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#type DataAwsAuditmanagerControl#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#type DataAwsAuditmanagerControl#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def control_mapping_sources(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSources"]]]:
-        '''control_mapping_sources block.
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#control_mapping_sources DataAwsAuditmanagerControl#control_mapping_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/data-sources/auditmanager_control#region DataAwsAuditmanagerControl#region}
         '''
-        result = self._values.get("control_mapping_sources")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSources"]]], result)
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -416,34 +411,11 @@ class DataAwsAuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.dataAwsAuditmanagerControl.DataAwsAuditmanagerControlControlMappingSources",
     jsii_struct_bases=[],
-    name_mapping={"source_keyword": "sourceKeyword"},
+    name_mapping={},
 )
 class DataAwsAuditmanagerControlControlMappingSources:
-    def __init__(
-        self,
-        *,
-        source_keyword: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword", typing.Dict[builtins.str, typing.Any]]]]] = None,
-    ) -> None:
-        '''
-        :param source_keyword: source_keyword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#source_keyword DataAwsAuditmanagerControl#source_keyword}
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf01a26edc4ce1a43b4737a87006450c3d03577c64f31ed8f9ae0fb95502417c)
-            check_type(argname="argument source_keyword", value=source_keyword, expected_type=type_hints["source_keyword"])
+    def __init__(self) -> None:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if source_keyword is not None:
-            self._values["source_keyword"] = source_keyword
-
-    @builtins.property
-    def source_keyword(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword"]]]:
-        '''source_keyword block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/data-sources/auditmanager_control#source_keyword DataAwsAuditmanagerControl#source_keyword}
-        '''
-        result = self._values.get("source_keyword")
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -532,23 +504,6 @@ class DataAwsAuditmanagerControlControlMappingSourcesList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSources]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSources]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSources]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14340adcae473e946e1fcc787b7e24ac729f38395d2e42a33b43b0afd4ab5a8f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsAuditmanagerControlControlMappingSourcesOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -575,23 +530,6 @@ class DataAwsAuditmanagerControlControlMappingSourcesOutputReference(
             check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
-
-    @jsii.member(jsii_name="putSourceKeyword")
-    def put_source_keyword(
-        self,
-        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword", typing.Dict[builtins.str, typing.Any]]]],
-    ) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a53ca2af9a7f1b83d1c43b77f4c5fbd20fd08ce81f9c93e487a5a12f33c8773c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(None, jsii.invoke(self, "putSourceKeyword", [value]))
-
-    @jsii.member(jsii_name="resetSourceKeyword")
-    def reset_source_keyword(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetSourceKeyword", []))
 
     @builtins.property
     @jsii.member(jsii_name="sourceDescription")
@@ -636,23 +574,16 @@ class DataAwsAuditmanagerControlControlMappingSourcesOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "troubleshootingText"))
 
     @builtins.property
-    @jsii.member(jsii_name="sourceKeywordInput")
-    def source_keyword_input(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword"]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword"]]], jsii.get(self, "sourceKeywordInput"))
-
-    @builtins.property
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSources]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSources]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsAuditmanagerControlControlMappingSources]:
+        return typing.cast(typing.Optional[DataAwsAuditmanagerControlControlMappingSources], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSources]],
+        value: typing.Optional[DataAwsAuditmanagerControlControlMappingSources],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__187a0abcc4253b5b5916e7b7a141c98bcbb061e80b0a63a53d3c4bb4b1e3f46a)
@@ -756,23 +687,6 @@ class DataAwsAuditmanagerControlControlMappingSourcesSourceKeywordList(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="internalValue")
-    def internal_value(
-        self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]]], jsii.get(self, "internalValue"))
-
-    @internal_value.setter
-    def internal_value(
-        self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b9b4d7699083976f27435925c36ad377ddf42de1f8bf40bd9e04f1ae1e40736)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
-
 
 class DataAwsAuditmanagerControlControlMappingSourcesSourceKeywordOutputReference(
     _cdktf_9a9027ec.ComplexObject,
@@ -814,13 +728,13 @@ class DataAwsAuditmanagerControlControlMappingSourcesSourceKeywordOutputReferenc
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
-    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]]:
-        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]], jsii.get(self, "internalValue"))
+    ) -> typing.Optional[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]:
+        return typing.cast(typing.Optional[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword], jsii.get(self, "internalValue"))
 
     @internal_value.setter
     def internal_value(
         self,
-        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]],
+        value: typing.Optional[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a001864a8c9d0290a45b73f4dcc89d029f3cc37481a4d567fc26e46404654f37)
@@ -847,7 +761,7 @@ def _typecheckingstub__1ac863e041fbefa01ec05c53ceab026fdcd695dd8ca0a9910601a56c3
     *,
     name: builtins.str,
     type: builtins.str,
-    control_mapping_sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsAuditmanagerControlControlMappingSources, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -868,13 +782,13 @@ def _typecheckingstub__bae2e5f2f25ca78bff71c4dc0b132e79ec582248166bba3fc56ba2e8c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9639a68cf19934e0659e938eec7025f6b9dbe31e77bc6261d3f2a21d702b592a(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsAuditmanagerControlControlMappingSources, typing.Dict[builtins.str, typing.Any]]]],
+def _typecheckingstub__3071f20e2c7352c262c13237b425f4b3ac58b92934e57fe36b19374363d92183(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3071f20e2c7352c262c13237b425f4b3ac58b92934e57fe36b19374363d92183(
+def _typecheckingstub__06ffa539b052b03d96f9e675c397fd0ef3dc6de2422a40bef271ccd7c4183701(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -897,14 +811,7 @@ def _typecheckingstub__be5158a8b16098739b1c8e1a3f28cd72188d183ea8316d15cef3a5b1d
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     name: builtins.str,
     type: builtins.str,
-    control_mapping_sources: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsAuditmanagerControlControlMappingSources, typing.Dict[builtins.str, typing.Any]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf01a26edc4ce1a43b4737a87006450c3d03577c64f31ed8f9ae0fb95502417c(
-    *,
-    source_keyword: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -941,12 +848,6 @@ def _typecheckingstub__881d792efb7f05bb264f1676713c82c0d9f1364c47205a4c8b10e2d9b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__14340adcae473e946e1fcc787b7e24ac729f38395d2e42a33b43b0afd4ab5a8f(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSources]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__727860e2faeace1b7910ded2d022f1d4100af77dbd9117e809e7a0d01bbd7fc5(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -956,14 +857,8 @@ def _typecheckingstub__727860e2faeace1b7910ded2d022f1d4100af77dbd9117e809e7a0d01
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a53ca2af9a7f1b83d1c43b77f4c5fbd20fd08ce81f9c93e487a5a12f33c8773c(
-    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword, typing.Dict[builtins.str, typing.Any]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__187a0abcc4253b5b5916e7b7a141c98bcbb061e80b0a63a53d3c4bb4b1e3f46a(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSources]],
+    value: typing.Optional[DataAwsAuditmanagerControlControlMappingSources],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1000,12 +895,6 @@ def _typecheckingstub__ac0aefead40cc94746eac795a435d3363a80f22d025e3852c316b1a97
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1b9b4d7699083976f27435925c36ad377ddf42de1f8bf40bd9e04f1ae1e40736(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__77b18761ffbc144f35147f6058d116ee6f757c076f35038aca729b3b20c68b9a(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -1016,7 +905,7 @@ def _typecheckingstub__77b18761ffbc144f35147f6058d116ee6f757c076f35038aca729b3b2
     pass
 
 def _typecheckingstub__a001864a8c9d0290a45b73f4dcc89d029f3cc37481a4d567fc26e46404654f37(
-    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword]],
+    value: typing.Optional[DataAwsAuditmanagerControlControlMappingSourcesSourceKeyword],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -3,6 +3,7 @@ use crate::api_bail;
 use super::LlmGenerationClient;
 use anyhow::Result;
 use async_openai::{
+    Client as OpenAIClient,
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
@@ -10,7 +11,6 @@ use async_openai::{
         ChatCompletionRequestUserMessageContent, CreateChatCompletionRequest, ResponseFormat,
         ResponseFormatJsonSchema,
     },
-    Client as OpenAIClient,
 };
 use async_trait::async_trait;
 
@@ -20,6 +20,10 @@ pub struct Client {
 }
 
 impl Client {
+    pub(crate) fn from_parts(client: async_openai::Client<OpenAIConfig>, model: String) -> Self {
+        Self { client, model }
+    }
+
     pub async fn new(spec: super::LlmSpec) -> Result<Self> {
         if let Some(address) = spec.address {
             api_bail!("OpenAI doesn't support custom API address: {address}");

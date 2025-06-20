@@ -1,28 +1,26 @@
 [project]
 name = "gwcs"
 description = "Generalized World Coordinate System"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "gwcs developers", email = "help@stsci.edu" },
 ]
 dependencies = [
     "asdf >= 3.3.0",
     "astropy >= 6.0",
-    "numpy>=1.24",
+    "numpy>1.26",
     "scipy>=1.14.1",
-    "asdf_wcs_schemas >= 0.4.0",
-    "asdf-astropy >= 0.5.0",
+    "asdf_wcs_schemas >= 0.5.0",
+    "asdf-astropy >= 0.8.0",
+    "importlib-metadata>=4.11.4 ; python_version<='3.11'",
 ]
+license-files = ["licenses/LICENSE.rst"]
 dynamic = [
     "version",
 ]
 
 [project.readme]
 file = "README.rst"
-content-type = "text/x-rst"
-
-[project.license]
-file = "licenses/LICENSE.rst"
 content-type = "text/x-rst"
 
 [project.urls]
@@ -38,13 +36,12 @@ gwcs = "gwcs.extension:get_extensions"
 docs = [
     "sphinx",
     "sphinx-automodapi",
-    "sphinx-rtd-theme",
-    "stsci-rtd-theme",
     "sphinx-astropy",
     "sphinx-copybutton",
-    "pydata-sphinx-theme",
     "sphinx-asdf",
-    "tomli; python_version <'3.11'",
+    "furo",
+    "sphinx-tabs",
+    "matplotlib",
 ]
 test = [
     "ci-watson>=0.3.0",
@@ -63,6 +60,9 @@ build-backend = "setuptools.build_meta"
 "gwcs.tests.data" = [
     "*",
 ]
+"docs.gwcs" = [
+    "*.asdf",
+]
 
 [tool.setuptools.packages.find]
 namespaces = false
@@ -77,7 +77,7 @@ upload-dir = "docs/_build/html"
 show-response = 1
 
 [tool.pytest.ini_options]
-minversion = 8
+minversion = "8"
 doctest_plus = true
 doctest_rst = true
 text_file_format = "rst"
@@ -124,6 +124,8 @@ exclude_lines = [
 ]
 
 [tool.setuptools_scm]
+version_file = "gwcs/_version.py"
+local_scheme = "dirty-tag"
 
 [tool.ruff.lint]
 select = [

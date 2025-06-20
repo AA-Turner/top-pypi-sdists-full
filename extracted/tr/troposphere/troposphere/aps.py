@@ -7,6 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
+from .validators import integer
 
 
 class RuleGroupsNamespace(AWSObject):
@@ -114,6 +115,90 @@ class LoggingConfiguration(AWSProperty):
     }
 
 
+class CloudWatchLogDestination(AWSProperty):
+    """
+    `CloudWatchLogDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-cloudwatchlogdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroupArn": (str, True),
+    }
+
+
+class LoggingFilter(AWSProperty):
+    """
+    `LoggingFilter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-loggingfilter.html>`__
+    """
+
+    props: PropsDictType = {
+        "QspThreshold": (integer, True),
+    }
+
+
+class LoggingDestination(AWSProperty):
+    """
+    `LoggingDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-loggingdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchLogs": (CloudWatchLogDestination, True),
+        "Filters": (LoggingFilter, True),
+    }
+
+
+class QueryLoggingConfiguration(AWSProperty):
+    """
+    `QueryLoggingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-queryloggingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Destinations": ([LoggingDestination], True),
+    }
+
+
+class Label(AWSProperty):
+    """
+    `Label <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-label.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Value": (str, True),
+    }
+
+
+class LimitsPerLabelSetEntry(AWSProperty):
+    """
+    `LimitsPerLabelSetEntry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-limitsperlabelsetentry.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxSeries": (integer, False),
+    }
+
+
+class LimitsPerLabelSet(AWSProperty):
+    """
+    `LimitsPerLabelSet <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-limitsperlabelset.html>`__
+    """
+
+    props: PropsDictType = {
+        "LabelSet": ([Label], True),
+        "Limits": (LimitsPerLabelSetEntry, True),
+    }
+
+
+class WorkspaceConfiguration(AWSProperty):
+    """
+    `WorkspaceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LimitsPerLabelSets": ([LimitsPerLabelSet], False),
+        "RetentionPeriodInDays": (integer, False),
+    }
+
+
 class Workspace(AWSObject):
     """
     `Workspace <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html>`__
@@ -126,5 +211,7 @@ class Workspace(AWSObject):
         "Alias": (str, False),
         "KmsKeyArn": (str, False),
         "LoggingConfiguration": (LoggingConfiguration, False),
+        "QueryLoggingConfiguration": (QueryLoggingConfiguration, False),
         "Tags": (Tags, False),
+        "WorkspaceConfiguration": (WorkspaceConfiguration, False),
     }

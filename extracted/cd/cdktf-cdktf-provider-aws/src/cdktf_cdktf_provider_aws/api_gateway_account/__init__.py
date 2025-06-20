@@ -1,7 +1,7 @@
 r'''
 # `aws_api_gateway_account`
 
-Refer to the Terraform Registry for docs: [`aws_api_gateway_account`](https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account).
+Refer to the Terraform Registry for docs: [`aws_api_gateway_account`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiGatewayAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.apiGatewayAccount.ApiGatewayAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account aws_api_gateway_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account aws_api_gateway_account}.'''
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class ApiGatewayAccount(
         id: builtins.str,
         *,
         cloudwatch_role_arn: typing.Optional[builtins.str] = None,
-        reset_on_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -61,12 +61,12 @@ class ApiGatewayAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account aws_api_gateway_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account aws_api_gateway_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cloudwatch_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account#cloudwatch_role_arn ApiGatewayAccount#cloudwatch_role_arn}.
-        :param reset_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account#reset_on_delete ApiGatewayAccount#reset_on_delete}.
+        :param cloudwatch_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account#cloudwatch_role_arn ApiGatewayAccount#cloudwatch_role_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account#region ApiGatewayAccount#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -81,7 +81,7 @@ class ApiGatewayAccount(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         config = ApiGatewayAccountConfig(
             cloudwatch_role_arn=cloudwatch_role_arn,
-            reset_on_delete=reset_on_delete,
+            region=region,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -106,7 +106,7 @@ class ApiGatewayAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiGatewayAccount to import.
-        :param import_from_id: The id of the existing ApiGatewayAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiGatewayAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiGatewayAccount to import is found.
         '''
         if __debug__:
@@ -121,9 +121,9 @@ class ApiGatewayAccount(
     def reset_cloudwatch_role_arn(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetCloudwatchRoleArn", []))
 
-    @jsii.member(jsii_name="resetResetOnDelete")
-    def reset_reset_on_delete(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetResetOnDelete", []))
+    @jsii.member(jsii_name="resetRegion")
+    def reset_region(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetRegion", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -164,11 +164,9 @@ class ApiGatewayAccount(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cloudwatchRoleArnInput"))
 
     @builtins.property
-    @jsii.member(jsii_name="resetOnDeleteInput")
-    def reset_on_delete_input(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "resetOnDeleteInput"))
+    @jsii.member(jsii_name="regionInput")
+    def region_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="cloudwatchRoleArn")
@@ -183,21 +181,16 @@ class ApiGatewayAccount(
         jsii.set(self, "cloudwatchRoleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="resetOnDelete")
-    def reset_on_delete(
-        self,
-    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "resetOnDelete"))
+    @jsii.member(jsii_name="region")
+    def region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
 
-    @reset_on_delete.setter
-    def reset_on_delete(
-        self,
-        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
-    ) -> None:
+    @region.setter
+    def region(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a97c0d36d3e0e1770bf5354f74c54c76854759fdc5a12f8c146cd536143b0c5)
+            type_hints = typing.get_type_hints(_typecheckingstub__8cca4038437e1411705b8ec79557b5be8e8e19b2fe0727aaf727a15e4d351a6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resetOnDelete", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -212,7 +205,7 @@ class ApiGatewayAccount(
         "provider": "provider",
         "provisioners": "provisioners",
         "cloudwatch_role_arn": "cloudwatchRoleArn",
-        "reset_on_delete": "resetOnDelete",
+        "region": "region",
     },
 )
 class ApiGatewayAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -227,7 +220,7 @@ class ApiGatewayAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         cloudwatch_role_arn: typing.Optional[builtins.str] = None,
-        reset_on_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -237,8 +230,8 @@ class ApiGatewayAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cloudwatch_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account#cloudwatch_role_arn ApiGatewayAccount#cloudwatch_role_arn}.
-        :param reset_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account#reset_on_delete ApiGatewayAccount#reset_on_delete}.
+        :param cloudwatch_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account#cloudwatch_role_arn ApiGatewayAccount#cloudwatch_role_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account#region ApiGatewayAccount#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -252,7 +245,7 @@ class ApiGatewayAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument cloudwatch_role_arn", value=cloudwatch_role_arn, expected_type=type_hints["cloudwatch_role_arn"])
-            check_type(argname="argument reset_on_delete", value=reset_on_delete, expected_type=type_hints["reset_on_delete"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
@@ -270,8 +263,8 @@ class ApiGatewayAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if cloudwatch_role_arn is not None:
             self._values["cloudwatch_role_arn"] = cloudwatch_role_arn
-        if reset_on_delete is not None:
-            self._values["reset_on_delete"] = reset_on_delete
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def connection(
@@ -339,17 +332,18 @@ class ApiGatewayAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cloudwatch_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account#cloudwatch_role_arn ApiGatewayAccount#cloudwatch_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account#cloudwatch_role_arn ApiGatewayAccount#cloudwatch_role_arn}.'''
         result = self._values.get("cloudwatch_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def reset_on_delete(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.100.0/docs/resources/api_gateway_account#reset_on_delete ApiGatewayAccount#reset_on_delete}.'''
-        result = self._values.get("reset_on_delete")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+    def region(self) -> typing.Optional[builtins.str]:
+        '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/api_gateway_account#region ApiGatewayAccount#region}
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -527,7 +521,7 @@ def _typecheckingstub__c3259f9ae40be93524d21d2472040a88c6911cd163654d68db0006190
     id: builtins.str,
     *,
     cloudwatch_role_arn: typing.Optional[builtins.str] = None,
-    reset_on_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -554,8 +548,8 @@ def _typecheckingstub__97b238e905eea0ecfa004aab699892c6e6c28bd8a24983339896e4f8b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6a97c0d36d3e0e1770bf5354f74c54c76854759fdc5a12f8c146cd536143b0c5(
-    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+def _typecheckingstub__8cca4038437e1411705b8ec79557b5be8e8e19b2fe0727aaf727a15e4d351a6d(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -570,7 +564,7 @@ def _typecheckingstub__99df8e769ae3a888b298fa6e7049abaa64b4fa3735f808250ca43cb96
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     cloudwatch_role_arn: typing.Optional[builtins.str] = None,
-    reset_on_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

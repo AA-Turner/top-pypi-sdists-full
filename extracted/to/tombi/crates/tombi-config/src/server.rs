@@ -7,6 +7,9 @@ use crate::BoolDefaultTrue;
 #[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct LspOptions {
+    /// # Code Action Feature options.
+    pub code_action: Option<LspCodeAction>,
+
     /// # Completion Feature options.
     pub completion: Option<LspCompletion>,
 
@@ -35,6 +38,7 @@ pub struct LspOptions {
 impl LspOptions {
     pub const fn default() -> Self {
         Self {
+            code_action: None,
             completion: None,
             diagnostics: None,
             document_link: None,
@@ -56,6 +60,18 @@ pub struct LspHover {
     /// # Enable hover feature.
     ///
     /// Whether to enable hover.
+    pub enabled: Option<BoolDefaultTrue>,
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(feature = "serde", serde(rename_all = "kebab-case"))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct LspCodeAction {
+    /// # Enable code action feature.
+    ///
+    /// Whether to enable code action.
     pub enabled: Option<BoolDefaultTrue>,
 }
 

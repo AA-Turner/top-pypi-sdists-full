@@ -25,8 +25,9 @@ from CertoraProver.Compiler.CompilerCollector import CompilerLang, CompilerColle
 from CertoraProver.Compiler.CompilerCollectorSol import CompilerCollectorSol, CompilerLangSol
 from CertoraProver.Compiler.CompilerCollectorYul import CompilerLangYul, CompilerCollectorYul
 from CertoraProver.Compiler.CompilerCollectorVy import CompilerCollectorVy, CompilerLangVy
-from Shared.certoraUtils import match_path_to_mapping_key, remove_file, get_certora_config_dir
+from Shared.certoraUtils import remove_file, get_certora_config_dir
 from CertoraProver.certoraContextClass import CertoraContext
+import CertoraProver.certoraContext as Ctx
 
 # logger for running the Solidity compiler and reporting any errors it emits
 compiler_logger = logging.getLogger("compiler")
@@ -49,7 +50,9 @@ def get_relevant_compiler(contract_file_path: Path, context: CertoraContext) -> 
         contract_file_path = Path(os.path.relpath(contract_file_path, cwd_in_source))
 
     if context.compiler_map:
-        match = match_path_to_mapping_key(contract_file_path, context.compiler_map)
+        match = Ctx.get_map_attribute_value(context, contract_file_path, 'compiler')
+        assert isinstance(match, str), (f"In the attribute compiler_map, {contract_file_path} expected to be matched "
+                                        f"to a string, {match} is of type {type(match)} not a string")
         if match:
             return match
         else:

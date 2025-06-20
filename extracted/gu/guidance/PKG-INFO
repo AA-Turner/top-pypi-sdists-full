@@ -1,54 +1,54 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: guidance
-Version: 0.2.1
+Version: 0.2.2
 Summary: A guidance language for controlling large language models.
 Home-page: https://github.com/guidance-ai/guidance
 Author: Guidance Maintainers
 Author-email: maintainers@guidance-ai.org
 Requires-Python: >=3.9
 License-File: LICENSE.md
-Requires-Dist: diskcache
 Requires-Dist: numpy
-Requires-Dist: ordered_set
-Requires-Dist: platformdirs
 Requires-Dist: pydantic
-Requires-Dist: referencing
 Requires-Dist: requests
 Requires-Dist: psutil
-Requires-Dist: tiktoken>=0.3
-Requires-Dist: guidance-stitch
-Requires-Dist: llguidance==0.6.31
-Requires-Dist: setuptools
+Requires-Dist: guidance-stitch==0.1.5
+Requires-Dist: llguidance==0.7.26
 Provides-Extra: all
 Requires-Dist: openai>=1.0; extra == "all"
+Requires-Dist: azure-ai-inference; extra == "all"
 Provides-Extra: unittest
 Requires-Dist: anytree; extra == "unittest"
 Requires-Dist: jsonschema; extra == "unittest"
 Requires-Dist: pytest; extra == "unittest"
 Requires-Dist: pytest-cov; extra == "unittest"
+Requires-Dist: pytest-asyncio; extra == "unittest"
 Requires-Dist: tokenizers; extra == "unittest"
 Provides-Extra: llamacpp
-Requires-Dist: llama-cpp-python==0.3.7; extra == "llamacpp"
+Requires-Dist: llama-cpp-python==0.3.9; extra == "llamacpp"
 Provides-Extra: transformers
-Requires-Dist: transformers==4.48.2; extra == "transformers"
+Requires-Dist: transformers==4.51.3; extra == "transformers"
 Provides-Extra: test
 Requires-Dist: types-regex; extra == "test"
 Requires-Dist: types-requests; extra == "test"
 Requires-Dist: types-jsonschema; extra == "test"
+Requires-Dist: diskcache; extra == "test"
 Requires-Dist: requests; extra == "test"
 Requires-Dist: azure-identity; extra == "test"
 Requires-Dist: bitsandbytes; extra == "test"
 Requires-Dist: jupyter; extra == "test"
 Requires-Dist: papermill; extra == "test"
+Requires-Dist: pillow; extra == "test"
 Requires-Dist: protobuf; extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: torch; extra == "test"
 Requires-Dist: transformers; extra == "test"
+Requires-Dist: tiktoken>=0.3; extra == "test"
 Requires-Dist: mypy==1.9.0; extra == "test"
 Requires-Dist: anytree; extra == "test"
 Requires-Dist: jsonschema; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: tokenizers; extra == "test"
 Provides-Extra: docs
 Requires-Dist: ipython; extra == "docs"
@@ -59,24 +59,16 @@ Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: ipykernel; extra == "docs"
 Requires-Dist: huggingface_hub; extra == "docs"
 Requires-Dist: llama-cpp-python; extra == "docs"
-Provides-Extra: bench
-Requires-Dist: pandas; extra == "bench"
-Requires-Dist: huggingface_hub; extra == "bench"
-Requires-Dist: langchain_benchmarks; extra == "bench"
-Requires-Dist: langchain-community; extra == "bench"
-Requires-Dist: langsmith; extra == "bench"
-Requires-Dist: json_stream; extra == "bench"
-Requires-Dist: llama-cpp-python; extra == "bench"
-Requires-Dist: setuptools; extra == "bench"
-Requires-Dist: powerlift; extra == "bench"
 Provides-Extra: azureai
 Requires-Dist: openai>=1.0; extra == "azureai"
+Requires-Dist: azure-ai-inference; extra == "azureai"
 Provides-Extra: openai
 Requires-Dist: openai>=1.0; extra == "openai"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
